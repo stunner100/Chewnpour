@@ -152,17 +152,17 @@ const PAYMENT_PROVIDER_FALLBACK_OPTIONS = [
 ];
 
 const TabBar = ({ activeTab, onTabChange }) => (
-    <div className="card-base overflow-x-auto">
-        <div className="flex min-w-max">
+    <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface p-1 shadow-sm">
+        <div className="flex min-w-max gap-1">
             {TABS.map((tab) => (
                 <button
                     key={tab.key}
                     type="button"
                     onClick={() => onTabChange(tab.key)}
-                    className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+                    className={`flex items-center gap-2 rounded-lg px-3.5 py-2.5 font-label-md text-label-md transition-colors whitespace-nowrap ${
                         activeTab === tab.key
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                            ? 'bg-primary-soft text-primary shadow-sm'
+                            : 'text-text-muted hover:bg-surface-soft hover:text-text-primary'
                     }`}
                 >
                     <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
@@ -175,28 +175,28 @@ const TabBar = ({ activeTab, onTabChange }) => (
 
 const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
     const bgMap = {
-        primary: 'bg-primary/8 text-primary',
-        emerald: 'bg-accent-emerald/10 text-accent-emerald',
-        amber: 'bg-accent-amber/10 text-accent-amber',
-        rose: 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400',
-        blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+        primary: 'bg-primary-soft text-primary',
+        emerald: 'bg-success-soft text-success',
+        amber: 'bg-warning-soft text-warning',
+        rose: 'bg-error-soft text-error',
+        blue: 'bg-info-soft text-info',
     };
     return (
-        <div className="card-base p-5">
+        <div className="rounded-xl border border-border-subtle bg-surface p-space-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-text-faint-light dark:text-text-faint-dark">
+                    <p className="font-label-xs text-label-xs uppercase tracking-wider text-text-muted">
                         {label}
                     </p>
-                    <p className="mt-2 text-3xl font-black text-text-main-light dark:text-text-main-dark truncate">
+                    <p className="mt-space-2 font-headline-sm text-headline-sm text-text-primary truncate">
                         {typeof value === 'string' ? value : formatNumber(value)}
                     </p>
                     {sublabel ? (
-                        <p className="mt-1 text-sm text-text-faint-light dark:text-text-faint-dark">{sublabel}</p>
+                        <p className="mt-space-1 font-body-sm text-body-sm text-text-muted">{sublabel}</p>
                     ) : null}
                 </div>
-                <div className={`size-11 shrink-0 rounded-2xl flex items-center justify-center ${bgMap[color] || bgMap.primary}`}>
-                    <span className="material-symbols-outlined">{icon}</span>
+                <div className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${bgMap[color] || bgMap.primary}`}>
+                    <span className="material-symbols-outlined text-[22px]">{icon}</span>
                 </div>
             </div>
         </div>
@@ -205,10 +205,10 @@ const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
 
 const StatRow = ({ label, value, detail }) => (
     <div className="flex items-center justify-between gap-3 py-2">
-        <span className="text-sm text-text-sub-light dark:text-text-sub-dark">{label}</span>
+        <span className="text-sm text-text-secondary">{label}</span>
         <div className="text-right">
-            <span className="text-sm font-bold text-text-main-light dark:text-text-main-dark">{value}</span>
-            {detail ? <span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">{detail}</span> : null}
+            <span className="text-sm font-bold text-text-primary">{value}</span>
+            {detail ? <span className="ml-2 text-xs text-text-muted">{detail}</span> : null}
         </div>
     </div>
 );
@@ -221,14 +221,14 @@ const BarChart = ({ items, maxValue }) => {
                 const pct = Math.max(((Number(item.value) || 0) / max) * 100, 2);
                 return (
                     <div key={item.label} className="flex flex-col items-center flex-1 min-w-0">
-                        <span className="text-xs font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                        <span className="text-xs font-semibold text-text-primary mb-1">
                             {formatNumber(item.value)}
                         </span>
                         <div
                             className="w-full rounded-t-lg bg-primary/80 transition-all"
                             style={{ height: `${pct}%` }}
                         />
-                        <span className="mt-1.5 text-[10px] text-text-faint-light dark:text-text-faint-dark truncate w-full text-center">
+                        <span className="mt-1.5 text-[10px] text-text-muted truncate w-full text-center">
                             {item.label}
                         </span>
                     </div>
@@ -239,15 +239,15 @@ const BarChart = ({ items, maxValue }) => {
 };
 
 const SectionCard = ({ title, badge, children }) => (
-    <div className="card-base p-5">
+    <section className="rounded-xl border border-border-subtle bg-surface p-space-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-text-main-light dark:text-text-main-dark">{title}</h2>
+            <h2 className="font-body-base text-body-base font-bold text-text-primary">{title}</h2>
             {badge ? (
-                <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{badge}</span>
+                <span className="font-label-xs text-label-xs text-text-muted">{badge}</span>
             ) : null}
         </div>
         {children}
-    </div>
+    </section>
 );
 
 const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
@@ -262,22 +262,22 @@ const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
     })();
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark px-4 py-8 sm:px-6 lg:px-8">
-            <div className="mx-auto w-full max-w-3xl card-base p-6 sm:p-8">
+        <div className="flex-1 px-space-6 py-space-10">
+            <div className="mx-auto w-full max-w-3xl rounded-xl border border-border-subtle bg-surface p-space-8 shadow-sm">
                 <div className="flex items-center gap-3 text-amber-600">
                     <span className="material-symbols-outlined">lock</span>
-                    <h1 className="text-xl font-semibold text-text-main-light dark:text-text-main-dark">Admin access required</h1>
+                    <h1 className="text-xl font-semibold text-text-primary">Admin access required</h1>
                 </div>
-                <p className="mt-3 text-sm text-text-sub-light dark:text-text-sub-dark">{reasonMessage}</p>
-                <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4 text-sm">
-                    <p className="text-text-sub-light dark:text-text-sub-dark">
-                        Signed in as: <span className="font-semibold text-text-main-light dark:text-text-main-dark">{signedInEmail || signedInUserId || 'Unknown user'}</span>
+                <p className="mt-3 text-sm text-text-secondary">{reasonMessage}</p>
+                <div className="mt-space-4 rounded-xl border border-border-subtle bg-surface-soft p-space-4 text-sm">
+                    <p className="text-text-secondary">
+                        Signed in as: <span className="font-semibold text-text-primary">{signedInEmail || signedInUserId || 'Unknown user'}</span>
                     </p>
                 </div>
                 <div className="mt-6">
                     <Link
                         to="/dashboard"
-                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary-hover transition-colors"
                     >
                         <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                         Back to dashboard
@@ -385,7 +385,7 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
 
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Quick Stats">
-                    <div className="divide-y divide-border-light dark:divide-border-dark">
+                    <div className="divide-y divide-border-subtle">
                         <StatRow label="Total users" value={formatNumber(totals.userProfiles)} />
                         <StatRow label="Concept practice attempts" value={formatNumber(concept.totalAttempts)} detail={`Avg ${formatPercent(concept.averageScorePercent)}`} />
                         <StatRow label="Voice mode users" value={formatNumber(engagement.voiceModeEnabledCount)} />
@@ -396,7 +396,7 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
                 </SectionCard>
 
                 <SectionCard title="Feedback Overview">
-                    <div className="divide-y divide-border-light dark:divide-border-dark">
+                    <div className="divide-y divide-border-subtle">
                         <StatRow label="Total feedback" value={formatNumber(totals.feedbackTotal)} detail={`${formatNumber(totals.feedbackLastWindow)} last ${activeUsersDays}d`} />
                         <StatRow label="With messages" value={formatNumber(totals.feedbackWithMessageTotal)} detail={`${formatNumber(totals.feedbackWithMessageLastWindow)} last ${activeUsersDays}d`} />
                         <StatRow label="Average rating" value={`${totals.averageFeedbackRating || 0}/5`} />
@@ -448,7 +448,7 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
 
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Exam Format Split">
-                    <div className="divide-y divide-border-light dark:divide-border-dark">
+                    <div className="divide-y divide-border-subtle">
                         <StatRow label="Objective exams" value={formatNumber(exam.objectiveAttempts)} detail={exam.totalAttempts > 0 ? formatPercent((exam.objectiveAttempts / exam.totalAttempts) * 100) : '0%'} />
                         <StatRow label="Essay exams" value={formatNumber(exam.essayAttempts)} detail={exam.totalAttempts > 0 ? formatPercent((exam.essayAttempts / exam.totalAttempts) * 100) : '0%'} />
                     </div>
@@ -458,7 +458,7 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
                     {scoreDistribution.length > 0 ? (
                         <BarChart items={scoreDistribution.map((b) => ({ label: b.label, value: b.count }))} />
                     ) : (
-                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No exam data yet.</p>
+                        <p className="text-sm text-text-muted">No exam data yet.</p>
                     )}
                 </SectionCard>
             </section>
@@ -468,18 +468,18 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead>
-                                <tr className="border-b border-border-light dark:border-border-dark">
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Attempts</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Avg Score</th>
+                                <tr className="border-b border-border-subtle">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">User</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Attempts</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Avg Score</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {topExamUsers.map((u) => (
-                                    <tr key={u.userId} className="border-b border-border-light dark:border-border-dark">
-                                        <td className="px-3 py-2 font-semibold text-text-main-light dark:text-text-main-dark">{u.fullName || u.userId}</td>
-                                        <td className="px-3 py-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(u.attempts)}</td>
-                                        <td className="px-3 py-2 text-text-sub-light dark:text-text-sub-dark">{formatPercent(u.avgScore)}</td>
+                                    <tr key={u.userId} className="border-b border-border-subtle">
+                                        <td className="px-3 py-2 font-semibold text-text-primary">{u.fullName || u.userId}</td>
+                                        <td className="px-3 py-2 text-text-secondary">{formatNumber(u.attempts)}</td>
+                                        <td className="px-3 py-2 text-text-secondary">{formatPercent(u.avgScore)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -539,43 +539,43 @@ const FeatureUsagePanel = ({ snapshot, activeUsersDays }) => {
                             const trend = Number(feature.trend) || 0;
                             const trendLabel = trend > 0 ? `+${formatNumber(trend)}` : formatNumber(trend);
                             return (
-                                <div key={feature.key} className="rounded-2xl border border-border-light dark:border-border-dark p-4">
+                                <div key={feature.key} className="rounded-2xl border border-border-subtle p-4">
                                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="flex min-w-0 items-start gap-3">
                                             <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
                                                 <span className="material-symbols-outlined text-[20px]">{feature.icon || 'analytics'}</span>
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{feature.label}</p>
-                                                <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                                <p className="font-bold text-text-primary">{feature.label}</p>
+                                                <p className="mt-1 text-xs text-text-muted">
                                                     Last used {formatDateTime(feature.lastUsedAt)}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3 text-right sm:grid-cols-5 lg:min-w-[560px]">
                                             <div>
-                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Total</p>
-                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(totalUses)}</p>
+                                                <p className="text-xs text-text-muted">Total</p>
+                                                <p className="font-bold text-text-primary">{formatNumber(totalUses)}</p>
                                             </div>
                                             <div>
-                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Last {activeUsersDays}d</p>
-                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(feature.lastWindowUses)}</p>
+                                                <p className="text-xs text-text-muted">Last {activeUsersDays}d</p>
+                                                <p className="font-bold text-text-primary">{formatNumber(feature.lastWindowUses)}</p>
                                             </div>
                                             <div>
-                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Users</p>
-                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(feature.uniqueUsers)}</p>
+                                                <p className="text-xs text-text-muted">Users</p>
+                                                <p className="font-bold text-text-primary">{formatNumber(feature.uniqueUsers)}</p>
                                             </div>
                                             <div>
-                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Share</p>
-                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatPercent(feature.sharePercent)}</p>
+                                                <p className="text-xs text-text-muted">Share</p>
+                                                <p className="font-bold text-text-primary">{formatPercent(feature.sharePercent)}</p>
                                             </div>
                                             <div>
-                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Trend</p>
-                                                <p className={`font-bold ${trend >= 0 ? 'text-accent-emerald' : 'text-rose-600 dark:text-rose-400'}`}>{trendLabel}</p>
+                                                <p className="text-xs text-text-muted">Trend</p>
+                                                <p className={`font-bold ${trend >= 0 ? 'text-success' : 'text-error'}`}>{trendLabel}</p>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-hover-light dark:bg-surface-hover-dark">
+                                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-soft">
                                         <div
                                             className="h-full rounded-full bg-primary transition-all"
                                             style={{ width: `${Math.max(0, Math.min(width, 100))}%` }}
@@ -586,7 +586,7 @@ const FeatureUsagePanel = ({ snapshot, activeUsersDays }) => {
                         })}
                     </div>
                 ) : (
-                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No feature usage has been tracked yet.</p>
+                    <p className="text-sm text-text-muted">No feature usage has been tracked yet.</p>
                 )}
             </SectionCard>
         </div>
@@ -646,10 +646,10 @@ const RevenuePanel = ({
                             {planBreakdown.map((p) => (
                                 <div key={p.plan} className="space-y-1.5">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-sm font-semibold text-text-main-light dark:text-text-main-dark capitalize">{p.plan}</span>
-                                        <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(p.count)} ({formatPercent(p.percent)})</span>
+                                        <span className="text-sm font-semibold text-text-primary capitalize">{p.plan}</span>
+                                        <span className="text-xs text-text-muted">{formatNumber(p.count)} ({formatPercent(p.percent)})</span>
                                     </div>
-                                    <div className="h-2 overflow-hidden rounded-full bg-surface-hover-light dark:bg-surface-hover-dark">
+                                    <div className="h-2 overflow-hidden rounded-full bg-surface-soft">
                                         <div
                                             className="h-full rounded-full bg-primary transition-all"
                                             style={{ width: `${Math.max(0, Math.min(Number(p.percent) || 0, 100))}%` }}
@@ -659,12 +659,12 @@ const RevenuePanel = ({
                             ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No subscription data yet.</p>
+                        <p className="text-sm text-text-muted">No subscription data yet.</p>
                     )}
                 </SectionCard>
 
                 <SectionCard title="Upload Credits">
-                    <div className="divide-y divide-border-light dark:divide-border-dark">
+                    <div className="divide-y divide-border-subtle">
                         <StatRow label="Purchased credits" value={formatNumber(sub.totalPurchasedCredits)} />
                         <StatRow label="Consumed credits" value={formatNumber(sub.totalConsumedCredits)} />
                         <StatRow
@@ -677,7 +677,7 @@ const RevenuePanel = ({
 
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Billing Recovery">
-                    <div className="divide-y divide-border-light dark:divide-border-dark">
+                    <div className="divide-y divide-border-subtle">
                         <StatRow label="Unresolved payments" value={formatNumber(billing.unresolvedCount)} detail={`${formatNumber(billing.verifyErrorCount)} verify errors`} />
                         <StatRow label="Awaiting retry" value={formatNumber(billing.unresolvedInitializedCount)} detail={`${formatNumber(billing.alertedCount)} alerted`} />
                         <StatRow label="Recovered payments" value={formatNumber(billing.recoveredPaymentsTotal)} detail={`${formatNumber(billing.recoveredPaymentsLastWindow)} last ${activeUsersDays}d`} />
@@ -686,16 +686,16 @@ const RevenuePanel = ({
 
                 <SectionCard title="Billing Ops">
                     {billingActionMessage ? (
-                        <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <p className="mb-3 rounded-xl border border-success/20 bg-success-soft px-3 py-2 text-sm text-success">
                             {billingActionMessage}
                         </p>
                     ) : null}
                     {billingActionError ? (
-                        <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
+                        <p className="mb-3 rounded-xl border border-error/20 bg-error-soft px-3 py-2 text-sm text-error">
                             {billingActionError}
                         </p>
                     ) : null}
-                    <p className="text-sm text-text-sub-light dark:text-text-sub-dark">
+                    <p className="text-sm text-text-secondary">
                         Successful stale Paystack payments are auto-reconciled. Anything still listed below can be retried from here.
                     </p>
                 </SectionCard>
@@ -706,46 +706,46 @@ const RevenuePanel = ({
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead>
-                                <tr className="border-b border-border-light dark:border-border-dark">
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Email</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Reference</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Amount</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">State</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Age</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Verified</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Action</th>
+                                <tr className="border-b border-border-subtle">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Email</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Reference</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Amount</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">State</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Age</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Verified</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-muted">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {unresolvedPayments.map((payment) => {
                                     const isLoading = Boolean(reconcilingReferences[payment.reference]);
                                     return (
-                                        <tr key={payment.reference} className="border-b border-border-light dark:border-border-dark">
-                                            <td className="p-3 text-text-main-light dark:text-text-main-dark">
+                                        <tr key={payment.reference} className="border-b border-border-subtle">
+                                            <td className="p-3 text-text-primary">
                                                 <div className="font-semibold">{payment.customerEmail || 'Unknown user'}</div>
                                                 {payment.userId ? (
-                                                    <div className="text-xs text-text-faint-light dark:text-text-faint-dark">{payment.userId}</div>
+                                                    <div className="text-xs text-text-muted">{payment.userId}</div>
                                                 ) : null}
                                             </td>
-                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
+                                            <td className="p-3 text-text-secondary">
                                                 <div className="max-w-[260px] truncate" title={payment.reference}>{payment.reference}</div>
                                                 {payment.verificationMessage ? (
-                                                    <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{payment.verificationMessage}</div>
+                                                    <div className="mt-1 text-xs text-text-muted">{payment.verificationMessage}</div>
                                                 ) : null}
                                             </td>
-                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatCurrency(payment.amountMinor, payment.currency)}</td>
+                                            <td className="p-3 text-text-secondary">{formatCurrency(payment.amountMinor, payment.currency)}</td>
                                             <td className="p-3">
                                                 <div className="flex flex-col gap-1">
-                                                    <span className="inline-flex w-fit rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                                    <span className="inline-flex w-fit rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">
                                                         {formatTokenLabel(payment.status)}
                                                     </span>
-                                                    <span className="text-xs text-text-faint-light dark:text-text-faint-dark">
+                                                    <span className="text-xs text-text-muted">
                                                         {formatTokenLabel(payment.verificationStatus)} • {formatNumber(payment.verificationAttempts)} tries
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatRelativeHours(payment.ageHours)}</td>
-                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(payment.lastVerifiedAt)}</td>
+                                            <td className="p-3 text-text-secondary">{formatRelativeHours(payment.ageHours)}</td>
+                                            <td className="p-3 text-text-secondary">{formatDateTime(payment.lastVerifiedAt)}</td>
                                             <td className="p-3">
                                                 <button
                                                     type="button"
@@ -763,7 +763,7 @@ const RevenuePanel = ({
                         </table>
                     </div>
                 ) : (
-                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No unresolved payment references right now.</p>
+                    <p className="text-sm text-text-muted">No unresolved payment references right now.</p>
                 )}
             </SectionCard>
         </div>
@@ -771,52 +771,52 @@ const RevenuePanel = ({
 };
 
 const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) => (
-    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+    <div className="rounded-2xl border border-border-subtle bg-surface p-4">
         <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">{title}</h3>
-            <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(rows?.length || 0)} rows</span>
+            <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+            <span className="text-xs text-text-muted">{formatNumber(rows?.length || 0)} rows</span>
         </div>
         {!Array.isArray(rows) || rows.length === 0 ? (
-            <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">No candidates recorded.</p>
+            <p className="mt-3 text-sm text-text-muted">No candidates recorded.</p>
         ) : (
             <div className="mt-3 overflow-x-auto">
                 <table className="min-w-full text-xs">
                     <thead>
-                        <tr className="border-b border-border-light dark:border-border-dark">
-                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Passage</th>
-                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Page</th>
-                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Source</th>
-                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Final</th>
-                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Lexical</th>
-                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Vector</th>
-                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Numeric</th>
+                        <tr className="border-b border-border-subtle">
+                            <th className="p-2 text-left font-semibold text-text-muted">Passage</th>
+                            <th className="p-2 text-left font-semibold text-text-muted">Page</th>
+                            <th className="p-2 text-left font-semibold text-text-muted">Source</th>
+                            <th className="p-2 text-left font-semibold text-text-muted">Final</th>
+                            <th className="p-2 text-left font-semibold text-text-muted">Lexical</th>
+                            <th className="p-2 text-left font-semibold text-text-muted">Vector</th>
+                            <th className="p-2 text-left font-semibold text-text-muted">Numeric</th>
                             {showPenaltyColumns ? (
                                 <>
-                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Flag Boost</th>
-                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Num Penalty</th>
-                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Broad Penalty</th>
+                                    <th className="p-2 text-left font-semibold text-text-muted">Flag Boost</th>
+                                    <th className="p-2 text-left font-semibold text-text-muted">Num Penalty</th>
+                                    <th className="p-2 text-left font-semibold text-text-muted">Broad Penalty</th>
                                 </>
                             ) : null}
                         </tr>
                     </thead>
                     <tbody>
                         {rows.map((row) => (
-                            <tr key={`${title}-${row.passageId}-${row.page}`} className="border-b border-border-light dark:border-border-dark align-top">
+                            <tr key={`${title}-${row.passageId}-${row.page}`} className="border-b border-border-subtle align-top">
                                 <td className="p-2">
-                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{row.passageId}</p>
-                                    <p className="mt-1 max-w-xs text-[11px] text-text-faint-light dark:text-text-faint-dark">{row.sectionHint || 'No section hint'}</p>
+                                    <p className="font-semibold text-text-primary">{row.passageId}</p>
+                                    <p className="mt-1 max-w-xs text-[11px] text-text-muted">{row.sectionHint || 'No section hint'}</p>
                                 </td>
-                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(row.page)}</td>
-                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark uppercase">{row.retrievalSource || 'n/a'}</td>
-                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.finalScore)}</td>
-                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.lexicalScore)}</td>
-                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorScore)}</td>
-                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.numericAgreement)}</td>
+                                <td className="p-2 text-text-secondary">{formatNumber(row.page)}</td>
+                                <td className="p-2 text-text-secondary uppercase">{row.retrievalSource || 'n/a'}</td>
+                                <td className="p-2 text-text-secondary">{formatRatioPercent(row.finalScore)}</td>
+                                <td className="p-2 text-text-secondary">{formatRatioPercent(row.lexicalScore)}</td>
+                                <td className="p-2 text-text-secondary">{formatRatioPercent(row.vectorScore)}</td>
+                                <td className="p-2 text-text-secondary">{formatRatioPercent(row.numericAgreement)}</td>
                                 {showPenaltyColumns ? (
                                     <>
-                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.preferFlagBoost)}</td>
-                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
-                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
+                                        <td className="p-2 text-text-secondary">{formatRatioPercent(row.preferFlagBoost)}</td>
+                                        <td className="p-2 text-text-secondary">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
+                                        <td className="p-2 text-text-secondary">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
                                     </>
                                 ) : null}
                             </tr>
@@ -877,42 +877,42 @@ const ContentPanel = ({
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Uploads">
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
-                            <p className="text-text-faint-light dark:text-text-faint-dark">Total</p>
-                            <p className="mt-1 text-xl font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(documents.uploads?.total)}</p>
+                        <div className="rounded-xl bg-surface-soft p-3">
+                            <p className="text-text-muted">Total</p>
+                            <p className="mt-1 text-xl font-bold text-text-primary">{formatNumber(documents.uploads?.total)}</p>
                         </div>
-                        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3">
-                            <p className="text-emerald-700 dark:text-emerald-300">Ready</p>
-                            <p className="mt-1 text-xl font-bold text-emerald-700 dark:text-emerald-300">{formatNumber(documents.uploads?.ready)}</p>
+                        <div className="rounded-xl bg-success-soft p-3">
+                            <p className="text-success">Ready</p>
+                            <p className="mt-1 text-xl font-bold text-success">{formatNumber(documents.uploads?.ready)}</p>
                         </div>
-                        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3">
-                            <p className="text-amber-700 dark:text-amber-300">Processing</p>
-                            <p className="mt-1 text-xl font-bold text-amber-700 dark:text-amber-300">{formatNumber(documents.uploads?.processing)}</p>
+                        <div className="rounded-xl bg-warning-soft p-3">
+                            <p className="text-warning">Processing</p>
+                            <p className="mt-1 text-xl font-bold text-warning">{formatNumber(documents.uploads?.processing)}</p>
                         </div>
-                        <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 p-3">
-                            <p className="text-rose-700 dark:text-rose-300">Errors</p>
-                            <p className="mt-1 text-xl font-bold text-rose-700 dark:text-rose-300">{formatNumber(documents.uploads?.error)}</p>
+                        <div className="rounded-xl bg-error-soft p-3">
+                            <p className="text-error">Errors</p>
+                            <p className="mt-1 text-xl font-bold text-error">{formatNumber(documents.uploads?.error)}</p>
                         </div>
                     </div>
                 </SectionCard>
 
                 <SectionCard title="Assignments">
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
-                            <p className="text-text-faint-light dark:text-text-faint-dark">Total</p>
-                            <p className="mt-1 text-xl font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(documents.assignments?.total)}</p>
+                        <div className="rounded-xl bg-surface-soft p-3">
+                            <p className="text-text-muted">Total</p>
+                            <p className="mt-1 text-xl font-bold text-text-primary">{formatNumber(documents.assignments?.total)}</p>
                         </div>
-                        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3">
-                            <p className="text-emerald-700 dark:text-emerald-300">Ready</p>
-                            <p className="mt-1 text-xl font-bold text-emerald-700 dark:text-emerald-300">{formatNumber(documents.assignments?.ready)}</p>
+                        <div className="rounded-xl bg-success-soft p-3">
+                            <p className="text-success">Ready</p>
+                            <p className="mt-1 text-xl font-bold text-success">{formatNumber(documents.assignments?.ready)}</p>
                         </div>
-                        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3">
-                            <p className="text-amber-700 dark:text-amber-300">Processing</p>
-                            <p className="mt-1 text-xl font-bold text-amber-700 dark:text-amber-300">{formatNumber(documents.assignments?.processing)}</p>
+                        <div className="rounded-xl bg-warning-soft p-3">
+                            <p className="text-warning">Processing</p>
+                            <p className="mt-1 text-xl font-bold text-warning">{formatNumber(documents.assignments?.processing)}</p>
                         </div>
-                        <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 p-3">
-                            <p className="text-rose-700 dark:text-rose-300">Errors</p>
-                            <p className="mt-1 text-xl font-bold text-rose-700 dark:text-rose-300">{formatNumber(documents.assignments?.error)}</p>
+                        <div className="rounded-xl bg-error-soft p-3">
+                            <p className="text-error">Errors</p>
+                            <p className="mt-1 text-xl font-bold text-error">{formatNumber(documents.assignments?.error)}</p>
                         </div>
                     </div>
                 </SectionCard>
@@ -923,18 +923,18 @@ const ContentPanel = ({
                 badge={latestAudit ? `Latest run ${formatDateTime(latestAudit.finishedAt)}` : 'No audit runs yet'}
             >
                 {!latestAudit ? (
-                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No target audit has been recorded yet.</p>
+                    <p className="text-sm text-text-muted">No target audit has been recorded yet.</p>
                 ) : (
                     <div className="space-y-4">
                         <div className="grid gap-4 lg:grid-cols-2">
-                            <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                            <div className="rounded-2xl border border-border-subtle bg-surface p-4">
                                 <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Latest Audit Run</h3>
-                                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${latestAudit.dryRun ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'}`}>
+                                    <h3 className="text-sm font-semibold text-text-primary">Latest Audit Run</h3>
+                                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${latestAudit.dryRun ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success'}`}>
                                         {latestAudit.dryRun ? 'Dry run' : 'Applied'}
                                     </span>
                                 </div>
-                                <div className="mt-3 divide-y divide-border-light dark:divide-border-dark">
+                                <div className="mt-3 divide-y divide-border-subtle">
                                     <StatRow label="Finished" value={formatDateTime(latestAudit.finishedAt)} />
                                     <StatRow label="Stale window" value={`${formatNumber(latestAudit.staleHours)}h`} />
                                     <StatRow label="Max topics/format" value={formatNumber(latestAudit.maxTopicsPerFormat)} />
@@ -944,12 +944,12 @@ const ContentPanel = ({
                                 </div>
                             </div>
 
-                            <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
-                                <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Most Recent Effective Rebase</h3>
+                            <div className="rounded-2xl border border-border-subtle bg-surface p-4">
+                                <h3 className="text-sm font-semibold text-text-primary">Most Recent Effective Rebase</h3>
                                 {!latestAuditWithRebases || !latestAuditWithRebases.totalRebasedTopics ? (
-                                    <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">No rebased topics recorded yet.</p>
+                                    <p className="mt-3 text-sm text-text-muted">No rebased topics recorded yet.</p>
                                 ) : (
-                                    <div className="mt-3 divide-y divide-border-light dark:divide-border-dark">
+                                    <div className="mt-3 divide-y divide-border-subtle">
                                         <StatRow label="Finished" value={formatDateTime(latestAuditWithRebases.finishedAt)} />
                                         <StatRow label="Objective rebased" value={formatNumber(latestAuditWithRebases.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.mcqSummary?.totalTargetReduction)} target reduction`} />
                                         <StatRow label="Essay rebased" value={formatNumber(latestAuditWithRebases.essaySummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.essaySummary?.totalTargetReduction)} target reduction`} />
@@ -959,48 +959,48 @@ const ContentPanel = ({
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                        <div className="rounded-2xl border border-border-subtle bg-surface p-4">
                             <div className="flex items-center justify-between gap-2">
-                                <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Rebased Topics</h3>
-                                <span className="text-xs text-text-faint-light dark:text-text-faint-dark">
+                                <h3 className="text-sm font-semibold text-text-primary">Rebased Topics</h3>
+                                <span className="text-xs text-text-muted">
                                     {latestAuditWithRebases?.totalRebasedTopics
                                         ? `Showing ${Math.min(latestAuditWithRebases.rebasedTopics?.length || 0, latestAuditWithRebases.totalRebasedTopics)} of ${formatNumber(latestAuditWithRebases.totalRebasedTopics)}`
                                         : 'No changed topics'}
                                 </span>
                             </div>
                             {!latestAuditWithRebases || !Array.isArray(latestAuditWithRebases.rebasedTopics) || latestAuditWithRebases.rebasedTopics.length === 0 ? (
-                                <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">The latest effective audit did not include any persisted topic rows.</p>
+                                <p className="mt-3 text-sm text-text-muted">The latest effective audit did not include any persisted topic rows.</p>
                             ) : (
                                 <div className="mt-3 overflow-x-auto">
                                     <table className="min-w-full text-sm">
                                         <thead>
-                                            <tr className="border-b border-border-light dark:border-border-dark">
-                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Topic</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Format</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Target</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Current Yield</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Fill</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Scheduled</th>
+                                            <tr className="border-b border-border-subtle">
+                                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Topic</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Format</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Target</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Current Yield</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Fill</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Scheduled</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {latestAuditWithRebases.rebasedTopics.map((topic) => (
-                                                <tr key={`${topic.format}-${topic.topicId}`} className="border-b border-border-light dark:border-border-dark">
+                                                <tr key={`${topic.format}-${topic.topicId}`} className="border-b border-border-subtle">
                                                     <td className="p-3">
-                                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark">{topic.topicTitle || topic.topicId}</p>
-                                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{topic.topicId}</p>
+                                                        <p className="font-semibold text-text-primary">{topic.topicTitle || topic.topicId}</p>
+                                                        <p className="text-xs text-text-muted">{topic.topicId}</p>
                                                     </td>
-                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark uppercase">{topic.format}</td>
-                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
+                                                    <td className="p-3 text-text-secondary uppercase">{topic.format}</td>
+                                                    <td className="p-3 text-text-secondary">
                                                         {formatNumber(topic.currentTarget)} → {formatNumber(topic.recalculatedTarget)}
                                                     </td>
-                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
+                                                    <td className="p-3 text-text-secondary">
                                                         {topic.format === 'essay'
                                                             ? `${formatNumber(topic.usableEssayCount)} essay`
                                                             : `${formatNumber(topic.usableObjectiveCount ?? topic.usableMcqCount)} objective`}
                                                     </td>
-                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
-                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{topic.scheduled ? 'Yes' : 'No'}</td>
+                                                    <td className="p-3 text-text-secondary">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
+                                                    <td className="p-3 text-text-secondary">{topic.scheduled ? 'Yes' : 'No'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1015,7 +1015,7 @@ const ContentPanel = ({
             <SectionCard title="Retrieval Diagnostics" badge="Per-topic grounded retrieval inspector">
                 <form onSubmit={handleDiagnoseRetrieval} className="flex flex-col gap-3 lg:flex-row lg:items-end">
                     <div className="flex-1">
-                        <label htmlFor="retrieval-topic-id" className="block text-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                        <label htmlFor="retrieval-topic-id" className="block text-sm font-semibold text-text-primary">
                             Topic ID
                         </label>
                         <input
@@ -1024,7 +1024,7 @@ const ContentPanel = ({
                             value={retrievalTopicId}
                             onChange={(event) => setRetrievalTopicId(event.target.value)}
                             placeholder="k977anw9w94192fzq4kqh5x78x82tqea"
-                            className="mt-1 w-full rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-3 py-2.5 text-sm text-text-main-light dark:text-text-main-dark focus:border-primary focus:outline-none"
+                            className="mt-1 w-full rounded-xl border border-border-subtle bg-surface px-3 py-2.5 text-sm text-text-primary focus:border-primary focus:outline-none"
                         />
                     </div>
                     <button
@@ -1037,66 +1037,66 @@ const ContentPanel = ({
                 </form>
 
                 {retrievalDiagnosticsError ? (
-                    <div className="mt-3 rounded-xl border border-rose-200 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
+                    <div className="mt-3 rounded-xl border border-error/20 bg-error-soft px-4 py-3 text-sm text-error">
                         {retrievalDiagnosticsError}
                     </div>
                 ) : null}
 
                 {!retrievalDiagnostics ? (
-                    <p className="mt-4 text-sm text-text-faint-light dark:text-text-faint-dark">
+                    <p className="mt-4 text-sm text-text-muted">
                         Enter a topic ID to inspect lexical vs hybrid retrieval, weight backoff, and the reranked candidate passages.
                     </p>
                 ) : !retrievalDiagnostics.ready ? (
-                    <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
+                    <div className="mt-4 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-warning">
                         {retrievalDiagnostics.reason === 'grounded_index_unavailable'
                             ? 'Grounded evidence index is not available for this topic yet.'
                             : 'Diagnostics are not available for this topic.'}
                     </div>
                 ) : (
                     <div className="mt-4 space-y-4">
-                        <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                        <div className="rounded-2xl border border-border-subtle bg-surface p-4">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <h3 className="text-base font-semibold text-text-main-light dark:text-text-main-dark">{retrievalDiagnostics.topicTitle || retrievalDiagnostics.topicId}</h3>
-                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{retrievalDiagnostics.topicId}</p>
+                                    <h3 className="text-base font-semibold text-text-primary">{retrievalDiagnostics.topicTitle || retrievalDiagnostics.topicId}</h3>
+                                    <p className="mt-1 text-xs text-text-muted">{retrievalDiagnostics.topicId}</p>
                                 </div>
-                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.enabled ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.enabled ? 'bg-warning-soft text-warning' : 'bg-info-soft text-info'}`}>
                                     {retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.enabled ? 'Vector backoff enabled' : 'Standard hybrid weighting'}
                                 </span>
                             </div>
-                            <p className="mt-3 text-sm text-text-sub-light dark:text-text-sub-dark">{retrievalDiagnostics.query}</p>
+                            <p className="mt-3 text-sm text-text-secondary">{retrievalDiagnostics.query}</p>
                             <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                                <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3 text-sm">
-                                    <p className="text-text-faint-light dark:text-text-faint-dark">Lexical</p>
-                                    <p className="mt-1 font-semibold text-text-main-light dark:text-text-main-dark">
+                                <div className="rounded-xl bg-surface-soft p-3 text-sm">
+                                    <p className="text-text-muted">Lexical</p>
+                                    <p className="mt-1 font-semibold text-text-primary">
                                         {formatRatioPercent(retrievalDiagnostics.lexical?.metrics?.recallAtK)} recall@k
                                     </p>
-                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                    <p className="mt-1 text-xs text-text-muted">
                                         {formatNumber(retrievalDiagnostics.lexical?.metrics?.matchedCount)} / {formatNumber(retrievalDiagnostics.lexical?.metrics?.targetCount)} target passages
                                     </p>
                                 </div>
-                                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3 text-sm">
-                                    <p className="text-emerald-700 dark:text-emerald-300">Hybrid</p>
-                                    <p className="mt-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                                <div className="rounded-xl bg-success-soft p-3 text-sm">
+                                    <p className="text-success">Hybrid</p>
+                                    <p className="mt-1 font-semibold text-success">
                                         {formatRatioPercent(retrievalDiagnostics.hybrid?.metrics?.recallAtK)} recall@k
                                     </p>
-                                    <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">
+                                    <p className="mt-1 text-xs text-success/80">
                                         {formatNumber(retrievalDiagnostics.hybrid?.metrics?.matchedCount)} / {formatNumber(retrievalDiagnostics.hybrid?.metrics?.targetCount)} target passages
                                     </p>
                                 </div>
-                                <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3 text-sm">
-                                    <p className="text-blue-700 dark:text-blue-300">Backoff</p>
-                                    <p className="mt-1 font-semibold text-blue-700 dark:text-blue-300">
+                                <div className="rounded-xl bg-info-soft p-3 text-sm">
+                                    <p className="text-info">Backoff</p>
+                                    <p className="mt-1 font-semibold text-info">
                                         {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.backoff || 0)}
                                     </p>
-                                    <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
+                                    <p className="mt-1 text-xs text-info/80">
                                         Lexical {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalWeight || 0)} • Vector {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.vectorWeight || 0)}
                                     </p>
                                 </div>
                             </div>
                             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                                <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-3 text-xs text-text-sub-light dark:text-text-sub-dark">
-                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">Backoff Diagnostics</p>
+                                <div className="rounded-xl border border-border-subtle bg-surface-soft p-3 text-xs text-text-secondary">
+                                    <p className="font-semibold text-text-primary">Backoff Diagnostics</p>
                                     <div className="mt-2 space-y-1">
                                         <p>Lexical top coverage: {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalTopCoverage || 0)}</p>
                                         <p>Lexical anchor count: {formatNumber(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalAnchorCount || 0)}</p>
@@ -1104,8 +1104,8 @@ const ContentPanel = ({
                                         <p>Numeric tokens: {(retrievalDiagnostics.hybrid?.diagnostics?.numericTokens || []).join(', ') || 'None'}</p>
                                     </div>
                                 </div>
-                                <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-3 text-xs text-text-sub-light dark:text-text-sub-dark">
-                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">Target Passages</p>
+                                <div className="rounded-xl border border-border-subtle bg-surface-soft p-3 text-xs text-text-secondary">
+                                    <p className="font-semibold text-text-primary">Target Passages</p>
                                     <p className="mt-2 break-all">
                                         {Array.isArray(retrievalDiagnostics.targetPassageIds) && retrievalDiagnostics.targetPassageIds.length > 0
                                             ? retrievalDiagnostics.targetPassageIds.join(', ')
@@ -1185,7 +1185,7 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                         detail={`${formatNumber(historicalLlmEstimate.humanizerCountLastWindow)} last ${activeUsersDays}d • ~${formatNumber(historicalLlmEstimate.estimatedHumanizerTokensPerRequest)} tokens each`}
                     />
                 </div>
-                <p className="mt-4 text-xs text-text-faint-light dark:text-text-faint-dark">
+                <p className="mt-4 text-xs text-text-muted">
                     {historicalLlmEstimate.coverage || 'Historical estimates use old quota counters where provider token tracking did not exist yet.'}
                 </p>
             </SectionCard>
@@ -1194,36 +1194,36 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                         <thead>
-                            <tr className="border-b border-border-light dark:border-border-dark">
-                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
-                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Verified</th>
-                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Sessions</th>
-                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">LLM tokens</th>
-                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Last session</th>
-                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Joined</th>
+                            <tr className="border-b border-border-subtle">
+                                <th className="px-3 py-2 text-left font-semibold text-text-muted">User</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Verified</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Sessions</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-muted">LLM tokens</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Last session</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-muted">Joined</th>
                             </tr>
                         </thead>
                         <tbody>
                             {signedInUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-3 py-6 text-center text-text-faint-light dark:text-text-faint-dark">
+                                    <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
                                         No active signed-in users right now.
                                     </td>
                                 </tr>
                             ) : signedInUsers.map((record) => (
-                                <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
+                                <tr key={record.userId} className="border-b border-border-subtle">
                                     <td className="p-3">
-                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
-                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
+                                        <p className="font-semibold text-text-primary">{record.email || record.fullName || record.userId}</p>
+                                        <p className="text-xs text-text-muted">{record.department || ''}</p>
                                     </td>
-                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{record.emailVerified ? 'Yes' : 'No'}</td>
-                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.activeSessionCount)}</td>
-                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
-                                        <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
-                                        <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
+                                    <td className="p-3 text-text-secondary">{record.emailVerified ? 'Yes' : 'No'}</td>
+                                    <td className="p-3 text-text-secondary">{formatNumber(record.activeSessionCount)}</td>
+                                    <td className="p-3 text-text-secondary">
+                                        <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-muted">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                        <div className="mt-1 text-xs text-text-muted">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                     </td>
-                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastSessionAt)}</td>
-                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
+                                    <td className="p-3 text-text-secondary">{formatDateTime(record.lastSessionAt)}</td>
+                                    <td className="p-3 text-text-secondary">{formatDateTime(record.createdAt)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -1235,36 +1235,36 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead>
-                        <tr className="border-b border-border-light dark:border-border-dark">
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Status</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Plan amount</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">LLM tokens</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Last payment</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Next billing</th>
+                        <tr className="border-b border-border-subtle">
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">User</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Status</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Plan amount</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">LLM tokens</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Last payment</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Next billing</th>
                         </tr>
                     </thead>
                     <tbody>
                         {premiumUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-3 py-6 text-center text-text-faint-light dark:text-text-faint-dark">
+                                <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
                                     No premium users yet.
                                 </td>
                             </tr>
                         ) : premiumUsers.map((record) => (
-                            <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
+                            <tr key={record.userId} className="border-b border-border-subtle">
                                 <td className="p-3">
-                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
-                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
+                                    <p className="font-semibold text-text-primary">{record.email || record.fullName || record.userId}</p>
+                                    <p className="text-xs text-text-muted">{record.department || ''}</p>
                                 </td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark capitalize">{record.status || 'unknown'}</td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
-                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
-                                    <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
+                                <td className="p-3 text-text-secondary capitalize">{record.status || 'unknown'}</td>
+                                <td className="p-3 text-text-secondary">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
+                                <td className="p-3 text-text-secondary">
+                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-muted">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                    <div className="mt-1 text-xs text-text-muted">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastPaymentAt)}</td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{record.nextBillingDate || 'N/A'}</td>
+                                <td className="p-3 text-text-secondary">{formatDateTime(record.lastPaymentAt)}</td>
+                                <td className="p-3 text-text-secondary">{record.nextBillingDate || 'N/A'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1276,34 +1276,34 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead>
-                        <tr className="border-b border-border-light dark:border-border-dark">
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Signed up</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Last activity</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Docs</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">LLM tokens</th>
-                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Feedback</th>
+                        <tr className="border-b border-border-subtle">
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">User</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Signed up</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Last activity</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Docs</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">LLM tokens</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-muted">Feedback</th>
                         </tr>
                     </thead>
                     <tbody>
                         {recentUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-3 py-6 text-center text-text-faint-light dark:text-text-faint-dark">No user records yet.</td>
+                                <td colSpan={6} className="px-3 py-6 text-center text-text-muted">No user records yet.</td>
                             </tr>
                         ) : recentUsers.map((record) => (
-                            <tr key={record.userId || record.createdAt} className="border-b border-border-light dark:border-border-dark">
+                            <tr key={record.userId || record.createdAt} className="border-b border-border-subtle">
                                 <td className="p-3">
-                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId || 'Unknown'}</p>
-                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || 'No dept'}{record.educationLevel ? ` • ${record.educationLevel}` : ''}</p>
+                                    <p className="font-semibold text-text-primary">{record.email || record.fullName || record.userId || 'Unknown'}</p>
+                                    <p className="text-xs text-text-muted">{record.department || 'No dept'}{record.educationLevel ? ` • ${record.educationLevel}` : ''}</p>
                                 </td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastActiveAt)}</td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.documentsProcessed)}</td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
-                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
-                                    <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
+                                <td className="p-3 text-text-secondary">{formatDateTime(record.createdAt)}</td>
+                                <td className="p-3 text-text-secondary">{formatDateTime(record.lastActiveAt)}</td>
+                                <td className="p-3 text-text-secondary">{formatNumber(record.documentsProcessed)}</td>
+                                <td className="p-3 text-text-secondary">
+                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-muted">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                    <div className="mt-1 text-xs text-text-muted">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.feedbackCount)}</td>
+                                <td className="p-3 text-text-secondary">{formatNumber(record.feedbackCount)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1324,21 +1324,21 @@ const UploadsPanel = ({ snapshot }) => {
         <div className="space-y-4">
             <SectionCard title="Where Uploads Went" badge={`${formatNumber(uploadBreakdown.total)} total tracked`}>
                 <div className="grid gap-4 xl:grid-cols-3">
-                    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
-                        <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Destination Split</h3>
+                    <div className="rounded-2xl border border-border-subtle bg-surface p-4">
+                        <h3 className="text-sm font-semibold text-text-primary">Destination Split</h3>
                         <div className="mt-3 space-y-3">
                             {uploadChannels.length === 0 ? (
-                                <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No upload activity yet.</p>
+                                <p className="text-sm text-text-muted">No upload activity yet.</p>
                             ) : uploadChannels.map((channel) => (
                                 <div key={channel.key} className="space-y-1.5">
                                     <div className="flex items-center justify-between gap-2">
-                                        <p className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">{channel.label}</p>
-                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(channel.count)} ({formatPercent(channel.percent)})</p>
+                                        <p className="text-sm font-semibold text-text-primary">{channel.label}</p>
+                                        <p className="text-xs text-text-muted">{formatNumber(channel.count)} ({formatPercent(channel.percent)})</p>
                                     </div>
-                                    <div className="h-2 overflow-hidden rounded-full bg-surface-hover-light dark:bg-surface-hover-dark">
+                                    <div className="h-2 overflow-hidden rounded-full bg-surface-soft">
                                         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.max(0, Math.min(Number(channel.percent) || 0, 100))}%` }} />
                                     </div>
-                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">
+                                    <p className="text-xs text-text-muted">
                                         Ready {formatNumber(channel.statuses?.ready)} • Processing {formatNumber(channel.statuses?.processing)} • Errors {formatNumber(channel.statuses?.error)}
                                     </p>
                                 </div>
@@ -1346,30 +1346,30 @@ const UploadsPanel = ({ snapshot }) => {
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
-                        <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Top File Types</h3>
+                    <div className="rounded-2xl border border-border-subtle bg-surface p-4">
+                        <h3 className="text-sm font-semibold text-text-primary">Top File Types</h3>
                         <div className="mt-3 space-y-2.5">
                             {uploadFileTypes.length === 0 ? (
-                                <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No file types captured yet.</p>
+                                <p className="text-sm text-text-muted">No file types captured yet.</p>
                             ) : uploadFileTypes.map((entry) => (
-                                <div key={entry.fileType} className="flex items-center justify-between gap-3 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-2">
-                                    <p className="text-sm font-medium text-text-main-light dark:text-text-main-dark">{formatFileTypeLabel(entry.fileType)}</p>
-                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(entry.count)} ({formatPercent(entry.percent)})</p>
+                                <div key={entry.fileType} className="flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2">
+                                    <p className="text-sm font-medium text-text-primary">{formatFileTypeLabel(entry.fileType)}</p>
+                                    <p className="text-xs text-text-muted">{formatNumber(entry.count)} ({formatPercent(entry.percent)})</p>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
-                        <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Top Upload Users</h3>
+                    <div className="rounded-2xl border border-border-subtle bg-surface p-4">
+                        <h3 className="text-sm font-semibold text-text-primary">Top Upload Users</h3>
                         <div className="mt-3 space-y-2.5">
                             {topUploadUsers.length === 0 ? (
-                                <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No user upload activity yet.</p>
+                                <p className="text-sm text-text-muted">No user upload activity yet.</p>
                             ) : topUploadUsers.map((entry) => (
-                                <div key={entry.userId} className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-2">
-                                    <p className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">{entry.email || entry.fullName || entry.userId}</p>
-                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{entry.department || 'No dept'} • Total {formatNumber(entry.totalUploads)}</p>
-                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                <div key={entry.userId} className="rounded-xl bg-surface-soft px-3 py-2">
+                                    <p className="text-sm font-semibold text-text-primary">{entry.email || entry.fullName || entry.userId}</p>
+                                    <p className="text-xs text-text-muted">{entry.department || 'No dept'} • Total {formatNumber(entry.totalUploads)}</p>
+                                    <p className="mt-1 text-xs text-text-muted">
                                         Study {formatNumber(entry.studyUploads)} • Assignment {formatNumber(entry.assignmentUploads)} • Ready {formatNumber(entry.readyUploads)} • Errors {formatNumber(entry.errorUploads)}
                                     </p>
                                 </div>
@@ -1448,7 +1448,7 @@ const FeedbackPanel = ({
             >
                 <div className="space-y-3">
                     {campaignReports.length === 0 ? (
-                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No campaign send data yet.</p>
+                        <p className="text-sm text-text-muted">No campaign send data yet.</p>
                     ) : campaignReports.map((report) => {
                         const campaignId = normalizeFeedbackMessage(report?.campaignId) || 'unknown_campaign';
                         const sentCount = Number(report?.sentCount) || 0;
@@ -1463,48 +1463,48 @@ const FeedbackPanel = ({
                         return (
                             <article
                                 key={campaignId}
-                                className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4"
+                                className="rounded-2xl border border-border-subtle bg-surface p-4"
                             >
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
-                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark break-all">{campaignId}</p>
-                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                        <p className="font-semibold text-text-primary break-all">{campaignId}</p>
+                                        <p className="mt-1 text-xs text-text-muted">
                                             First sent {formatDateTime(report?.firstSentAt)} • Last sent {formatDateTime(report?.lastSentAt)}
                                         </p>
                                     </div>
-                                    <span className="rounded-full bg-surface-hover-light dark:bg-surface-hover-dark px-2.5 py-1 text-xs font-semibold text-text-main-light dark:text-text-main-dark">
+                                    <span className="rounded-full bg-surface-soft px-2.5 py-1 text-xs font-semibold text-text-primary">
                                         {formatNumber(sentCount)} sent
                                     </span>
                                 </div>
 
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Sent</p>
-                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(sentCount)}</p>
+                                    <div className="rounded-xl bg-surface-soft p-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Sent</p>
+                                        <p className="mt-1 text-xl font-black text-text-primary">{formatNumber(sentCount)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Returned</p>
-                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(returnedCount)}</p>
-                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.returned)}</p>
+                                    <div className="rounded-xl bg-surface-soft p-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Returned</p>
+                                        <p className="mt-1 text-xl font-black text-text-primary">{formatNumber(returnedCount)}</p>
+                                        <p className="mt-1 text-xs text-text-muted">{formatRatioPercent(rates?.returned)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Uploaded</p>
-                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(uploadedCount)}</p>
-                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.uploaded)}</p>
+                                    <div className="rounded-xl bg-surface-soft p-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Uploaded</p>
+                                        <p className="mt-1 text-xl font-black text-text-primary">{formatNumber(uploadedCount)}</p>
+                                        <p className="mt-1 text-xs text-text-muted">{formatRatioPercent(rates?.uploaded)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Activated</p>
-                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(activatedCount)}</p>
-                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.activated)}</p>
+                                    <div className="rounded-xl bg-surface-soft p-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Activated</p>
+                                        <p className="mt-1 text-xl font-black text-text-primary">{formatNumber(activatedCount)}</p>
+                                        <p className="mt-1 text-xs text-text-muted">{formatRatioPercent(rates?.activated)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Paid</p>
-                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(paidCount)}</p>
-                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.paid)}</p>
+                                    <div className="rounded-xl bg-surface-soft p-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Paid</p>
+                                        <p className="mt-1 text-xl font-black text-text-primary">{formatNumber(paidCount)}</p>
+                                        <p className="mt-1 text-xs text-text-muted">{formatRatioPercent(rates?.paid)}</p>
                                     </div>
                                 </div>
 
-                                <div className="mt-4 rounded-xl border border-primary-100 bg-primary-50/70 p-3 dark:border-primary-900/40 dark:bg-primary-950/20">
+                                <div className="mt-4 rounded-xl border border-primary/20 bg-primary-soft p-3">
                                     <StatRow
                                         label="Attributed CTA landings"
                                         value={formatNumber(attributedLandingCount)}
@@ -1524,22 +1524,22 @@ const FeedbackPanel = ({
             <SectionCard title="User Feedback" badge={`Showing ${feedbackPreview.length} of ${formatNumber(feedbackWithMessagesTotal)}`}>
                 <div className="space-y-3">
                     {feedbackPreview.length === 0 ? (
-                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No text feedback submitted yet.</p>
+                        <p className="text-sm text-text-muted">No text feedback submitted yet.</p>
                     ) : feedbackPreview.map((entry) => (
-                        <article key={entry.feedbackId} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                        <article key={entry.feedbackId} className="rounded-2xl border border-border-subtle bg-surface p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{entry.email || entry.fullName || entry.userId || 'Unknown user'}</p>
-                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{entry.department || ''}</p>
+                                    <p className="font-semibold text-text-primary">{entry.email || entry.fullName || entry.userId || 'Unknown user'}</p>
+                                    <p className="text-xs text-text-muted">{entry.department || ''}</p>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm">
                                     <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary font-semibold">
                                         {Number(entry.rating) > 0 ? `${entry.rating}/5` : 'No rating'}
                                     </span>
-                                    <span className="text-text-faint-light dark:text-text-faint-dark">{formatDateTime(entry.createdAt)}</span>
+                                    <span className="text-text-muted">{formatDateTime(entry.createdAt)}</span>
                                 </div>
                             </div>
-                            <p className="mt-3 whitespace-pre-wrap break-words text-sm text-text-main-light dark:text-text-main-dark">
+                            <p className="mt-3 whitespace-pre-wrap break-words text-sm text-text-primary">
                                 {normalizeFeedbackMessage(entry.message)}
                             </p>
                         </article>
@@ -1550,7 +1550,7 @@ const FeedbackPanel = ({
             <SectionCard title="Product Research Responses" badge={`Showing ${researchPreview.length} of ${formatNumber(researchResponsesTotal)}`}>
                 <div className="space-y-3">
                     {researchPreview.length === 0 ? (
-                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No product research responses yet.</p>
+                        <p className="text-sm text-text-muted">No product research responses yet.</p>
                     ) : researchPreview.map((entry, index) => {
                         const howUsing = formatResearchChoice(
                             entry?.howUsingApp
@@ -1576,38 +1576,38 @@ const FeedbackPanel = ({
                         const userLabel = entry?.email || entry?.fullName || entry?.userId || 'Unknown user';
 
                         return (
-                            <article key={researchId} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                            <article key={researchId} className="rounded-2xl border border-border-subtle bg-surface p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
-                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark">{userLabel}</p>
-                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{entry?.department || ''}</p>
+                                        <p className="font-semibold text-text-primary">{userLabel}</p>
+                                        <p className="text-xs text-text-muted">{entry?.department || ''}</p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 text-xs">
                                         {campaign ? (
-                                            <span className="rounded-full bg-primary-50 px-2.5 py-1 font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
+                                            <span className="rounded-full bg-primary-soft px-2.5 py-1 font-semibold text-primary">
                                                 Campaign: {campaign}
                                             </span>
                                         ) : null}
                                         {cohort ? (
-                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                            <span className="rounded-full bg-success-soft px-2.5 py-1 font-semibold text-success">
                                                 Cohort: {cohort}
                                             </span>
                                         ) : null}
-                                        <span className="text-text-faint-light dark:text-text-faint-dark">{formatDateTime(createdAt)}</span>
+                                        <span className="text-text-muted">{formatDateTime(createdAt)}</span>
                                     </div>
                                 </div>
-                                <div className="mt-3 space-y-1.5 text-sm text-text-main-light dark:text-text-main-dark">
+                                <div className="mt-3 space-y-1.5 text-sm text-text-primary">
                                     <p>
-                                        <span className="font-semibold text-text-main-light dark:text-text-main-dark">How using app:</span>{' '}
+                                        <span className="font-semibold text-text-primary">How using app:</span>{' '}
                                         {howUsing || 'N/A'}
                                     </p>
                                     <p>
-                                        <span className="font-semibold text-text-main-light dark:text-text-main-dark">Wanted next:</span>{' '}
+                                        <span className="font-semibold text-text-primary">Wanted next:</span>{' '}
                                         {wantedFeatures || 'N/A'}
                                     </p>
                                     {notes ? (
                                         <p className="whitespace-pre-wrap break-words">
-                                            <span className="font-semibold text-text-main-light dark:text-text-main-dark">Notes:</span>{' '}
+                                            <span className="font-semibold text-text-primary">Notes:</span>{' '}
                                             {notes}
                                         </p>
                                     ) : null}
@@ -1636,7 +1636,7 @@ const SettingsPanel = ({
 }) => (
     <div className="space-y-4">
         <SectionCard title="Payment Provider" badge="Fallback mode available">
-            <p className="text-sm text-text-sub-light dark:text-text-faint-dark">
+            <p className="text-sm text-text-secondary">
                 Choose how checkouts are handled when top-up is started.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -1654,15 +1654,15 @@ const SettingsPanel = ({
                             className={`rounded-2xl border p-4 text-left transition-colors ${
                                 isSelected
                                     ? 'border-primary bg-primary/8'
-                                    : 'border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark hover:border-primary/40'
+                                    : 'border-border-subtle bg-surface hover:border-primary/40'
                             }`}
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <p className="text-sm font-bold text-text-main-light dark:text-text-main-dark">
+                                    <p className="text-sm font-bold text-text-primary">
                                         {option.label}
                                     </p>
-                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                    <p className="mt-1 text-xs text-text-muted">
                                         {option.helpText || (option.requiresKey ? 'Requires payment API key.' : 'No API key required.')}
                                     </p>
                                 </div>
@@ -1670,7 +1670,7 @@ const SettingsPanel = ({
                                     className={`material-symbols-outlined text-xl ${
                                         isSelected
                                             ? 'text-primary'
-                                            : 'text-text-faint-light dark:text-text-faint-dark'
+                                            : 'text-text-muted'
                                     }`}
                                 >
                                     {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
@@ -1682,12 +1682,12 @@ const SettingsPanel = ({
             </div>
             <form onSubmit={handleSavePaymentProvider} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="grow">
-                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                    <p className="mt-1 text-xs text-text-muted">
                         Current: {paymentProviderConfig?.selectedLabel || paymentProviderConfig?.selected || 'Unknown'}
                         {paymentProviderConfig?.updatedAt ? ` • Updated ${formatDateTime(paymentProviderConfig.updatedAt)}` : null}
                     </p>
                     {!paymentProviderConfig ? (
-                        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                        <p className="mt-2 text-xs text-warning">
                             Dashboard settings metadata has not loaded from Convex, so the options above are using client defaults.
                         </p>
                     ) : null}
@@ -1700,7 +1700,7 @@ const SettingsPanel = ({
                     {adminActionLoading ? 'Saving...' : 'Save provider'}
                 </button>
             </form>
-            <p className="mt-3 text-xs text-text-faint-light dark:text-text-faint-dark">
+            <p className="mt-3 text-xs text-text-muted">
                 Manual mode applies top-up for the current payment amount without calling Paystack and does not require a merchant API key.
             </p>
         </SectionCard>
@@ -1711,7 +1711,7 @@ const SettingsPanel = ({
                     value={newAdminEmail}
                     onChange={(event) => setNewAdminEmail(event.target.value)}
                     placeholder="admin@example.com"
-                    className="w-full rounded-xl border-2 border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-2.5 text-sm text-text-main-light dark:text-text-main-dark focus:outline-none focus:border-primary"
+                    className="w-full rounded-xl border-2 border-border-subtle bg-surface px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-primary"
                 />
                 <button
                     type="submit"
@@ -1722,31 +1722,31 @@ const SettingsPanel = ({
                 </button>
             </form>
             {adminActionError ? (
-                <p className="mt-3 text-sm text-rose-600 dark:text-rose-300">{adminActionError}</p>
+                <p className="mt-3 text-sm text-error">{adminActionError}</p>
             ) : null}
             <div className="mt-4 grid gap-2">
                 {adminEmails.length === 0 ? (
-                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No admin emails configured.</p>
+                    <p className="text-sm text-text-muted">No admin emails configured.</p>
                 ) : adminEmails.map((entry) => (
                     <div
                         key={entry.email}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-3"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-subtle bg-surface p-3"
                     >
                         <div>
-                            <p className="font-semibold text-text-main-light dark:text-text-main-dark">{entry.email}</p>
-                            <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{(entry.sources || []).map(formatAdminSource).join(' • ')}</p>
+                            <p className="font-semibold text-text-primary">{entry.email}</p>
+                            <p className="text-xs text-text-muted">{(entry.sources || []).map(formatAdminSource).join(' • ')}</p>
                         </div>
                         {canRemoveAdminEmail(entry.sources) ? (
                             <button
                                 type="button"
                                 disabled={adminActionLoading}
                                 onClick={() => handleRemoveAdminEmail(entry.email)}
-                                className="inline-flex items-center justify-center rounded-lg border border-rose-200 dark:border-rose-700 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="inline-flex items-center justify-center rounded-lg border border-error/20 px-3 py-1.5 text-xs font-semibold text-error transition-colors hover:bg-error-soft disabled:cursor-not-allowed disabled:opacity-70"
                             >
                                 Remove
                             </button>
                         ) : (
-                            <span className="text-xs text-text-faint-light dark:text-text-faint-dark">Managed</span>
+                            <span className="text-xs text-text-muted">Managed</span>
                         )}
                     </div>
                 ))}
@@ -1829,10 +1829,10 @@ const AdminDashboard = () => {
 
     if (snapshot === undefined) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="animate-spin rounded-full size-12 border-t-2 border-b-2 border-primary"></div>
-                    <p className="text-text-faint-light dark:text-text-faint-dark text-sm font-medium">Loading admin dashboard…</p>
+                    <p className="text-text-muted text-sm font-medium">Loading admin dashboard…</p>
                 </div>
             </div>
         );
@@ -2016,28 +2016,34 @@ const AdminDashboard = () => {
                                         : null;
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark px-4 py-6 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-7xl space-y-4">
-                <div className="card-base p-5 sm:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Admin</p>
-                            <h1 className="mt-1 text-2xl font-semibold text-text-main-light dark:text-text-main-dark">
-                                Stitch Operations Dashboard
+        <div className="flex-1 px-space-6 py-space-6 pb-space-16 md:px-space-8">
+            <div className="mx-auto max-w-container-max space-y-space-5">
+                <section className="rounded-xl border border-border-subtle bg-surface p-space-6 shadow-sm">
+                    <div className="flex flex-col gap-space-5 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="min-w-0">
+                            <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-primary">Admin</p>
+                            <h1 className="mt-space-1 font-display-md text-display-md text-text-primary tracking-tight">
+                                ChewnPour Operations Dashboard
                             </h1>
-                            <p className="mt-2 text-sm text-text-faint-light dark:text-text-faint-dark">
-                                Updated {formatDateTime(snapshot.generatedAt)}
+                            <p className="mt-space-2 max-w-2xl font-body-base text-body-base text-text-secondary">
+                                Monitor study activity, content processing, revenue, and support signals from the same workspace as the student dashboard.
                             </p>
                         </div>
-                        <Link
-                            to="/dashboard"
-                            className="inline-flex items-center gap-2 rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-2.5 text-sm font-semibold text-text-main-light dark:text-text-main-dark hover:border-primary/40 transition-colors"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                            Main dashboard
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-space-3">
+                            <div className="rounded-xl border border-border-subtle bg-surface-soft px-space-4 py-space-3">
+                                <p className="font-label-xs text-label-xs uppercase tracking-wider text-text-muted">Updated</p>
+                                <p className="mt-1 font-label-md text-label-md text-text-primary">{formatDateTime(snapshot.generatedAt)}</p>
+                            </div>
+                            <Link
+                                to="/dashboard"
+                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-default bg-surface px-space-4 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft hover:text-primary"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                                Main dashboard
+                            </Link>
+                        </div>
                     </div>
-                </div>
+                </section>
 
                 <TabBar activeTab={activeTab} onTabChange={(value) => updateAdmin({ activeTab: value })} />
 

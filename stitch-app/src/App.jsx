@@ -382,7 +382,7 @@ function App() {
         <Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />
 
         {/* Admin Route */}
-        <Route path="/admin" element={withSuspense(<ProtectedRoute><AdminDashboard /></ProtectedRoute>)} />
+        <Route path="/admin" element={withSuspense(<ProtectedRoute><DashboardLayout><AdminDashboard /></DashboardLayout></ProtectedRoute>)} />
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />
