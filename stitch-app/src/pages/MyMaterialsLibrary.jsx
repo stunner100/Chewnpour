@@ -214,10 +214,28 @@ const MyMaterialsLibrary = () => {
                                                 <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
                                             </div>
                                         </div>
-                                        <div className="rounded-lg border border-warning/20 bg-warning-soft px-3 py-2.5 text-center">
-                                            <p className="font-label-sm text-label-sm text-warning">Content not generated</p>
-                                            <p className="mt-1 font-label-xs text-label-xs text-text-muted">Upload is ready, but there are no lessons to open yet.</p>
+                                        <span className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-sm text-label-sm flex items-center justify-center">
+                                            No study content
+                                        </span>
+                                    </>
+                                ) : material.status === 'error' ? (
+                                    <>
+                                        <div className="w-full bg-surface-muted rounded-full h-1.5 mb-5 mt-4">
+                                            <div
+                                                className="bg-warning h-1.5 rounded-full"
+                                                style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
+                                            />
                                         </div>
+                                        <div className="rounded-lg border border-warning/20 bg-warning-soft px-3 py-2.5 text-center mb-3">
+                                            <p className="font-label-sm text-label-sm text-warning">Processing failed</p>
+                                        </div>
+                                        <button
+                                            className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-sm text-label-sm cursor-not-allowed flex items-center justify-center"
+                                            disabled
+                                            type="button"
+                                        >
+                                            Study Unavailable
+                                        </button>
                                     </>
                                 ) : (
                                     <>
@@ -228,7 +246,7 @@ const MyMaterialsLibrary = () => {
                                             />
                                         </div>
                                         <p className="font-label-xs text-label-xs text-warning text-center mb-5">
-                                            {material.errorMessage || material.processingStep || 'Preparing your study material...'}
+                                            {material.processingStep || 'Preparing your study material...'}
                                         </p>
                                         <button
                                             className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-md text-label-md cursor-not-allowed flex items-center justify-center"

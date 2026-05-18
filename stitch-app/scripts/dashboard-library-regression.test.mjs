@@ -19,7 +19,7 @@ for (const requiredPattern of [
   "filteredMaterials",
   "material.courseId",
   "const hasGeneratedContent = ready && material.courseId && material.topicCount > 0",
-  "Content not generated",
+  "No study content",
 ]) {
   if (!libraryPageSource.includes(requiredPattern)) {
     throw new Error(`Expected MyMaterialsLibrary.jsx to include "${requiredPattern}" for real materials behavior.`);

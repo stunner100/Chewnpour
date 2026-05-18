@@ -54,4 +54,19 @@ assert.ok(
   'MyMaterialsLibrary.jsx must not map raw upload.errorMessage into user-facing material state.',
 );
 
+assert.ok(
+  !librarySource.includes("{material.errorMessage || material.processingStep || 'Preparing your study material...'}"),
+  'MyMaterialsLibrary.jsx should not render long upload error text in tight material cards.',
+);
+
+assert.ok(
+  librarySource.includes("material.status === 'error'"),
+  'MyMaterialsLibrary.jsx should render a dedicated compact failed-upload state.',
+);
+
+assert.ok(
+  !librarySource.includes('Upload is ready, but there are no lessons to open yet.'),
+  'MyMaterialsLibrary.jsx should not render multi-line no-content explanations inside material cards.',
+);
+
 console.log('upload-error-message-sanitization-regression.test.mjs passed');
