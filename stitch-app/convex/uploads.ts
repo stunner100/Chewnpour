@@ -183,6 +183,24 @@ export const getUploadInternal = internalQuery({
     },
 });
 
+export const listStaleProcessingUploadsInternal = internalQuery({
+    args: {
+        staleBeforeMs: v.number(),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const limit = Math.max(1, Math.min(100, Math.floor(Number(args.limit || 25))));
+        const uploads = await ctx.db.query("uploads").collect();
+        return uploads
+            .filter((upload: any) =>
+                String(upload.status || "").toLowerCase() === "processing"
+                && Number(upload._creationTime || 0) <= args.staleBeforeMs
+            )
+            .sort((a: any, b: any) => Number(a._creationTime || 0) - Number(b._creationTime || 0))
+            .slice(0, limit);
+    },
+});
+
 // Update upload status
 export const updateUploadStatusInternal = internalMutation({
     args: {

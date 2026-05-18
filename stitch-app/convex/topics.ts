@@ -436,6 +436,30 @@ export const getTopicsByCourse = query({
     },
 });
 
+export const countGeneratedLessonTopicsForUploadInternal = internalQuery({
+    args: {
+        courseId: v.id("courses"),
+        uploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const topics = await ctx.db
+            .query("topics")
+            .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
+            .collect();
+        const generatedTopics = topics.filter((topic: any) =>
+            topic?.sourceUploadId === args.uploadId
+            && String(topic?.topicKind || "").trim() !== "document_final_exam"
+            && String(topic?.content || "").trim().length > 0
+        );
+
+        return {
+            count: generatedTopics.length,
+            topicIds: generatedTopics.map((topic: any) => topic._id),
+            topicTitles: generatedTopics.map((topic: any) => topic.title),
+        };
+    },
+});
+
 // Get single topic with its questions
 export const getTopicWithQuestions = query({
     args: { topicId: v.string() },

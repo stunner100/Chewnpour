@@ -586,6 +586,34 @@ export const deleteCourse = mutation({
     },
 });
 
+export const getCoursesForUploadInternal = internalQuery({
+    args: {
+        uploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const primaryCourses = await ctx.db
+            .query("courses")
+            .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
+            .collect();
+        const links = await ctx.db
+            .query("courseUploads")
+            .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
+            .collect();
+        const linkedCourses = await Promise.all(
+            links.map((link: any) => ctx.db.get(link.courseId))
+        );
+        const seen = new Set<string>();
+        return [...primaryCourses, ...linkedCourses]
+            .filter(Boolean)
+            .filter((course: any) => {
+                const key = String(course._id);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+    },
+});
+
 // Internal mutation to update courseUploads status (used by AI pipeline)
 export const updateCourseUploadStatus = internalMutation({
     args: {

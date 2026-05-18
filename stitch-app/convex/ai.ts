@@ -11,6 +11,12 @@ import {
     calculateRemainingTopicProgress,
     normalizeGeneratedTopicCount,
 } from "./lib/topicGenerationProgress";
+import { deriveSourceGroundedWordBank } from "./lib/sourceWordBank.js";
+import {
+    STALE_UPLOAD_REPAIR_BATCH_SIZE,
+    STALE_UPLOAD_REPAIR_TIMEOUT_MS,
+    getUploadProcessingRepairDecision,
+} from "./lib/uploadProcessingFinalizer.js";
 import {
     aggregateChunksByMajorKey,
     buildCoverageStats,
@@ -510,6 +516,56 @@ const captureBackendSentryMessage = async (args: {
     } finally {
         clearTimeout(timeoutId);
     }
+};
+
+type CourseGenerationDiagnosticStage =
+    | "extraction"
+    | "outline"
+    | "first_topic"
+    | "remaining_topics"
+    | "question_bank"
+    | "finalization"
+    | "quality_gate"
+    | "stale_finalizer"
+    | "failure";
+
+const emitCourseGenerationDiagnostic = (args: {
+    stage: CourseGenerationDiagnosticStage;
+    courseId?: unknown;
+    uploadId?: unknown;
+    userId?: unknown;
+    status?: string;
+    level?: BackendSentryLevel;
+    startedAt?: number;
+    timings?: Record<string, unknown>;
+    counts?: Record<string, unknown>;
+    extras?: Record<string, unknown>;
+}) => {
+    const elapsedMs = args.startedAt ? Math.max(0, Date.now() - args.startedAt) : undefined;
+    const payload = {
+        courseId: args.courseId ? String(args.courseId) : undefined,
+        uploadId: args.uploadId ? String(args.uploadId) : undefined,
+        userId: args.userId ? String(args.userId) : undefined,
+        stage: args.stage,
+        status: args.status || "ok",
+        elapsedMs,
+        timings: args.timings || {},
+        counts: args.counts || {},
+        ...args.extras,
+    };
+
+    console.info("[CourseGeneration] course_generation_stage_timing", payload);
+    void captureBackendSentryMessage({
+        message: "course_generation_stage_timing",
+        level: args.level || "info",
+        tags: {
+            area: "course_generation",
+            subsystem: "upload_processing",
+            stage: args.stage,
+            status: args.status || "ok",
+        },
+        extras: payload,
+    });
 };
 
 const resolveQuestionBankRunMode = (profile: any) => {
@@ -6718,6 +6774,18 @@ const buildStructuredLessonFallbackMap = (args: {
         args.topicContext,
         buildTopicContentGraphContext(contentGraph)
     );
+    const derivedDefinitions = deriveSourceGroundedWordBank({
+        title: args.title,
+        description: args.description || contentGraph.description,
+        keyPoints: args.keyPoints,
+        topicContext: args.topicContext,
+        contentGraph,
+        existingDefinitions: [
+            ...contentGraph.definitions,
+            ...sourceDefinitions,
+        ],
+        limit: LESSON_WORD_BANK_MAX,
+    });
     const groundedFacts = buildGroundedLessonFactCandidates(contentGraph, args.title);
     const narrativeFacts = buildNarrativeFinanceFactsFromGraph(contentGraph);
     const tableFacts = buildTableFinanceFactsFromGraph(contentGraph);
@@ -6754,6 +6822,7 @@ const buildStructuredLessonFallbackMap = (args: {
     const definitions = normalizeDefinitionEntries([
         ...contentGraph.definitions,
         ...sourceDefinitions,
+        ...derivedDefinitions,
     ]);
     const workedExampleFallback = buildGroundedWorkedExampleFallback({
         title: args.title,
@@ -7325,6 +7394,18 @@ const buildQualitySafeLessonFallbackMap = (args: {
         args.topicContext,
         buildTopicContentGraphContext(contentGraph)
     );
+    const derivedDefinitions = deriveSourceGroundedWordBank({
+        title,
+        description: description || contentGraph.description,
+        keyPoints: args.keyPoints,
+        topicContext: args.topicContext,
+        contentGraph,
+        existingDefinitions: [
+            ...contentGraph.definitions,
+            ...sourceDefinitions,
+        ],
+        limit: LESSON_WORD_BANK_MAX,
+    });
     const sourceFacts = contentGraph.sourcePassages
         .filter((passage) => !isLowSignalLessonSourceFragment(passage.text))
         .flatMap((passage) => splitLessonSentences(passage.text, 3))
@@ -7406,6 +7487,7 @@ const buildQualitySafeLessonFallbackMap = (args: {
     const definitions = normalizeDefinitionEntries([
         ...contentGraph.definitions,
         ...sourceDefinitions,
+        ...derivedDefinitions,
     ]);
     const likelyConfusions = normalizeConfusionEntries(
         contentGraph.likelyConfusions,
@@ -8994,6 +9076,26 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
                 originalMessage: qualityError,
                 repairMessage: getErrorMessage(repairError),
             });
+            emitCourseGenerationDiagnostic({
+                stage: "quality_gate",
+                level: "error",
+                status: "failed",
+                courseId,
+                uploadId,
+                userId,
+                counts: {
+                    topicIndex: index,
+                    totalTopics,
+                    sourcePassageCount: alignedSourcePassages.length,
+                    contentGraphDefinitionCount: topicContentGraph.definitions.length,
+                    contentGraphKeyPointCount: topicContentGraph.keyPoints.length,
+                },
+                extras: {
+                    topicTitle: safeTopicTitle,
+                    originalMessage: qualityError,
+                    repairMessage: getErrorMessage(repairError),
+                },
+            });
             throw repairError instanceof Error ? repairError : contentError;
         }
     }
@@ -9187,6 +9289,19 @@ export const generateCourseFromText = action({
                     durationMs: Date.now() - outlineStart,
                     topicCount: Array.isArray(courseOutline?.topics) ? courseOutline.topics.length : 0,
                 });
+                emitCourseGenerationDiagnostic({
+                    stage: "outline",
+                    courseId,
+                    uploadId,
+                    userId,
+                    startedAt: startTime,
+                    timings: {
+                        outlineMs: Date.now() - outlineStart,
+                    },
+                    counts: {
+                        topicCount: Array.isArray(courseOutline?.topics) ? courseOutline.topics.length : 0,
+                    },
+                });
 
                 await ctx.runMutation(internal.courses.updateCourseInternal, {
                     courseId,
@@ -9211,6 +9326,7 @@ export const generateCourseFromText = action({
                 });
 
                 checkTimeout();
+                const firstTopicStart = Date.now();
                 await generateTopicContentForIndex({
                     ctx,
                     courseId,
@@ -9226,6 +9342,21 @@ export const generateCourseFromText = action({
                 const generatedTopicCount = normalizeGeneratedTopicCount({
                     generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
                     totalTopics,
+                });
+
+                emitCourseGenerationDiagnostic({
+                    stage: "first_topic",
+                    courseId,
+                    uploadId,
+                    userId,
+                    startedAt: startTime,
+                    timings: {
+                        firstTopicMs: Date.now() - firstTopicStart,
+                    },
+                    counts: {
+                        generatedTopicCount,
+                        plannedTopicCount: totalTopics,
+                    },
                 });
 
                 await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
@@ -9262,6 +9393,19 @@ export const generateCourseFromText = action({
             } catch (error) {
                 console.error("AI processing failed:", error);
                 const errorMessage = getErrorMessage(error);
+                emitCourseGenerationDiagnostic({
+                    stage: "failure",
+                    level: "error",
+                    status: "failed",
+                    courseId,
+                    uploadId,
+                    userId,
+                    startedAt: startTime,
+                    extras: {
+                        processingStep: "course_generation",
+                        message: errorMessage,
+                    },
+                });
 
                 await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
@@ -9287,6 +9431,7 @@ export const generateRemainingTopicsInBackground = internalAction({
     handler: async (ctx, args) => {
         const { courseId, uploadId, extractedText, preparedTopics, plannedTopicTitles, userId } = args;
         return await runWithLlmUsageContext(ctx, userId, "course_generation", async () => {
+            const backgroundStart = Date.now();
             const { index: uploadEvidenceIndex } = await loadGroundedEvidenceIndexForUpload(ctx, uploadId);
             const totalTopics = Math.max(1, preparedTopics.length);
             const safeGeneratedCount = async () =>
@@ -9297,6 +9442,7 @@ export const generateRemainingTopicsInBackground = internalAction({
 
             try {
                 let generatedTopicCount = await safeGeneratedCount();
+                const remainingTopicsStart = Date.now();
                 if (totalTopics > 1 && generatedTopicCount < totalTopics) {
                     await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
@@ -9341,6 +9487,21 @@ export const generateRemainingTopicsInBackground = internalAction({
                     });
                 }
 
+                emitCourseGenerationDiagnostic({
+                    stage: "remaining_topics",
+                    courseId,
+                    uploadId,
+                    userId,
+                    startedAt: backgroundStart,
+                    timings: {
+                        remainingTopicsMs: Date.now() - remainingTopicsStart,
+                    },
+                    counts: {
+                        generatedTopicCount,
+                        plannedTopicCount: totalTopics,
+                    },
+                });
+
                 generatedTopicCount = await safeGeneratedCount();
                 await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
@@ -9354,8 +9515,26 @@ export const generateRemainingTopicsInBackground = internalAction({
 
                 // Question bank pre-build removed — exams are now generated on-demand
                 // when the user clicks "Start Exam".
+                emitCourseGenerationDiagnostic({
+                    stage: "question_bank",
+                    courseId,
+                    uploadId,
+                    userId,
+                    startedAt: backgroundStart,
+                    timings: {
+                        questionBankMs: 0,
+                    },
+                    counts: {
+                        generatedTopicCount,
+                        plannedTopicCount: totalTopics,
+                    },
+                    extras: {
+                        mode: "on_demand",
+                    },
+                });
 
                 let routingSyncErrorMessage = "";
+                const finalizationStart = Date.now();
                 try {
                     await syncAssessmentRoutingForUpload(ctx, {
                         courseId,
@@ -9406,6 +9585,23 @@ export const generateRemainingTopicsInBackground = internalAction({
                     uploadId,
                     artifactStorageId: finalizedUpload?.extractionArtifactStorageId,
                 });
+                emitCourseGenerationDiagnostic({
+                    stage: "finalization",
+                    courseId,
+                    uploadId,
+                    userId,
+                    startedAt: backgroundStart,
+                    timings: {
+                        finalizationMs: Date.now() - finalizationStart,
+                    },
+                    counts: {
+                        generatedTopicCount: finalGeneratedCount,
+                        plannedTopicCount: totalTopics,
+                    },
+                    extras: {
+                        routingSyncError: routingSyncErrorMessage || undefined,
+                    },
+                });
 
                 return {
                     success: true,
@@ -9424,6 +9620,23 @@ export const generateRemainingTopicsInBackground = internalAction({
                 const statusStep = generatedTopicCount >= totalTopics
                     ? "generating_question_bank"
                     : "generating_remaining_topics";
+                emitCourseGenerationDiagnostic({
+                    stage: "failure",
+                    level: "error",
+                    status: "failed",
+                    courseId,
+                    uploadId,
+                    userId,
+                    startedAt: backgroundStart,
+                    counts: {
+                        generatedTopicCount,
+                        plannedTopicCount: totalTopics,
+                    },
+                    extras: {
+                        processingStep: statusStep,
+                        message: errorMessage,
+                    },
+                });
 
                 await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
@@ -9511,6 +9724,130 @@ export const retryAssessmentRoutingForUpload = internalAction({
     },
 });
 
+export const repairStaleProcessingUploads = internalAction({
+    args: {
+        limit: v.optional(v.number()),
+        staleAfterMs: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        const staleAfterMs = Math.max(
+            DEFAULT_PROCESSING_TIMEOUT_MS,
+            Number(args.staleAfterMs || STALE_UPLOAD_REPAIR_TIMEOUT_MS)
+        );
+        const limit = Math.max(
+            1,
+            Math.min(
+                STALE_UPLOAD_REPAIR_BATCH_SIZE,
+                Math.floor(Number(args.limit || STALE_UPLOAD_REPAIR_BATCH_SIZE))
+            )
+        );
+        const uploads = await ctx.runQuery((internal as any).uploads.listStaleProcessingUploadsInternal, {
+            staleBeforeMs: now - staleAfterMs,
+            limit,
+        });
+
+        const summary = {
+            inspected: 0,
+            markedReady: 0,
+            markedError: 0,
+            keptProcessing: 0,
+            skipped: 0,
+        };
+
+        for (const upload of Array.isArray(uploads) ? uploads : []) {
+            summary.inspected += 1;
+            const courses = await ctx.runQuery((internal as any).courses.getCoursesForUploadInternal, {
+                uploadId: upload._id,
+            });
+            const topicStats = await Promise.all(
+                (Array.isArray(courses) ? courses : []).map(async (course: any) => {
+                    const stats = await ctx.runQuery(
+                        (internal as any).topics.countGeneratedLessonTopicsForUploadInternal,
+                        {
+                            courseId: course._id,
+                            uploadId: upload._id,
+                        }
+                    );
+                    return {
+                        courseId: course._id,
+                        generatedTopicCount: Number(stats?.count || 0),
+                    };
+                })
+            );
+            const generatedTopicCount = Math.max(
+                Number(upload.generatedTopicCount || 0),
+                ...topicStats.map((stats) => stats.generatedTopicCount)
+            );
+            const plannedTopicCount = Math.max(
+                Number(upload.plannedTopicCount || 0),
+                generatedTopicCount
+            );
+            const decision = getUploadProcessingRepairDecision({
+                upload,
+                generatedTopicCount,
+                plannedTopicCount,
+                now,
+                staleAfterMs,
+            });
+
+            if (decision.action === "keep_processing") {
+                summary.keptProcessing += 1;
+                continue;
+            }
+            if (decision.action === "skip") {
+                summary.skipped += 1;
+                continue;
+            }
+
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
+                uploadId: upload._id,
+                ...decision.patch,
+            });
+
+            const linkedStatus = decision.action === "mark_ready" ? "ready" : "error";
+            for (const stats of topicStats) {
+                await ctx.runMutation(internal.courses.updateCourseUploadStatus, {
+                    courseId: stats.courseId,
+                    uploadId: upload._id,
+                    status: linkedStatus,
+                    topicCount: stats.generatedTopicCount,
+                });
+            }
+
+            if (decision.action === "mark_ready") {
+                summary.markedReady += 1;
+                scheduleEvidenceIndexAfterProcessing(ctx, {
+                    uploadId: upload._id,
+                    artifactStorageId: upload.extractionArtifactStorageId,
+                });
+            } else {
+                summary.markedError += 1;
+            }
+
+            emitCourseGenerationDiagnostic({
+                stage: "stale_finalizer",
+                level: decision.action === "mark_error" ? "warning" : "info",
+                status: decision.action,
+                uploadId: upload._id,
+                userId: upload.userId,
+                counts: {
+                    generatedTopicCount,
+                    plannedTopicCount,
+                    linkedCourseCount: topicStats.length,
+                },
+                extras: {
+                    reason: decision.reason,
+                    previousProcessingStep: upload.processingStep,
+                    previousProgress: upload.processingProgress,
+                },
+            });
+        }
+
+        return summary;
+    },
+});
+
 // Process an uploaded file - orchestrates the full pipeline
 export const processUploadedFile = action({
     args: {
@@ -9554,6 +9891,7 @@ export const processUploadedFile = action({
             });
 
             checkTimeout();
+            const extractionStart = Date.now();
             const extraction = await ctx.runAction(internal.extraction.runForegroundExtraction, {
                 uploadId,
             });
@@ -9573,6 +9911,28 @@ export const processUploadedFile = action({
                 provisional: extraction?.provisional,
                 strictPass: extraction?.strictPass,
                 warnings: extraction?.warnings,
+            });
+            emitCourseGenerationDiagnostic({
+                stage: "extraction",
+                courseId,
+                uploadId,
+                userId,
+                startedAt: startTime,
+                timings: {
+                    extractionMs: Date.now() - extractionStart,
+                },
+                counts: {
+                    extractedChars: extractedText.length,
+                    warningCount: Array.isArray(extraction?.warnings) ? extraction.warnings.length : 0,
+                },
+                extras: {
+                    backend: extraction?.backend,
+                    parser: extraction?.parser,
+                    qualityScore: extraction?.qualityScore,
+                    coverage: extraction?.coverage,
+                    provisional: extraction?.provisional,
+                    strictPass: extraction?.strictPass,
+                },
             });
 
             // Now generate the course from the extracted text
@@ -9598,6 +9958,18 @@ export const processUploadedFile = action({
         } catch (error) {
             console.error("File processing failed:", error);
             const errorMessage = getErrorMessage(error);
+            emitCourseGenerationDiagnostic({
+                stage: "failure",
+                level: "error",
+                status: "failed",
+                courseId,
+                uploadId,
+                userId,
+                extras: {
+                    processingStep: "process_uploaded_file",
+                    message: errorMessage,
+                },
+            });
             let latestUpload: any = null;
             try {
                 latestUpload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });

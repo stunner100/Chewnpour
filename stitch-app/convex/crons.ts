@@ -38,6 +38,12 @@ crons.interval(
 );
 
 crons.interval(
+    "stale upload processing repair",
+    { minutes: 15 },
+    (internal as any).ai.repairStaleProcessingUploads,
+);
+
+crons.interval(
     "stale payment reconciliation",
     { hours: 1 },
     internal.subscriptions.reconcileStalePaystackPaymentsInternal,
