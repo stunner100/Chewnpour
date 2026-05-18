@@ -36,6 +36,12 @@ requireIncludes(settingsSource, 'setDraftSessionLength(null);', 'cancel restores
 requireIncludes(settingsSource, 'setDraftAiTone(null);', 'cancel restores tutor style');
 requireIncludes(settingsSource, 'setDraftNotifications(null);', 'cancel restores notification draft');
 requireIncludes(settingsSource, 'onClick={handleCancel}', 'cancel button is wired');
+requireIncludes(settingsSource, 'htmlFor="settings-full-name"', 'full name label is associated with input');
+requireIncludes(settingsSource, 'id="settings-full-name"', 'full name input has an accessible id');
+requireIncludes(settingsSource, 'htmlFor="settings-email-address"', 'email label is associated with input');
+requireIncludes(settingsSource, 'id="settings-email-address"', 'email input has an accessible id');
+requireIncludes(settingsSource, 'htmlFor="settings-daily-goal-minutes"', 'daily goal label is associated with input');
+requireIncludes(settingsSource, 'id="settings-daily-goal-minutes"', 'daily goal input has an accessible id');
 
 requireIncludes(settingsSource, 'const handleTutorStyleChange = (persona) => {', 'tutor style is draft-only');
 requireExcludes(settingsSource, 'const handleTutorStyleChange = async', 'immediate tutor style persistence');

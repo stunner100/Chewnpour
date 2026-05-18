@@ -180,8 +180,50 @@ const EmptyFlashcardState = ({
     </section>
 );
 
-const ResumeFlashcardsCard = ({ resumeTarget }) => {
+const ResumeFlashcardsCard = ({
+    resumeTarget,
+    isReady,
+    onRegenerate,
+    isRegenerating,
+    errorMessage,
+}) => {
     if (!resumeTarget?.topicId) return null;
+
+    if (!isReady) {
+        return (
+            <section className="rounded-2xl border border-warning/30 bg-warning-soft/70 p-space-6 shadow-sm">
+                <div className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-warning">
+                            Latest topic
+                        </p>
+                        <h2 className="mt-space-2 font-display-sm text-display-sm text-text-primary">
+                            {resumeTarget.topicTitle || 'Your latest topic'}
+                        </h2>
+                        <p className="mt-space-2 max-w-2xl font-body-base text-body-base text-text-secondary">
+                            This topic needs a valid Word Bank before it can become a study deck.
+                        </p>
+                        {errorMessage && (
+                            <p className="mt-space-3 max-w-2xl font-body-sm text-body-sm text-error" role="alert">
+                                {errorMessage}
+                            </p>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onRegenerate}
+                        disabled={isRegenerating || !onRegenerate}
+                        className="inline-flex shrink-0 items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">
+                            {isRegenerating ? 'progress_activity' : 'refresh'}
+                        </span>
+                        {isRegenerating ? 'Regenerating…' : 'Regenerate Word Bank'}
+                    </button>
+                </div>
+            </section>
+        );
+    }
 
     return (
         <Link
@@ -231,7 +273,7 @@ const ConceptReviewCard = ({ item }) => (
 
 const CourseFlashcardsCard = ({ course }) => (
     <Link
-        to={course.firstTopicId ? buildFlashcardRoute(course.firstTopicId) : `/dashboard/lessons?courseId=${course._id}`}
+        to={course.firstTopicId ? `/dashboard/topic/${course.firstTopicId}` : `/dashboard/lessons?courseId=${course._id}`}
         className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
         <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -251,7 +293,7 @@ const CourseFlashcardsCard = ({ course }) => (
             </p>
         )}
         <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>{course.firstTopicId ? 'Study first topic' : 'Choose topic'}</span>
+            <span>{course.firstTopicId ? 'Open first lesson' : 'Choose topic'}</span>
             <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                 arrow_forward
             </span>
@@ -507,7 +549,15 @@ const FlashcardStudyDeck = ({
     );
 };
 
-const FlashcardsIndex = ({ resumeTarget, reviewItems, courseList }) => (
+const FlashcardsIndex = ({
+    resumeTarget,
+    resumeFlashcardReady,
+    onRegenerateResumeTopic,
+    isRegenerating,
+    regenerateError,
+    reviewItems,
+    courseList,
+}) => (
     <div className="w-full max-w-5xl">
         <div className="mb-space-6 flex flex-col gap-space-2">
             <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
@@ -522,7 +572,13 @@ const FlashcardsIndex = ({ resumeTarget, reviewItems, courseList }) => (
         </div>
 
         <div className="space-y-space-5">
-            <ResumeFlashcardsCard resumeTarget={resumeTarget} />
+            <ResumeFlashcardsCard
+                resumeTarget={resumeTarget}
+                isReady={resumeFlashcardReady}
+                onRegenerate={onRegenerateResumeTopic}
+                isRegenerating={isRegenerating}
+                errorMessage={regenerateError}
+            />
 
             {reviewItems.length > 0 && (
                 <section>
@@ -569,6 +625,13 @@ const FlashcardStudySession = () => {
         api.topics.getTopicWithQuestions,
         isAuthenticated && activeTopicId ? { topicId: String(activeTopicId) } : 'skip',
     );
+    const resumeTopicId = !activeTopicId && resumeTarget?.topicId
+        ? String(resumeTarget.topicId)
+        : '';
+    const resumeTopic = useQuery(
+        api.topics.getTopicWithQuestions,
+        isAuthenticated && resumeTopicId ? { topicId: resumeTopicId } : 'skip',
+    );
     const topicProgress = useQuery(
         api.topics.getUserTopicProgress,
         isAuthenticated && activeTopicId ? { topicId: String(activeTopicId) } : 'skip',
@@ -590,14 +653,15 @@ const FlashcardStudySession = () => {
 
     const reviewItems = Array.isArray(reviewQueue?.items) ? reviewQueue.items : EMPTY_LIST;
     const terms = useMemo(() => getTopicTerms(topic), [topic]);
+    const resumeTerms = useMemo(() => getTopicTerms(resumeTopic), [resumeTopic]);
 
-    const handleRegenerateTopic = useCallback(async () => {
-        if (!activeTopicId || isRegenerating) return;
+    const regenerateTopicById = useCallback(async (topicId) => {
+        if (!topicId || isRegenerating) return;
         setIsRegenerating(true);
         setRegenerateError('');
         try {
             await regenerateLessonContent({
-                topicId: activeTopicId,
+                topicId: String(topicId),
                 dryRun: false,
                 maxTopics: 1,
             });
@@ -606,7 +670,15 @@ const FlashcardStudySession = () => {
         } finally {
             setIsRegenerating(false);
         }
-    }, [activeTopicId, isRegenerating, regenerateLessonContent]);
+    }, [isRegenerating, regenerateLessonContent]);
+
+    const handleRegenerateTopic = useCallback(() => {
+        regenerateTopicById(activeTopicId);
+    }, [activeTopicId, regenerateTopicById]);
+
+    const handleRegenerateResumeTopic = useCallback(() => {
+        regenerateTopicById(resumeTopicId);
+    }, [regenerateTopicById, resumeTopicId]);
 
     const handleCardReviewed = useCallback(({ term, rating, mastered }) => {
         if (!activeTopicId || !term) return;
@@ -636,11 +708,14 @@ const FlashcardStudySession = () => {
         || resumeTarget === undefined
         || reviewQueue === undefined
         || (activeTopicId && (topic === undefined || topicProgress === undefined))
+        || (!activeTopicId && resumeTopicId && resumeTopic === undefined)
     ) {
         return <StudyToolSkeleton />;
     }
 
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
+    const indexResumeTarget = resumeTopic === null ? null : resumeTarget;
+    const resumeFlashcardReady = Boolean(resumeTopicId && resumeTerms.length >= 6);
 
     return (
         <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -669,7 +744,11 @@ const FlashcardStudySession = () => {
                     />
                 ) : (
                     <FlashcardsIndex
-                        resumeTarget={resumeTarget}
+                        resumeTarget={indexResumeTarget}
+                        resumeFlashcardReady={resumeFlashcardReady}
+                        onRegenerateResumeTopic={handleRegenerateResumeTopic}
+                        isRegenerating={isRegenerating}
+                        regenerateError={regenerateError}
                         reviewItems={reviewItems}
                         courseList={courseList}
                     />

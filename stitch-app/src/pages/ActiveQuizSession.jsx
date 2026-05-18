@@ -88,20 +88,18 @@ const isObjectiveQuestion = (question) =>
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(Object(object), key);
 
-const hasQuizReadinessMetadata = (course) =>
-    hasOwn(course, 'quizzesReady') || hasOwn(course, 'firstQuizTopicId');
-
 const hasQuizContent = (course) =>
-    Boolean(course?.firstQuizTopicId) || Number(course?.quizzesReady || 0) > 0;
-
-const shouldShowQuizCourse = (course) =>
-    hasQuizContent(course) || !hasQuizReadinessMetadata(course);
+    Boolean(course?.firstQuizTopicId || course?.firstTopicId)
+    || Number(course?.quizzesReady || 0) > 0;
 
 const hasTopicQuizReadinessMetadata = (topic) =>
     hasOwn(topic, 'usableMcqCount') || hasOwn(topic, 'usableObjectiveCount');
 
+const isQuizCandidateTopic = (topic) =>
+    (topic?.assessmentRoute || 'topic_quiz') === 'topic_quiz';
+
 const isQuizReadyTopic = (topic) => {
-    if ((topic?.assessmentRoute || 'topic_quiz') !== 'topic_quiz') return false;
+    if (!isQuizCandidateTopic(topic)) return false;
     if (!hasTopicQuizReadinessMetadata(topic)) return true;
     return Number(topic?.usableMcqCount || topic?.usableObjectiveCount || 0) > 0;
 };
@@ -164,14 +162,13 @@ const EmptyStudyToolState = () => (
 );
 
 const CourseQuizCard = ({ course }) => {
-    const targetTopicId = course.firstQuizTopicId;
+    const targetTopicId = course.firstQuizTopicId || course.firstTopicId;
     const quizzesReady = Number(course.quizzesReady || 0);
-    const metadataKnown = hasQuizReadinessMetadata(course);
-    if (metadataKnown && !targetTopicId && quizzesReady <= 0) return null;
-    const targetHref = targetTopicId ? buildObjectiveExamRoute(targetTopicId) : `/dashboard/quiz?courseId=${course._id}`;
+    if (!targetTopicId) return null;
+    const targetHref = buildObjectiveExamRoute(targetTopicId);
     const statusLabel = quizzesReady > 0
         ? `${quizzesReady} topic${quizzesReady === 1 ? '' : 's'} ready`
-        : targetTopicId ? 'Quiz ready' : 'Open topics';
+        : 'Ready to generate';
 
     return (
         <Link
@@ -195,7 +192,7 @@ const CourseQuizCard = ({ course }) => {
                 </p>
             )}
             <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>{targetTopicId ? 'Start quiz' : 'Review topics'}</span>
+                <span>Start quiz</span>
                 <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                     arrow_forward
                 </span>
@@ -342,8 +339,7 @@ const ActiveQuizSession = () => {
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
     const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);
-    const visibleQuizCourses = useMemo(() => courseList.filter(shouldShowQuizCourse), [courseList]);
-    const selectionCourseList = quizReadyCourses.length > 0 ? quizReadyCourses : visibleQuizCourses;
+    const selectionCourseList = quizReadyCourses;
     const requestedCourse = selectionCourseList.find((course) => String(course._id) === String(requestedCourseId));
     const resumeCourse = resumeTarget?.courseId
         ? selectionCourseList.find((course) => String(course._id) === String(resumeTarget.courseId))
@@ -355,12 +351,21 @@ const ActiveQuizSession = () => {
     );
     const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
     const quizReadyTopicList = useMemo(() => topicList.filter(isQuizReadyTopic), [topicList]);
+    const quizCandidateTopicList = useMemo(() => topicList.filter(isQuizCandidateTopic), [topicList]);
     const selectedTopicId = (() => {
         if (routeTopicId) return routeTopicId;
-        if (resumeTarget?.topicId && quizReadyTopicList.some((topic) => String(topic._id) === String(resumeTarget.topicId))) {
+        const topicChoices = quizReadyTopicList.length > 0 ? quizReadyTopicList : quizCandidateTopicList;
+        if (resumeTarget?.topicId && topicChoices.some((topic) => String(topic._id) === String(resumeTarget.topicId))) {
             return resumeTarget.topicId;
         }
-        return requestedCourse?.firstQuizTopicId || resumeCourse?.firstQuizTopicId || quizReadyCourses[0]?.firstQuizTopicId || quizReadyTopicList[0]?._id || '';
+        return requestedCourse?.firstQuizTopicId
+            || requestedCourse?.firstTopicId
+            || resumeCourse?.firstQuizTopicId
+            || resumeCourse?.firstTopicId
+            || quizReadyCourses[0]?.firstQuizTopicId
+            || quizReadyCourses[0]?.firstTopicId
+            || topicChoices[0]?._id
+            || '';
     })();
     const topicPreview = useQuery(
         api.topics.getTopicWithQuestions,
@@ -395,9 +400,8 @@ const ActiveQuizSession = () => {
     }
 
     if (
-        (!routeTopicId && (visibleQuizCourses.length === 0 || quizReadyTopicList.length === 0))
+        (!routeTopicId && selectionCourseList.length === 0)
         || !topicPreview
-        || !previewQuestion
     ) {
         return (
             <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -423,7 +427,7 @@ const ActiveQuizSession = () => {
                         onSelectAnswer={(value) => setSelectedAnswer({ questionId: previewQuestionId, value })}
                     />
 
-                    {visibleQuizCourses.length > 1 && (
+                    {selectionCourseList.length > 1 && (
                         <section className="mt-space-8">
                             <div className="mb-space-4 flex items-end justify-between gap-space-3">
                                 <div>
@@ -434,7 +438,7 @@ const ActiveQuizSession = () => {
                                 </div>
                             </div>
                             <div className="grid gap-space-4 md:grid-cols-2">
-                                {visibleQuizCourses.slice(0, 4).map((course) => (
+                                {selectionCourseList.slice(0, 4).map((course) => (
                                     <CourseQuizCard key={course._id} course={course} />
                                 ))}
                             </div>

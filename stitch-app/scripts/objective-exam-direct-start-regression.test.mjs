@@ -20,11 +20,17 @@ for (const forbiddenSnippet of [
   }
 }
 
-if (!source.includes("setExamFormat('mcq');")) {
-  throw new Error('Expected Objective Quiz CTA to start MCQ mode immediately.');
+for (const expectedSnippet of [
+  'examFormat: resolveAutostartExamFormat(search)',
+  "if (raw === 'mcq' || raw === 'objective' || raw === 'quiz') return 'mcq';",
+  "dispatchExamState({ type: 'chooseFormat', examFormat: 'mcq' });",
+]) {
+  if (!source.includes(expectedSnippet)) {
+    throw new Error(`Expected Objective Quiz CTA to start MCQ mode immediately (${expectedSnippet}).`);
+  }
 }
 
-if (!source.includes('Choose Exam Format')) {
+if (!source.includes('Choose Quiz Format')) {
   throw new Error('Expected ExamMode to preserve the top-level format chooser.');
 }
 

@@ -237,13 +237,13 @@ const AccountStudySettings = () => {
                                     </button>
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Full Name</label>
-                                    <input className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="text" value={fullName} onChange={(event) => setDraftFullName(event.target.value)} />
+                                    <label htmlFor="settings-full-name" className="block font-label-md text-label-md text-text-secondary mb-space-2">Full Name</label>
+                                    <input id="settings-full-name" className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="text" value={fullName} onChange={(event) => setDraftFullName(event.target.value)} />
                                 </div>
                             </div>
                             <div>
-                                <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Email Address</label>
-                                <input className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="email" value={emailAddress} readOnly />
+                                <label htmlFor="settings-email-address" className="block font-label-md text-label-md text-text-secondary mb-space-2">Email Address</label>
+                                <input id="settings-email-address" className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="email" value={emailAddress} readOnly />
                             </div>
                         </section>
 
@@ -301,9 +301,9 @@ const AccountStudySettings = () => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-space-6">
                                 <div>
-                                    <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Daily Goal (Minutes)</label>
+                                    <label htmlFor="settings-daily-goal-minutes" className="block font-label-md text-label-md text-text-secondary mb-space-2">Daily Goal (Minutes)</label>
                                     <div className="relative">
-                                        <input className="w-full bg-surface-soft border border-border-default rounded-lg pl-space-4 pr-10 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="number" min="1" value={dailyGoal} onChange={(e) => setDraftDailyGoal(e.target.value)} />
+                                        <input id="settings-daily-goal-minutes" className="w-full bg-surface-soft border border-border-default rounded-lg pl-space-4 pr-10 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="number" min="1" value={dailyGoal} onChange={(e) => setDraftDailyGoal(e.target.value)} />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">min</span>
                                     </div>
                                 </div>

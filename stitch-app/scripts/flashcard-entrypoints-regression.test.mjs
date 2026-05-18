@@ -87,9 +87,12 @@ requireIncludes(
 );
 requireIncludes('terms.length < 6', 'minimum valid Word Bank gate');
 requireIncludes('Word Bank needs regeneration', 'invalid Word Bank regeneration state');
+requireIncludes('resumeFlashcardReady', 'latest flashcard entrypoint readiness gate');
+requireIncludes('This topic needs a valid Word Bank before it can become a study deck.', 'invalid latest topic flashcard entrypoint copy');
 requireIncludes('actionLabel="Regenerate Word Bank"', 'missing Word Bank regeneration CTA');
 requireIncludes('Regenerate Word Bank', 'existing deck regeneration CTA');
 requireIncludes('onRegenerate={handleRegenerateTopic}', 'regenerate handler passed to the active deck');
+requireIncludes('onRegenerateResumeTopic={handleRegenerateResumeTopic}', 'regenerate handler passed to the latest topic card');
 requireIncludes('await regenerateLessonContent({', 'regenerate action invocation');
 requireIncludes('GENERIC_DEFINITION_PATTERNS', 'client-side generic definition rejection');
 requireIncludes('LEARNING_OBJECTIVE_FRAGMENT_TERM_PATTERN', 'client-side fragment term rejection');
@@ -107,5 +110,6 @@ requireExcludes('Practice next', 'recommendation-style review section title');
 requireExcludes('Start review', 'review-status CTA copy');
 requireIncludes('Study decks', 'neutral flashcard deck section title');
 requireIncludes('Open deck', 'neutral flashcard deck CTA');
+requireIncludes('Open first lesson', 'unverified course flashcard entrypoint opens the lesson instead of a broken deck');
 
 console.log('flashcard-entrypoints-regression.test.mjs passed');
