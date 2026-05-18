@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { getUserFacingUploadErrorMessage } from '../lib/uploadErrorMessages';
 
 const filterTabs = [
     { label: 'All Files', value: 'all' },
@@ -79,7 +80,7 @@ const MyMaterialsLibrary = () => {
                 status: upload.status,
                 processingProgress: upload.processingProgress || 0,
                 processingStep: upload.processingStep || '',
-                errorMessage: upload.errorMessage || '',
+                errorMessage: getUserFacingUploadErrorMessage(upload.errorMessage),
                 createdAt: upload._creationTime,
                 lessons: topicCount,
                 quizzes: quizzesReady,
