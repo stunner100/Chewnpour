@@ -9,10 +9,16 @@ const SUBTEXT = 'rgb(163, 163, 163)';
 const FOOTER_YEAR = new Date().getFullYear();
 
 // Hex-framed logo lockup using the same outline-only mark as the landing-page nav.
-export const HexLogo = ({ size = 32, withWordmark = false, className = '' }) => (
+export const HexLogo = ({
+    size = 32,
+    withWordmark = false,
+    className = '',
+    markClassName = 'text-white',
+    wordmarkClassName = '',
+}) => (
     <span className={`inline-flex items-center gap-2.5 text-white ${className}`} aria-label="ChewnPour">
         <span className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full text-white" fill="none">
+            <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${markClassName}`} fill="none">
                 <polygon
                     points="50,6 90,28 90,72 50,94 10,72 10,28"
                     stroke="currentColor"
@@ -29,7 +35,7 @@ export const HexLogo = ({ size = 32, withWordmark = false, className = '' }) => 
             />
         </span>
         {withWordmark && (
-            <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20, letterSpacing: '-0.02em' }}>
+            <span className={wordmarkClassName} style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20, letterSpacing: 0 }}>
                 ChewnPour
             </span>
         )}

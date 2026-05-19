@@ -6,9 +6,8 @@ const root = process.cwd();
 const source = await fs.readFile(path.join(root, 'src/components/DashboardLayout.jsx'), 'utf8');
 
 for (const snippet of [
-  'const DashboardBrandMark = () => (',
-  'points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5"',
-  'src="/logonew.jpeg"',
+  "import { HexLogo } from './PublicShell.jsx';",
+  '<HexLogo size={44} className="text-[#6D28D9]" markClassName="text-[#6D28D9]" />',
   'text-[#6D28D9]',
   'setThemePreference(LIGHT_THEME);',
 ]) {
@@ -19,6 +18,10 @@ for (const snippet of [
 
 if (source.includes('>psychiatry</span>')) {
   throw new Error('Dashboard brand should not fall back to the old material icon.');
+}
+
+if (source.includes('const DashboardBrandMark = () => (')) {
+  throw new Error('Dashboard should reuse the same HexLogo used by public landing surfaces.');
 }
 
 console.log('dashboard-brand-theme-regression.test.mjs passed');

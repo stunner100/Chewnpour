@@ -9,6 +9,7 @@ import CommandPalette from './CommandPalette';
 import { captureSentryException } from '../lib/sentry.js';
 import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
 import { LIGHT_THEME, setThemePreference } from '../lib/theme.js';
+import { HexLogo } from './PublicShell.jsx';
 
 const navItems = [
     { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', exact: true },
@@ -28,33 +29,6 @@ const bottomNavItems = [
 
 const SUPPORT_EMAIL = 'info@chewnpour.com';
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=ChewnPour%20Support`;
-
-const DashboardBrandMark = () => (
-    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center" aria-hidden="true">
-        <svg
-            viewBox="0 0 100 100"
-            className="absolute inset-0 h-full w-full text-[#6D28D9]"
-            fill="none"
-            focusable="false"
-        >
-            <polygon
-                points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5"
-                fill="rgba(109, 40, 217, 0.10)"
-                stroke="currentColor"
-                strokeWidth="4"
-                strokeLinejoin="round"
-            />
-        </svg>
-        <span className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#13091F] shadow-[0_8px_18px_rgba(109,40,217,0.22)]">
-            <img
-                src="/logonew.jpeg"
-                alt=""
-                className="h-full w-full object-cover"
-                decoding="async"
-            />
-        </span>
-    </span>
-);
 
 const scrollDashboardTargetIntoView = (targetId, options = {}) => {
     if (typeof document === 'undefined') return false;
@@ -216,7 +190,7 @@ const DashboardLayout = ({ children }) => {
                     aria-label="ChewnPour dashboard"
                     className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/25"
                 >
-                    <DashboardBrandMark />
+                    <HexLogo size={44} className="text-[#6D28D9]" markClassName="text-[#6D28D9]" />
                     <div>
                         <h1 className="font-headline-sm text-headline-sm tracking-tight text-[#6D28D9] font-bold">ChewnPour</h1>
                         <p className="font-label-xs text-label-xs text-text-muted mt-space-1">AI Study Workspace</p>
