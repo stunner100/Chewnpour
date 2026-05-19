@@ -164,11 +164,11 @@ const Login = () => {
                         </h1>
                     </BlurFade>
                     <BlurFade delay={0.2} yOffset={10}>
-                        <p className="text-white/70 text-base leading-relaxed max-w-md">
+                        <p className="text-[#687384] text-base leading-relaxed max-w-md">
                             Upload your course materials and get instant lessons, smart quizzes, and an AI tutor that understands your content.
                         </p>
                     </BlurFade>
-                    <div className="flex items-center gap-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center gap-4 pt-4 border-t border-[#E7E0D4]">
                         <div className="flex">
                             {['/chewnpour/img1.jpg', '/chewnpour/img2.jpg', '/chewnpour/img3.jpg', '/chewnpour/img4.jpg'].map((src, i) => (
                                 <img
@@ -176,14 +176,14 @@ const Login = () => {
                                     src={src}
                                     alt=""
                                     aria-hidden="true"
-                                    className="size-9 -ml-2 first:ml-0 rounded-full border-2 border-[#0A0A0A] object-cover shadow-md login-avatar-bob"
+                                    className="size-9 -ml-2 first:ml-0 rounded-full border-2 border-white object-cover shadow-md login-avatar-bob"
                                     style={{ animationDelay: `${i * 0.35}s`, zIndex: 10 - i }}
                                     decoding="async"
                                     loading="lazy"
                                 />
                             ))}
                         </div>
-                        <p className="text-sm text-white/60">
+                        <p className="text-sm text-[#687384]">
                             Join thousands of students already studying smarter
                         </p>
                     </div>
@@ -193,7 +193,7 @@ const Login = () => {
                 <BlurFade delay={0.05} yOffset={12} className="cp-card">
                     <div className="mb-6">
                         <h2 className="text-2xl font-semibold mb-1">Welcome back</h2>
-                        <p className="text-sm text-white/60">Sign in to continue studying.</p>
+                        <p className="text-sm text-[#687384]">Sign in to continue studying.</p>
                     </div>
 
                     {error && (
@@ -223,9 +223,9 @@ const Login = () => {
                     </button>
 
                     <div className="flex items-center gap-3 my-5">
-                        <div className="flex-1 border-t border-white/10" />
-                        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/40">or</span>
-                        <div className="flex-1 border-t border-white/10" />
+                        <div className="flex-1 border-t border-[#E7E0D4]" />
+                        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#8A94A6]">or</span>
+                        <div className="flex-1 border-t border-[#E7E0D4]" />
                     </div>
 
                     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -268,7 +268,7 @@ const Login = () => {
                                     required
                                 />
                                 <button
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A94A6] hover:text-[#1F2933] transition-colors"
                                     type="button"
                                     onClick={() => dispatchLogin({ type: 'togglePassword' })}
                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
@@ -292,7 +292,7 @@ const Login = () => {
                         </button>
                     </form>
 
-                    <p className="mt-6 text-center text-sm text-white/60">
+                    <p className="mt-6 text-center text-sm text-[#687384]">
                         New here?{' '}
                         <Link to="/signup" className="font-semibold text-[rgb(145,75,241)] hover:underline">
                             Create an account

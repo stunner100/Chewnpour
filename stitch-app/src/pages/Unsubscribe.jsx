@@ -84,7 +84,7 @@ const Unsubscribe = () => {
                     <h1 className="mt-5 text-2xl font-semibold">
                         {status === 'success' ? 'Preferences updated' : status === 'error' ? 'Unsubscribe failed' : 'Updating preferences'}
                     </h1>
-                    <p className="mt-2 text-sm text-white/60">
+                    <p className="mt-2 text-sm text-[#687384]">
                         {status === 'loading' ? 'Please wait while we update your email preferences.' : message}
                     </p>
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

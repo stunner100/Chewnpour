@@ -355,26 +355,26 @@ html.is-safari .safari-backdrop {
 }
 
 /* ────────────────────────────────────────────────────────────────
-   Landing-themed public surfaces (login, signup, reset, privacy,
-   terms, unsubscribe, 404). Black bg, mono type, folder accents.
+   Light public product surfaces (login, signup, reset, privacy,
+   terms, unsubscribe, 404).
    ──────────────────────────────────────────────────────────────── */
 .cp-input {
     width: 100%;
     height: 3rem;
     padding: 0 1rem;
     border-radius: 0.75rem;
-    background: #1a1a1a;
-    border: 1px solid #2a2a2a;
-    color: #fff;
+    background: #fff;
+    border: 1px solid #d9d2c6;
+    color: #1f2933;
     font-family: inherit;
     font-size: 0.9rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.cp-input::placeholder { color: rgba(255,255,255,0.35); }
+.cp-input::placeholder { color: rgba(104,115,132,0.7); }
 .cp-input:focus {
     outline: none;
-    border-color: #E8651B;
-    box-shadow: 0 0 0 3px rgba(232,101,27,0.18);
+    border-color: rgb(145, 75, 241);
+    box-shadow: 0 0 0 3px rgba(145,75,241,0.16);
 }
 .cp-input:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -384,12 +384,11 @@ html.is-safari .safari-backdrop {
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.7);
+    color: rgba(31,41,51,0.72);
     margin-bottom: 0.4rem;
 }
 
-/* NajmAI-aligned public surfaces: Outfit type, charcoal cards rgb(39,40,41),
-   accent rgb(145,75,241), 12px button radius, 20px card radius. */
+/* Public surfaces: Outfit type, white cards, purple accent, compact radius. */
 .cp-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -417,22 +416,23 @@ html.is-safari .safari-backdrop {
     width: 100%;
     height: 2.75rem;
     border-radius: 0.5rem;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.18);
-    color: #fff;
+    background: #fff;
+    border: 1px solid #d9d2c6;
+    color: #1f2933;
     font-family: 'Inter', 'Outfit', system-ui, sans-serif;
     font-weight: 600;
     font-size: 0.875rem;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
-.cp-btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.32); }
+.cp-btn-secondary:hover:not(:disabled) { background: #faf8f3; border-color: rgba(145,75,241,0.32); }
 .cp-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .cp-card {
-    background: rgb(39, 40, 41);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: #fff;
+    border: 1px solid #e7e0d4;
     border-radius: 20px;
     padding: 2rem;
+    box-shadow: 0 18px 40px rgba(31,41,51,0.08);
     position: relative;
     isolation: isolate;
 }
@@ -443,8 +443,8 @@ html.is-safari .safari-backdrop {
     inset: 0;
     pointer-events: none;
     border-radius: inherit;
-    opacity: 0.5;
-    mix-blend-mode: overlay;
+    opacity: 0.18;
+    mix-blend-mode: multiply;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
     background-size: 180px 180px;
     z-index: 0;
@@ -452,12 +452,12 @@ html.is-safari .safari-backdrop {
 .cp-card > * { position: relative; z-index: 1; }
 
 .cp-prose {
-    color: rgba(255,255,255,0.82);
+    color: #4b5563;
     font-family: inherit;
     line-height: 1.65;
 }
 .cp-prose h1, .cp-prose h2, .cp-prose h3 {
-    color: #fff;
+    color: #1f2933;
     font-weight: 700;
     letter-spacing: -0.01em;
     margin-top: 2.25rem;
@@ -467,11 +467,11 @@ html.is-safari .safari-backdrop {
 .cp-prose h2 { font-size: 1.35rem; }
 .cp-prose h3 { font-size: 1.1rem; }
 .cp-prose p { margin-bottom: 1rem; }
-.cp-prose a { color: #F3C64A; text-decoration: underline; text-underline-offset: 3px; }
-.cp-prose a:hover { color: #ffd766; }
+.cp-prose a { color: rgb(109, 40, 217); text-decoration: underline; text-underline-offset: 3px; }
+.cp-prose a:hover { color: rgb(124, 58, 237); }
 .cp-prose ul, .cp-prose ol { margin: 0.75rem 0 1rem 1.25rem; }
 .cp-prose li { margin-bottom: 0.35rem; }
-.cp-prose strong { color: #fff; }
+.cp-prose strong { color: #1f2933; }
 
 /* ── Lesson reader scope ─────────────────────────────────────────────── */
 .lesson-prose { font-feature-settings: "ss01", "ss02"; }

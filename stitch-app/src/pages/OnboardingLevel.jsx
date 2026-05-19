@@ -10,9 +10,10 @@ import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const ACCENT = 'rgb(145, 75, 241)';
-const PAGE_BG = 'rgb(16, 17, 18)';
-const CARD_BG = 'rgb(39, 40, 41)';
-const SUBTEXT = 'rgb(163, 163, 163)';
+const PAGE_BG = '#FAFAFB';
+const CARD_BG = '#FFFFFF';
+const SUBTEXT = '#687384';
+const TEXT_MAIN = '#1F2933';
 
 const levelMap = { 100: 'freshman', 200: 'sophomore', 300: 'junior', 400: 'senior' };
 
@@ -61,19 +62,19 @@ const OnboardingLevel = () => {
     return (
         <div
             className="min-h-screen flex flex-col"
-            style={{ background: PAGE_BG, color: '#fff', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
+            style={{ background: PAGE_BG, color: TEXT_MAIN, fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
         >
             <header className="w-full pt-6 pb-2 px-6">
                 <div className="max-w-md mx-auto">
-                    <Link to="/" className="flex items-center gap-2.5 text-white mb-5">
-                        <HexLogo size={28} withWordmark />
+                    <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9] mb-5">
+                        <HexLogo size={28} withWordmark markClassName="text-[#6D28D9]" wordmarkClassName="text-[#6D28D9]" />
                     </Link>
                     <OnboardingProgress step={2} total={3} />
                     <div className="flex items-center justify-between mt-4">
                         <button
                             type="button"
                             onClick={() => navigate(-1)}
-                            className="inline-flex items-center justify-center size-9 rounded-full text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                            className="inline-flex items-center justify-center size-9 rounded-full text-[#687384] hover:text-[#1F2933] hover:bg-[#F3EEE7] transition-colors"
                             aria-label="Back"
                         >
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
@@ -84,7 +85,7 @@ const OnboardingLevel = () => {
                         <button
                             onClick={handleSkip}
                             disabled={loading}
-                            className="text-xs font-semibold hover:text-white transition-colors disabled:opacity-50"
+                            className="text-xs font-semibold hover:text-[#1F2933] transition-colors disabled:opacity-50"
                             style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}
                         >
                             Skip
@@ -124,7 +125,7 @@ const OnboardingLevel = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="w-full max-w-md mb-6 p-3.5 rounded-xl text-sm font-medium text-center"
-                        style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}
+                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgb(185,28,28)', fontFamily: 'Inter, sans-serif' }}
                     >
                         {error}
                     </Motion.div>
@@ -143,7 +144,7 @@ const OnboardingLevel = () => {
                                     className="group relative flex flex-col items-center justify-center p-6 aspect-[4/3] lg:aspect-square rounded-xl transition-all active:scale-[0.98]"
                                     style={{
                                         background: CARD_BG,
-                                        border: `1px solid ${isSelected ? ACCENT : 'rgba(255,255,255,0.08)'}`,
+                                        border: `1px solid ${isSelected ? ACCENT : '#E7E0D4'}`,
                                         boxShadow: isSelected ? `0 0 0 3px rgba(145,75,241,0.18)` : 'none',
                                     }}
                                 >
@@ -160,7 +161,7 @@ const OnboardingLevel = () => {
                                             fontFamily: 'Outfit, sans-serif',
                                             fontWeight: 600,
                                             fontSize: 40,
-                                            color: isSelected ? ACCENT : '#fff',
+                                            color: isSelected ? ACCENT : TEXT_MAIN,
                                             marginBottom: 4,
                                             letterSpacing: 0,
                                         }}

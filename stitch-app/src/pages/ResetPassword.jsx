@@ -148,7 +148,7 @@ const ResetPassword = () => {
                             </>
                         )}
                     </h1>
-                    <p className="text-white/70 text-base leading-relaxed max-w-md">
+                    <p className="text-[#687384] text-base leading-relaxed max-w-md">
                         {token
                             ? 'Choose a strong password you haven\u2019t used before. Eight characters minimum — no previously leaked passwords please.'
                             : 'Enter the email tied to your account and we\u2019ll send a reset link. No spam, ever.'}
@@ -161,7 +161,7 @@ const ResetPassword = () => {
                         <h2 className="text-2xl font-semibold mb-1">
                             {token ? 'Set a new password' : 'Reset your password'}
                         </h2>
-                        <p className="text-sm text-white/60">
+                        <p className="text-sm text-[#687384]">
                             {token
                                 ? 'Choose a strong password you haven\u2019t used before.'
                                 : 'Enter your email and we\u2019ll send a reset link.'}
@@ -169,7 +169,7 @@ const ResetPassword = () => {
                     </div>
 
                     {error && (
-                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[#F3C64A] flex items-center gap-2">
+                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[#B45309] flex items-center gap-2">
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
                         </div>
@@ -257,9 +257,9 @@ const ResetPassword = () => {
                         </form>
                     )}
 
-                    <p className="mt-6 text-center text-sm text-white/60">
+                    <p className="mt-6 text-center text-sm text-[#687384]">
                         Remembered it?{' '}
-                        <Link to="/login" className="font-semibold text-[#F3C64A] hover:underline">
+                        <Link to="/login" className="font-semibold text-[rgb(145,75,241)] hover:underline">
                             Back to sign in
                         </Link>
                     </p>

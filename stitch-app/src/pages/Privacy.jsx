@@ -8,7 +8,7 @@ const Privacy = () => (
                 <span className="inline-block w-8 h-[2px] bg-[#B39DFF]" /> Legal
             </div>
             <h1>Privacy Policy</h1>
-            <p className="text-white/50 text-sm">Last updated: 21 March 2026</p>
+            <p className="text-[#687384] text-sm">Last updated: 21 March 2026</p>
 
             <h2>1. Introduction</h2>
             <p>

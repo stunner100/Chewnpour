@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useLayoutEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { LazyMotion, domAnimation } from 'motion/react';
@@ -20,6 +20,7 @@ import DashboardLayout from './components/DashboardLayout';
 import PublicShell, { ArrowBadge } from './components/PublicShell';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
+import { LIGHT_THEME, setThemePreference } from './lib/theme';
 
 const ChunkRecoveryFallback = ({ componentName, reloadRequested = false }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
@@ -128,6 +129,10 @@ const AdminDashboard = lazyRoute(() => import('./pages/AdminDashboard'), { compo
 function RouteChangeTracker() {
   const routerLocation = useLocation();
 
+  useLayoutEffect(() => {
+    setThemePreference(LIGHT_THEME);
+  }, [routerLocation.pathname]);
+
   useEffect(() => {
     addSentryBreadcrumb({
       category: 'navigation',
@@ -226,7 +231,7 @@ const NotFound = () => (
           <ArrowBadge size={44} /> found
         </span>
       </h1>
-      <p className="text-white/70 text-base leading-relaxed max-w-md mx-auto mb-8">
+      <p className="text-[#687384] text-base leading-relaxed max-w-md mx-auto mb-8">
         The page you're looking for doesn't exist or has been moved. Let's get you back on track.
       </p>
       <a href="/dashboard" className="cp-btn-primary inline-flex w-auto px-6">

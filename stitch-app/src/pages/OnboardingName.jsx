@@ -11,11 +11,11 @@ import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const ACCENT = 'rgb(145, 75, 241)';
-const PAGE_BG = 'rgb(16, 17, 18)';
-const CARD_BG = 'rgb(39, 40, 41)';
-const SUBTEXT = 'rgb(163, 163, 163)';
-const INPUT_BG = 'rgb(28, 29, 30)';
-const BORDER = 'rgba(255, 255, 255, 0.1)';
+const PAGE_BG = '#FAFAFB';
+const SUBTEXT = '#687384';
+const INPUT_BG = '#FFFFFF';
+const BORDER = '#D9D2C6';
+const TEXT_MAIN = '#1F2933';
 
 const NAME_FORM_ID = 'onboarding-name-form';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -155,7 +155,7 @@ const OnboardingName = () => {
         borderRadius: 12,
         background: INPUT_BG,
         border: `1px solid ${fieldBorder(valid, isTouched, value)}`,
-        color: '#fff',
+        color: TEXT_MAIN,
         fontSize: 15,
         fontFamily: 'Inter, sans-serif',
         outline: 'none',
@@ -165,19 +165,19 @@ const OnboardingName = () => {
     return (
         <div
             className="min-h-screen flex flex-col"
-            style={{ background: PAGE_BG, color: '#fff', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
+            style={{ background: PAGE_BG, color: TEXT_MAIN, fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
         >
             {/* Header — logo + progress + step indicator */}
             <header className="w-full pt-6 pb-2 px-6">
                 <div className="max-w-md mx-auto">
-                    <Link to="/" className="flex items-center gap-2.5 text-white mb-5">
-                        <HexLogo size={28} withWordmark />
+                    <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9] mb-5">
+                        <HexLogo size={28} withWordmark markClassName="text-[#6D28D9]" wordmarkClassName="text-[#6D28D9]" />
                     </Link>
                     <OnboardingProgress step={1} total={3} />
                     <div className="flex items-center justify-between mt-4">
                         <Link
                             to="/signup"
-                            className="inline-flex items-center justify-center size-9 rounded-full text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                            className="inline-flex items-center justify-center size-9 rounded-full text-[#687384] hover:text-[#1F2933] hover:bg-[#F3EEE7] transition-colors"
                             aria-label="Back"
                         >
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
@@ -235,7 +235,7 @@ const OnboardingName = () => {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                             className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
-                            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}
+                            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgb(185,28,28)', fontFamily: 'Inter, sans-serif' }}
                         >
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
@@ -245,7 +245,7 @@ const OnboardingName = () => {
                     <BlurFade delay={0.25} yOffset={10} className="space-y-5">
                         {/* Name */}
                         <div className="space-y-2">
-                            <label htmlFor="onboarding-name" className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-name" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'Inter, sans-serif' }}>
                                 Your name
                             </label>
                             <input
@@ -271,7 +271,7 @@ const OnboardingName = () => {
 
                         {/* Email */}
                         <div className="space-y-2">
-                            <label htmlFor="onboarding-email" className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-email" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'Inter, sans-serif' }}>
                                 Email address
                             </label>
                             <input
@@ -297,7 +297,7 @@ const OnboardingName = () => {
 
                         {/* Password */}
                         <div className="space-y-2">
-                            <label htmlFor="onboarding-password" className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-password" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'Inter, sans-serif' }}>
                                 Password
                             </label>
                             <input

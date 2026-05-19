@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import CanvasCrowd from './blocks/CanvasCrowd';
 
 const ACCENT = 'rgb(145, 75, 241)';
-const PAGE_BG = 'rgb(16, 17, 18)';
-const FOOTER_BG = 'rgb(20, 20, 19)';
-const SUBTEXT = 'rgb(163, 163, 163)';
+const PAGE_BG = '#FAFAFB';
+const FOOTER_BG = '#FAF8F3';
+const TEXT = '#1F2933';
+const SUBTEXT = '#687384';
 const FOOTER_YEAR = new Date().getFullYear();
 
 // Hex-framed logo lockup using the same outline-only mark as the landing-page nav.
@@ -16,7 +17,7 @@ export const HexLogo = ({
     markClassName = 'text-white',
     wordmarkClassName = '',
 }) => (
-    <span className={`inline-flex items-center gap-2.5 text-white ${className}`} aria-label="ChewnPour">
+    <span className={`inline-flex items-center gap-2.5 ${className}`} aria-label="ChewnPour">
         <span className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
             <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${markClassName}`} fill="none">
                 <polygon
@@ -55,26 +56,26 @@ export const ArrowBadge = ({ size = 40, className = '' }) => (
     </span>
 );
 
-// Shared shell for all unauthenticated / marketing surfaces. Matches the landing page:
-// near-black bg rgb(16,17,18), Outfit type, floating pill nav, slim dark footer.
+// Shared shell for unauthenticated product surfaces. The landing page owns its
+// immersive dark treatment separately; auth/legal routes stay light.
 const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
     <div
         className={`relative min-h-screen overflow-x-hidden ${className}`}
         style={{
             background: PAGE_BG,
-            color: '#fff',
+            color: TEXT,
             fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
         }}
     >
         <header className="sticky top-0 z-50" style={{ background: PAGE_BG }}>
             <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-5 flex items-center justify-between">
-                <Link to="/" className="flex items-center gap-2.5 text-white" aria-label="ChewnPour home">
-                    <HexLogo size={28} withWordmark />
+                <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9]" aria-label="ChewnPour home">
+                    <HexLogo size={28} withWordmark markClassName="text-[#6D28D9]" wordmarkClassName="text-[#6D28D9]" />
                 </Link>
                 {showAuthNav && (
                     <nav className="flex items-center gap-6 text-sm" style={{ fontFamily: 'Inter, sans-serif' }}>
-                        <Link to="/" className="text-white/80 hover:text-white transition-colors">Home</Link>
-                        <Link to="/login" className="text-white/80 hover:text-white transition-colors">Sign In</Link>
+                        <Link to="/" className="text-[#687384] hover:text-[#1F2933] transition-colors">Home</Link>
+                        <Link to="/login" className="text-[#687384] hover:text-[#1F2933] transition-colors">Sign In</Link>
                         <Link
                             to="/signup"
                             className="inline-flex items-center justify-center h-9 px-4 rounded-full text-white font-semibold"
@@ -93,19 +94,19 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
 
         <footer className="mt-16 overflow-hidden" style={{ background: FOOTER_BG, borderTop: '1px solid rgba(217,217,217,0.08)' }}>
             <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <Link to="/" className="flex items-center gap-2.5 text-white">
-                    <HexLogo size={28} withWordmark />
+                <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9]">
+                    <HexLogo size={28} withWordmark markClassName="text-[#6D28D9]" wordmarkClassName="text-[#6D28D9]" />
                 </Link>
                 <nav
                     className="flex flex-wrap items-center gap-6 text-sm"
                     style={{ fontFamily: 'Inter, sans-serif' }}
                 >
-                    <Link to="/" className="text-white/80 hover:text-white transition-colors">Home</Link>
-                    <Link to="/login" className="text-white/80 hover:text-white transition-colors">Sign In</Link>
-                    <Link to="/signup" className="text-white/80 hover:text-white transition-colors">Sign Up</Link>
-                    <Link to="/privacy" className="text-white/80 hover:text-white transition-colors">Privacy</Link>
-                    <Link to="/terms" className="text-white/80 hover:text-white transition-colors">Terms</Link>
-                    <a href="mailto:info@chewnpour.com" className="text-white/80 hover:text-white transition-colors">Contact</a>
+                    <Link to="/" className="text-[#687384] hover:text-[#1F2933] transition-colors">Home</Link>
+                    <Link to="/login" className="text-[#687384] hover:text-[#1F2933] transition-colors">Sign In</Link>
+                    <Link to="/signup" className="text-[#687384] hover:text-[#1F2933] transition-colors">Sign Up</Link>
+                    <Link to="/privacy" className="text-[#687384] hover:text-[#1F2933] transition-colors">Privacy</Link>
+                    <Link to="/terms" className="text-[#687384] hover:text-[#1F2933] transition-colors">Terms</Link>
+                    <a href="mailto:info@chewnpour.com" className="text-[#687384] hover:text-[#1F2933] transition-colors">Contact</a>
                 </nav>
             </div>
             <div
@@ -117,7 +118,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
                 <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                        background: `linear-gradient(to top, ${FOOTER_BG} 0%, rgba(20,20,19,0) 52%, ${FOOTER_BG} 100%)`,
+                        background: `linear-gradient(to top, ${FOOTER_BG} 0%, rgba(250,248,243,0) 52%, ${FOOTER_BG} 100%)`,
                     }}
                 />
             </div>

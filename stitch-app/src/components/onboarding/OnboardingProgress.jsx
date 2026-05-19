@@ -2,7 +2,7 @@ import React from 'react';
 import { m as Motion } from 'motion/react';
 
 const ACCENT = 'rgb(145, 75, 241)';
-const INACTIVE = 'rgba(255,255,255,0.1)';
+const INACTIVE = 'rgba(31,41,51,0.12)';
 
 export const OnboardingProgress = ({ step = 1, total = 3 }) => {
     const parsedTotal = Number(total);

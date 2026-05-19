@@ -4,8 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import PublicShell from '../components/PublicShell';
 
 const ACCENT = 'rgb(145, 75, 241)';
-const CARD_BG = 'rgb(39, 40, 41)';
-const SUBTEXT = 'rgb(163, 163, 163)';
+const CARD_BG = '#FFFFFF';
+const SUBTEXT = '#687384';
 
 const features = [
     { icon: 'menu_book', label: 'Smart Lessons' },
@@ -79,12 +79,12 @@ const SignUp = () => {
                     >
                         Upload your slides and notes. Get AI-generated lessons, practice quizzes, and a personal tutor in seconds.
                     </p>
-                    <div className="grid grid-cols-3 gap-3 max-w-sm pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="grid grid-cols-3 gap-3 max-w-sm pt-6" style={{ borderTop: '1px solid #E7E0D4' }}>
                         {features.map((f) => (
                             <div
                                 key={f.label}
                                 className="rounded-xl p-4 flex flex-col items-center gap-2 text-center"
-                                style={{ background: CARD_BG, border: '1px solid rgba(255,255,255,0.06)' }}
+                                style={{ background: CARD_BG, border: '1px solid #E7E0D4' }}
                             >
                                 <span
                                     className="inline-flex items-center justify-center size-9 rounded-full"
@@ -93,7 +93,7 @@ const SignUp = () => {
                                     <span className="material-symbols-outlined text-white" style={{ fontSize: 18 }}>{f.icon}</span>
                                 </span>
                                 <span
-                                    className="text-[11px] font-semibold uppercase tracking-wider text-white"
+                                    className="text-[11px] font-semibold uppercase tracking-wider text-[#1F2933]"
                                     style={{ fontFamily: 'Inter, sans-serif' }}
                                 >
                                     {f.label}
@@ -143,7 +143,7 @@ const SignUp = () => {
                             style={{
                                 border: '1px solid rgba(239,68,68,0.4)',
                                 background: 'rgba(239,68,68,0.1)',
-                                color: 'rgb(252,165,165)',
+                                color: 'rgb(185,28,28)',
                                 fontFamily: 'Inter, sans-serif',
                             }}
                         >
@@ -167,14 +167,14 @@ const SignUp = () => {
                     </button>
 
                     <div className="flex items-center gap-3 my-5">
-                        <div className="flex-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+                        <div className="flex-1" style={{ borderTop: '1px solid #E7E0D4' }} />
                         <span
                             className="text-[11px] font-semibold tracking-[0.15em] uppercase"
                             style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}
                         >
                             or
                         </span>
-                        <div className="flex-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+                        <div className="flex-1" style={{ borderTop: '1px solid #E7E0D4' }} />
                     </div>
 
                     <Link
