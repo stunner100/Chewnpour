@@ -465,7 +465,7 @@ const Profile = () => {
                     {[
                         { to: '/dashboard/assignment-helper', icon: 'assignment', label: 'Assignment Helper', sub: 'Get AI answers' },
                         { to: '/dashboard/humanizer', icon: 'auto_fix_high', label: 'Rewrite & Polish', sub: 'Improve clarity and tone' },
-                        { to: '/dashboard/exam', icon: 'quiz', label: 'Past Questions', sub: 'Coming soon' },
+                        { to: '/dashboard/progress', icon: 'quiz', label: 'Past Questions', sub: 'Review quiz history' },
                         { to: '/dashboard', icon: 'dashboard', label: 'Dashboard', sub: 'Go to dashboard' },
                     ].map(item => (
                         <Link

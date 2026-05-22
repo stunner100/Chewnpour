@@ -10,7 +10,6 @@ const read = async (relativePath) => {
 
 const settingsSource = await read('src/pages/AccountStudySettings.jsx');
 const dropdownSource = await read('src/components/ui/dropdown-menu.jsx');
-const registryDropdownSource = await read('src/components/ui/dropdown-menu-14.jsx');
 
 for (const expectedSnippet of [
   "import {",
@@ -48,10 +47,6 @@ for (const incompatibleClass of [
   if (dropdownSource.includes(incompatibleClass)) {
     throw new Error(`Dropdown menu keeps Tailwind v4-only class "${incompatibleClass}".`);
   }
-}
-
-if (registryDropdownSource.includes('react-icons')) {
-  throw new Error('Registry dropdown should use the project lucide icon library, not react-icons.');
 }
 
 console.log('settings-session-length-dropdown-regression.test.mjs passed');

@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import InteractiveQuickCheck from './InteractiveQuickCheck';
 import InteractiveWordBank from './InteractiveWordBank';
+import LessonDefinitionBlock from './LessonDefinitionBlock';
 
 const HEADER_SIZES = {
     1: "text-3xl md:text-4xl font-extrabold text-neutral-900 dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
@@ -196,6 +197,20 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 }
 
                 if (block.type === 'alert') {
+                    if (block.alertType === 'definition') {
+                        return (
+                            <LessonDefinitionBlock
+                                blockKey={block.key}
+                                term="Definition"
+                                text={block.text}
+                                bold={bold}
+                                animationClass={animationClass}
+                                animationStyle={animationStyle}
+                                variant="alert"
+                            />
+                        );
+                    }
+
                     const variant = ALERT_VARIANTS[block.alertType] || DEFAULT_ALERT_VARIANT;
                     return (
                         <div
@@ -214,18 +229,14 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'definition') {
                     return (
-                        <div key={block.key} className={`my-4 md:my-6 p-5 md:p-6 rounded-[2rem] bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow duration-300 ${animationClass}`} style={animationStyle}>
-                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <span className="material-symbols-outlined text-6xl">menu_book</span>
-                            </div>
-                            <h4 className="text-sm font-semibold text-primary uppercase tracking-wider mb-2 flex items-center gap-2">
-                                <span className="size-2 rounded-full bg-primary"></span>
-                                {block.term}
-                            </h4>
-                            <div className="text-base md:text-lg text-neutral-800 dark:text-neutral-100 leading-relaxed">
-                                {bold(block.text)}
-                            </div>
-                        </div>
+                        <LessonDefinitionBlock
+                            blockKey={block.key}
+                            term={block.term}
+                            text={block.text}
+                            bold={bold}
+                            animationClass={animationClass}
+                            animationStyle={animationStyle}
+                        />
                     );
                 }
 
