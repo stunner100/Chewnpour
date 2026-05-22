@@ -2,9 +2,9 @@ import { useLayoutEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
     LIGHT_THEME,
+    applyTheme,
     getStoredTheme,
     resolveInitialTheme,
-    setThemePreference,
 } from './theme.js';
 
 const PUBLIC_LIGHT_ROUTE_PREFIXES = [
@@ -40,6 +40,6 @@ export const useRouteTheme = () => {
     const { pathname } = useLocation();
 
     useLayoutEffect(() => {
-        setThemePreference(resolveRouteTheme(pathname));
+        applyTheme(resolveRouteTheme(pathname));
     }, [pathname]);
 };

@@ -72,5 +72,7 @@ requireExcludes(
   'Our AI will automatically process your files, extract key concepts, and prepare them for study generation.',
   'old verbose dropzone detail copy',
 );
+requireIncludes(uploadSource, '\\bqa\\s+probe\\b', 'targeted internal QA probe filter');
+requireExcludes(uploadSource, '|| /\\bqa\\b/.test(normalized)', 'overbroad QA upload filter');
 
 console.log('upload-page-qa-regression.test.mjs passed');

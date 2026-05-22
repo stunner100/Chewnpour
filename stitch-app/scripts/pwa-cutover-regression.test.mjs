@@ -51,12 +51,14 @@ for (const snippet of [
 for (const snippet of [
   '"source": "/sw.js"',
   '"value": "no-store, no-cache, must-revalidate"',
-  '"key": "Clear-Site-Data"',
-  '"value": "\\"cache\\", \\"storage\\""',
 ]) {
   if (!vercelSource.includes(snippet)) {
     throw new Error(`Regression detected: vercel.json missing stale-PWA cutover header: ${snippet}`);
   }
+}
+
+if (vercelSource.includes('"key": "Clear-Site-Data"')) {
+  throw new Error('Regression detected: sw.js must not clear origin storage on routine fetches.');
 }
 
 console.log('pwa-cutover-regression.test.mjs passed');

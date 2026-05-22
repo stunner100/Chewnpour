@@ -135,8 +135,7 @@ const isInternalQaUpload = (upload) => {
 
     return /\b(?:prod(?:uction)?\s+)?objective\s+probe\b/.test(normalized)
         || /\bprobe\s+\d{6,}\b/.test(normalized)
-        || /\bqa\s+probe\b/.test(normalized)
-        || /\bqa\b/.test(normalized);
+        || /\bqa\s+probe\b/.test(normalized);
 };
 
 const UploadMaterials = () => {

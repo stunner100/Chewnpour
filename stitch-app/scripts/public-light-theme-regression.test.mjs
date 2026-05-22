@@ -31,8 +31,11 @@ for (const snippet of [
 }
 
 const routeThemeSource = await read('src/lib/useRouteTheme.js');
-if (!routeThemeSource.includes('setThemePreference(resolveRouteTheme(pathname));')) {
-  throw new Error('Expected useRouteTheme to apply route-aware theme preferences.');
+if (!routeThemeSource.includes('applyTheme(resolveRouteTheme(pathname));')) {
+  throw new Error('Expected useRouteTheme to apply route-aware theme without persisting preferences.');
+}
+if (routeThemeSource.includes('setThemePreference(')) {
+  throw new Error('Route theme policy should not rewrite the persisted user theme preference.');
 }
 if (!routeThemeSource.includes('return LIGHT_THEME;')) {
   throw new Error('Expected useRouteTheme to force light theme on public and dashboard routes.');

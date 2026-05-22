@@ -8,7 +8,7 @@ import { BlurFade } from './magicui/BlurFade';
 import CommandPalette from './CommandPalette';
 import { captureSentryException } from '../lib/sentry.js';
 import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
-import { LIGHT_THEME, setThemePreference } from '../lib/theme.js';
+import { LIGHT_THEME, applyTheme } from '../lib/theme.js';
 import { HexLogo } from './PublicShell.jsx';
 
 const navItems = [
@@ -177,7 +177,7 @@ const DashboardLayout = ({ children }) => {
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     useLayoutEffect(() => {
-        setThemePreference(LIGHT_THEME);
+        applyTheme(LIGHT_THEME);
     }, []);
 
     return (

@@ -9,7 +9,7 @@ for (const snippet of [
   "import { HexLogo } from './PublicShell.jsx';",
   '<HexLogo size={44} className="text-[#6D28D9]" markClassName="text-[#6D28D9]" />',
   'text-[#6D28D9]',
-  'setThemePreference(LIGHT_THEME);',
+  'applyTheme(LIGHT_THEME);',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`Expected dashboard layout to include "${snippet}".`);
