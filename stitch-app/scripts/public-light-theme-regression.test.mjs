@@ -23,12 +23,19 @@ const [
 ]);
 
 for (const snippet of [
-  'useLayoutEffect(() => {',
-  'setThemePreference(LIGHT_THEME);',
+  'useRouteTheme();',
 ]) {
   if (!appSource.includes(snippet)) {
     throw new Error(`Expected App route guard to include "${snippet}".`);
   }
+}
+
+const routeThemeSource = await read('src/lib/useRouteTheme.js');
+if (!routeThemeSource.includes('setThemePreference(resolveRouteTheme(pathname));')) {
+  throw new Error('Expected useRouteTheme to apply route-aware theme preferences.');
+}
+if (!routeThemeSource.includes('return LIGHT_THEME;')) {
+  throw new Error('Expected useRouteTheme to force light theme on public and dashboard routes.');
 }
 
 for (const [label, source] of [

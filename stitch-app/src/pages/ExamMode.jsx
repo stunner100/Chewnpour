@@ -11,6 +11,9 @@ import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 import ExamPreparationLoader from '../components/ExamPreparationLoader';
+import ExamLoadingShell from '../components/ExamLoadingShell';
+import ExamFormatPicker from '../components/ExamFormatPicker';
+import { EXAM_STEPS, resolveExamStep } from '../lib/resolveExamStep';
 import { WatermelonTabs, WatermelonTabsList, WatermelonTabsTrigger } from '../components/watermelon/WatermelonTabs';
 import { convexUrl } from '../lib/convex-config';
 import { resolveQuestionOptions } from '../lib/examQuestionOptions';
@@ -873,151 +876,105 @@ const ExamMode = () => {
     }, [currentQ?.options, currentQ?.tokens]);
 
 
-    if (!routeTopicId) {
+    const examStep = resolveExamStep({
+        routeTopicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+        shouldRedirectToFinalExam,
+        routedFinalAssessmentTopic,
+        topicId,
+        routingBootstrapPending,
+        examFormat,
+        examStarted,
+        startingExamAttempt,
+        hasAttemptQuestions,
+        attemptId,
+        questionCount: questions.length,
+    });
+
+    if (examStep === EXAM_STEPS.MISSING_TOPIC) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
-                <div className="text-center max-w-md px-6">
-                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
-                    </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic to start a quiz</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Go back to your dashboard and choose a topic to begin.</p>
-                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        Back to Dashboard
-                    </Link>
-                </div>
-            </div>
+            <ExamLoadingShell
+                variant="status"
+                icon="quiz"
+                title="Select a topic to start a quiz"
+                message="Go back to your dashboard and choose a topic to begin."
+                action={{ type: 'link', to: '/dashboard', label: 'Back to Dashboard' }}
+            />
         );
     }
 
-    // Loading state
-    if (isLoadingRouteTopic) {
+    if (examStep === EXAM_STEPS.LOADING_TOPIC) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your quiz environment…</p>
-                </div>
-            </div>
+            <ExamLoadingShell
+                variant="loading"
+                message="Preparing your quiz environment…"
+            />
         );
     }
 
-    if (isMissingRouteTopic) {
+    if (examStep === EXAM_STEPS.STALE_LINK) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
-                <div className="text-center max-w-md px-6">
-                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
-                    </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This quiz link is stale</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the topic, and start the quiz from there.</p>
-                    <button type="button" onClick={reloadDashboard} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        Reload Dashboard
-                    </button>
-                </div>
-            </div>
+            <ExamLoadingShell
+                variant="status"
+                icon="search_off"
+                title="This quiz link is stale"
+                message="Reload the dashboard, reopen the topic, and start the quiz from there."
+                action={{ type: 'button', onClick: reloadDashboard, label: 'Reload Dashboard' }}
+            />
         );
     }
 
-    if (shouldRedirectToFinalExam && routedFinalAssessmentTopic === undefined) {
+    if (examStep === EXAM_STEPS.FINAL_EXAM_LOADING) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final quiz…</p>
-                </div>
-            </div>
+            <ExamLoadingShell
+                variant="loading"
+                message="Preparing your final quiz…"
+            />
         );
     }
 
-    if (routingBootstrapPending) {
+    if (examStep === EXAM_STEPS.ROUTING_BOOTSTRAP) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic…</p>
-                </div>
-            </div>
+            <ExamLoadingShell
+                variant="loading"
+                message="Preparing the best assessment route for this topic…"
+            />
         );
     }
 
-    if (shouldRedirectToFinalExam && routedFinalAssessmentTopic?._id && routedFinalAssessmentTopic._id !== topicId) {
+    if (examStep === EXAM_STEPS.FINAL_EXAM_REDIRECT) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final quiz…</p>
-                </div>
-            </div>
+            <ExamLoadingShell
+                variant="loading"
+                message="Redirecting to your final quiz…"
+            />
         );
     }
 
-    if (shouldRedirectToFinalExam && !routedFinalAssessmentTopic?._id) {
+    if (examStep === EXAM_STEPS.FINAL_EXAM_UNAVAILABLE) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
-                <div className="text-center max-w-md px-6">
-                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">hourglass_top</span>
-                    </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic is covered in the final quiz</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">The final quiz is still being prepared. Return to the course and try again in a moment.</p>
-                    <Link to={`/dashboard/topic/${topicId}`} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        Back to Topic
-                    </Link>
-                </div>
-            </div>
+            <ExamLoadingShell
+                variant="status"
+                icon="hourglass_top"
+                title="This topic is covered in the final quiz"
+                message="The final quiz is still being prepared. Return to the course and try again in a moment."
+                action={{ type: 'link', to: `/dashboard/topic/${topicId}`, label: 'Back to Topic' }}
+            />
         );
     }
 
-    if (!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) {
+    if (examStep === EXAM_STEPS.CHOOSE_FORMAT) {
         return (
-            <div className="min-h-screen cp-theme bg-[#FAF8F3] flex items-center justify-center p-4">
-                <div className="w-full max-w-md">
-                    <div className="card-base p-8 text-center">
-                        <div className="size-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-3xl text-primary">quiz</span>
-                        </div>
-                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Choose Quiz Format</h2>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-8">How would you like to be tested?</p>
-
-                        <div className="space-y-3">
-                            <button
-                                onClick={() => {
-                                    dispatchExamState({ type: 'chooseFormat', examFormat: 'mcq' });
-                                }}
-                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
-                            >
-                                <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-                                    <span className="material-symbols-outlined text-primary">radio_button_checked</span>
-                                </div>
-                                <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Objective Quiz</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Multiple choice, true/false, and fill in the blank</p>
-                                </div>
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    dispatchExamState({ type: 'chooseFormat', examFormat: 'essay' });
-                                }}
-                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-[#B75E45] hover:bg-[#B75E45]/5 transition-all text-left group"
-                            >
-                                <div className="size-11 rounded-xl bg-[#B75E45]/10 flex items-center justify-center group-hover:bg-[#B75E45]/15 transition-colors">
-                                    <span className="material-symbols-outlined text-[#B75E45]">edit_note</span>
-                                </div>
-                                <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Essay / Theory</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Write your answers in your own words</p>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <ExamFormatPicker
+                onChooseFormat={(nextExamFormat) => {
+                    dispatchExamState({ type: 'chooseFormat', examFormat: nextExamFormat });
+                }}
+            />
         );
     }
 
-    if (startingExamAttempt || !examStarted || !attemptId || questions.length === 0) {
+    if (examStep === EXAM_STEPS.PREPARATION) {
         return (
             <ExamPreparationLoader
                 examFormat={examFormat}

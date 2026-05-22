@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useLayoutEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { LazyMotion, domAnimation } from 'motion/react';
@@ -20,7 +20,7 @@ import DashboardLayout from './components/DashboardLayout';
 import PublicShell, { ArrowBadge } from './components/PublicShell';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
-import { LIGHT_THEME, setThemePreference } from './lib/theme';
+import { useRouteTheme } from './lib/useRouteTheme';
 
 const ChunkRecoveryFallback = ({ componentName, reloadRequested = false }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
@@ -129,9 +129,7 @@ const AdminDashboard = lazyRoute(() => import('./pages/AdminDashboard'), { compo
 function RouteChangeTracker() {
   const routerLocation = useLocation();
 
-  useLayoutEffect(() => {
-    setThemePreference(LIGHT_THEME);
-  }, [routerLocation.pathname]);
+  useRouteTheme();
 
   useEffect(() => {
     addSentryBreadcrumb({
