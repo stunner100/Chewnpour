@@ -13,235 +13,16 @@ import ExamQuestionCard from '../components/ExamQuestionCard';
 import ExamPreparationLoader from '../components/ExamPreparationLoader';
 import { WatermelonTabs, WatermelonTabsList, WatermelonTabsTrigger } from '../components/watermelon/WatermelonTabs';
 import { convexUrl } from '../lib/convex-config';
+import { resolveQuestionOptions } from '../lib/examQuestionOptions';
+import {
+    getConvexErrorCode,
+    isConvexAuthenticationError,
+    isLikelyPostDisconnectAuthError,
+    isTransientTransportError,
+    resolveConvexActionError,
+} from '../lib/convexClientErrors';
+import AccessibleProgressBar from '../components/AccessibleProgressBar';
 
-// ── Pure option-parsing helpers (hoisted out of the component) ──
-
-const safeJsonParse = (value) => {
-    if (typeof value !== 'string') return null;
-    const trimmed = value.trim();
-    if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
-        return null;
-    }
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        return null;
-    }
-};
-
-const normalizeOptionString = (value) => {
-    if (typeof value !== 'string') return value;
-    return value
-        .replace(/\\"/g, '"')
-        .replace(/\\n/g, '\n')
-        .replace(/^"+|"+$/g, '')
-        .trim();
-};
-
-const cleanOptionText = (value) => {
-    if (value === null || value === undefined) return '';
-    let text = typeof value === 'string' ? normalizeOptionString(value) : String(value);
-    if (!text) return '';
-
-    const parsed = safeJsonParse(text);
-    if (parsed && typeof parsed === 'object') {
-        if (Array.isArray(parsed)) return '';
-        if (typeof parsed.text === 'string') return normalizeOptionString(parsed.text);
-        return '';
-    }
-
-    const textMatch = text.match(/"text"\s*:\s*"([^"]+)"/);
-    if (textMatch) return textMatch[1];
-
-    if (/"label"\s*:\s*"/.test(text) || /"isCorrect"\s*:/.test(text)) return '';
-
-    return text;
-};
-
-const extractOptionsFromText = (text) => {
-    if (typeof text !== 'string') return null;
-    const cleaned = normalizeOptionString(text);
-    const labelMatches = [...cleaned.matchAll(/"label"\s*:\s*"([^"]+)"/g)];
-    const textMatches = [...cleaned.matchAll(/"text"\s*:\s*"([^"]+)"/g)];
-    if (textMatches.length === 0) return null;
-    return textMatches.map((match, index) => ({
-        label: labelMatches[index]?.[1] ?? String.fromCharCode(65 + index),
-        text: match[1],
-    }));
-};
-
-const tryReconstructOptions = (stringOptions) => {
-    if (!Array.isArray(stringOptions) || stringOptions.length === 0) return null;
-    const joined = stringOptions.map(normalizeOptionString).join(',');
-    const cleanedCandidates = [joined, normalizeOptionString(joined)];
-
-    for (const candidate of cleanedCandidates) {
-        const parsed = safeJsonParse(candidate);
-        if (Array.isArray(parsed)) return parsed;
-        if (parsed && Array.isArray(parsed.options)) return parsed.options;
-    }
-
-    for (const candidate of cleanedCandidates) {
-        const wrapped = candidate.trim().startsWith('[') ? candidate : `[${candidate}]`;
-        const parsed = safeJsonParse(wrapped);
-        if (Array.isArray(parsed)) return parsed;
-        if (parsed && Array.isArray(parsed.options)) return parsed.options;
-    }
-
-    return extractOptionsFromText(joined) || null;
-};
-
-const reconstructFromFragments = (stringOptions) => {
-    if (!Array.isArray(stringOptions) || stringOptions.length === 0) return null;
-
-    const reconstructed = [];
-    let current = null;
-
-    for (const fragment of stringOptions) {
-        const cleaned = normalizeOptionString(fragment);
-        const labelMatch = cleaned.match(/"label"\s*:\s*"([^"]+)"/);
-        const textMatch = cleaned.match(/"text"\s*:\s*"([^"]+)"/);
-        const correctMatch = cleaned.match(/"isCorrect"\s*:\s*(true|false)/);
-
-        if (labelMatch) {
-            if (current && current.text) reconstructed.push(current);
-            current = { label: labelMatch[1] };
-        }
-
-        if (textMatch) {
-            if (!current) current = { label: String.fromCharCode(65 + reconstructed.length) };
-            current.text = textMatch[1];
-        }
-
-        if (correctMatch) {
-            if (!current) current = { label: String.fromCharCode(65 + reconstructed.length) };
-            current.isCorrect = correctMatch[1] === 'true';
-        }
-
-        if (current && current.label && current.text && correctMatch) {
-            reconstructed.push(current);
-            current = null;
-        }
-    }
-
-    if (current && current.text) reconstructed.push(current);
-
-    return reconstructed.length > 0 ? reconstructed : null;
-};
-
-const coerceOptions = (rawOptions) => {
-    if (!rawOptions) return [];
-
-    let options = rawOptions;
-    if (typeof options === 'string') {
-        const parsed = safeJsonParse(options);
-        options = parsed ?? options;
-    }
-
-    if (options && !Array.isArray(options) && typeof options === 'object') {
-        if (Array.isArray(options.options)) options = options.options;
-    }
-
-    if (!Array.isArray(options)) options = [options];
-
-    const flattened = [];
-    for (const option of options) {
-        if (typeof option === 'string') {
-            const parsed = safeJsonParse(option);
-            if (Array.isArray(parsed)) { flattened.push(...parsed); continue; }
-            if (parsed) { flattened.push(parsed); continue; }
-        }
-        flattened.push(option);
-    }
-
-    const cleaned = flattened.filter((option) => option !== null && option !== undefined);
-    if (cleaned.length > 0 && cleaned.every((option) => typeof option === 'string')) {
-        const fromFragments = reconstructFromFragments(cleaned);
-        if (fromFragments && fromFragments.length > 0) return fromFragments;
-        const reconstructed = tryReconstructOptions(cleaned);
-        if (reconstructed && reconstructed.length > 0) return reconstructed;
-        const extracted = extractOptionsFromText(cleaned.join(','));
-        if (extracted && extracted.length > 0) return extracted;
-    }
-
-    return cleaned;
-};
-
-const normalizeOption = (option, index) => {
-    if (option && typeof option === 'object') {
-        const label = option.label ?? String.fromCharCode(65 + index);
-        const text = cleanOptionText(option.text ?? option.value ?? '');
-        if (!text) return null;
-        return { label, value: String(label), text };
-    }
-    let label = String.fromCharCode(65 + index);
-    let text = cleanOptionText(option ?? '');
-    const labelMatch = typeof text === 'string' ? text.match(/"label"\s*:\s*"([^"]+)"/) : null;
-    const textMatch = typeof text === 'string' ? text.match(/"text"\s*:\s*"([^"]+)"/) : null;
-    if (labelMatch) label = labelMatch[1];
-    if (textMatch) {
-        text = textMatch[1];
-    } else if (labelMatch) {
-        text = '';
-    } else if (typeof text === 'string' && /"isCorrect"\s*:/.test(text)) {
-        text = '';
-    }
-    if (!text) return null;
-    return { label, value: label, text };
-};
-
-const buildFallbackOptionsFromRaw = (rawOptions) => {
-    try {
-        const rawString = typeof rawOptions === 'string'
-            ? rawOptions
-            : JSON.stringify(rawOptions ?? '');
-        const cleaned = normalizeOptionString(rawString);
-        const matches = [...cleaned.matchAll(/"text"\s*:\s*"([^"]+)"/g)];
-        if (matches.length === 0) return [];
-        return matches.map((match, index) => ({
-            label: String.fromCharCode(65 + index),
-            value: String.fromCharCode(65 + index),
-            text: match[1],
-        }));
-    } catch {
-        return [];
-    }
-};
-
-const resolveQuestionOptions = (rawOptions) => {
-    const options = coerceOptions(rawOptions);
-    const renderOptions = options.flatMap((option, index) => {
-        const normalized = normalizeOption(option, index);
-        return normalized ? [normalized] : [];
-    });
-    const hasRawArtifacts = renderOptions.some((o) => {
-        if (typeof o.text !== 'string') return false;
-        return (
-            o.text.includes('"label"')
-            || o.text.includes('{"label"')
-            || o.text.includes('\\"label\\"')
-            || o.text.includes('\\"isCorrect\\"')
-        );
-    });
-    const fallbackOptions = buildFallbackOptionsFromRaw(rawOptions);
-    return renderOptions.length === 0 || hasRawArtifacts
-        ? (fallbackOptions.length > 0 ? fallbackOptions : renderOptions)
-        : renderOptions;
-};
-
-const CONVEX_ERROR_WRAPPER_PATTERN = /\[CONVEX [^\]]+\]\s*\[Request ID:[^\]]+\]\s*/i;
-const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
-    'load failed',
-    'failed to fetch',
-    'networkerror',
-    'network request failed',
-    'connection lost',
-    'connection reset',
-    'timed out',
-    'timeout',
-    'fetch failed',
-    'inactive server',
-];
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
 const createInitialExamState = (search) => ({
@@ -342,83 +123,6 @@ const resolveAutostartExamFormat = (search) => {
     return null;
 };
 
-const resolveConvexActionError = (error, fallbackMessage) => {
-    const dataMessage = typeof error?.data === 'string'
-        ? error.data
-        : typeof error?.data?.message === 'string'
-            ? error.data.message
-            : '';
-    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    if (!resolved) return fallbackMessage;
-
-    const unwrapped = resolved
-        .replace(CONVEX_ERROR_WRAPPER_PATTERN, '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .replace(/^ConvexError:\s*/i, '')
-        .replace(/^Server Error\s*/i, '')
-        .replace(/Called by client$/i, '')
-        .trim();
-
-    return unwrapped || fallbackMessage;
-};
-
-const getConvexErrorCode = (error) => {
-    if (typeof error?.data?.code === 'string' && error.data.code.trim()) {
-        return error.data.code.trim().toUpperCase();
-    }
-    const normalizedMessage = resolveConvexActionError(error, '').toLowerCase();
-    if (!normalizedMessage) return '';
-    if (normalizedMessage.includes('exam_questions_preparing')) return 'EXAM_QUESTIONS_PREPARING';
-    if (normalizedMessage.includes('essay_questions_preparing')) return 'ESSAY_QUESTIONS_PREPARING';
-    if (
-        normalizedMessage.includes('must be signed in')
-        || normalizedMessage.includes('not authenticated')
-        || normalizedMessage.includes('invalid token')
-        || normalizedMessage.includes('session is still syncing')
-    ) {
-        return 'UNAUTHENTICATED';
-    }
-    if (normalizedMessage.includes('do not have permission') || normalizedMessage.includes('permission')) {
-        return 'UNAUTHORIZED';
-    }
-    return '';
-};
-
-const isConvexAuthenticationError = (error) => {
-    const code = getConvexErrorCode(error);
-    if (code === 'UNAUTHENTICATED' || code === 'UNAUTHORIZED') return true;
-    const normalizedMessage = resolveConvexActionError(error, '').toLowerCase();
-    return (
-        normalizedMessage.includes('must be signed in')
-        || normalizedMessage.includes('not authenticated')
-        || normalizedMessage.includes('invalid token')
-        || normalizedMessage.includes('session is still syncing')
-        || normalizedMessage.includes('permission')
-    );
-};
-
-// After a prolonged WebSocket disconnect, Convex actions may wrap auth errors
-// as a generic "Server Error" with filtered data fields. Detect this pattern
-// so the exam flow can attempt a session refresh rather than showing a generic error.
-const isLikelyPostDisconnectAuthError = (error) => {
-    const message = String(error?.message || '').trim();
-    if (!message) return false;
-    // Convex wraps action errors as "Server Error" when the inner ConvexError is filtered
-    if (/^server error$/i.test(message) || /^uncaught convexerror: server error/i.test(message)) {
-        // If there's a structured code, it's not an opaque wrapping
-        const code = getConvexErrorCode(error);
-        return !code;
-    }
-    return false;
-};
-
-const isTransientExamTransportError = (error, resolvedMessage = '') => {
-    const normalizedMessage = `${String(error?.message || '').toLowerCase()} ${String(resolvedMessage || '').toLowerCase()}`;
-    return TRANSIENT_TRANSPORT_ERROR_PATTERNS.some((pattern) => normalizedMessage.includes(pattern));
-};
-
 const getExamAuthNotReadyMessage = (sessionRefreshed = false) =>
     sessionRefreshed
         ? 'Your session has been refreshed. Tap Retry to start the quiz.'
@@ -509,7 +213,7 @@ const fetchConvexBrowserToken = async () => {
 const isRecoverableExamSubmitError = ({ error, message }) => {
     if (isUserCorrectableEssaySubmitError(message)) return true;
     if (isConvexAuthenticationError(error)) return true;
-    if (isTransientExamTransportError(error, message)) return true;
+    if (isTransientTransportError(error, message)) return true;
     return false;
 };
 
@@ -804,7 +508,7 @@ const ExamMode = () => {
             const errorCode = getConvexErrorCode(error);
             const message = resolveConvexActionError(error, 'Unable to start the quiz. Please try again.');
             const authError = isConvexAuthenticationError(error);
-            const transientTransportError = isTransientExamTransportError(error, message);
+            const transientTransportError = isTransientTransportError(error, message);
             const timedOut = /timed out/i.test(message);
             const elapsedMs = attemptStartTimeRef.current
                 ? Date.now() - attemptStartTimeRef.current
@@ -1025,7 +729,7 @@ const ExamMode = () => {
                     'Could not submit essay quiz. Please try again.'
                 );
                 const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
-                const transientTransportError = isTransientExamTransportError(error, message);
+                const transientTransportError = isTransientTransportError(error, message);
                 if (authError) {
                     const { refreshed, expired } = await refreshAuthSessionQuietly();
                     dispatchExamState({
@@ -1085,7 +789,7 @@ const ExamMode = () => {
         } catch (error) {
             const message = resolveConvexActionError(error, 'Failed to submit quiz. Please try again.');
             const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
-            const transientTransportError = isTransientExamTransportError(error, message);
+            const transientTransportError = isTransientTransportError(error, message);
             if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 dispatchExamState({
@@ -1378,17 +1082,13 @@ const ExamMode = () => {
                         </div>
                     </div>
                     {/* Progress bar */}
-                    <div
-                        className="h-1.5 bg-border-light dark:bg-border-dark"
-                        role="progressbar"
-                        aria-valuenow={Math.round(progress)}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuetext={`${answeredQuestionCount} of ${questions.length} questions answered`}
-                        aria-label="Quiz progress"
-                    >
-                        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }}></div>
-                    </div>
+                    <AccessibleProgressBar
+                        value={progress}
+                        label="Quiz progress"
+                        valueText={`${answeredQuestionCount} of ${questions.length} questions answered`}
+                        trackClassName="h-1.5 bg-border-light dark:bg-border-dark"
+                        barClassName="h-full bg-primary transition-all duration-300"
+                    />
                 </header>
 
                 {/* Question Content */}
@@ -1527,17 +1227,13 @@ const ExamMode = () => {
                             <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Answered</span>
                             <span className="text-body-sm font-semibold text-primary">{Math.round(progress)}%</span>
                         </div>
-                        <div
-                            className="w-full bg-border-light dark:bg-border-dark rounded-full h-1.5"
-                            role="progressbar"
-                            aria-valuenow={Math.round(progress)}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuetext={`${answeredQuestionCount} of ${questions.length} questions answered`}
-                            aria-label="Answered progress"
-                        >
-                            <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-                        </div>
+                        <AccessibleProgressBar
+                            value={progress}
+                            label="Answered progress"
+                            valueText={`${answeredQuestionCount} of ${questions.length} questions answered`}
+                            trackClassName="w-full bg-border-light dark:bg-border-dark rounded-full h-1.5"
+                            barClassName="bg-primary h-full rounded-full transition-all duration-300"
+                        />
                     </div>
 
                     {/* Question Navigation Tabs */}

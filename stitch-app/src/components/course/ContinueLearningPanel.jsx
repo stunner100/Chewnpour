@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AccessibleProgressBar from '../AccessibleProgressBar';
 
 const ContinueLearningPanel = ({
     topic,
@@ -67,20 +68,13 @@ const ContinueLearningPanel = ({
                                     {timeLabel}
                                 </span>
                             </div>
-                            <div
-                                className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden"
-                                role="progressbar"
-                                aria-valuenow={Math.round(progressPercent)}
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                                aria-valuetext={`${progressPercent}% complete`}
-                                aria-label="Module progress"
-                            >
-                                <div
-                                    className="h-full rounded-full bg-primary transition-[width] duration-500"
-                                    style={{ width: `${progressPercent}%` }}
-                                />
-                            </div>
+                            <AccessibleProgressBar
+                                value={progressPercent}
+                                label="Module progress"
+                                valueText={`${progressPercent}% complete`}
+                                trackClassName="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden"
+                                barClassName="h-full rounded-full bg-primary transition-[width] duration-500"
+                            />
                         </div>
                     )}
 

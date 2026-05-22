@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { resolveQuestionOptions } from '../lib/examQuestionOptions';
 
 const EMPTY_LIST = [];
 const FRESH_OBJECTIVE_QUIZ_DISPLAY_COUNT = 5;
@@ -18,70 +19,6 @@ const formatDifficulty = (value) => {
 };
 
 const formatCourseLabel = (course) => normalizeText(course?.title || 'Generated Course').toUpperCase();
-
-const parseOptionJson = (value) => {
-    if (typeof value !== 'string') return null;
-    const trimmed = value.trim();
-    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        return null;
-    }
-};
-
-const coerceQuestionOptions = (rawOptions) => {
-    if (!rawOptions) return EMPTY_LIST;
-
-    let options = rawOptions;
-    const parsedOptions = parseOptionJson(options);
-    if (parsedOptions) options = parsedOptions;
-
-    if (options && !Array.isArray(options) && typeof options === 'object') {
-        if (Array.isArray(options.options)) {
-            options = options.options;
-        } else if (Array.isArray(options.choices)) {
-            options = options.choices;
-        } else {
-            options = [options];
-        }
-    }
-
-    if (!Array.isArray(options)) options = [options];
-
-    return options.flatMap((option) => {
-        const parsedOption = parseOptionJson(option);
-        if (Array.isArray(parsedOption)) return parsedOption;
-        return parsedOption ? [parsedOption] : [option];
-    });
-};
-
-const normalizeQuestionOption = (option, index) => {
-    if (option && typeof option === 'object') {
-        const label = normalizeText(option.label ?? option.id) || String.fromCharCode(65 + index);
-        const text = normalizeText(option.text ?? option.value ?? option.answer ?? option.choiceText);
-        return text ? { label, value: String(label), text } : null;
-    }
-
-    let label = String.fromCharCode(65 + index);
-    let text = normalizeText(option);
-    const labelMatch = text.match(/^\s*([A-D])[).\-:\s]+(.+)$/i);
-    if (labelMatch) {
-        label = labelMatch[1].toUpperCase();
-        text = normalizeText(labelMatch[2]);
-    }
-    return text
-        ? { label, value: label, text }
-        : null;
-};
-
-const resolveQuestionOptions = (question) => {
-    const source = coerceQuestionOptions(question?.options);
-    return source.flatMap((option, index) => {
-        const normalized = normalizeQuestionOption(option, index);
-        return normalized ? [normalized] : [];
-    });
-};
 
 const isObjectiveQuestion = (question) =>
     question && String(question.questionType || '').toLowerCase() !== 'essay';
@@ -120,7 +57,7 @@ const pickPreviewQuestion = (questions) => {
     const objectiveQuestions = Array.isArray(questions)
         ? questions.filter(isObjectiveQuestion)
         : EMPTY_LIST;
-    return objectiveQuestions.find((question) => resolveQuestionOptions(question).length > 0)
+    return objectiveQuestions.find((question) => resolveQuestionOptions(question?.options).length > 0)
         || objectiveQuestions[0]
         || null;
 };
@@ -209,7 +146,7 @@ const QuizMockupPanel = ({
     selectedAnswer,
     onSelectAnswer,
 }) => {
-    const options = resolveQuestionOptions(previewQuestion);
+    const options = resolveQuestionOptions(previewQuestion?.options);
     const topicTitle = normalizeText(topic?.title || 'Generated Review');
     const startHref = buildObjectiveExamRoute(topic?._id);
     const difficultyLabel = formatDifficulty(previewQuestion?.difficulty);

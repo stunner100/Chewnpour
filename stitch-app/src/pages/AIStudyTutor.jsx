@@ -12,6 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms', prompt: 'Explain this topic in simple terms.' },
@@ -73,18 +74,6 @@ const EmptyTutorState = () => (
         </main>
     </div>
 );
-
-const resolveConvexErrorMessage = (error, fallbackMessage) => {
-    const dataMessage = typeof error?.data === 'string'
-        ? error.data
-        : typeof error?.data?.message === 'string'
-            ? error.data.message
-            : '';
-    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .trim();
-    return resolved || fallbackMessage;
-};
 
 const AIStudyTutor = () => {
     const courses = useQuery(api.courses.getUserCourses, {});

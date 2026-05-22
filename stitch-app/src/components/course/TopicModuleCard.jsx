@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import AccessibleProgressBar from '../AccessibleProgressBar';
+import { getScoreTone } from '../../lib/scoreTone';
 import StatusBadge from './StatusBadge';
 import MasteryBadge from './MasteryBadge';
 
@@ -91,6 +93,7 @@ const TopicModuleCard = ({
         : isStarted
             ? { label: 'Continue', icon: 'play_arrow', class: 'btn-primary' }
             : { label: 'Start module', icon: 'arrow_forward', class: 'btn-primary' };
+    const scoreTone = progress?.bestScore != null ? getScoreTone(progress.bestScore) : null;
 
     return (
         <article
@@ -167,15 +170,9 @@ const TopicModuleCard = ({
                             {mcqCount}q
                         </span>
                     )}
-                    {progress?.bestScore != null && (
+                    {progress?.bestScore != null && scoreTone && (
                         <span
-                            className={`inline-flex items-center gap-1 font-semibold ${
-                                progress.bestScore >= 80
-                                    ? 'text-success'
-                                    : progress.bestScore >= 60
-                                        ? 'text-warning'
-                                        : 'text-error'
-                            }`}
+                            className={`inline-flex items-center gap-1 font-semibold ${scoreTone.textClass}`}
                         >
                             <span className="material-symbols-outlined text-[14px]">military_tech</span>
                             {progress.bestScore}%
@@ -183,27 +180,14 @@ const TopicModuleCard = ({
                     )}
                 </div>
 
-                {progress?.bestScore != null && (
-                    <div
-                        className="h-1 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden"
-                        role="progressbar"
-                        aria-valuenow={Math.round(progress.bestScore)}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuetext={`Best score ${progress.bestScore}%`}
-                        aria-label="Best quiz score"
-                    >
-                        <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                                progress.bestScore >= 80
-                                    ? 'bg-success'
-                                    : progress.bestScore >= 60
-                                        ? 'bg-warning'
-                                        : 'bg-error'
-                            }`}
-                            style={{ width: `${progress.bestScore}%` }}
-                        />
-                    </div>
+                {progress?.bestScore != null && scoreTone && (
+                    <AccessibleProgressBar
+                        value={progress.bestScore}
+                        label="Best quiz score"
+                        valueText={`Best score ${progress.bestScore}%`}
+                        trackClassName="h-1 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden"
+                        barClassName={`h-full rounded-full transition-all duration-500 ${scoreTone.barClass}`}
+                    />
                 )}
 
                 <div className="mt-auto pt-1 flex flex-wrap items-center gap-2">

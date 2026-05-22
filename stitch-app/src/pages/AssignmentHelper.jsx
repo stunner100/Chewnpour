@@ -22,6 +22,11 @@ import { ensurePromiseWithResolvers } from '../lib/runtimePolyfills';
 import {
     buildUploadLimitMessageFromOptions,
 } from '../lib/pricingCurrency';
+import {
+    getConvexErrorCode,
+    isConvexAuthenticationError,
+    resolveConvexActionError,
+} from '../lib/convexClientErrors';
 
 let pdfWorkerInitialized = false;
 
@@ -166,42 +171,7 @@ const parseStructuredAnswers = (content) => {
 };
 
 const FOLLOWUP_MAX_LENGTH = 4000;
-const CONVEX_ERROR_WRAPPER_PATTERN = /\[CONVEX [^\]]+\]\s*\[Request ID:[^\]]+\]\s*/i;
 const ASSIGNMENT_EXTRACTION_INSUFFICIENT_PATTERN = /could not extract enough text|upload a clearer image\/file/i;
-
-const resolveConvexActionError = (error, fallbackMessage) => {
-    const dataMessage = typeof error?.data === 'string'
-        ? error.data
-        : typeof error?.data?.message === 'string'
-            ? error.data.message
-            : '';
-    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    if (!resolved) return fallbackMessage;
-
-    const unwrapped = resolved
-        .replace(CONVEX_ERROR_WRAPPER_PATTERN, '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .replace(/^ConvexError:\s*/i, '')
-        .replace(/^Server Error\s*/i, '')
-        .replace(/Called by client$/i, '')
-        .trim();
-
-    return unwrapped || fallbackMessage;
-};
-
-const getConvexErrorCode = (error) => {
-    const dataCode = error?.data?.code;
-    if (typeof dataCode === 'string' && dataCode.trim()) return dataCode.trim().toUpperCase();
-
-    const message = String(error?.message || '').trim();
-    if (message.includes('UPLOAD_QUOTA_EXCEEDED')) return 'UPLOAD_QUOTA_EXCEEDED';
-    if (message.includes('AI_MESSAGE_QUOTA_EXCEEDED')) return 'AI_MESSAGE_QUOTA_EXCEEDED';
-    if (/must be signed in/i.test(message)) return 'UNAUTHENTICATED';
-    if (/do not have permission|permission to upload/i.test(message)) return 'UNAUTHORIZED';
-    return '';
-};
 
 const resolveQuotaExceededMessage = (error, fallbackTopUpOptions, fallbackCurrency = 'GHS') => {
     const topUpOptions = Array.isArray(error?.data?.topUpOptions)
@@ -229,13 +199,6 @@ const buildAssignmentExtractionGuidance = (error) => {
         'We could not extract enough text from this assignment. Please upload a clearer image/file.'
     );
     return `${normalizedMessage} Make sure text is sharp, well-lit, and fully visible.`;
-};
-
-const isConvexAuthenticationError = (error) => {
-    const code = getConvexErrorCode(error);
-    if (code === 'UNAUTHENTICATED' || code === 'UNAUTHORIZED') return true;
-    const message = String(error?.data?.message || error?.message || '').toLowerCase();
-    return message.includes('must be signed in') || message.includes('permission to upload');
 };
 
 const getUploadAuthNotReadyMessage = () =>

@@ -38,20 +38,9 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
+import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
-
-const resolveConvexErrorMessage = (error, fallbackMessage) => {
-    const dataMessage = typeof error?.data === 'string'
-        ? error.data
-        : typeof error?.data?.message === 'string'
-            ? error.data.message
-            : '';
-    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .trim();
-    return resolved || fallbackMessage;
-};
 
 const isReExplainQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();

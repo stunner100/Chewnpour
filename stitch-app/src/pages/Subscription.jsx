@@ -12,6 +12,7 @@ import { ShimmerButton } from '../components/magicui/ShimmerButton';
 import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
 import { WatermelonDisclosure } from '../components/watermelon/WatermelonDisclosure';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import { resolveConvexActionError } from '../lib/convexClientErrors';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -33,30 +34,6 @@ const normalizeProviderHint = (provider) => {
     if (!normalized) return 'checkout';
     if (normalized === 'manual') return 'fallback checkout';
     return normalized;
-};
-
-const CONVEX_ERROR_WRAPPER_PATTERN = /\[CONVEX [^\]]+\]\s*\[Request ID:[^\]]+\]\s*/i;
-
-const resolveConvexActionError = (error, fallbackMessage) => {
-    const dataMessage = typeof error?.data === 'string'
-        ? error.data
-        : typeof error?.data?.message === 'string'
-            ? error.data.message
-            : '';
-    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    if (!resolved) return fallbackMessage;
-
-    const unwrapped = resolved
-        .replace(CONVEX_ERROR_WRAPPER_PATTERN, '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .replace(/^ConvexError:\s*/i, '')
-        .replace(/^Server Error\s*/i, '')
-        .replace(/Called by client$/i, '')
-        .trim();
-
-    return unwrapped || fallbackMessage;
 };
 
 const DEFAULT_TOP_UP_OPTIONS = [

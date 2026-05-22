@@ -3,18 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { DEFAULT_TUTOR_PERSONA, TUTOR_PERSONAS } from '../lib/tutorPersonas';
-
-const resolveConvexErrorMessage = (error, fallbackMessage) => {
-    const dataMessage = typeof error?.data === 'string'
-        ? error.data
-        : typeof error?.data?.message === 'string'
-            ? error.data.message
-            : '';
-    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .trim();
-    return resolved || fallbackMessage;
-};
+import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
 
 const isAiMessageQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();
