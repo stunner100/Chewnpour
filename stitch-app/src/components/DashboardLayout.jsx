@@ -29,6 +29,12 @@ const bottomNavItems = [
 
 const SUPPORT_EMAIL = 'info@chewnpour.com';
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=ChewnPour%20Support`;
+const NAV_LINK_CLASS = (active) =>
+    `flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-[color,background-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 ${
+        active
+            ? 'text-primary font-bold bg-primary-soft'
+            : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
+    }`;
 
 const scrollDashboardTargetIntoView = (targetId, options = {}) => {
     if (typeof document === 'undefined') return false;
@@ -181,18 +187,18 @@ const DashboardLayout = ({ children }) => {
     }, []);
 
     return (
-        <div className="dashboard-shell cp-theme flex h-screen overflow-hidden bg-[#FAF8F3] text-[#1F2933]">
+        <div className="dashboard-shell cp-theme flex h-screen overflow-hidden text-text-primary">
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex fixed left-0 top-0 h-screen w-sidebar-width flex-col border-r border-border-subtle bg-surface-soft p-space-4 gap-space-4 z-20">
                 {/* Brand Header */}
                 <Link
                     to="/dashboard"
                     aria-label="ChewnPour dashboard"
-                    className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6D28D9]/25"
+                    className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
                 >
-                    <HexLogo size={44} className="text-[#6D28D9]" markClassName="text-[#6D28D9]" />
+                    <HexLogo size={44} className="text-primary" markClassName="text-primary" />
                     <div>
-                        <h1 className="font-headline-sm text-headline-sm tracking-tight text-[#6D28D9] font-bold">ChewnPour</h1>
+                        <h1 className="font-headline-sm text-headline-sm tracking-tight text-primary font-bold">ChewnPour</h1>
                         <p className="font-label-xs text-label-xs text-text-muted mt-space-1">AI Study Workspace</p>
                     </div>
                 </Link>
@@ -200,7 +206,7 @@ const DashboardLayout = ({ children }) => {
                 {/* Generate Material CTA */}
                 <Link
                     to="/dashboard/upload"
-                    className="w-full bg-primary text-on-primary font-label-sm text-label-sm py-2.5 rounded-xl flex items-center justify-center gap-space-2 hover:bg-primary-hover transition-colors shadow-sm"
+                    className="w-full bg-primary text-on-primary font-label-sm text-label-sm py-2.5 rounded-xl flex items-center justify-center gap-space-2 hover:bg-primary-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 whitespace-nowrap"
                 >
                     <span aria-hidden="true" className="material-symbols-outlined text-[18px]">auto_awesome</span>
                     Generate Material
@@ -214,11 +220,7 @@ const DashboardLayout = ({ children }) => {
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                                    active
-                                        ? 'text-primary font-bold bg-primary-soft'
-                                        : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
-                                }`}
+                                className={NAV_LINK_CLASS(active)}
                             >
                                 <span
                                     aria-hidden="true"
@@ -241,11 +243,7 @@ const DashboardLayout = ({ children }) => {
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                                    active
-                                        ? 'text-primary font-bold bg-primary-soft'
-                                        : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
-                                }`}
+                                className={NAV_LINK_CLASS(active)}
                             >
                                 <span
                                     aria-hidden="true"
@@ -269,7 +267,7 @@ const DashboardLayout = ({ children }) => {
                         type="button"
                         onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
                         aria-label="Open command palette to search pages and actions"
-                        className="flex-1 min-w-0 md:max-w-md relative flex items-center gap-2 pl-10 pr-3 py-2 bg-background rounded-lg text-body-sm font-body-sm text-text-muted hover:text-text-primary hover:bg-surface-soft focus:outline-none focus:ring-2 focus:ring-primary-soft transition-all text-left"
+                        className="flex-1 min-w-0 md:max-w-md relative flex items-center gap-2 pl-10 pr-3 py-2 bg-surface-soft rounded-lg text-body-sm font-body-sm text-text-muted hover:text-text-primary hover:bg-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft transition-[color,background-color] text-left"
                     >
                         <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
                         <span className="truncate">Search materials, lessons, or topics...</span>
@@ -282,7 +280,7 @@ const DashboardLayout = ({ children }) => {
                             href={SUPPORT_MAILTO}
                             aria-label={`Email support at ${SUPPORT_EMAIL}`}
                             title={`Email support at ${SUPPORT_EMAIL}`}
-                            className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                            className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
                         >
                             <span aria-hidden="true" className="material-symbols-outlined">help_outline</span>
                         </a>
@@ -291,7 +289,7 @@ const DashboardLayout = ({ children }) => {
                             onClick={handleNotificationSettingsClick}
                             aria-label="Open notification settings"
                             title="Open notification settings"
-                            className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                            className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
                         >
                             <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
                         </Link>
@@ -299,7 +297,7 @@ const DashboardLayout = ({ children }) => {
                             to="/dashboard/settings"
                             aria-label="Open settings"
                             title="Open settings"
-                            className="h-8 w-8 shrink-0 rounded-full overflow-hidden md:ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary"
+                            className="h-8 w-8 shrink-0 rounded-full overflow-hidden md:ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
                         >
                             {profile?.avatar ? (
                                 <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
@@ -311,7 +309,7 @@ const DashboardLayout = ({ children }) => {
                 </header>
 
                 {/* Main Content */}
-                <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden pt-16">
+                <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-clip pt-16">
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
                         <BlurFade duration={0.35} yOffset={8}>
                             {children}

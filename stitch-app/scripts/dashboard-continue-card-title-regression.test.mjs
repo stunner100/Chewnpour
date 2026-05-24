@@ -5,7 +5,7 @@ import process from 'node:process';
 const root = process.cwd();
 const source = await fs.readFile(path.join(root, 'src/pages/StudentDashboard.jsx'), 'utf8');
 
-const compactTitleClass = 'font-display-sm text-display-sm text-text-primary mb-space-2 leading-tight line-clamp-2 [overflow-wrap:anywhere]';
+const compactTitleClass = 'font-display-sm text-display-sm text-text-primary leading-tight line-clamp-2 [overflow-wrap:anywhere]';
 
 if (!source.includes(compactTitleClass)) {
   throw new Error('Continue Studying card title should use compact two-line typography for long uploaded material names.');
