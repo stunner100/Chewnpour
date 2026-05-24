@@ -7,6 +7,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const profileSource = read('src/pages/Profile.jsx');
 const examSource = read('src/pages/ExamMode.jsx');
+const examAttemptSource = read('src/hooks/useExamAttempt.js');
 const searchSource = read('src/pages/DashboardSearch.jsx');
 const communitySource = read('src/pages/Community.jsx');
 const dashboardPlanSource = read('src/lib/dashboardPlan.js');
@@ -23,7 +24,7 @@ assert.ok(
 );
 
 assert.ok(
-    examSource.includes('answeredQuestionCount / questions.length'),
+    examAttemptSource.includes('answeredQuestionCount / questions.length'),
     'Exam progress must be based on answered questions.',
 );
 
