@@ -601,11 +601,14 @@ html.is-safari .safari-backdrop {
     }
 }
 
-/* ── ChewnPour Study Design System Theme Scope ── */
 .cp-theme {
     --background: 250 248 243;
     --cp-primary: #D97706;
     --cp-primary-hover: #B45309;
+}
+
+.cp-theme.dashboard-shell {
+    background-color: rgb(var(--background));
 }
 
 .cp-theme .bg-primary,

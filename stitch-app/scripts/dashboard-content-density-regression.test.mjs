@@ -17,18 +17,18 @@ const requireExcludes = (snippet, label) => {
   }
 };
 
-requireIncludes('flex-1 pt-space-6 px-space-8 pb-space-16', 'reduced top padding');
+requireIncludes('student-dashboard flex-1 pt-space-6 px-space-6 md:px-space-8 pb-space-16', 'responsive page padding');
 requireIncludes('font-display-md text-display-md text-text-primary tracking-tight', 'compact page greeting');
 requireIncludes('font-body-base text-body-base text-text-secondary mt-space-1', 'compact page intro copy');
-requireIncludes('p-space-6 flex flex-col justify-between', 'compact resume card padding');
-requireIncludes('font-display-sm text-display-sm text-text-primary mb-space-2 leading-tight line-clamp-2', 'compact resume card title');
-requireIncludes('font-body-sm text-body-sm text-text-secondary max-w-md line-clamp-2', 'compact resume card subtitle');
-requireIncludes('font-headline-sm text-headline-sm text-text-primary mb-space-2">Upload Material', 'compact upload card heading');
-requireIncludes('font-body-base text-body-base font-bold text-text-primary">Course Progress', 'compact section heading');
-requireIncludes('font-body-base text-body-base font-bold text-text-primary">Recent Materials', 'compact recent materials heading');
+requireIncludes('font-display-sm text-display-sm text-text-primary leading-tight', 'compact resume title');
+requireIncludes('font-body-sm text-body-sm text-text-secondary mt-space-2 max-w-xl line-clamp-2', 'compact resume subtitle');
+requireIncludes('font-headline-sm text-headline-sm text-text-primary">Course progress', 'compact section heading');
+requireIncludes('font-headline-sm text-headline-sm text-text-primary">Recent materials', 'compact recent materials heading');
+requireIncludes('focus-visible:ring-2 focus-visible:ring-primary-soft', 'keyboard focus rings');
 
 requireExcludes('font-display-lg text-display-lg text-text-primary tracking-tight">Good morning', 'oversized page greeting');
-requireExcludes('font-display-md text-display-md text-text-primary mb-space-2 leading-tight line-clamp-2', 'oversized resume title');
-requireExcludes('font-headline-md text-headline-md text-text-primary mb-space-2">Upload Material', 'oversized upload card heading');
+requireExcludes('uppercase tracking-wider', 'uppercase stat eyebrows');
+requireExcludes('smart_toy', 'decorative AI watermark');
+requireExcludes('border-2 border-dashed', 'dashed upload hero tile');
 
 console.log('dashboard-content-density-regression.test.mjs passed');
