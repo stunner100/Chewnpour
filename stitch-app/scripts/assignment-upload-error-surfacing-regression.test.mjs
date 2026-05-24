@@ -5,9 +5,17 @@ import process from 'node:process';
 const root = process.cwd();
 
 const aiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
+const assignmentSupportSource = await fs.readFile(
+  path.join(root, 'convex', 'lib', 'assignmentAiSupport.ts'),
+  'utf8'
+);
 
-if (!/const\s+normalizeAssignmentProcessingErrorMessage\s*=\s*\(error:\s*unknown\)\s*=>/.test(aiSource)) {
-  throw new Error('Expected convex/ai.ts to normalize assignment processing errors.');
+if (!/export\s+const\s+normalizeAssignmentProcessingErrorMessage\s*=\s*\(error:\s*unknown\)\s*=>/.test(assignmentSupportSource)) {
+  throw new Error('Expected assignment AI support to normalize assignment processing errors.');
+}
+
+if (!/normalizeAssignmentProcessingErrorMessage\(error\)/.test(aiSource)) {
+  throw new Error('Expected convex/ai.ts to apply normalized assignment processing errors.');
 }
 
 if (!/const\s+failThread\s*=\s*async\s*\(message:\s*string\)\s*:\s*Promise<never>\s*=>/.test(aiSource)) {
@@ -22,17 +30,17 @@ if (!/if\s*\(error\s+instanceof\s+ConvexError\)\s*\{\s*throw error;\s*\}/s.test(
   throw new Error('Expected processAssignmentThread to rethrow existing ConvexError values.');
 }
 
-if (!/ASSIGNMENT_AI_UNAVAILABLE_ERROR/.test(aiSource)) {
+if (!/ASSIGNMENT_AI_UNAVAILABLE_ERROR/.test(assignmentSupportSource)) {
   throw new Error('Expected assignment processing to map upstream AI issues to a user-safe message.');
 }
 
 const helperSource = await fs.readFile(path.join(root, 'src', 'pages', 'AssignmentHelper.jsx'), 'utf8');
 
-if (!/const\s+resolveConvexActionError\s*=\s*\(error,\s*fallbackMessage\)\s*=>/.test(helperSource)) {
+if (!/resolveConvexActionError,\s*\}\s+from\s+['"]\.\.\/lib\/convexClientErrors['"];/.test(helperSource)) {
   throw new Error('Expected AssignmentHelper to include a Convex action error unwrapping helper.');
 }
 
-if (!/setError\(resolveConvexActionError\(uploadError,\s*'Could not process assignment\. Please try again\.'\)\);/.test(helperSource)) {
+if (!/error:\s*resolveConvexActionError\(uploadError,\s*'Could not process assignment\. Please try again\.'\)/.test(helperSource)) {
   throw new Error('Expected AssignmentHelper upload failures to use resolveConvexActionError.');
 }
 
@@ -44,7 +52,7 @@ if (!/reportUploadWarning\(\s*uploadObservation,\s*currentStage,\s*'Assignment p
   throw new Error('Expected AssignmentHelper to report insufficient text extraction as upload warning instead of failure.');
 }
 
-if (!/setError\(buildAssignmentExtractionGuidance\(uploadError\)\);/.test(helperSource)) {
+if (!/updateAssignment\(\{\s*error:\s*buildAssignmentExtractionGuidance\(uploadError\)\s*\}\);/.test(helperSource)) {
   throw new Error('Expected AssignmentHelper to show clearer guidance for insufficient text extraction errors.');
 }
 
