@@ -31,6 +31,9 @@ jobs:
           echo "number=${{ github.event.pull_request.number || '' }}" >> "$GITHUB_OUTPUT"
           echo "ref=${{ github.head_ref || github.ref_name }}" >> "$GITHUB_OUTPUT"
 
+      - name: Run PR size gate
+        run: node stitch-app/scripts/pr-size-gate.mjs "origin/${{ github.base_ref || 'master' }}"
+
       - name: Install ImageMagick
         run: |
           sudo apt-get update -y
