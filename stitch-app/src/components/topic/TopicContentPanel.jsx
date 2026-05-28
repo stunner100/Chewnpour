@@ -72,7 +72,7 @@ const TopicContentPanel = ({
             />
         ) : null}
 
-        <article className="bg-white rounded-3xl border border-border-subtle shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
+        <article className="bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
             {normalizedContent ? (
                 <LessonContentRenderer
                     blocks={displayBlocks}
@@ -99,7 +99,7 @@ const TopicContentPanel = ({
             )}
         </article>
 
-        <details className="group bg-white rounded-3xl border border-border-subtle px-5 md:px-6">
+        <details className="group bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle px-5 md:px-6">
             <summary className="flex items-center gap-3 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                 <span className="size-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
