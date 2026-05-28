@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAction, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
@@ -397,11 +397,26 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [pendingQuestion, setPendingQuestion] = useState('');
+    const transcriptRef = useRef(null);
     const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
     const askTutor = useAction(api.ai.askTopicTutor);
     const messageList = Array.isArray(messages) ? messages : [];
     const visibleMessages = messageList.slice(-4);
+    const latestMessageId = messageList.at(-1)?._id || '';
     const hasTranscript = visibleMessages.length > 0 || Boolean(pendingQuestion) || Boolean(error);
+
+    useEffect(() => {
+        if (!hasTranscript || !transcriptRef.current) return undefined;
+        const frame = requestAnimationFrame(() => {
+            const transcript = transcriptRef.current;
+            if (!transcript) return;
+            transcript.scrollTo({
+                top: transcript.scrollHeight,
+                behavior: 'smooth',
+            });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [hasTranscript, pendingQuestion, visibleMessages.length, latestMessageId]);
 
     const sendQuestion = async (rawQuestion) => {
         const question = String(rawQuestion || '').trim();
@@ -444,7 +459,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                 {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
             </div>
             {hasTranscript && (
-                <div className="min-h-0 flex-1 space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
+                <div ref={transcriptRef} className="min-h-0 flex-1 space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
                     {visibleMessages.map((message) => {
                         const isUser = message.role === 'user';
                         return (

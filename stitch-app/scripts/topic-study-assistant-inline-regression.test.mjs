@@ -22,6 +22,9 @@ requireIncludes("const messages = useQuery(api.topicChat.getMessages, topicId ? 
 requireIncludes('await askTutor({ topicId, question });', 'inline assistant send call');
 requireIncludes('Preparing an answer...', 'inline assistant pending response state');
 requireIncludes('const hasTranscript = visibleMessages.length > 0 || Boolean(pendingQuestion) || Boolean(error);', 'active transcript state');
+requireIncludes('const transcriptRef = useRef(null);', 'inline assistant transcript ref');
+requireIncludes('transcript.scrollTo({', 'inline assistant transcript auto-scroll');
+requireIncludes("top: transcript.scrollHeight,\n                behavior: 'smooth',", 'inline assistant scrolls latest message into focus');
 requireIncludes('max-h-[calc(100vh-8rem)] min-h-0 flex-col', 'viewport-bounded inline assistant card');
 requireIncludes('min-h-0 flex-1 space-y-space-3 overflow-y-auto', 'scrolling inline assistant transcript area');
 requireIncludes('{!hasTranscript && (', 'suggestion prompts hidden while transcript is active');
