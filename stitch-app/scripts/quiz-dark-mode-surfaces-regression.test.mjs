@@ -22,6 +22,15 @@ for (const [label, source] of [
     ['ExamLoadingShell', loadingShellSource],
     ['DashboardResults', resultsSource],
 ]) {
+    for (const forbidden of [
+        "classList.remove('dark')",
+        "classList.add('dark')",
+        'const hadDark = root.classList.contains',
+    ]) {
+        if (source.includes(forbidden)) {
+            throw new Error(`${label} must not mutate the persisted dark theme with "${forbidden}".`);
+        }
+    }
     if (source.includes('cp-theme bg-[#FAF8F3] min-h-screen')) {
         throw new Error(`${label} still has a light-only cp-theme shell.`);
     }

@@ -415,14 +415,6 @@ const DashboardResults = () => {
     const { attemptId } = useParams();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
 
-    useEffect(() => {
-        if (typeof document === 'undefined') return undefined;
-        const root = document.documentElement;
-        const hadDark = root.classList.contains('dark');
-        if (hadDark) root.classList.remove('dark');
-        return () => { if (hadDark) root.classList.add('dark'); };
-    }, []);
-
     const attempt = useQuery(
         api.exams.getExamAttempt,
         attemptId ? { attemptId } : 'skip'
