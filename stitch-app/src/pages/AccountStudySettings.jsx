@@ -367,17 +367,19 @@ const AccountStudySettings = () => {
                             <div>
                                 <label className="block font-label-md text-label-md text-text-secondary mb-space-4">Teaching Style</label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-space-4">
-                                    {TUTOR_STYLE_OPTIONS.map((style) => (
-                                        <label key={style.value} className="relative flex cursor-pointer border border-border-default bg-surface p-space-4 rounded-xl hover:bg-surface-soft transition-colors focus-within:ring-2 focus-within:ring-primary-soft">
-                                            <input className="sr-only peer" name="ai_tone" type="radio" value={style.value} checked={aiTone === style.value} onChange={() => handleTutorStyleChange(style.value)} />
-                                            <div className="peer-checked:border-primary peer-checked:bg-primary-soft absolute inset-0 rounded-xl border-2 border-transparent transition-all pointer-events-none"></div>
-                                            <div className="relative z-10 flex flex-col gap-2">
-                                                <MaterialIcon className="text-text-muted peer-checked:text-primary">{style.icon}</MaterialIcon>
-                                                <span className="font-label-md text-label-md text-text-primary">{style.title}</span>
-                                                <span className="font-body-sm text-body-sm text-text-muted text-xs">{style.desc}</span>
-                                            </div>
-                                        </label>
-                                    ))}
+                                    {TUTOR_STYLE_OPTIONS.map((style) => {
+                                        const selected = aiTone === style.value;
+                                        return (
+                                            <label key={style.value} className={`relative flex cursor-pointer rounded-xl border p-space-4 transition-colors focus-within:ring-2 focus-within:ring-primary-soft ${selected ? 'border-primary bg-primary-soft dark:!bg-[#2a241c]' : 'border-border-default bg-surface dark:!bg-[#111214] hover:bg-surface-soft dark:hover:!bg-[#212226]'}`}>
+                                                <input className="sr-only" name="ai_tone" type="radio" value={style.value} checked={selected} onChange={() => handleTutorStyleChange(style.value)} />
+                                                <div className="relative z-10 flex flex-col gap-2">
+                                                    <MaterialIcon className={selected ? 'text-primary' : 'text-text-muted'}>{style.icon}</MaterialIcon>
+                                                    <span className="font-label-md text-label-md text-text-primary">{style.title}</span>
+                                                    <span className="font-body-sm text-body-sm text-text-muted text-xs">{style.desc}</span>
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </section>

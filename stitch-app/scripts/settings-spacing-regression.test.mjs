@@ -24,6 +24,8 @@ for (const expectedSnippet of [
   'Study Preferences',
   'AI Tutor Personality',
   'settings-tutor-card bg-ai-subtle dark:!bg-[#161719]',
+  "selected ? 'border-primary bg-primary-soft dark:!bg-[#2a241c]'",
+  "'border-border-default bg-surface dark:!bg-[#111214] hover:bg-surface-soft dark:hover:!bg-[#212226]'",
 ]) {
   if (!settingsSource.includes(expectedSnippet)) {
     throw new Error(`Expected AccountStudySettings.jsx to include "${expectedSnippet}".`);
