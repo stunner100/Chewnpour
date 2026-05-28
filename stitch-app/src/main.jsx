@@ -53,7 +53,7 @@ const ensureSocialMetaDefaults = () => {
   ensureMetaTag({ property: 'og:title', content: 'ChewnPour' });
   ensureMetaTag({ property: 'og:description', content: 'Turn your slides into smart lessons and quizzes.' });
   ensureMetaTag({ property: 'og:url', content: `${canonicalUrl}/` });
-  ensureMetaTag({ property: 'og:image', content: `${canonicalUrl}/icons/icon-512x512.png` });
+  ensureMetaTag({ property: 'og:image', content: `${canonicalUrl}/brand/og-logo.png` });
   ensureMetaTag({ name: 'twitter:card', content: 'summary_large_image' });
 };
 

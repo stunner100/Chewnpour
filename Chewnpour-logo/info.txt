@@ -1,0 +1,13 @@
+
+Hope you enjoy your new logo, here are the people that
+made your beautiful logo happen :)
+font name: Now-Medium
+font link: https://hanken.co/product/now/
+font author: Hanken Design Co.
+font author site: https://hanken.co/
+
+
+icon designer: undefined
+icon designer link: undefined
+
+{"bg":"#FBF3EF","icon-gradient-0":"#A92580","icon-gradient-1":"#F7BC00","font":"#2F190E","slogan":"#432d22"}

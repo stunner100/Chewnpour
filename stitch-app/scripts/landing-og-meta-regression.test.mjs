@@ -11,7 +11,8 @@ for (const snippet of [
   '<meta property="og:title" content="ChewnPour" />',
   '<meta property="og:description" content="Turn your slides into smart lessons and quizzes." />',
   '<meta property="og:url" content="https://www.chewnpour.com/" />',
-  '<meta property="og:image" content="https://www.chewnpour.com/icons/icon-512x512.png" />',
+  '<meta property="og:image" content="https://www.chewnpour.com/brand/og-logo.png" />',
+  '<meta name="twitter:image" content="https://www.chewnpour.com/brand/og-logo.png" />',
 ]) {
   if (!source.includes(snippet)) {
     throw new Error(`Expected index.html to include: ${snippet}`);

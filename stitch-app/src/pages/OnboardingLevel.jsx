@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { m as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveOnboardingPath } from '../lib/onboarding';
-import { HexLogo } from '../components/PublicShell';
+import BrandLogo from '../components/BrandLogo';
 import { BlurFade } from '../components/magicui/BlurFade';
 import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
@@ -66,8 +66,8 @@ const OnboardingLevel = () => {
         >
             <header className="w-full pt-6 pb-2 px-6">
                 <div className="max-w-md mx-auto">
-                    <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9] mb-5">
-                        <HexLogo size={28} withWordmark markClassName="text-[#6D28D9]" wordmarkClassName="text-[#6D28D9]" />
+                    <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9] mb-5" aria-label="ChewnPour home">
+                        <BrandLogo size={28} decorative />
                     </Link>
                     <OnboardingProgress step={2} total={3} />
                     <div className="flex items-center justify-between mt-4">

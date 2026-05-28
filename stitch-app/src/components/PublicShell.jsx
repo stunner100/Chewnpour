@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import CanvasCrowd from './blocks/CanvasCrowd';
+import BrandLogo from './BrandLogo';
 
 const ACCENT = 'rgb(145, 75, 241)';
 const PAGE_BG = '#FAFAFB';
@@ -8,40 +9,6 @@ const FOOTER_BG = '#FAF8F3';
 const TEXT = '#1F2933';
 const SUBTEXT = '#687384';
 const FOOTER_YEAR = new Date().getFullYear();
-
-// Hex-framed logo lockup using the same outline-only mark as the landing-page nav.
-export const HexLogo = ({
-    size = 32,
-    withWordmark = false,
-    className = '',
-    markClassName = 'text-white',
-    wordmarkClassName = '',
-}) => (
-    <span className={`inline-flex items-center gap-2.5 ${className}`} aria-label="ChewnPour">
-        <span className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
-            <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${markClassName}`} fill="none">
-                <polygon
-                    points="50,6 90,28 90,72 50,94 10,72 10,28"
-                    stroke="currentColor"
-                    strokeWidth="6"
-                    strokeLinejoin="round"
-                    fill="none"
-                />
-            </svg>
-            <img
-                src="/logonew.jpeg"
-                alt=""
-                className="relative block object-contain rounded-full"
-                style={{ width: size * 0.55, height: size * 0.55 }}
-            />
-        </span>
-        {withWordmark && (
-            <span className={wordmarkClassName} style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20, letterSpacing: 0 }}>
-                ChewnPour
-            </span>
-        )}
-    </span>
-);
 
 // Purple "go" badge — kept for backwards compat with pages that still import it.
 export const ArrowBadge = ({ size = 40, className = '' }) => (
@@ -70,7 +37,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
         <header className="sticky top-0 z-50" style={{ background: PAGE_BG }}>
             <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-5 flex items-center justify-between">
                 <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9]" aria-label="ChewnPour home">
-                    <HexLogo size={28} withWordmark markClassName="text-[#6D28D9]" wordmarkClassName="text-[#6D28D9]" />
+                    <BrandLogo size={28} decorative />
                 </Link>
                 {showAuthNav && (
                     <nav className="flex items-center gap-6 text-sm" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -95,7 +62,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
         <footer className="mt-16 overflow-hidden" style={{ background: FOOTER_BG, borderTop: '1px solid rgba(217,217,217,0.08)' }}>
             <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9]">
-                    <HexLogo size={28} withWordmark markClassName="text-[#6D28D9]" wordmarkClassName="text-[#6D28D9]" />
+                    <BrandLogo size={28} />
                 </Link>
                 <nav
                     className="flex flex-wrap items-center gap-6 text-sm"

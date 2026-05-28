@@ -4,6 +4,7 @@ import { Menu, X, ArrowRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { AnimatedGroup } from '../ui/animated-group';
 import { cn } from '../../lib/utils';
+import BrandLogo from '../BrandLogo';
 
 const transitionVariants = {
     item: {
@@ -165,11 +166,7 @@ export function HeroHeader({ onCtaClick = () => {} }) {
 
                         {/* Logo — left */}
                         <Link to="/" aria-label="home" className="flex items-center gap-2.5 shrink-0">
-                            <img
-                                src="/logonew.jpeg"
-                                alt="ChewnPour"
-                                className="h-8 md:h-10 w-auto object-contain"
-                            />
+                            <BrandLogo variant="white" alt="ChewnPour" className="h-8 md:h-10 w-auto" />
                         </Link>
 
                         {/* Nav links — center (desktop) */}

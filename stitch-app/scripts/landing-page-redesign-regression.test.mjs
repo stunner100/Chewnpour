@@ -28,13 +28,15 @@ const assert = (condition, label) => {
 console.log('--- Landing page redesign regression ---\n');
 
 assert(landingPage.includes('useAuth'), 'Uses useAuth hook');
-assert(landingPage.includes("navigate('/dashboard'"), 'Redirects logged-in users to dashboard');
+assert(landingPage.includes('<Navigate to="/dashboard" replace />'), 'Redirects logged-in users to dashboard');
 assert(landingPage.includes('useQuery(api.subscriptions.getPublicTopUpPricing'), 'Reads live public pricing');
 assert(landingPage.includes('capturePostHogEvent'), 'Imports PostHog helper');
 assert(landingPage.includes("landing_cta_clicked"), 'Tracks CTA analytics event');
-assert(landingPage.includes('<HeroSection onCtaClick={captureLandingEvent}'), 'Hero section receives CTA tracking');
-assert(landingPage.includes('<CommunitySection onCtaClick={captureLandingEvent}'), 'Community section receives CTA tracking');
-assert(landingPage.includes('<Footer onCtaClick={captureLandingEvent}'), 'Footer receives CTA tracking');
+assert(landingPage.includes('<HeroSection captureLandingEvent={captureLandingEvent} />'), 'Hero section receives CTA tracking');
+assert(landingPage.includes('<FeatureRowsSection captureLandingEvent={captureLandingEvent} />'), 'Feature rows receive CTA tracking');
+assert(/<PricingSection[\s\S]*captureLandingEvent=\{captureLandingEvent\}[\s\S]*\/>/.test(landingPage), 'Pricing section receives CTA tracking');
+assert(landingPage.includes('<CtaSection captureLandingEvent={captureLandingEvent} />'), 'Final CTA section receives CTA tracking');
+assert(landingPage.includes('<BlogPostModal activePost={activePost} captureLandingEvent={captureLandingEvent}'), 'Blog modal receives CTA tracking');
 
 assert(heroSection.includes('to="/login"'), 'Hero keeps login route');
 assert(heroSection.includes('to="/signup"'), 'Hero keeps signup route');
@@ -53,7 +55,22 @@ assert(pricingSection.includes('POPULAR'), 'Popular badge is present');
 assert(!communitySection.includes('/community/'), 'Community section does not reference missing /community assets');
 assert(!testimonialsSection.includes('/community/'), 'Testimonials do not reference missing /community assets');
 
-assert(existsSync(resolve(projectRoot, 'public/logonew.jpeg')), 'Brand logo asset exists');
+assert(existsSync(resolve(projectRoot, 'public/brand/logo.svg')), 'Standard logo asset exists');
+assert(existsSync(resolve(projectRoot, 'public/brand/logo-white.svg')), 'Standard white logo asset exists');
+assert(existsSync(resolve(projectRoot, 'public/brand/mark.png')), 'Standard mark asset exists');
+assert(existsSync(resolve(projectRoot, 'public/brand/og-logo.png')), 'Standard social preview logo exists');
+assert(!existsSync(resolve(projectRoot, 'public/logonew.jpeg')), 'Legacy logonew asset is removed');
+assert(!existsSync(resolve(projectRoot, 'public/chewnpourlogo.png')), 'Legacy chewnpourlogo asset is removed');
+assert(!existsSync(resolve(projectRoot, 'public/chewnpour.png')), 'Legacy chewnpour image asset is removed');
+assert(landingPage.includes("import BrandLogo from '../components/BrandLogo';"), 'Landing page uses shared BrandLogo component');
+assert(heroSection.includes("import BrandLogo from '../BrandLogo';"), 'Hero uses shared BrandLogo component');
+assert(footer.includes("import BrandLogo from '../BrandLogo';"), 'Footer uses shared BrandLogo component');
+assert(!landingPage.includes('/logonew.jpeg'), 'Landing page does not use legacy logo asset');
+assert(!heroSection.includes('/logonew.jpeg'), 'Hero does not use legacy logo asset');
+assert(!footer.includes('/logonew.jpeg'), 'Footer does not use legacy logo asset');
+assert(!landingPage.includes('/brand/logo'), 'Landing page does not hard-code brand logo paths');
+assert(!heroSection.includes('/brand/logo'), 'Hero does not hard-code brand logo paths');
+assert(!footer.includes('/brand/logo'), 'Footer does not hard-code brand logo paths');
 assert(existsSync(resolve(projectRoot, 'public/screenshots/app-dashboard.png')), 'Dashboard screenshot asset exists');
 assert(existsSync(resolve(projectRoot, 'public/screenshots/app-assignment.png')), 'Assignment screenshot asset exists');
 assert(existsSync(resolve(projectRoot, 'public/screenshots/app-community.png')), 'Community screenshot asset exists');

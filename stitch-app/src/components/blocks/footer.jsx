@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import CanvasCrowd from './CanvasCrowd';
+import BrandLogo from '../BrandLogo';
 
 const FOOTER_YEAR = new Date().getFullYear();
 
@@ -40,11 +41,7 @@ export function Footer({ onCtaClick = () => {} }) {
             <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
                 <div className="mb-16 sm:mb-24 flex flex-col items-start gap-4">
                     <Link to="/" className="shrink-0">
-                        <img
-                            src="/logonew.jpeg"
-                            alt="ChewnPour Logo"
-                            className="h-10 w-auto object-contain"
-                        />
+                        <BrandLogo alt="ChewnPour Logo" className="h-10 w-auto" />
                     </Link>
                     <p className="text-sm font-medium text-muted-foreground tracking-wide">
                         &copy; {FOOTER_YEAR} ChewnPour. All rights reserved.

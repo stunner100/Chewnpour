@@ -9,7 +9,7 @@ import CommandPalette from './CommandPalette';
 import { captureSentryException } from '../lib/sentry.js';
 import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
 import { LIGHT_THEME, applyTheme } from '../lib/theme.js';
-import { HexLogo } from './PublicShell.jsx';
+import BrandLogo from './BrandLogo.jsx';
 
 const navItems = [
     { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', exact: true },
@@ -194,13 +194,10 @@ const DashboardLayout = ({ children }) => {
                 <Link
                     to="/dashboard"
                     aria-label="ChewnPour dashboard"
-                    className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
+                    className="flex flex-col items-start gap-space-2 px-space-2 mt-space-2 mb-space-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
                 >
-                    <HexLogo size={44} className="text-primary" markClassName="text-primary" />
-                    <div>
-                        <h1 className="font-headline-sm text-headline-sm tracking-tight text-primary font-bold">ChewnPour</h1>
-                        <p className="font-label-xs text-label-xs text-text-muted mt-space-1">AI Study Workspace</p>
-                    </div>
+                    <BrandLogo size={34} decorative className="max-w-full" />
+                    <p className="font-label-xs text-label-xs text-text-muted">AI Study Workspace</p>
                 </Link>
 
                 {/* Generate Material CTA */}

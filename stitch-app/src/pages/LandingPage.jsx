@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
 import { formatPlanPrice, normalizeTopUpOptions } from '../lib/pricingCurrency';
 import CanvasCrowd from '../components/blocks/CanvasCrowd';
+import BrandLogo from '../components/BrandLogo';
 import { BlurFade } from '../components/magicui/BlurFade';
 
 /**
@@ -162,20 +163,6 @@ const BLOG_POSTS = [
 ];
 
 // ── Visual primitives ───────────────────────────────────────────────────────
-
-const HexLogo = ({ size = 28 }) => (
-    <span className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
-        <svg viewBox="0 0 100 100" className="absolute inset-0 size-full text-white" fill="none">
-            <polygon points="50,6 90,28 90,72 50,94 10,72 10,28" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" fill="none" />
-        </svg>
-        <img
-            src="/logonew.jpeg"
-            alt=""
-            className="relative block object-contain rounded-full"
-            style={{ width: size * 0.55, height: size * 0.55 }}
-        />
-    </span>
-);
 
 // Hero visual, uses the rendered photo at /chewnpour/hero.png (study desk with laptop +
 // floating notes lit in violet) instead of the SVG swirl.
@@ -663,9 +650,8 @@ const LandingPageStyles = () => (
 const LandingHeader = ({ captureLandingEvent, mobileMenuOpen, onCloseMobileMenu, onToggleMobileMenu }) => (
     <header className="sticky top-0 z-50" style={{ background: PAGE_BG }}>
         <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-12 py-3 md:py-5 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2.5 text-white">
-                <HexLogo size={28} />
-                <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20 }}>ChewnPour</span>
+            <Link to="/" className="flex items-center text-white" aria-label="ChewnPour home">
+                <BrandLogo variant="white" size={28} decorative />
             </Link>
             <div className="flex items-center gap-4">
                 <a href="#features" className="hidden md:inline text-sm text-white ui-text hover:opacity-80 transition-opacity">More Features</a>
@@ -1278,9 +1264,8 @@ const LandingFooter = () => (
     <footer id="contact" style={{ background: FOOTER_BG }}>
         <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <Link to="/" className="flex items-center gap-2.5 text-white">
-                    <HexLogo size={28} />
-                    <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20 }}>ChewnPour</span>
+                <Link to="/" className="flex items-center text-white" aria-label="ChewnPour home">
+                    <BrandLogo variant="white" size={28} decorative />
                 </Link>
                 <nav className="flex flex-wrap items-center gap-6 ui-text text-sm">
                     {FOOTER_LINKS.map(({ href, label }) => (

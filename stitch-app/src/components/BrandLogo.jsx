@@ -1,18 +1,36 @@
 import React from 'react';
 
-// Single-source brand mark: logonew.jpeg, rendered with a rounded crop so it
-// sits cleanly on both light and dark backgrounds at any size. The `theme`
-// and `kind` props are kept for API compatibility with existing call sites.
+const LOGO_VARIANTS = {
+    default: { src: '/brand/logo.svg', ratio: 406 / 97 },
+    white: { src: '/brand/logo-white.svg', ratio: 406 / 97 },
+    mark: { src: '/brand/mark.png', ratio: 1 },
+};
+
 const BrandLogo = ({
+    variant = 'default',
     alt = 'ChewnPour',
     className = 'h-12 w-auto',
-}) => (
-    <img
-        src="/logonew.jpeg"
-        alt={alt}
-        className={`${className} object-contain rounded-full`}
-        decoding="async"
-    />
-);
+    decorative = false,
+    size,
+    style,
+    ...imgProps
+}) => {
+    const logo = LOGO_VARIANTS[variant] || LOGO_VARIANTS.default;
+    const sizeStyle = size
+        ? { width: Math.round(size * logo.ratio), height: size }
+        : undefined;
+
+    return (
+        <img
+            src={logo.src}
+            alt={decorative ? '' : alt}
+            aria-hidden={decorative ? true : undefined}
+            className={['block object-contain', className].filter(Boolean).join(' ')}
+            style={{ ...sizeStyle, ...style }}
+            decoding="async"
+            {...imgProps}
+        />
+    );
+};
 
 export default BrandLogo;
