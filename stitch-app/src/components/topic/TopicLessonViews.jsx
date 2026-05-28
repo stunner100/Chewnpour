@@ -443,7 +443,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                 {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
             </div>
             {(visibleMessages.length > 0 || pendingQuestion || error) && (
-                <div className="max-h-64 space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
+                <div className="max-h-[min(52vh,34rem)] space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
                     {visibleMessages.map((message) => {
                         const isUser = message.role === 'user';
                         return (
