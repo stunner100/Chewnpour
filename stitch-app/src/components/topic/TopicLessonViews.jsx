@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useAction, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import TopicSidebar from '../TopicSidebar';
 import TopicNotesPanel from '../TopicNotesPanel';
@@ -392,17 +392,37 @@ const STUDY_ASSISTANT_PROMPTS = [
     'Quiz me on this topic',
 ];
 
-export const TopicStudyAssistantCard = ({ topicTitle, onAsk, onOpen }) => {
+export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
     const [draft, setDraft] = useState('');
+    const [sending, setSending] = useState(false);
+    const [error, setError] = useState('');
+    const [pendingQuestion, setPendingQuestion] = useState('');
+    const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
+    const askTutor = useAction(api.ai.askTopicTutor);
+    const messageList = Array.isArray(messages) ? messages : [];
+    const visibleMessages = messageList.slice(-4);
+
+    const sendQuestion = async (rawQuestion) => {
+        const question = String(rawQuestion || '').trim();
+        if (!question || !topicId || sending) return;
+        setDraft('');
+        setSending(true);
+        setError('');
+        setPendingQuestion(question);
+        try {
+            await askTutor({ topicId, question });
+        } catch (err) {
+            setDraft(question);
+            setError(err?.message || 'Could not get a response. Please try again.');
+        } finally {
+            setPendingQuestion('');
+            setSending(false);
+        }
+    };
+
     const handleSubmit = (event) => {
         event.preventDefault();
-        const trimmed = draft.trim();
-        if (!trimmed) {
-            onOpen();
-            return;
-        }
-        onAsk(trimmed);
-        setDraft('');
+        sendQuestion(draft);
     };
     return (
         <aside className="sticky top-space-6 flex h-fit flex-col gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm">
@@ -422,13 +442,51 @@ export const TopicStudyAssistantCard = ({ topicTitle, onAsk, onOpen }) => {
             <div className="rounded-xl bg-ai-subtle p-space-4 font-body-sm text-body-sm leading-relaxed text-text-primary dark:!bg-[#212226] dark:text-text-primary">
                 {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
             </div>
+            {(visibleMessages.length > 0 || pendingQuestion || error) && (
+                <div className="max-h-64 space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
+                    {visibleMessages.map((message) => {
+                        const isUser = message.role === 'user';
+                        return (
+                            <div key={message._id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                <p className={`max-w-[92%] rounded-xl px-space-3 py-space-2 font-body-sm text-body-sm leading-relaxed ${
+                                    isUser
+                                        ? 'bg-primary text-on-primary'
+                                        : 'border border-border-subtle bg-surface text-text-primary'
+                                }`}>
+                                    {message.content}
+                                </p>
+                            </div>
+                        );
+                    })}
+                    {pendingQuestion && (
+                        <>
+                            <div className="flex justify-end">
+                                <p className="max-w-[92%] rounded-xl bg-primary px-space-3 py-space-2 font-body-sm text-body-sm leading-relaxed text-on-primary">
+                                    {pendingQuestion}
+                                </p>
+                            </div>
+                            <div className="flex justify-start">
+                                <p className="max-w-[92%] rounded-xl border border-border-subtle bg-surface px-space-3 py-space-2 font-label-xs text-label-xs text-text-secondary">
+                                    Preparing an answer...
+                                </p>
+                            </div>
+                        </>
+                    )}
+                    {error && (
+                        <p className="rounded-lg border border-error/20 bg-error-soft px-space-3 py-space-2 font-body-sm text-body-sm text-error">
+                            {error}
+                        </p>
+                    )}
+                </div>
+            )}
             <div className="flex flex-col gap-space-2">
                 {STUDY_ASSISTANT_PROMPTS.map((prompt) => (
                     <button
                         key={prompt}
                         type="button"
-                        onClick={() => onAsk(prompt)}
-                        className="rounded-full border border-border-subtle bg-surface px-space-3 py-space-2 text-left font-label-sm text-label-sm text-text-primary transition-colors hover:border-ai/40 hover:bg-ai-subtle"
+                        onClick={() => sendQuestion(prompt)}
+                        disabled={sending}
+                        className="rounded-full border border-border-subtle bg-surface px-space-3 py-space-2 text-left font-label-sm text-label-sm text-text-primary transition-colors hover:border-ai/40 hover:bg-ai-subtle disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {prompt}
                     </button>
@@ -440,12 +498,14 @@ export const TopicStudyAssistantCard = ({ topicTitle, onAsk, onOpen }) => {
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     placeholder="Ask a question..."
+                    disabled={sending}
                     className="flex-1 bg-transparent font-body-sm text-body-sm text-text-primary placeholder:text-text-muted focus:outline-none"
                 />
                 <button
                     type="submit"
                     aria-label="Send"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-surface transition-colors hover:bg-primary-hover"
+                    disabled={sending || !draft.trim()}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-surface transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     <span className="material-symbols-outlined text-[18px]">send</span>
                 </button>
@@ -459,8 +519,6 @@ export const TopicLessonShell = ({ controller }) => {
         cleanedDescription,
         courseHref,
         examTopicId,
-        handleAskTutor,
-        openChat,
         resolvedTopicTitle,
         topic,
         topicId,
@@ -505,9 +563,8 @@ export const TopicLessonShell = ({ controller }) => {
                 </div>
                 <div className="hidden lg:block">
                     <TopicStudyAssistantCard
+                        topicId={topicId}
                         topicTitle={resolvedTopicTitle}
-                        onAsk={handleAskTutor}
-                        onOpen={openChat}
                     />
                 </div>
             </div>
