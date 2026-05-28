@@ -731,3 +731,11 @@ html.is-safari .safari-backdrop {
 .dark .cp-theme .focus-visible\:ring-offset-2:focus-visible {
     --tw-ring-offset-color: #0c0d10 !important;
 }
+
+.dark .cp-theme .progress-next-card {
+    background-color: #161719 !important;
+}
+
+.dark .cp-theme .progress-course-row {
+    background-color: #212226 !important;
+}
