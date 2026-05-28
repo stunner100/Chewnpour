@@ -739,3 +739,7 @@ html.is-safari .safari-backdrop {
 .dark .cp-theme .progress-course-row {
     background-color: #212226 !important;
 }
+
+.dark .cp-theme .settings-tutor-card {
+    background-color: #161719 !important;
+}

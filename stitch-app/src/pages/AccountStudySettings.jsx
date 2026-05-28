@@ -359,7 +359,7 @@ const AccountStudySettings = () => {
                         </section>
 
                         {/* AI Tutor Preferences */}
-                        <section className="bg-ai-subtle rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
+                        <section className="settings-tutor-card bg-ai-subtle dark:!bg-[#161719] rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
                                 <MaterialIcon className="text-primary">smart_toy</MaterialIcon>
                                 <h3 className="font-headline-sm text-headline-sm text-primary">AI Tutor Personality</h3>
