@@ -37,8 +37,11 @@ if (!routeThemeSource.includes('applyTheme(resolveRouteTheme(pathname));')) {
 if (routeThemeSource.includes('setThemePreference(')) {
   throw new Error('Route theme policy should not rewrite the persisted user theme preference.');
 }
-if (!routeThemeSource.includes('return LIGHT_THEME;')) {
-  throw new Error('Expected useRouteTheme to force light theme on public and dashboard routes.');
+if (!routeThemeSource.includes('if (isPublicLightRoute(pathname))')) {
+  throw new Error('Expected useRouteTheme to keep public routes on the light product theme.');
+}
+if (!routeThemeSource.includes('return preferredTheme;')) {
+  throw new Error('Expected useRouteTheme to let dashboard routes honor the persisted theme.');
 }
 
 for (const [label, source] of [

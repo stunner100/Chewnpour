@@ -8,7 +8,8 @@ import { BlurFade } from './magicui/BlurFade';
 import CommandPalette from './CommandPalette';
 import { captureSentryException } from '../lib/sentry.js';
 import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
-import { LIGHT_THEME, applyTheme } from '../lib/theme.js';
+import { DARK_THEME } from '../lib/theme.js';
+import useThemeMode from '../lib/useThemeMode.js';
 import BrandLogo from './BrandLogo.jsx';
 
 const navItems = [
@@ -118,6 +119,8 @@ const DashboardLayout = ({ children }) => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
     const { profile } = useAuth();
+    const { mode: themeMode, toggle: toggleTheme } = useThemeMode();
+    const isDarkMode = themeMode === DARK_THEME;
     const hideMobileBottomNav = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
 
     useEffect(() => {
@@ -181,10 +184,6 @@ const DashboardLayout = ({ children }) => {
 
     const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-
-    useLayoutEffect(() => {
-        applyTheme(LIGHT_THEME);
-    }, []);
 
     return (
         <div className="dashboard-shell cp-theme flex h-screen overflow-hidden text-text-primary">
@@ -273,6 +272,23 @@ const DashboardLayout = ({ children }) => {
                         </kbd>
                     </button>
                     <div className="shrink-0 flex items-center gap-1.5 md:gap-space-4">
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            aria-label={isDarkMode ? 'Switch dashboard to light mode' : 'Switch dashboard to dark mode'}
+                            aria-pressed={isDarkMode}
+                            title={isDarkMode ? 'Light mode' : 'Dark mode'}
+                            className="relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border border-border-subtle bg-surface-soft p-1 text-text-muted transition-colors hover:bg-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
+                        >
+                            <span
+                                aria-hidden="true"
+                                className={`inline-flex size-6 items-center justify-center rounded-full bg-surface text-[16px] text-primary shadow-sm transition-transform ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`}
+                            >
+                                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                    {isDarkMode ? 'light_mode' : 'dark_mode'}
+                                </span>
+                            </span>
+                        </button>
                         <a
                             href={SUPPORT_MAILTO}
                             aria-label={`Email support at ${SUPPORT_EMAIL}`}

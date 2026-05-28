@@ -7,13 +7,18 @@ const source = await fs.readFile(path.join(root, 'src/components/DashboardLayout
 
 for (const snippet of [
     "import BrandLogo from './BrandLogo.jsx';",
+    "import useThemeMode from '../lib/useThemeMode.js';",
     '<BrandLogo size={34} decorative className="max-w-full" />',
+    'aria-pressed={isDarkMode}',
     'AI Study Workspace',
-    'applyTheme(LIGHT_THEME);',
 ]) {
     if (!source.includes(snippet)) {
         throw new Error(`Expected dashboard layout to include "${snippet}".`);
     }
+}
+
+if (source.includes('applyTheme(LIGHT_THEME);')) {
+    throw new Error('Dashboard layout must not force the light theme when a user chose dark mode.');
 }
 
 if (source.includes('setThemePreference(LIGHT_THEME);')) {

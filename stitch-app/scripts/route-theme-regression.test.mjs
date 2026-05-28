@@ -6,11 +6,10 @@ import {
     resolveExamStep,
 } from '../src/lib/resolveExamStep.js';
 import {
-    isDashboardLightRoute,
     isPublicLightRoute,
     resolveRouteTheme,
 } from '../src/lib/useRouteTheme.js';
-import { LIGHT_THEME } from '../src/lib/theme.js';
+import { DARK_THEME, LIGHT_THEME } from '../src/lib/theme.js';
 
 const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
@@ -20,18 +19,20 @@ const [examModeSource, examLoadingShellSource] = await Promise.all([
     read('src/components/ExamLoadingShell.jsx'),
 ]);
 
-for (const route of ['/', '/login', '/onboarding/name', '/terms', '/dashboard/quiz/topic_1', '/admin']) {
+for (const route of ['/', '/login', '/onboarding/name', '/terms']) {
     if (resolveRouteTheme(route) !== LIGHT_THEME) {
         throw new Error(`Expected ${route} to resolve to light theme.`);
     }
 }
 
-if (isPublicLightRoute('/login') !== true || isPublicLightRoute('/dashboard') !== false) {
-    throw new Error('Public light route detection failed.');
+for (const route of ['/dashboard', '/dashboard/quiz/topic_1', '/admin']) {
+    if (resolveRouteTheme(route, DARK_THEME) !== DARK_THEME) {
+        throw new Error(`Expected ${route} to honor the persisted dashboard theme.`);
+    }
 }
 
-if (isDashboardLightRoute('/dashboard/quiz') !== true || isDashboardLightRoute('/login') !== false) {
-    throw new Error('Dashboard light route detection failed.');
+if (isPublicLightRoute('/login') !== true || isPublicLightRoute('/dashboard') !== false) {
+    throw new Error('Public light route detection failed.');
 }
 
 for (const snippet of [

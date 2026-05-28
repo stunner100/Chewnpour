@@ -26,14 +26,11 @@ export const isPublicLightRoute = (pathname) => {
     );
 };
 
-export const isDashboardLightRoute = (pathname) =>
-    pathname.startsWith('/dashboard') || pathname.startsWith('/admin');
-
-export const resolveRouteTheme = (pathname) => {
-    if (isPublicLightRoute(pathname) || isDashboardLightRoute(pathname)) {
+export const resolveRouteTheme = (pathname, preferredTheme = getStoredTheme() || resolveInitialTheme()) => {
+    if (isPublicLightRoute(pathname)) {
         return LIGHT_THEME;
     }
-    return getStoredTheme() || resolveInitialTheme();
+    return preferredTheme;
 };
 
 export const useRouteTheme = () => {
