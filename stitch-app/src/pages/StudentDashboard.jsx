@@ -298,7 +298,7 @@ const StudentDashboard = () => {
                     <Link
                         key={action.href}
                         to={action.href}
-                        className={`group min-w-0 rounded-xl border border-border-subtle bg-surface-soft/60 px-space-4 py-space-4 hover:bg-surface hover:border-border-default transition-[background-color,border-color] ${FOCUS_RING}`}
+                        className={`group min-w-0 rounded-xl border border-border-subtle bg-surface-soft/60 dark:bg-surface px-space-4 py-space-4 hover:bg-surface dark:hover:bg-surface-variant hover:border-border-default transition-[background-color,border-color] ${FOCUS_RING}`}
                     >
                         <span className="material-symbols-outlined text-[22px] text-primary mb-space-2" aria-hidden="true">{action.icon}</span>
                         <span className="block font-label-md text-label-md text-text-primary whitespace-nowrap">{action.label}</span>
@@ -341,7 +341,7 @@ const StudentDashboard = () => {
                         </div>
                     </div>
 
-                    <section className="mt-space-6 rounded-xl bg-ai-subtle border border-border-subtle p-space-5 md:p-space-6 min-w-0">
+                    <section className="mt-space-6 rounded-xl bg-ai-subtle dark:bg-surface border border-border-subtle p-space-5 md:p-space-6 min-w-0">
                         <h2 className="font-headline-sm text-headline-sm text-text-primary mb-space-1">Recommended next</h2>
                         <p className="font-body-sm text-body-sm text-text-secondary mb-space-4 max-w-xl">
                             {recommendedAction.description}
