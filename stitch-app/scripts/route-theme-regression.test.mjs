@@ -46,7 +46,7 @@ for (const snippet of [
     }
 }
 
-if (!examLoadingShellSource.includes('cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center')) {
+if (!examLoadingShellSource.includes('cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center')) {
     throw new Error('Expected ExamLoadingShell to preserve the quiz shell background.');
 }
 

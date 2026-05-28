@@ -456,7 +456,7 @@ const DashboardResults = () => {
 
     if (!attemptId) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
@@ -473,7 +473,7 @@ const DashboardResults = () => {
 
     if (attempt === undefined) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading quiz results…</p>
@@ -484,7 +484,7 @@ const DashboardResults = () => {
 
     if (attempt === null) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
@@ -535,7 +535,7 @@ const DashboardResults = () => {
     };
 
     return (
-        <div className="cp-theme bg-[#FAF8F3] min-h-screen flex flex-col">
+        <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex flex-col">
             <Confetti active={showConfetti} />
             <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark sticky top-0 z-30">
                 <div className="max-w-5xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">

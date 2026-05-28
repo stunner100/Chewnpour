@@ -60,7 +60,7 @@ const ExamActiveSession = ({
     onNavigateToQuestion,
     sessionExpiredMessage,
 }) => (
-    <div className="min-h-screen cp-theme bg-[#FAF8F3] flex flex-col md:flex-row">
+    <div className="min-h-screen cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] flex flex-col md:flex-row">
         <main className="flex-1 flex flex-col min-h-screen">
             <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
