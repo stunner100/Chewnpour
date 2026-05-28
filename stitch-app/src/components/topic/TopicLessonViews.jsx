@@ -419,7 +419,7 @@ export const TopicStudyAssistantCard = ({ topicTitle, onAsk, onOpen }) => {
                     </div>
                 </div>
             </header>
-            <div className="rounded-xl bg-ai-subtle p-space-4 font-body-sm text-body-sm leading-relaxed text-text-primary">
+            <div className="rounded-xl bg-ai-subtle p-space-4 font-body-sm text-body-sm leading-relaxed text-text-primary dark:!bg-[#212226] dark:text-text-primary">
                 {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
             </div>
             <div className="flex flex-col gap-space-2">

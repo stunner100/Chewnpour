@@ -19,6 +19,7 @@ for (const required of [
     'cp-theme min-h-screen bg-[#FAF8F3]',
     'dark:bg-[#0c0d10]',
     'dark:text-text-primary',
+    'bg-ai-subtle p-space-4 font-body-sm text-body-sm leading-relaxed text-text-primary dark:!bg-[#212226] dark:text-text-primary',
 ]) {
     if (!source.includes(required)) {
         throw new Error(`Expected topic lesson shell to include "${required}".`);
