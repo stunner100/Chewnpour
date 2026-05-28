@@ -401,6 +401,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
     const askTutor = useAction(api.ai.askTopicTutor);
     const messageList = Array.isArray(messages) ? messages : [];
     const visibleMessages = messageList.slice(-4);
+    const hasTranscript = visibleMessages.length > 0 || Boolean(pendingQuestion) || Boolean(error);
 
     const sendQuestion = async (rawQuestion) => {
         const question = String(rawQuestion || '').trim();
@@ -442,7 +443,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
             <div className="rounded-xl bg-ai-subtle p-space-4 font-body-sm text-body-sm leading-relaxed text-text-primary dark:!bg-[#212226] dark:text-text-primary">
                 {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
             </div>
-            {(visibleMessages.length > 0 || pendingQuestion || error) && (
+            {hasTranscript && (
                 <div className="min-h-0 flex-1 space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
                     {visibleMessages.map((message) => {
                         const isUser = message.role === 'user';
@@ -479,19 +480,21 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                     )}
                 </div>
             )}
-            <div className="flex flex-col gap-space-2">
-                {STUDY_ASSISTANT_PROMPTS.map((prompt) => (
-                    <button
-                        key={prompt}
-                        type="button"
-                        onClick={() => sendQuestion(prompt)}
-                        disabled={sending}
-                        className="rounded-full border border-border-subtle bg-surface px-space-3 py-space-2 text-left font-label-sm text-label-sm text-text-primary transition-colors hover:border-ai/40 hover:bg-ai-subtle disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {prompt}
-                    </button>
-                ))}
-            </div>
+            {!hasTranscript && (
+                <div className="flex flex-col gap-space-2">
+                    {STUDY_ASSISTANT_PROMPTS.map((prompt) => (
+                        <button
+                            key={prompt}
+                            type="button"
+                            onClick={() => sendQuestion(prompt)}
+                            disabled={sending}
+                            className="rounded-full border border-border-subtle bg-surface px-space-3 py-space-2 text-left font-label-sm text-label-sm text-text-primary transition-colors hover:border-ai/40 hover:bg-ai-subtle disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {prompt}
+                        </button>
+                    ))}
+                </div>
+            )}
             <form onSubmit={handleSubmit} className="flex items-center gap-space-2 rounded-full border border-border-subtle bg-surface-soft px-space-3 py-space-2 focus-within:border-primary">
                 <input
                     type="text"
@@ -540,7 +543,7 @@ export const TopicLessonShell = ({ controller }) => {
 
     return (
         <div className="cp-theme min-h-screen bg-[#FAF8F3] font-body text-[#1F2933] dark:bg-[#0c0d10] dark:text-text-primary">
-            <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-space-6 px-space-4 py-space-6 md:px-space-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-space-8 lg:px-space-8 lg:py-space-8">
+            <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-space-6 px-space-4 py-space-6 md:px-space-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-space-8 lg:px-space-8 lg:py-space-8">
                 <div className="min-w-0 space-y-space-6">
                     <TopicLessonBreadcrumbs
                         courseTitle={courseTitle}
