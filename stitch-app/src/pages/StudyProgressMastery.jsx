@@ -142,7 +142,7 @@ const StudyProgressMastery = () => {
                     </div>
                 </section>
 
-                <section className="bg-ai-subtle shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col justify-between self-start">
+                <section className="bg-ai-subtle dark:!bg-[#161719] shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col justify-between self-start">
                     <div>
                         <div className="flex items-center gap-2 mb-4">
                             <span className="material-symbols-outlined text-primary">lightbulb</span>
@@ -170,7 +170,7 @@ const StudyProgressMastery = () => {
                     {activityData.length > 0 ? (
                         <div className="grid grid-cols-1 gap-space-4">
                             {activityData.map((course) => (
-                                <div key={course.id} className="rounded-xl border border-border-subtle bg-surface-soft/60 p-space-4">
+                                <div key={course.id} className="rounded-xl border border-border-subtle bg-surface-soft/60 dark:!bg-[#212226] p-space-4">
                                     <div className="flex items-start justify-between gap-space-4">
                                         <div className="min-w-0">
                                             <p className="font-label-md text-label-md text-text-primary line-clamp-1">{course.title}</p>
