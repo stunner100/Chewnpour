@@ -12,12 +12,12 @@ const requireIncludes = (snippet, label) => {
 };
 
 requireIncludes(
-    'bg-surface-soft/60 dark:bg-surface px-space-4 py-space-4 hover:bg-surface dark:hover:bg-surface-variant',
-    'dark quick-action card surface classes',
+    'bg-surface-soft/60 dark:!bg-[#161719] px-space-4 py-space-4 hover:bg-surface dark:hover:!bg-[#212226]',
+    'explicit dark quick-action card surface classes',
 );
 requireIncludes(
-    'bg-ai-subtle dark:bg-surface border border-border-subtle',
-    'dark recommended-next surface classes',
+    'bg-ai-subtle dark:!bg-[#161719] border border-border-subtle',
+    'explicit dark recommended-next surface classes',
 );
 requireIncludes(
     'font-label-md text-label-md text-text-primary whitespace-nowrap',
