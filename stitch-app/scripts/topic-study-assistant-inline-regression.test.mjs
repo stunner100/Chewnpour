@@ -21,7 +21,8 @@ requireIncludes('const askTutor = useAction(api.ai.askTopicTutor);', 'inline ass
 requireIncludes("const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');", 'inline assistant chat history query');
 requireIncludes('await askTutor({ topicId, question });', 'inline assistant send call');
 requireIncludes('Preparing an answer...', 'inline assistant pending response state');
-requireIncludes('max-h-[min(52vh,34rem)]', 'larger inline assistant transcript area');
+requireIncludes('max-h-[calc(100vh-8rem)] min-h-0 flex-col', 'viewport-bounded inline assistant card');
+requireIncludes('min-h-0 flex-1 space-y-space-3 overflow-y-auto', 'scrolling inline assistant transcript area');
 requireIncludes('<TopicStudyAssistantCard\n                        topicId={topicId}', 'topic id passed into inline assistant');
 requireExcludes('onAsk={handleAskTutor}\n                        onOpen={openChat}', 'desktop assistant opening side panel on submit');
 

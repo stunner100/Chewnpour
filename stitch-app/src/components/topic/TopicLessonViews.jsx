@@ -425,7 +425,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
         sendQuestion(draft);
     };
     return (
-        <aside className="sticky top-space-6 flex h-fit flex-col gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm">
+        <aside className="sticky top-space-6 flex max-h-[calc(100vh-8rem)] min-h-0 flex-col gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm">
             <header className="flex items-center justify-between">
                 <div className="flex items-center gap-space-2">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ai-soft text-ai">
@@ -443,7 +443,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                 {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
             </div>
             {(visibleMessages.length > 0 || pendingQuestion || error) && (
-                <div className="max-h-[min(52vh,34rem)] space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
+                <div className="min-h-0 flex-1 space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
                     {visibleMessages.map((message) => {
                         const isUser = message.role === 'user';
                         return (
