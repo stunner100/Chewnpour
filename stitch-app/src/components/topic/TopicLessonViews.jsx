@@ -396,14 +396,22 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
     const [draft, setDraft] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
-    const [pendingQuestion, setPendingQuestion] = useState('');
+    const [pendingExchange, setPendingExchange] = useState(null);
     const transcriptRef = useRef(null);
     const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
     const askTutor = useAction(api.ai.askTopicTutor);
     const messageList = Array.isArray(messages) ? messages : [];
     const visibleMessages = messageList.slice(-4);
     const latestMessageId = messageList.at(-1)?._id || '';
-    const hasTranscript = visibleMessages.length > 0 || Boolean(pendingQuestion) || Boolean(error);
+    const pendingQuestion = pendingExchange?.question || '';
+    const hasSavedPendingQuestion = pendingExchange
+        ? messageList.filter((message) =>
+            message.role === 'user'
+            && String(message.content || '').trim() === pendingExchange.question
+        ).length > pendingExchange.baselineQuestionCount
+        : false;
+    const shouldShowPendingQuestion = Boolean(pendingQuestion) && !hasSavedPendingQuestion;
+    const hasTranscript = visibleMessages.length > 0 || shouldShowPendingQuestion || sending || Boolean(error);
 
     useEffect(() => {
         if (!hasTranscript || !transcriptRef.current) return undefined;
@@ -416,22 +424,26 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
             });
         });
         return () => cancelAnimationFrame(frame);
-    }, [hasTranscript, pendingQuestion, visibleMessages.length, latestMessageId]);
+    }, [hasTranscript, pendingQuestion, sending, visibleMessages.length, latestMessageId]);
 
     const sendQuestion = async (rawQuestion) => {
         const question = String(rawQuestion || '').trim();
         if (!question || !topicId || sending) return;
+        const baselineQuestionCount = messageList.filter((message) =>
+            message.role === 'user'
+            && String(message.content || '').trim() === question
+        ).length;
         setDraft('');
         setSending(true);
         setError('');
-        setPendingQuestion(question);
+        setPendingExchange({ question, baselineQuestionCount });
         try {
             await askTutor({ topicId, question });
         } catch (err) {
             setDraft(question);
             setError(err?.message || 'Could not get a response. Please try again.');
         } finally {
-            setPendingQuestion('');
+            setPendingExchange(null);
             setSending(false);
         }
     };
@@ -474,13 +486,15 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                             </div>
                         );
                     })}
-                    {pendingQuestion && (
+                    {(shouldShowPendingQuestion || sending) && (
                         <>
-                            <div className="flex justify-end">
-                                <p className="max-w-[92%] rounded-xl bg-primary px-space-3 py-space-2 font-body-sm text-body-sm leading-relaxed text-on-primary">
-                                    {pendingQuestion}
-                                </p>
-                            </div>
+                            {shouldShowPendingQuestion && (
+                                <div className="flex justify-end">
+                                    <p className="max-w-[92%] rounded-xl bg-primary px-space-3 py-space-2 font-body-sm text-body-sm leading-relaxed text-on-primary">
+                                        {pendingQuestion}
+                                    </p>
+                                </div>
+                            )}
                             <div className="flex justify-start">
                                 <p className="max-w-[92%] rounded-xl border border-border-subtle bg-surface px-space-3 py-space-2 font-label-xs text-label-xs text-text-secondary">
                                     Preparing an answer...

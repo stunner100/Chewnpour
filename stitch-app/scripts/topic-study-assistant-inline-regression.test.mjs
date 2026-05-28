@@ -21,7 +21,11 @@ requireIncludes('const askTutor = useAction(api.ai.askTopicTutor);', 'inline ass
 requireIncludes("const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');", 'inline assistant chat history query');
 requireIncludes('await askTutor({ topicId, question });', 'inline assistant send call');
 requireIncludes('Preparing an answer...', 'inline assistant pending response state');
-requireIncludes('const hasTranscript = visibleMessages.length > 0 || Boolean(pendingQuestion) || Boolean(error);', 'active transcript state');
+requireIncludes('const [pendingExchange, setPendingExchange] = useState(null);', 'pending exchange state');
+requireIncludes('const hasSavedPendingQuestion = pendingExchange', 'saved pending question detection');
+requireIncludes('baselineQuestionCount', 'matching question baseline count');
+requireIncludes('const shouldShowPendingQuestion = Boolean(pendingQuestion) && !hasSavedPendingQuestion;', 'duplicate pending user bubble guard');
+requireIncludes('const hasTranscript = visibleMessages.length > 0 || shouldShowPendingQuestion || sending || Boolean(error);', 'active transcript state');
 requireIncludes('const transcriptRef = useRef(null);', 'inline assistant transcript ref');
 requireIncludes('transcript.scrollTo({', 'inline assistant transcript auto-scroll');
 requireIncludes("top: transcript.scrollHeight,\n                behavior: 'smooth',", 'inline assistant scrolls latest message into focus');
