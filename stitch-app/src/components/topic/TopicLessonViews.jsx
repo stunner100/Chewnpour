@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
@@ -467,16 +467,6 @@ export const TopicLessonShell = ({ controller }) => {
         topicProgress,
     } = controller;
 
-    useEffect(() => {
-        if (typeof document === 'undefined') return undefined;
-        const root = document.documentElement;
-        const hadDark = root.classList.contains('dark');
-        if (hadDark) root.classList.remove('dark');
-        return () => {
-            if (hadDark) root.classList.add('dark');
-        };
-    }, []);
-
     const courseQueryResult = useQuery(
         api.courses.getCourseWithTopics,
         topic?.courseId ? { courseId: topic.courseId } : 'skip',
@@ -491,7 +481,7 @@ export const TopicLessonShell = ({ controller }) => {
     const sourceLabel = courseTitle;
 
     return (
-        <div className="cp-theme bg-[#FAF8F3] font-body text-[#1F2933] min-h-screen">
+        <div className="cp-theme min-h-screen bg-[#FAF8F3] font-body text-[#1F2933] dark:bg-[#0c0d10] dark:text-text-primary">
             <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-space-6 px-space-4 py-space-6 md:px-space-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-space-8 lg:px-space-8 lg:py-space-8">
                 <div className="min-w-0 space-y-space-6">
                     <TopicLessonBreadcrumbs
