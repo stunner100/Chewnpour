@@ -8,7 +8,7 @@ const source = await fs.readFile(path.join(root, 'src/components/DashboardLayout
 for (const snippet of [
     "import BrandLogo from './BrandLogo.jsx';",
     "import useThemeMode from '../lib/useThemeMode.js';",
-    '<BrandLogo size={34} decorative className="max-w-full" />',
+    "variant={isDarkMode ? 'white' : 'default'}",
     'aria-pressed={isDarkMode}',
     'AI Study Workspace',
 ]) {

@@ -195,7 +195,12 @@ const DashboardLayout = ({ children }) => {
                     aria-label="ChewnPour dashboard"
                     className="flex flex-col items-start gap-space-2 px-space-2 mt-space-2 mb-space-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
                 >
-                    <BrandLogo size={34} decorative className="max-w-full" />
+                    <BrandLogo
+                        variant={isDarkMode ? 'white' : 'default'}
+                        size={34}
+                        decorative
+                        className="max-w-full"
+                    />
                     <p className="font-label-xs text-label-xs text-text-muted">AI Study Workspace</p>
                 </Link>
 
