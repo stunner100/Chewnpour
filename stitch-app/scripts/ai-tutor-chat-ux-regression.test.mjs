@@ -35,6 +35,8 @@ requireIncludes('Loading tutor context...', 'visible context loading copy');
 requireIncludes("Getting the latest chat for {topicTitle || 'this lesson'}.", 'specific context loading copy');
 requireExcludes('h-16 rounded-2xl bg-surface-soft ml-auto w-2/3', 'anonymous user-message skeleton');
 requireExcludes('h-28 rounded-2xl bg-ai-subtle w-3/4', 'anonymous assistant-message skeleton');
+requireIncludes('bg-ai-subtle dark:!bg-[#212226] rounded-2xl rounded-tl-sm', 'dark assistant bubble surface');
+requireIncludes('bg-surface-muted dark:!bg-[#2a241c] rounded-tr-sm', 'dark user bubble surface');
 
 requireIncludes("aria-label={`Ask AI Tutor a question about ${selectedTopicOption?.title || 'this lesson'}`}", 'textarea accessible label');
 requireIncludes('aria-label="Send message to AI Tutor"', 'send button accessible label');

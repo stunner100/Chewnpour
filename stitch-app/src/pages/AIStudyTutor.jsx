@@ -38,7 +38,7 @@ const TutorContextLoading = ({ topicTitle }) => (
         <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
             <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
         </div>
-        <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
+        <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle dark:!bg-[#212226] rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
             <p className="font-label-md text-label-md text-text-primary">Loading tutor context...</p>
             <p className="font-body-sm text-body-sm text-text-secondary mt-1">
                 Getting the latest chat for {topicTitle || 'this lesson'}.
@@ -364,7 +364,7 @@ const AIStudyTutor = () => {
                                 <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
                                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
                                 </div>
-                                <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
+                                <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle dark:!bg-[#212226] rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
                                     <p className="font-body-sm text-body-sm text-text-primary">
                                         I can help with {selectedTopicOption?.title}. Ask about a confusing idea, request examples, or start a quick review.
                                     </p>
@@ -389,7 +389,7 @@ const AIStudyTutor = () => {
                                                 <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
                                             </div>
                                         )}
-                                        <div className={`${isUser ? 'max-w-[80%] md:max-w-[70%] bg-surface-muted rounded-tr-sm' : 'max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-tl-sm border-outline-variant'} rounded-2xl p-space-4 shadow-sm border border-border-subtle`}>
+                                        <div className={`${isUser ? 'max-w-[80%] md:max-w-[70%] bg-surface-muted dark:!bg-[#2a241c] rounded-tr-sm' : 'max-w-[85%] md:max-w-[75%] bg-ai-subtle dark:!bg-[#212226] rounded-tl-sm border-outline-variant'} rounded-2xl p-space-4 shadow-sm border border-border-subtle`}>
                                             {message.pending ? (
                                                 <div className="flex items-center gap-3" role="status" aria-live="polite">
                                                     <span className="font-label-xs text-label-xs text-text-secondary">Tutor is preparing an answer</span>
