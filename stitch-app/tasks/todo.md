@@ -61,9 +61,9 @@ harnesses remain gitignored under
   self-hosted staging Convex deployment env.
 - [x] Verify staging auth preflight returns CORS `204` for
   `https://staging.chewnpour.com`.
-- [ ] Verify a disposable staging signup can reach the authenticated dashboard.
-- [ ] Rerun the Postgres staging website benchmark and guarded cleanup.
-- [ ] Record the repaired Postgres measurements and comparison limits.
+- [x] Verify a disposable staging signup can reach the authenticated dashboard.
+- [x] Rerun the Postgres staging website benchmark and guarded cleanup.
+- [x] Record the repaired Postgres measurements and comparison limits.
 
 ### Diagnosis
 
@@ -74,3 +74,40 @@ However, `npx convex env list` against the self-hosted staging deployment
 reported `No environment variables set.` HTTP functions read the Convex
 deployment env, so staging Better Auth initialized with its default secret and
 returned HTTP `500` before CORS headers could be emitted.
+
+### Review
+
+Propagated the `56` production-derived application variable names from the
+staging host into the self-hosted staging Convex deployment env using the
+staging values. Container-only infrastructure variables such as `POSTGRES_URL`,
+`CONVEX_*`, and `INSTANCE_NAME` were not copied into function env. Both
+`/api/auth/get-session` and `/api/auth/sign-up/email` preflights now return CORS
+`204` with `Access-Control-Allow-Origin: https://staging.chewnpour.com`.
+
+The fresh Postgres staging website journey completed its authenticated workload:
+
+- Fresh signup and onboarding: `13.18s`.
+- Initial protected routes: dashboard `794ms`, library `810ms`, lessons
+  `879ms`, progress `883ms`, settings `900ms`.
+- Settings write: `3.66s`.
+- Upload kickoff and library redirect for the same `53,660` byte PDF fixture:
+  `12.65s`.
+- Two concurrent route-read workers completed the standard route sweep in
+  `8.75s` wall time.
+
+Against the SQLite production measurements, Postgres staging was `2.35%` faster
+for fresh signup, `2.93%` faster for the settings write, and `1.78%` faster for
+the concurrent route sweep wall time. The initial protected-route results were
+mixed: dashboard was `20.81%` slower, while library, lessons, progress, and
+settings were `22.48%` to `66.16%` faster. Upload kickoff was `21.45%` slower.
+
+These are deployed website measurements from one run per workload, not isolated
+database engine measurements. The targets still differ in frontend builds and
+hardware. Both environments also failed to expose a generated lesson link
+inside the eight-minute provider guard: SQLite production waited `487.57s` and
+Postgres staging waited `482.65s`. Tutor and quiz timing therefore remain
+unavailable.
+
+The guarded Postgres cleanup post-check passed with zero residual app-data
+counts. The Better Auth disposable account row remains intentionally because the
+cleanup mutation removes app records only.
