@@ -49,3 +49,28 @@ Production intentionally retains the Better Auth disposable account row because
 the cleanup mutation removes app records only. Raw reports and temporary
 harnesses remain gitignored under
 `output/playwright/convex-db-website-benchmark/`.
+
+## Postgres Staging Auth Repair
+
+### Plan
+
+- [x] Reproduce the staging auth failure with an HTTP preflight request.
+- [x] Compare checked-in CORS origins, staging container env, staging Convex
+  deployment env, and the working production deployment env.
+- [ ] Propagate the staging application values from `/opt/convex/.env` into the
+  self-hosted staging Convex deployment env.
+- [ ] Verify staging auth preflight returns CORS `204` for
+  `https://staging.chewnpour.com`.
+- [ ] Verify a disposable staging signup can reach the authenticated dashboard.
+- [ ] Rerun the Postgres staging website benchmark and guarded cleanup.
+- [ ] Record the repaired Postgres measurements and comparison limits.
+
+### Diagnosis
+
+The checked-in Better Auth CORS route already allows
+`https://staging.chewnpour.com`. The staging container also has its persisted
+application values in `/opt/convex/.env`, including `BETTER_AUTH_SECRET`.
+However, `npx convex env list` against the self-hosted staging deployment
+reported `No environment variables set.` HTTP functions read the Convex
+deployment env, so staging Better Auth initialized with its default secret and
+returned HTTP `500` before CORS headers could be emitted.
