@@ -5,7 +5,8 @@
 - [x] Inspect deployed frontend targets, backend persistence, guarded cleanup,
   and existing authenticated E2E patterns.
 - [x] Agree on the production-write safety boundary and benchmark design.
-- [ ] Review the committed design checkpoint with the user.
+- [x] Review the committed design checkpoint with the user.
+- [x] Write the execution plan for the approved deployed website benchmark.
 - [ ] Create a temporary Playwright benchmark harness outside committed source.
 - [ ] Run the approved disposable-account website journey against SQLite
   production.
