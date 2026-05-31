@@ -7,16 +7,45 @@
 - [x] Agree on the production-write safety boundary and benchmark design.
 - [x] Review the committed design checkpoint with the user.
 - [x] Write the execution plan for the approved deployed website benchmark.
-- [ ] Create a temporary Playwright benchmark harness outside committed source.
-- [ ] Run the approved disposable-account website journey against SQLite
+- [x] Create a temporary Playwright benchmark harness outside committed source.
+- [x] Run the approved disposable-account website journey against SQLite
   production.
-- [ ] Run the approved disposable-account website journey against Postgres
-  staging.
-- [ ] Run guarded cleanup dry-run, deletion, and post-cleanup verification for
+- [x] Attempt the approved disposable-account website journey against Postgres
+  staging. The deployed auth endpoint rejected the staging frontend origin at
+  CORS preflight before authenticated workload timing could begin.
+- [x] Run guarded cleanup dry-run, deletion, and post-cleanup verification for
   both accounts.
-- [ ] Summarize database-heavy route timings, provider timings, errors, cleanup
+- [x] Summarize database-heavy route timings, provider timings, errors, cleanup
   evidence, and interpretation limits.
 
 ## Review
 
-Pending benchmark execution.
+The website-real comparison cannot rank SQLite against Postgres yet. The
+Postgres staging frontend at `https://staging.chewnpour.com` is blocked before
+signup because `https://staging-site.164-92-178-122.sslip.io` does not return an
+`Access-Control-Allow-Origin` header for the staging frontend origin.
+
+SQLite production results from `https://www.chewnpour.com`:
+
+- Fresh signup and onboarding: `13.5s`.
+- Retained disposable-account login settle: `42.0s` in the final pass.
+- Initial protected routes: dashboard `657ms`, library `1.28s`, lessons
+  `2.60s`, progress `1.14s`, settings `1.42s`.
+- Settings write: `3.77s`.
+- Upload kickoff and library redirect for the `53,660` byte PDF fixture:
+  `10.41s`.
+- Two concurrent route-read workers completed the standard route sweep in
+  `8.90s` wall time. Mean per-route timings were dashboard `3.18s`, library
+  `774ms`, lessons `1.08s`, progress `2.07s`, and settings `1.38s`.
+
+The extraction/provider phase did not expose a lesson link within the
+eight-minute guard (`487.57s`). Cleanup evidence confirmed that the upload still
+created `1` upload, `1` course, `7` topics, and `44` evidence passages. Tutor and
+quiz timing could not run because the website did not expose a generated lesson
+link.
+
+All guarded cleanup post-checks passed with zero residual app-data counts.
+Production intentionally retains the Better Auth disposable account row because
+the cleanup mutation removes app records only. Raw reports and temporary
+harnesses remain gitignored under
+`output/playwright/convex-db-website-benchmark/`.
