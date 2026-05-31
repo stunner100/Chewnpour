@@ -57,9 +57,9 @@ harnesses remain gitignored under
 - [x] Reproduce the staging auth failure with an HTTP preflight request.
 - [x] Compare checked-in CORS origins, staging container env, staging Convex
   deployment env, and the working production deployment env.
-- [ ] Propagate the staging application values from `/opt/convex/.env` into the
+- [x] Propagate the staging application values from `/opt/convex/.env` into the
   self-hosted staging Convex deployment env.
-- [ ] Verify staging auth preflight returns CORS `204` for
+- [x] Verify staging auth preflight returns CORS `204` for
   `https://staging.chewnpour.com`.
 - [ ] Verify a disposable staging signup can reach the authenticated dashboard.
 - [ ] Rerun the Postgres staging website benchmark and guarded cleanup.
