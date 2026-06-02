@@ -120,7 +120,7 @@ cleanup mutation removes app records only.
   target is Postgres-backed.
 - [x] Verify the supported self-hosted Convex export/import CLI options and
   review the prior SQLite restore proof.
-- [ ] Create a fresh live production SQLite backup, run integrity checks, and
+- [x] Create a fresh live production SQLite backup, run integrity checks, and
   record its SHA-256 and duration.
 - [ ] Create and time a fresh production Convex export with file storage.
 - [ ] Preserve a reversible staging checkpoint before replacing staging data.
@@ -144,3 +144,17 @@ Verified on June 2, 2026:
   `chewnpour-convex-pg-staging`. A production cluster has not been provisioned.
 - The May 29 SQLite backup restore proof passed integrity checks and booted a
   disposable restore container successfully in approximately `83s`.
+
+### Fresh Backup Evidence
+
+Created `/root/chewnpour-convex-backups/20260602T172545Z` on the production host.
+
+- Live source integrity: `ok`.
+- Backup integrity: `ok`.
+- Backup size: `1,300,066,304` bytes.
+- SHA-256:
+  `248f7bfc9935324ee6ced72eeab156c52cdb3f6fd3aac5b49bed6b5246d4eb5b`.
+- Online backup duration: `12.45s`.
+- Restore proof: an isolated backend container with networking disabled booted
+  successfully from the backup and logged a SQLite connection. The temporary
+  restore data copy was removed afterward.
