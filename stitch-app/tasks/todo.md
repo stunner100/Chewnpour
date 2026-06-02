@@ -124,8 +124,8 @@ cleanup mutation removes app records only.
   record its SHA-256 and duration.
 - [x] Create and time a fresh production Convex export with file storage.
 - [x] Preserve a reversible staging checkpoint before replacing staging data.
-- [ ] Import the fresh production snapshot into staging Postgres.
-- [ ] Validate application table counts, component auth records, file storage,
+- [x] Import the fresh production snapshot into staging Postgres.
+- [x] Validate application table counts, component auth records, file storage,
   existing account login, session restore, and at least one new Postgres write.
 - [ ] Record measured export/import duration, rollback evidence, remaining
   blockers, and the final production maintenance-window estimate.
@@ -195,3 +195,45 @@ before starting the replacement import.
   upload was retained until the fresh checkpoint passed its checksum, then
   removed.
 - Staging free disk after the checkpoint cleanup: `18,682,085,376` bytes.
+
+### Staging Import Evidence
+
+Imported the fresh production snapshot into staging Postgres with Convex
+`replaceAll`.
+
+- Multipart upload duration: `73.05s` for `1,182` parts and
+  `6,194,402,313` bytes.
+- Import id: `km2ehb23yj9mcs3q9j4rbg8cy987w1rk`.
+- Replacement import requested at: `2026-06-02T18:01:45.268Z`.
+- Replacement import completed at: `2026-06-02T18:13:40.136Z`.
+- Replacement import duration: `714.87s`.
+- Total rows written: `140,333`.
+- Imported storage records: `4,361`.
+- Selected imported application counts: profiles `542`, uploads `1,332`,
+  courses `1,338`, and questions `74,586`.
+- Selected imported Better Auth component counts: users `1,722`, accounts
+  `1,727`, and sessions `2,280`.
+- Removed the completed staging upload blob after the successful import while
+  retaining the checksummed rollback checkpoint and the fresh production ZIP.
+  Staging free disk after cleanup: `11,620,524,032` bytes.
+
+### Staging Validation Evidence
+
+Ran the deployed website harness against `https://staging.chewnpour.com` with a
+retained production-derived disposable account and provider work disabled.
+
+- Existing migrated account login: passed.
+- Protected dashboard, library, lessons, progress, and settings routes: passed.
+- New Postgres settings write: passed.
+- Session restore through two concurrent authenticated browser contexts:
+  passed.
+- Browser console errors, page errors, and HTTP response errors: none.
+- Browser report:
+  `output/playwright/convex-db-website-benchmark/db-website-benchmark-2026-06-02T18-15-50-923Z/benchmark-report.json`.
+- Direct migrated storage sample:
+  `GET https://staging-api.164-92-178-122.sslip.io/api/storage/870129ba-f9fe-4f55-85ad-5f68750ad7de`
+  returned HTTP `200`, `118,072` bytes, and the expected SHA-256 digest.
+- Production frontend/backend and staging frontend/backend health checks
+  returned HTTP `200`. Staging Better Auth CORS preflight returned HTTP `204`.
+- Production remained SQLite-backed throughout the rehearsal. Staging remained
+  Postgres-backed.
