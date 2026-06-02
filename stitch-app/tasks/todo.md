@@ -111,3 +111,36 @@ unavailable.
 The guarded Postgres cleanup post-check passed with zero residual app-data
 counts. The Better Auth disposable account row remains intentionally because the
 cleanup mutation removes app records only.
+
+## Production SQLite to Postgres Rehearsal
+
+### Plan
+
+- [x] Verify the live production source is still SQLite-backed and the staging
+  target is Postgres-backed.
+- [x] Verify the supported self-hosted Convex export/import CLI options and
+  review the prior SQLite restore proof.
+- [ ] Create a fresh live production SQLite backup, run integrity checks, and
+  record its SHA-256 and duration.
+- [ ] Create and time a fresh production Convex export with file storage.
+- [ ] Preserve a reversible staging checkpoint before replacing staging data.
+- [ ] Import the fresh production snapshot into staging Postgres.
+- [ ] Validate application table counts, component auth records, file storage,
+  existing account login, session restore, and at least one new Postgres write.
+- [ ] Record measured export/import duration, rollback evidence, remaining
+  blockers, and the final production maintenance-window estimate.
+
+### Initial Evidence
+
+Verified on June 2, 2026:
+
+- Production `https://api.chewnpour.com` is still SQLite-backed:
+  `POSTGRES_URL` and `MYSQL_URL` are empty.
+- Production SQLite file size is approximately `1.3G`.
+- Production Convex data footprint is approximately `22G`, including `13G` of
+  stored files and `5.9G` of prior export artifacts.
+- Staging `https://staging-api.164-92-178-122.sslip.io` is Postgres-backed.
+- DigitalOcean currently has one managed Postgres cluster:
+  `chewnpour-convex-pg-staging`. A production cluster has not been provisioned.
+- The May 29 SQLite backup restore proof passed integrity checks and booted a
+  disposable restore container successfully in approximately `83s`.
