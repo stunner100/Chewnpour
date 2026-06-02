@@ -122,7 +122,7 @@ cleanup mutation removes app records only.
   review the prior SQLite restore proof.
 - [x] Create a fresh live production SQLite backup, run integrity checks, and
   record its SHA-256 and duration.
-- [ ] Create and time a fresh production Convex export with file storage.
+- [x] Create and time a fresh production Convex export with file storage.
 - [ ] Preserve a reversible staging checkpoint before replacing staging data.
 - [ ] Import the fresh production snapshot into staging Postgres.
 - [ ] Validate application table counts, component auth records, file storage,
@@ -158,3 +158,22 @@ Created `/root/chewnpour-convex-backups/20260602T172545Z` on the production host
 - Restore proof: an isolated backend container with networking disabled booted
   successfully from the backup and logged a SQLite connection. The temporary
   restore data copy was removed afterward.
+
+### Fresh Export Evidence
+
+Created a production Convex ZIP export with file storage and transferred it
+directly to
+`/root/chewnpour-postgres-rehearsal/20260602T174144Z/prod-convex-export.zip` on
+the staging host.
+
+- Server export requested at: `2026-06-02T17:34:01.210Z`.
+- Server export completed at: `2026-06-02T17:41:44.662Z`.
+- Server export duration: `463.45s`.
+- Export size: `6,194,402,313` bytes.
+- Staging-side SHA-256:
+  `57e41a6ec96a4028d933761eb438e93479d20cc1d399772094e31d61dcce6ecf`.
+- Staging-side checksum duration: `31s`.
+- Staging free disk after transfer: `12,487,872,512` bytes.
+- The direct-transfer wrapper completed the download but failed while
+  formatting its first checksum line, so the exact transfer duration was not
+  retained. The staged file size matches the server-reported export size.
