@@ -123,4 +123,3 @@ Before reporting completion:
 5. Confirm cleanup ran for both disposable accounts.
 6. Confirm post-cleanup dry-runs report no remaining application records for
    the disposable users.
-
