@@ -123,7 +123,7 @@ cleanup mutation removes app records only.
 - [x] Create a fresh live production SQLite backup, run integrity checks, and
   record its SHA-256 and duration.
 - [x] Create and time a fresh production Convex export with file storage.
-- [ ] Preserve a reversible staging checkpoint before replacing staging data.
+- [x] Preserve a reversible staging checkpoint before replacing staging data.
 - [ ] Import the fresh production snapshot into staging Postgres.
 - [ ] Validate application table counts, component auth records, file storage,
   existing account login, session restore, and at least one new Postgres write.
@@ -177,3 +177,21 @@ the staging host.
 - The direct-transfer wrapper completed the download but failed while
   formatting its first checksum line, so the exact transfer duration was not
   retained. The staged file size matches the server-reported export size.
+
+### Staging Checkpoint Evidence
+
+Created a staging Convex ZIP rollback export with file storage at
+`/var/lib/docker/volumes/convex_convex_data/_data/storage/exports/95c108ca-4221-4ac4-b834-dad4b636f807.blob`
+before starting the replacement import.
+
+- Server export requested at: `2026-06-02T17:48:19.368Z`.
+- Server export completed at: `2026-06-02T17:55:37.590Z`.
+- Server export duration: `438.22s`.
+- Checkpoint size: `6,194,398,787` bytes.
+- SHA-256:
+  `4a2a070b2ab52ac8524ff3453bf127a68fed8af407a8dca37e4c04a997d3298b`.
+- Staging contained two prior `6,194,398,503` byte snapshot-import blobs. The
+  failed May 29 upload was removed before checkpointing. The completed May 30
+  upload was retained until the fresh checkpoint passed its checksum, then
+  removed.
+- Staging free disk after the checkpoint cleanup: `18,682,085,376` bytes.
