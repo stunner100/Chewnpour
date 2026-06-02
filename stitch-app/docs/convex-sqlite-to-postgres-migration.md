@@ -145,6 +145,15 @@ Enable:
 - Restricted network access to the Convex backend host.
 - Monitoring for CPU, memory, storage, connections, slow queries, and restarts.
 
+For the budget-conscious production baseline, start with one
+`db-s-1vcpu-1gb` node and resize as measured traffic requires. This initial
+plan is intentionally single-node and does not provide a standby. Review a
+resize when CPU is sustained above `70%`, memory or connection pressure appears,
+storage exceeds `70%`, or the deployed website benchmark regresses. The
+`db-s-1vcpu-1gb` size cannot add a standby, so adding high availability first
+requires resizing to a plan that supports multiple nodes. Rehearse any resize
+or standby change on staging before applying it to production.
+
 Within each service, create the actual Postgres database name expected by the
 backend. Convex derives this database name from `INSTANCE_NAME` by replacing
 hyphens with underscores. If `INSTANCE_NAME=chewnpour-convex-production`, the

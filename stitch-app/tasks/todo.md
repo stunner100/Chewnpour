@@ -257,8 +257,8 @@ until the Postgres backend, import, preflights, and browser smoke checks pass.
 
 Remaining production gates:
 
-- DigitalOcean has no production Postgres cluster yet. Provisioning a dedicated
-  production cluster is a cost-bearing action and requires explicit approval.
+- Keep the provisioned production Postgres cluster disconnected from the live
+  Convex backend until the final maintenance-window cutover.
 - DigitalOcean has no provider-level droplet snapshot yet. Create one as part of
   the final cutover backup gate.
 - Production currently has approximately `9.85G` free while
@@ -273,3 +273,31 @@ Remaining production gates:
   risk before cutover.
 - Run the final adversarial cutover review after the production cluster,
   snapshot, disk-headroom, and write-quiescence procedures are ready.
+
+### Approved Low-Cost Production Postgres Baseline
+
+Provisioned the approved budget baseline on `2026-06-02`:
+
+- DigitalOcean managed Postgres cluster:
+  `chewnpour-convex-pg-production`
+  (`d13334c9-4090-4fd8-9a98-5f5557ce1f4e`).
+- Region: `fra1`.
+- Version: Postgres `16`, matching the rehearsed staging cluster.
+- Initial size: one `db-s-1vcpu-1gb` node with `10,240 MiB` storage. The
+  DigitalOcean price at provisioning time was `$15.15/month`.
+- Database created for the production Convex instance:
+  `chewnpour_convex_production`.
+- Trusted source restricted to the production Convex Droplet
+  `convex-selfhosted` (`566121482`).
+- Production Droplet Postgres SSL handshake: passed.
+- Untrusted workstation Postgres SSL handshake: timed out as expected.
+- Live production frontend/backend health checks: HTTP `200`.
+- Live production Convex `POSTGRES_URL` and `MYSQL_URL`: still empty. Production
+  remains SQLite-backed until the approved maintenance-window cutover.
+
+The initial plan intentionally accepts single-node recovery risk to minimize
+cost. Review a resize when CPU remains above `70%`, memory or connection
+pressure appears, storage exceeds `70%`, or the deployed website benchmark
+regresses. This size cannot add a standby; adding high availability first
+requires resizing to a multi-node-capable plan and rehearsing the change on
+staging.
