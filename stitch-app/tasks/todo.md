@@ -127,7 +127,7 @@ cleanup mutation removes app records only.
 - [x] Import the fresh production snapshot into staging Postgres.
 - [x] Validate application table counts, component auth records, file storage,
   existing account login, session restore, and at least one new Postgres write.
-- [ ] Record measured export/import duration, rollback evidence, remaining
+- [x] Record measured export/import duration, rollback evidence, remaining
   blockers, and the final production maintenance-window estimate.
 
 ### Initial Evidence
@@ -237,3 +237,39 @@ retained production-derived disposable account and provider work disabled.
   returned HTTP `200`. Staging Better Auth CORS preflight returned HTTP `204`.
 - Production remained SQLite-backed throughout the rehearsal. Staging remained
   Postgres-backed.
+
+### Production Cutover Estimate And Remaining Gates
+
+The measured final-path work is approximately `25m` before production-specific
+backend restart, function deployment, preflights, smoke checks, and operational
+buffer:
+
+- Final live SQLite backup: approximately `13s`.
+- Production export with file storage: approximately `8m`.
+- Direct host-to-host transfer: budget `2m`. The rehearsal transfer completed,
+  but its wrapper did not retain the exact duration.
+- Postgres multipart upload and parse: approximately `2m`.
+- Postgres replacement import: approximately `12m`.
+- Deployed website smoke path: approximately `1m`.
+
+Reserve a `45m` to `60m` production maintenance window. Keep writes disabled
+until the Postgres backend, import, preflights, and browser smoke checks pass.
+
+Remaining production gates:
+
+- DigitalOcean has no production Postgres cluster yet. Provisioning a dedicated
+  production cluster is a cost-bearing action and requires explicit approval.
+- DigitalOcean has no provider-level droplet snapshot yet. Create one as part of
+  the final cutover backup gate.
+- Production currently has approximately `9.85G` free while
+  `/convex/data/storage/exports` occupies approximately `12G`. Reclaim expired
+  export artifacts through a safe provider-supported path or expand disk before
+  producing the final cutover export.
+- Execute maintenance/read-only mode and prove write quiescence before the final
+  export.
+- The provider-dependent upload-to-generated-lesson flow still did not expose a
+  lesson link inside the prior eight-minute guards on either SQLite production
+  or Postgres staging. Diagnose or explicitly accept that residual provider
+  risk before cutover.
+- Run the final adversarial cutover review after the production cluster,
+  snapshot, disk-headroom, and write-quiescence procedures are ready.
