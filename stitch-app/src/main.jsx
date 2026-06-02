@@ -1,8 +1,7 @@
-import { StrictMode } from 'react';
+import { createElement, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import AppErrorBoundary from './components/AppErrorBoundary.jsx';
-import AppProviders from './bootstrap/AppProviders.jsx';
+import MaintenanceScreen from './components/MaintenanceScreen.jsx';
 import {
   attemptChunkRecoveryReload,
   isChunkLoadError,
@@ -11,8 +10,7 @@ import {
   redirectForStaleTopicRoute,
 } from './lib/chunkLoadRecovery.js';
 import { convexSiteUrl } from './lib/convex-config.js';
-import { initSentry } from './lib/sentry.js';
-import { initPostHog } from './lib/posthog.js';
+import { maintenanceModeEnabled } from './lib/maintenance-mode.js';
 import { ensurePromiseWithResolvers } from './lib/runtimePolyfills.js';
 import { stashOttFromUrl } from './lib/ott.js';
 import { initializeTheme } from './lib/theme.js';
@@ -163,8 +161,13 @@ const applyPwaCutover = () => {
 
 const scheduleObservabilityInit = () => {
   const startObservability = () => {
-    initSentry();
-    initPostHog();
+    void Promise.all([
+      import('./lib/sentry.js'),
+      import('./lib/posthog.js'),
+    ]).then(([{ initSentry }, { initPostHog }]) => {
+      initSentry();
+      initPostHog();
+    });
   };
 
   if (typeof window === 'undefined') {
@@ -237,18 +240,50 @@ const installChunkLoadRecovery = () => {
   });
 };
 
+const root = createRoot(document.getElementById('root'));
+
+const renderMaintenanceApp = () => {
+  root.render(
+    <StrictMode>
+      <MaintenanceScreen />
+    </StrictMode>,
+  );
+};
+
+const renderNormalApp = () => {
+  void Promise.all([
+    import('./components/AppErrorBoundary.jsx'),
+    import('./bootstrap/AppProviders.jsx'),
+  ]).then(([{ default: AppErrorBoundary }, { default: AppProviders }]) => {
+    const normalApp = createElement(
+      AppErrorBoundary,
+      null,
+      createElement(AppProviders),
+    );
+
+    root.render(
+      <StrictMode>
+        {normalApp}
+      </StrictMode>,
+    );
+  }).catch((error) => {
+    if (isChunkLoadError(error) && attemptChunkRecoveryReload('app-bootstrap')) {
+      return;
+    }
+    throw error;
+  });
+};
+
 ensureSocialMetaDefaults();
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <AppErrorBoundary>
-      <AppProviders />
-    </AppErrorBoundary>
-  </StrictMode>,
-);
-
 applyBrowserHints();
-applyNetworkHints();
 installChunkLoadRecovery();
 applyPwaCutover();
-scheduleObservabilityInit();
+
+if (maintenanceModeEnabled) {
+  renderMaintenanceApp();
+} else {
+  renderNormalApp();
+  applyNetworkHints();
+  scheduleObservabilityInit();
+}

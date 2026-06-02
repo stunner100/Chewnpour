@@ -350,34 +350,77 @@ Record:
 Do not schedule production cutover until the dry run passes without manual data
 repair.
 
+## Phase 7.5: Maintenance Build, Convex Pause, And Disk Headroom
+
+Deploy a frontend build with `VITE_MAINTENANCE_MODE=true` before pausing
+production writes. Then pause the self-hosted Convex deployment:
+
+```bash
+curl -X POST \
+  -H "Authorization: Convex <admin-key>" \
+  https://api.chewnpour.com/api/v1/pause_deployment
+```
+
+The staging pause rehearsal on `2026-06-02` verified that public queries work
+before pause, fail while paused, and work again after unpause. Production and
+staging both expose `/api/v1/pause_deployment` and
+`/api/v1/unpause_deployment` in their self-hosted Convex OpenAPI output.
+
+After write quiescence is proven, create the provider-level Droplet snapshot
+and permanently expand the production Droplet to the already-included `160 GB`
+disk:
+
+```bash
+doctl compute droplet-action resize 566121482 \
+  --size s-4vcpu-8gb \
+  --resize-disk \
+  --wait
+```
+
+DigitalOcean documents that disk resize is permanent and the action powers off
+the Droplet. Verify filesystem size, Docker containers, production frontend
+HTTP `200`, and production backend HTTP `200` before continuing.
+
+After Postgres-backed smoke checks pass, unpause Convex and deploy the frontend
+with `VITE_MAINTENANCE_MODE=false`:
+
+```bash
+curl -X POST \
+  -H "Authorization: Convex <admin-key>" \
+  https://api.chewnpour.com/api/v1/unpause_deployment
+```
+
 ## Phase 8: Production Cutover
 
 Schedule a short maintenance window.
 
 1. Announce maintenance.
-2. Enable maintenance/read-only mode at the frontend and edge layer.
-3. Block or pause all write entry points: Convex mutations/actions, uploads,
-   AI tutor writes, quiz submissions, payment webhooks, scheduled jobs, and
-   background extraction work.
+2. Deploy a frontend build with `VITE_MAINTENANCE_MODE=true`.
+3. Pause the self-hosted Convex deployment with
+   `POST /api/v1/pause_deployment`.
 4. Record the maintenance start timestamp and prove no new writes occur after
    that timestamp by checking the latest `_creationTime` in core write tables.
 5. Take final SQLite backup and provider snapshot.
-6. Export production Convex data with file storage from the SQLite-backed
+6. Permanently resize the production Droplet to the already-included `160 GB`
+   disk, then verify filesystem, container, frontend, and backend health.
+7. Export production Convex data with file storage from the SQLite-backed
    service.
-7. Stop the SQLite-backed production Convex backend.
-8. Start the production Convex backend with `POSTGRES_URL` and the confirmed
+8. Stop the SQLite-backed production Convex backend.
+9. Start the production Convex backend with `POSTGRES_URL` and the confirmed
    `INSTANCE_NAME`.
-9. Confirm logs show the production backend is connected to Postgres.
-10. Redeploy functions/schema to the Postgres-backed production Convex target
+10. Confirm logs show the production backend is connected to Postgres.
+11. Redeploy functions/schema to the Postgres-backed production Convex target
     with `--cmd-url-env-var-name VITE_CONVEX_URL`.
-11. Run target preflight again and confirm the production import target is the
+12. Run target preflight again and confirm the production import target is the
     Postgres-backed service.
-12. Import the final production export into that running Postgres-backed Convex
+13. Import the final production export into that running Postgres-backed Convex
     service.
-13. Confirm Vercel production `VITE_CONVEX_URL` and `CONVEX_URL` still point to
+14. Confirm Vercel production `VITE_CONVEX_URL` and `CONVEX_URL` still point to
     the same production DigitalOcean Convex host.
-14. Run smoke tests and manual checks.
-15. Re-enable writes.
+15. Run smoke tests and manual checks.
+16. Unpause the self-hosted Convex deployment with
+    `POST /api/v1/unpause_deployment`.
+17. Deploy the frontend with `VITE_MAINTENANCE_MODE=false`.
 
 Write-quiescence proof: record the maintenance start timestamp, then prove no
 new `_creationTime` values exist after maintenance start before the final

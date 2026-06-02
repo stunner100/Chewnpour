@@ -262,11 +262,11 @@ Remaining production gates:
 - DigitalOcean has no provider-level droplet snapshot yet. Create one as part of
   the final cutover backup gate.
 - Production currently has approximately `9.85G` free while
-  `/convex/data/storage/exports` occupies approximately `12G`. Reclaim expired
-  export artifacts through a safe provider-supported path or expand disk before
-  producing the final cutover export.
-- Execute maintenance/read-only mode and prove write quiescence before the final
-  export.
+  `/convex/data/storage/exports` occupies approximately `12G`. Expand the
+  production Droplet from `80 GB` to its already-included `160 GB` disk inside
+  the maintenance window before producing the final cutover export.
+- Deploy the maintenance frontend, pause self-hosted Convex, and prove write
+  quiescence before the final export.
 - The provider-dependent upload-to-generated-lesson flow still did not expose a
   lesson link inside the prior eight-minute guards on either SQLite production
   or Postgres staging. Diagnose or explicitly accept that residual provider
@@ -301,3 +301,20 @@ pressure appears, storage exceeds `70%`, or the deployed website benchmark
 regresses. This size cannot add a standby; adding high availability first
 requires resizing to a multi-node-capable plan and rehearsing the change on
 staging.
+
+### Production Maintenance Screen And Pause Readiness
+
+- Implemented a build-time `VITE_MAINTENANCE_MODE=true` frontend gate that
+  renders a static maintenance screen before the Convex client and normal app
+  providers are constructed.
+- staging pause rehearsal on `2026-06-02`: public query before pause passed,
+  `POST /api/v1/pause_deployment` returned HTTP `200`, public query while
+  paused was blocked, `POST /api/v1/unpause_deployment` returned HTTP `200`,
+  and public query after unpause passed.
+- Production and staging both expose `/api/v1/pause_deployment` and
+  `/api/v1/unpause_deployment` in their self-hosted Convex OpenAPI output.
+- Production Droplet `convex-selfhosted` currently has an `80 GB` disk while
+  its existing `s-4vcpu-8gb` plan includes `160 GB`; expand to the
+  already-included size inside the maintenance window before the final export.
+- Production remains SQLite-backed. Do not set `POSTGRES_URL` or unpause writes
+  until the final Postgres-backed import and smoke checks pass.

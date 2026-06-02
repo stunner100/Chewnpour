@@ -1,14 +1,20 @@
 import React from 'react';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexBetterAuthProvider } from '@convex-dev/better-auth/react';
+import MaintenanceScreen from '../components/MaintenanceScreen.jsx';
 import App from '../App.jsx';
 import { AuthProvider } from '../contexts/AuthContext.jsx';
 import { authClient } from '../lib/auth-client.js';
 import { convexUrl, hasConvexUrl } from '../lib/convex-config.js';
+import { maintenanceModeEnabled } from '../lib/maintenance-mode.js';
 
-const convex = hasConvexUrl ? new ConvexReactClient(convexUrl) : null;
+const convex = !maintenanceModeEnabled && hasConvexUrl ? new ConvexReactClient(convexUrl) : null;
 
 const AppProviders = () => {
+    if (maintenanceModeEnabled) {
+        return <MaintenanceScreen />;
+    }
+
     if (hasConvexUrl && convex) {
         return (
             <ConvexBetterAuthProvider client={convex} authClient={authClient}>
