@@ -15,7 +15,7 @@ import {
   Users,
   Wand2,
 } from 'lucide-react';
-import '../styles/kids-design-preview.css';
+import '../styles/kids.css';
 
 const childProfiles = [
   {
@@ -48,10 +48,10 @@ const parentStats = [
 ];
 
 const pipelineSteps = [
-  ['Upload', 'worksheet page'],
-  ['Extract', 'readable text'],
-  ['Generate', 'kid lesson'],
-  ['Publish', 'child ready'],
+  ['Upload', 'reading page'],
+  ['Find', 'important words'],
+  ['Create', 'short lesson'],
+  ['Open', 'child ready'],
 ];
 
 const helpPrompts = [
@@ -109,15 +109,15 @@ const KidsNav = () => (
   </header>
 );
 
-const HeroPreview = () => (
+const HeroSection = () => (
   <section className="kids-hero kids-reveal" id="top" style={{ '--i': 0 }}>
     <div className="kids-hero__copy">
       <span className="kids-eyebrow">For ages 6 and up</span>
       <h1>Reading pages children can use.</h1>
       <p className="kids-hero__lede">
         ChewnPour Kids keeps the adult in control and gives the child a smaller,
-        warmer reading room: upload, auto-publish, then learn through short
-        words, story recaps, and tiny checks.
+        warmer reading room: upload a page, prepare a lesson, then learn through
+        short words, story recaps, and tiny checks.
       </p>
       <div className="kids-hero__actions">
         <a className="kids-btn" href="#parent">
@@ -144,7 +144,7 @@ const HeroPreview = () => (
           <span className="kids-progress__track">
             <span className="kids-progress__bar" style={{ '--value': '76%' }} />
           </span>
-          <span className="kids-proof-card__meta">Vocabulary and recap generated</span>
+          <span className="kids-proof-card__meta">Vocabulary and recap ready</span>
         </div>
         <ul className="kids-word-list" aria-label="Vocabulary examples">
           <li>habitat</li>
@@ -152,7 +152,7 @@ const HeroPreview = () => (
           <li>shelter</li>
         </ul>
       </div>
-      <div className="kids-character" aria-label="Kids character mark">
+      <div className="kids-character" aria-label="ChewnPour Kids companion">
         <div className="kids-character__face">
           <span className="kids-character__mouth" />
         </div>
@@ -165,10 +165,10 @@ const HeroPreview = () => (
 const ParentScreen = () => (
   <article className="kids-shot kids-reveal" id="parent" style={{ '--i': 1 }}>
     <ScreenCaption icon={ShieldCheck} tag="Parent control" title="The adult dashboard stays practical.">
-      Parents manage children, reading level, publishing status, and recovery
-      actions. The child never sees upload controls or billing.
+      Parents manage children, reading level, lesson visibility, and make-again
+      controls. The child never sees upload controls or billing.
     </ScreenCaption>
-    <div className="kids-screen kids-screen--parent" aria-label="Parent dashboard screen design">
+    <div className="kids-screen kids-screen--parent" aria-label="Parent dashboard">
       <div className="kids-screen__top">
         <div className="kids-screen__title">
           <strong>Parent home</strong>
@@ -219,13 +219,13 @@ const ParentScreen = () => (
             </button>
             <button type="button" className="kids-btn kids-btn--soft kids-btn--small">
               <RotateCcw aria-hidden="true" />
-              Regenerate
+              Make again
             </button>
           </div>
         </div>
         <div className="kids-callout">
           <strong>Safety defaults</strong>
-          <span>Preset help buttons only - no child upload - no open chat</span>
+          <span>Preset help buttons only - no child uploads - no open chat</span>
         </div>
       </div>
     </div>
@@ -234,7 +234,7 @@ const ParentScreen = () => (
 
 const UploadScreen = () => (
   <article className="kids-shot kids-reveal" id="upload" style={{ '--i': 2 }}>
-    <div className="kids-screen kids-screen--parent" aria-label="Upload screen design">
+    <div className="kids-screen kids-screen--parent" aria-label="Upload reading page">
       <div className="kids-screen__top">
         <div className="kids-screen__title">
           <strong>Upload reading page</strong>
@@ -262,13 +262,13 @@ const UploadScreen = () => (
         <div className="kids-upload-zone__inner">
           <FileText aria-hidden="true" />
           <strong>Drop worksheet, page, PDF, or photo</strong>
-          <p>The lesson publishes when extraction and kid-safe generation pass.</p>
+          <p>The lesson appears when the page is ready and safety checks pass.</p>
           <button type="button" className="kids-btn kids-btn--small">
             Choose file
           </button>
         </div>
       </div>
-      <div className="kids-pipeline" aria-label="Auto-publish pipeline">
+      <div className="kids-pipeline" aria-label="Reading page setup steps">
         {pipelineSteps.map(([title, detail]) => (
           <div className="kids-pipeline__step" key={title}>
             <strong>{title}</strong>
@@ -277,9 +277,10 @@ const UploadScreen = () => (
         ))}
       </div>
     </div>
-    <ScreenCaption icon={UploadCloud} tag="Auto publish" title="The upload flow is short but honest.">
-      The screen shows exactly what happens after upload. Failed extraction never
-      publishes; successful lessons appear for the child with parent controls intact.
+    <ScreenCaption icon={UploadCloud} tag="Quick setup" title="Parents can move from page to lesson quickly.">
+      ChewnPour shows what happens after upload. If the page is not ready, the
+      child does not see it. If it is ready, the lesson appears with parent
+      controls intact.
     </ScreenCaption>
   </article>
 );
@@ -287,10 +288,10 @@ const UploadScreen = () => (
 const ChildScreen = () => (
   <article className="kids-shot kids-reveal" id="child" style={{ '--i': 3 }}>
     <ScreenCaption icon={Star} tag="Child home" title="The child gets one clear next step.">
-      No settings, no upload, no sidebar maze. The child sees today&apos;s reading,
-      rewards, finished lessons, and quiz games.
+      No settings or upload controls. The child sees today&apos;s reading, rewards,
+      finished lessons, and quiz games.
     </ScreenCaption>
-    <div className="kids-screen kids-screen--child" aria-label="Child dashboard screen design">
+    <div className="kids-screen kids-screen--child" aria-label="Child dashboard">
       <div className="kids-child-hero">
         <div className="kids-screen__title">
           <strong>Hi Ama</strong>
@@ -341,7 +342,7 @@ const ChildScreen = () => (
 
 const LessonScreen = () => (
   <article className="kids-shot kids-reveal" id="lesson" style={{ '--i': 4 }}>
-    <div className="kids-screen kids-screen--lesson" aria-label="Kid reading lesson screen design">
+    <div className="kids-screen kids-screen--lesson" aria-label="Child reading lesson">
       <div className="kids-screen__top">
         <div className="kids-screen__title">
           <strong>Animal Habitats</strong>
@@ -401,18 +402,18 @@ const LessonScreen = () => (
         </div>
       </div>
     </div>
-    <ScreenCaption icon={Wand2} tag="Lesson session" title="Help is button-led, not free chat.">
+    <ScreenCaption icon={Wand2} tag="Lesson session" title="Help stays guided, not open-ended.">
       The child can ask for a simpler explanation, an example, or a story version.
       Every action stays tied to the approved reading page.
     </ScreenCaption>
   </article>
 );
 
-const KidsDesignPreview = () => (
-  <main className="kids-preview">
+const Kids = () => (
+  <main className="kids-page">
     <KidsNav />
     <div className="kids-shell">
-      <HeroPreview />
+      <HeroSection />
       <section className="kids-section kids-reveal" id="screens" style={{ '--i': 1 }}>
         <div className="kids-section__head">
           <h2>One family flow from upload to reading.</h2>
@@ -429,16 +430,16 @@ const KidsDesignPreview = () => (
           <LessonScreen />
         </div>
       </section>
-      <section className="kids-preview-note kids-reveal" style={{ '--i': 5 }}>
+      <section className="kids-parent-note kids-reveal" style={{ '--i': 5 }}>
         <h2>Built for parent-led learning.</h2>
         <p>
           Children get guided reading, preset help buttons, and short practice.
-          Parents keep the upload, visibility, and regeneration controls.
+          Parents keep the upload, visibility, and make-again controls.
         </p>
       </section>
     </div>
     <footer className="kids-footer">
-      <p className="kids-footer__line">A reading room with parent hands on the door.</p>
+      <p className="kids-footer__line">A reading room guided by parents.</p>
       <div className="kids-footer__meta">
         <span>ChewnPour Kids</span>
         <span>Reading support for young learners</span>
@@ -447,4 +448,4 @@ const KidsDesignPreview = () => (
   </main>
 );
 
-export default KidsDesignPreview;
+export default Kids;
