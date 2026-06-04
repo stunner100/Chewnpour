@@ -81,11 +81,11 @@ const BrandMark = () => (
 const KidsNav = () => (
   <header className="kids-nav">
     <div className="kids-nav__inner">
-      <a className="kids-nav__brand" href="#top" aria-label="ChewnPour Kids preview home">
+      <a className="kids-nav__brand" href="#top" aria-label="ChewnPour Kids home">
         <BrandMark />
         <span>ChewnPour Kids</span>
       </a>
-      <nav className="kids-nav__links" aria-label="Kids design preview sections">
+      <nav className="kids-nav__links" aria-label="ChewnPour Kids sections">
         <a className="kids-nav__link" href="#parent" aria-current="page">
           Parent
         </a>
@@ -101,7 +101,7 @@ const KidsNav = () => (
       </nav>
       <div className="kids-nav__right">
         <a className="kids-btn kids-btn--small" href="#screens">
-          View screens
+          See how it works
           <ChevronRight aria-hidden="true" />
         </a>
       </div>
@@ -112,7 +112,7 @@ const KidsNav = () => (
 const HeroPreview = () => (
   <section className="kids-hero kids-reveal" id="top" style={{ '--i': 0 }}>
     <div className="kids-hero__copy">
-      <span className="kids-eyebrow">Design preview</span>
+      <span className="kids-eyebrow">For ages 6 and up</span>
       <h1>Reading pages children can use.</h1>
       <p className="kids-hero__lede">
         ChewnPour Kids keeps the adult in control and gives the child a smaller,
@@ -121,15 +121,15 @@ const HeroPreview = () => (
       </p>
       <div className="kids-hero__actions">
         <a className="kids-btn" href="#parent">
-          Start with parent view
+          Start with parent control
           <ChevronRight aria-hidden="true" />
         </a>
         <a className="kids-btn kids-btn--soft" href="#lesson">
-          Jump to lesson
+          See a child lesson
         </a>
       </div>
     </div>
-    <div className="kids-hero__proof" aria-label="ChewnPour Kids design summary">
+    <div className="kids-hero__proof" aria-label="ChewnPour Kids lesson summary">
       <div className="kids-proof-card">
         <div className="kids-proof-card__row">
           <div>
@@ -156,7 +156,7 @@ const HeroPreview = () => (
         <div className="kids-character__face">
           <span className="kids-character__mouth" />
         </div>
-        <p>One small character mark, not a noisy mascot system.</p>
+        <p>A calm reading companion that keeps the page feeling friendly.</p>
       </div>
     </div>
   </section>
@@ -415,11 +415,11 @@ const KidsDesignPreview = () => (
       <HeroPreview />
       <section className="kids-section kids-reveal" id="screens" style={{ '--i': 1 }}>
         <div className="kids-section__head">
-          <h2>Five screens before one backend change.</h2>
+          <h2>One family flow from upload to reading.</h2>
           <p>
-            This is a design-first pass: the screens use static content so the
-            product shape can be reviewed before schema, generation, and routing
-            work begin.
+            Parents choose the child and reading level, then ChewnPour turns the
+            page into vocabulary, a short recap, and simple checks the child can
+            complete on their own.
           </p>
         </div>
         <div className="kids-workbench">
@@ -430,19 +430,18 @@ const KidsDesignPreview = () => (
         </div>
       </section>
       <section className="kids-preview-note kids-reveal" style={{ '--i': 5 }}>
-        <h2>Implementation boundary</h2>
+        <h2>Built for parent-led learning.</h2>
         <p>
-          This preview is intentionally static. The next step is to turn these
-          screens into real `/kids` routes, then connect child profiles, uploads,
-          generated lessons, and parent recovery controls.
+          Children get guided reading, preset help buttons, and short practice.
+          Parents keep the upload, visibility, and regeneration controls.
         </p>
       </section>
     </div>
     <footer className="kids-footer">
       <p className="kids-footer__line">A reading room with parent hands on the door.</p>
       <div className="kids-footer__meta">
-        <span>ChewnPour Kids design preview</span>
-        <span>Static screens - no backend wiring</span>
+        <span>ChewnPour Kids</span>
+        <span>Reading support for young learners</span>
       </div>
     </footer>
   </main>
