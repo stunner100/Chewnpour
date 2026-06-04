@@ -6,5 +6,6 @@ __pycache__/
 .pytest_cache/
 .vercel
 .playwright-mcp/
+.superpowers/
 qa-results/
 stitch-app/backups/
