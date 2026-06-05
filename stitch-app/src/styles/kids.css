@@ -601,6 +601,60 @@ body {
   margin-block-start: var(--kids-space-md);
 }
 
+.kids-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--kids-space-md);
+  margin-block: var(--kids-space-md);
+}
+
+.kids-field {
+  display: grid;
+  gap: var(--kids-space-xs);
+  color: var(--kids-color-ink);
+  font-weight: 800;
+}
+
+.kids-field span {
+  color: var(--kids-color-muted);
+  font-size: var(--kids-text-sm);
+}
+
+.kids-field input,
+.kids-field select {
+  min-height: 2.75rem;
+  width: 100%;
+  border: var(--kids-rule-hair) solid var(--kids-color-rule);
+  border-radius: var(--kids-radius-md);
+  padding: 0 var(--kids-space-md);
+  background: var(--kids-color-surface);
+  color: var(--kids-color-ink);
+  font: 800 var(--kids-text-sm) / 1 var(--kids-font-body);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+
+.kids-field input:focus-visible,
+.kids-field select:focus-visible {
+  outline-color: var(--kids-color-focus);
+}
+
+.kids-error,
+.kids-help-message {
+  margin: var(--kids-space-sm) 0 0;
+  font-size: var(--kids-text-sm);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.kids-error {
+  color: var(--kids-color-error);
+}
+
+.kids-help-message {
+  color: var(--kids-color-success);
+}
+
 .kids-callout {
   padding: var(--kids-space-md);
   border-radius: var(--kids-radius-lg);
@@ -953,6 +1007,7 @@ body {
   .kids-avatar-row,
   .kids-kpi-grid,
   .kids-card-grid,
+  .kids-form-grid,
   .kids-tab-row,
   .kids-pipeline,
   .kids-reading-grid,

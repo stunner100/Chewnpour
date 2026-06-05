@@ -139,6 +139,71 @@ export default defineSchema({
         .index("by_createdAt", ["createdAt"])
         .index("by_uploadedBy", ["uploadedBy"]),
 
+    kidProfiles: defineTable({
+        userId: v.string(),
+        name: v.string(),
+        age: v.number(),
+        readingLevel: v.string(), // 'beginner' | 'growing' | 'confident'
+        avatarTone: v.optional(v.string()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        archivedAt: v.optional(v.number()),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_userId_createdAt", ["userId", "createdAt"]),
+
+    kidMaterials: defineTable({
+        userId: v.string(),
+        childId: v.id("kidProfiles"),
+        uploadId: v.optional(v.id("uploads")),
+        title: v.string(),
+        fileName: v.optional(v.string()),
+        fileType: v.optional(v.string()),
+        fileSize: v.optional(v.number()),
+        status: v.string(), // 'processing' | 'ready' | 'error'
+        readingLevel: v.string(),
+        visibleToChild: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        errorMessage: v.optional(v.string()),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_childId", ["childId"])
+        .index("by_uploadId", ["uploadId"])
+        .index("by_userId_createdAt", ["userId", "createdAt"]),
+
+    kidLessons: defineTable({
+        userId: v.string(),
+        childId: v.id("kidProfiles"),
+        materialId: v.id("kidMaterials"),
+        title: v.string(),
+        readingLevel: v.string(),
+        status: v.string(), // 'processing' | 'ready' | 'error'
+        visibleToChild: v.boolean(),
+        estimatedMinutes: v.number(),
+        vocabulary: v.array(v.object({
+            term: v.string(),
+            meaning: v.string(),
+        })),
+        recap: v.string(),
+        questions: v.array(v.object({
+            prompt: v.string(),
+            options: v.array(v.string()),
+            correctOption: v.string(),
+        })),
+        helpRequests: v.optional(v.array(v.object({
+            prompt: v.string(),
+            requestedAt: v.number(),
+        }))),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        errorMessage: v.optional(v.string()),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_childId", ["childId"])
+        .index("by_materialId", ["materialId"])
+        .index("by_userId_createdAt", ["userId", "createdAt"]),
+
     evidencePassages: defineTable({
         userId: v.string(),
         uploadId: v.id("uploads"),

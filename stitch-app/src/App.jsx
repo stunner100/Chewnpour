@@ -120,7 +120,10 @@ const ProductResearch = lazyRoute(() => import('./pages/ProductResearch'), { com
 const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentName: 'Unsubscribe' });
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
-const Kids = lazyRoute(() => import('./pages/Kids'), { componentName: 'Kids' });
+const KidsParentHome = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsParentHome', namedExport: 'KidsParentHome' });
+const KidsUpload = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsUpload', namedExport: 'KidsUpload' });
+const KidsChildHome = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsChildHome', namedExport: 'KidsChildHome' });
+const KidsLesson = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsLesson', namedExport: 'KidsLesson' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const OnboardingLevel = lazyRoute(() => import('./pages/OnboardingLevel'), { componentName: 'OnboardingLevel' });
 const OnboardingDepartment = lazyRoute(() => import('./pages/OnboardingDepartment'), { componentName: 'OnboardingDepartment' });
@@ -336,7 +339,11 @@ function App() {
         <Route path="/unsubscribe" element={withSuspense(<Unsubscribe />)} />
         <Route path="/terms" element={withSuspense(<Terms />)} />
         <Route path="/privacy" element={withSuspense(<Privacy />)} />
-        <Route path="/kids" element={withSuspense(<Kids />)} />
+        <Route path="/kids" element={withSuspense(<KidsParentHome />)} />
+        <Route path="/kids/parent" element={withSuspense(<KidsParentHome />)} />
+        <Route path="/kids/upload" element={withSuspense(<KidsUpload />)} />
+        <Route path="/kids/child" element={withSuspense(<KidsChildHome />)} />
+        <Route path="/kids/lesson/:lessonId" element={withSuspense(<KidsLesson />)} />
 
         {/* Onboarding Routes — /onboarding/name is sign-up (public), level+department are protected */}
         <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
