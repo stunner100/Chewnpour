@@ -18,6 +18,7 @@ import { capturePostHogEvent, capturePostHogPageView } from './lib/posthog';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import PublicShell, { ArrowBadge } from './components/PublicShell';
+import SignUpPage from './pages/SignUp';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
 import { useRouteTheme } from './lib/useRouteTheme';
@@ -99,7 +100,6 @@ const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
     })
 );
 
-const SignUpPage = lazyRoute(() => import('./pages/SignUp'), { componentName: 'SignUp' });
 const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'), { componentName: 'StudentDashboard' });
 const MyMaterialsLibrary = lazyRoute(() => import('./pages/MyMaterialsLibrary'), { componentName: 'MyMaterialsLibrary' });
 const UploadMaterials = lazyRoute(() => import('./pages/UploadMaterials'), { componentName: 'UploadMaterials' });

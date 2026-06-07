@@ -208,7 +208,7 @@ const CreateProfilePanel = ({ onCreated }) => {
         </label>
       </div>
       <div className="kids-tab-row" aria-label="Reading level options">
-        {readingLevels.map(({ id, label, icon: Icon }) => (
+        {readingLevels.map(({ id, label, icon }) => (
           <button
             type="button"
             className="kids-tab"
@@ -216,7 +216,7 @@ const CreateProfilePanel = ({ onCreated }) => {
             key={id}
             onClick={() => setReadingLevel(id)}
           >
-            <Icon aria-hidden="true" />
+            {React.createElement(icon, { 'aria-hidden': 'true' })}
             {label}
           </button>
         ))}
@@ -447,7 +447,7 @@ export const KidsUpload = () => {
                 </label>
               </div>
               <div className="kids-tab-row" aria-label="Reading level options">
-                {readingLevels.map(({ id, label, icon: Icon }) => (
+                {readingLevels.map(({ id, label, icon }) => (
                   <button
                     type="button"
                     className="kids-tab"
@@ -455,7 +455,7 @@ export const KidsUpload = () => {
                     key={id}
                     onClick={() => setReadingLevel(id)}
                   >
-                    <Icon aria-hidden="true" />
+                    {React.createElement(icon, { 'aria-hidden': 'true' })}
                     {label}
                   </button>
                 ))}
@@ -580,12 +580,13 @@ export const KidsLesson = () => {
   const lesson = useQuery(api.kids.getLesson, isAuthenticated && lessonId ? { lessonId } : 'skip');
   const recordHelpRequest = useMutation(api.kids.recordHelpRequest);
   const [helpMessage, setHelpMessage] = useState('');
+  const activeLessonId = lesson?._id;
 
   const requestHelp = useCallback(async (prompt) => {
-    if (!lesson?._id) return;
-    await recordHelpRequest({ lessonId: lesson._id, prompt });
+    if (!activeLessonId) return;
+    await recordHelpRequest({ lessonId: activeLessonId, prompt });
     setHelpMessage(`${prompt} is ready for this lesson.`);
-  }, [lesson?._id, recordHelpRequest]);
+  }, [activeLessonId, recordHelpRequest]);
 
   if (!user) return <SignedOutKids />;
   if (lesson === null) return <Navigate to="/kids/child" replace />;
