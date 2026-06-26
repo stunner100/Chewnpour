@@ -102,7 +102,7 @@ class DashboardContentErrorBoundary extends Component {
 const DashboardLayout = ({ children }) => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     const { mode: themeMode, toggle: toggleTheme } = useThemeMode();
     const isDarkMode = themeMode === DARK_THEME;
     const hideMobileBottomNav = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
@@ -161,7 +161,8 @@ const DashboardLayout = ({ children }) => {
         }
     };
 
-    const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
+    const displayName =
+        profile?.fullName || user?.name || user?.email?.split('@')[0] || 'Student';
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
@@ -229,8 +230,8 @@ const DashboardLayout = ({ children }) => {
                             title="Open settings"
                             className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary-soft text-xs font-bold text-primary transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:ml-space-2"
                         >
-                            {profile?.avatar ? (
-                                <img src={profile.avatar} alt="" className="h-full w-full object-cover" />
+                            {profile?.avatarUrl ? (
+                                <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
                             ) : (
                                 initials
                             )}

@@ -43,13 +43,14 @@ const isNavItemActive = (pathname, item) => {
 
 export function AppSidebar({ ...props }) {
   const location = useLocation();
-  const { profile } = useAuth();
+  const { profile, user: authUser } = useAuth();
 
-  const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
+  const displayName =
+    profile?.fullName || authUser?.name || authUser?.email?.split('@')[0] || 'Student';
   const user = {
     name: displayName,
-    email: profile?.email || '',
-    avatar: profile?.avatar || '',
+    email: authUser?.email || '',
+    avatar: profile?.avatarUrl || '',
   };
 
   const items = navItems.map((item) => ({

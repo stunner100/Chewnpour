@@ -19,6 +19,8 @@ requireIncludes(layoutSource, 'SidebarInset', 'sidebar inset content area');
 requireIncludes(layoutSource, 'SidebarTrigger', 'collapsible sidebar trigger');
 requireIncludes(sidebarSource, 'collapsible="icon"', 'icon-collapsible sidebar');
 requireIncludes(sidebarSource, 'Generate Material', 'primary sidebar CTA');
+requireIncludes(sidebarSource, 'profile?.fullName', 'convex profile fullName for sidebar display name');
+requireIncludes(sidebarSource, 'profile?.avatarUrl', 'convex profile avatarUrl for sidebar avatar');
 requireIncludes(navMainSource, 'SidebarMenuButton', 'compact sidebar menu buttons');
 requireIncludes(navMainSource, 'tooltip={item.title}', 'icon-collapsed tooltips');
 requireIncludes(sidebarUiSource, 'w-[var(--sidebar-width)]', 'tailwind v3 sidebar width classes');
