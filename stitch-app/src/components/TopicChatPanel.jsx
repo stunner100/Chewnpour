@@ -5,14 +5,13 @@ import { api } from '../../convex/_generated/api';
 import { DEFAULT_TUTOR_PERSONA, TUTOR_PERSONAS } from '../lib/tutorPersonas';
 import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
 import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
-import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerViewport,
+} from '@/components/ui/message-scroller';
 import { TutorChatComposer } from '@/components/tutor/TutorChatSurface';
-import { Spinner } from '@/components/ui/spinner';
-import { BotIcon } from 'lucide-react';
+import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
 
 const isAiMessageQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();
@@ -305,69 +304,35 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     )}
                 </div>
 
-                <Conversation className="flex-1 min-h-0" aria-label="AI Tutor conversation">
-                    <ConversationContent className="gap-3 px-3 py-4">
-                        {messageList.length === 0 && !sending && (
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-2.5">
-                                    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                                        <BotIcon className="size-3.5 text-primary" aria-hidden="true" />
-                                    </div>
-                                    <div className="max-w-[85%] rounded-xl rounded-tl-sm border border-border-light bg-background-light px-3 py-2.5 text-body-sm text-text-main-light dark:border-border-dark dark:bg-background-dark dark:text-text-main-dark">
-                                        Hi! I&apos;m your AI tutor{topicTitle ? ` for "${topicTitle}"` : ''}. Ask anything, or try one of these:
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                <MessageScroller className="min-h-0 flex-1" aria-label="AI Tutor conversation">
+                    <MessageScrollerViewport>
+                        <MessageScrollerContent className="gap-3 px-3 py-4">
+                            {messageList.length === 0 && !sending && (
+                                <TutorWelcomeMessage topicTitle={topicTitle} compact />
+                            )}
 
-                        {messageList.map((msg, idx) => {
-                            const isAssistant = msg.role === 'assistant';
-                            const showAvatar = idx === 0 || messageList[idx - 1].role !== msg.role;
+                            {messageList.map((msg, idx) => {
+                                const showAvatar = idx === 0 || messageList[idx - 1].role !== msg.role;
+                                return (
+                                    <TutorMessageRow
+                                        key={msg._id}
+                                        message={msg}
+                                        showAvatar={showAvatar}
+                                        compact
+                                    />
+                                );
+                            })}
 
-                            return (
-                                <Message key={msg._id} from={isAssistant ? 'assistant' : 'user'} className="max-w-full">
-                                    {isAssistant ? (
-                                        <div className="flex w-full items-start gap-2.5">
-                                            {showAvatar ? (
-                                                <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                                                    <BotIcon className="size-3.5 text-primary" aria-hidden="true" />
-                                                </div>
-                                            ) : (
-                                                <div className="w-7 shrink-0" />
-                                            )}
-                                            <MessageContent className="max-w-[85%] rounded-xl rounded-tl-sm border border-border-light bg-background-light px-3 py-2.5 dark:border-border-dark dark:bg-background-dark">
-                                                <MessageResponse className="text-body-sm text-text-main-light dark:text-text-main-dark">
-                                                    {msg.content}
-                                                </MessageResponse>
-                                            </MessageContent>
-                                        </div>
-                                    ) : (
-                                        <MessageContent className="max-w-[85%] rounded-xl rounded-tr-sm bg-primary px-3 py-2.5 text-body-sm text-white">
-                                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                                        </MessageContent>
-                                    )}
-                                </Message>
-                            );
-                        })}
-
-                        {sending && (
-                            <Message from="assistant" className="max-w-full">
-                                <div className="flex items-start gap-2.5">
-                                    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                                        <BotIcon className="size-3.5 text-primary" aria-hidden="true" />
-                                    </div>
-                                    <MessageContent className="max-w-[85%] rounded-xl rounded-tl-sm border border-border-light bg-background-light px-3 py-2.5 dark:border-border-dark dark:bg-background-dark">
-                                        <div className="inline-flex items-center gap-2 text-body-sm text-text-faint-light dark:text-text-faint-dark" role="status" aria-live="polite">
-                                            Thinking
-                                            <Spinner className="size-3.5" />
-                                        </div>
-                                    </MessageContent>
-                                </div>
-                            </Message>
-                        )}
-                    </ConversationContent>
-                    <ConversationScrollButton />
-                </Conversation>
+                            {sending ? (
+                                <TutorMessageRow
+                                    message={{ _id: 'pending', role: 'assistant', content: '', pending: true }}
+                                    compact
+                                />
+                            ) : null}
+                        </MessageScrollerContent>
+                    </MessageScrollerViewport>
+                    <MessageScrollerButton />
+                </MessageScroller>
 
                 {error && isFreeQuotaExhausted ? (
                     <div className="border-t border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/30 dark:bg-red-900/10">

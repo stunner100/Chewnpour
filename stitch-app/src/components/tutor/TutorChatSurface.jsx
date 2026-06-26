@@ -1,5 +1,3 @@
-import { BotIcon } from 'lucide-react';
-import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
 import {
   PromptInput,
   PromptInputBody,
@@ -9,13 +7,8 @@ import {
   PromptInputTextarea,
 } from '@/components/ai-elements/prompt-input';
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
-import { Spinner } from '@/components/ui/spinner';
+import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
 import { cn } from '@/lib/utils';
-
-const assistantBubbleClass =
-  'rounded-2xl rounded-tl-sm border border-outline-variant bg-ai-subtle px-4 py-3 shadow-sm dark:!bg-[#212226]';
-const userBubbleClass =
-  'rounded-2xl rounded-tr-sm border border-border-subtle bg-surface-muted px-4 py-3 shadow-sm dark:!bg-[#2a241c]';
 
 export function TutorChatMessages({
   messages,
@@ -30,7 +23,7 @@ export function TutorChatMessages({
   return (
     <div
       ref={messagesContainerRef}
-      className={cn('flex-1 min-h-0 overflow-y-auto p-space-5 flex flex-col gap-space-6', className)}
+      className={cn('flex min-h-0 flex-1 flex-col gap-space-6 overflow-y-auto p-space-5', className)}
       aria-label={ariaLabel}
     >
       {courseBadge ? (
@@ -42,47 +35,11 @@ export function TutorChatMessages({
       {!loadingState && messages.length === 0 && emptyState}
 
       {!loadingState &&
-        messages.map((message) => {
-          const isUser = message.role === 'user';
-          const anchorRef = getMessageAnchorRef?.(message) ?? null;
-
-          return (
-            <div key={message._id} ref={anchorRef}>
-              <Message
-                from={isUser ? 'user' : 'assistant'}
-                className={cn('max-w-full', isUser ? 'justify-end' : 'gap-4')}
-              >
-                {!isUser ? (
-                  <div className="flex w-full items-start gap-4">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary-fixed-dim bg-primary-soft">
-                      <BotIcon className="size-4 text-primary" aria-hidden="true" />
-                    </div>
-                    <MessageContent className={assistantBubbleClass}>
-                      {message.pending ? (
-                        <div className="flex items-center gap-3" role="status" aria-live="polite">
-                          <span className="font-label-xs text-label-xs text-text-secondary">
-                            Tutor is preparing an answer
-                          </span>
-                          <Spinner className="size-4 text-primary" />
-                        </div>
-                      ) : (
-                        <MessageResponse className="font-body-sm text-body-sm text-text-primary">
-                          {message.content}
-                        </MessageResponse>
-                      )}
-                    </MessageContent>
-                  </div>
-                ) : (
-                  <MessageContent className={userBubbleClass}>
-                    <p className="font-body-sm text-body-sm text-text-primary whitespace-pre-wrap">
-                      {message.content}
-                    </p>
-                  </MessageContent>
-                )}
-              </Message>
-            </div>
-          );
-        })}
+        messages.map((message) => (
+          <div key={message._id} ref={getMessageAnchorRef?.(message) ?? null}>
+            <TutorMessageRow message={message} />
+          </div>
+        ))}
     </div>
   );
 }
@@ -130,10 +87,7 @@ export function TutorChatComposer({
         </p>
       ) : null}
 
-      <PromptInput
-        className="shadow-sm"
-        onSubmit={handleSubmit}
-      >
+      <PromptInput className="shadow-sm" onSubmit={handleSubmit}>
         <PromptInputBody>
           <PromptInputTextarea
             aria-label={inputAriaLabel}
@@ -169,3 +123,5 @@ export function TutorChatComposer({
 
   return composer;
 }
+
+export { TutorWelcomeMessage };

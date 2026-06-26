@@ -5,7 +5,8 @@ import process from 'node:process';
 const root = process.cwd();
 const source = await fs.readFile(path.join(root, 'src/pages/AIStudyTutor.jsx'), 'utf8');
 const surfaceSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorChatSurface.jsx'), 'utf8');
-const combinedSource = `${source}\n${surfaceSource}`;
+const messageRowSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorMessageRow.jsx'), 'utf8');
+const combinedSource = `${source}\n${surfaceSource}\n${messageRowSource}`;
 
 const requireIncludes = (snippet, label) => {
   if (!combinedSource.includes(snippet)) {
@@ -44,7 +45,9 @@ requireIncludes('dark:!bg-[#2a241c]', 'dark user bubble surface');
 requireIncludes('inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption?.title || \'this lesson\'}`}', 'textarea accessible label');
 requireIncludes('TutorChatMessages', 'shadcn ai-elements tutor message surface');
 requireIncludes('TutorChatComposer', 'shadcn ai-elements tutor composer');
-requireIncludes('@/components/ai-elements/message', 'ai-elements message primitives');
+requireIncludes('@/components/ui/message', 'shadcn radix message primitives');
+requireIncludes('@/components/ui/bubble', 'shadcn radix bubble primitives');
+requireIncludes('TutorMessageRow', 'shared tutor message row');
 requireIncludes('@/components/ai-elements/prompt-input', 'ai-elements prompt input');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');

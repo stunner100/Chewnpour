@@ -13,7 +13,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
-import { TutorChatComposer, TutorChatMessages } from '@/components/tutor/TutorChatSurface';
+import { TutorChatComposer, TutorChatMessages, TutorWelcomeMessage } from '@/components/tutor/TutorChatSurface';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms', prompt: 'Explain this topic in simple terms.' },
@@ -356,19 +356,10 @@ const AIStudyTutor = () => {
                             <TutorContextLoading topicTitle={selectedTopicOption?.title} />
                         ) : null}
                         emptyState={messages !== undefined && displayMessages.length === 0 ? (
-                            <div className="flex justify-start gap-4">
-                                <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
-                                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
-                                </div>
-                                <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle dark:!bg-[#212226] rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
-                                    <p className="font-body-sm text-body-sm text-text-primary">
-                                        I can help with {selectedTopicOption?.title}. Ask about a confusing idea, request examples, or start a quick review.
-                                    </p>
-                                    {selectedTopicOption?.description && (
-                                        <p className="font-body-sm text-body-sm text-text-secondary mt-space-3">{selectedTopicOption.description}</p>
-                                    )}
-                                </div>
-                            </div>
+                            <TutorWelcomeMessage
+                                topicTitle={selectedTopicOption?.title}
+                                description={selectedTopicOption?.description}
+                            />
                         ) : null}
                         courseBadge={(
                             <span className="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">
