@@ -19,6 +19,8 @@
     --sidebar-accent-foreground: 31 41 51;
     --sidebar-border: 238 238 240;
     --sidebar-ring: 217 119 6;
+    --popover: 255 255 255;
+    --popover-foreground: 31 41 51;
 }
 
 .dark {
@@ -37,6 +39,8 @@
     --sidebar-accent-foreground: 233 233 238;
     --sidebar-border: 42 43 48;
     --sidebar-ring: 245 158 11;
+    --popover: 28 29 32;
+    --popover-foreground: 233 233 238;
 }
 
 @layer base {

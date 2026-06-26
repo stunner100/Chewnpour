@@ -31,6 +31,10 @@ export default {
                 border: 'rgb(var(--border) / <alpha-value>)',
                 input: 'rgb(var(--input) / <alpha-value>)',
                 ring: 'rgb(var(--ring) / <alpha-value>)',
+                popover: {
+                    DEFAULT: 'rgb(var(--popover) / <alpha-value>)',
+                    foreground: 'rgb(var(--popover-foreground) / <alpha-value>)',
+                },
                 sidebar: {
                     DEFAULT: 'rgb(var(--sidebar) / <alpha-value>)',
                     foreground: 'rgb(var(--sidebar-foreground) / <alpha-value>)',

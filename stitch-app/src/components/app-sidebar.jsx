@@ -48,7 +48,7 @@ export function AppSidebar({ ...props }) {
   const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
   const user = {
     name: displayName,
-    email: profile?.email || 'student@chewnpour.com',
+    email: profile?.email || '',
     avatar: profile?.avatar || '',
   };
 

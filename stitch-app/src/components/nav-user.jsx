@@ -49,50 +49,59 @@ export function NavUser({ user }) {
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
+                {user.email ? (
+                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                ) : null}
               </div>
               <ChevronsUpDownIcon className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-56"
+            className="w-56 border-sidebar-border bg-sidebar text-sidebar-foreground"
             side={isMobile ? 'bottom' : 'right'}
             align="end"
-            sideOffset={4}
+            sideOffset={8}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+            <DropdownMenuLabel className="p-0 font-normal text-sidebar-foreground">
+              <div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
+                  {user.email ? (
+                    <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                  ) : null}
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-sidebar-border" />
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link to="/dashboard/settings">
+              <DropdownMenuItem asChild className="focus:bg-sidebar-accent focus:text-sidebar-accent-foreground">
+                <Link to="/dashboard/settings" className="flex w-full items-center gap-2">
                   <BadgeCheckIcon />
                   Account
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/dashboard/settings#notifications">
+              <DropdownMenuItem asChild className="focus:bg-sidebar-accent focus:text-sidebar-accent-foreground">
+                <Link to="/dashboard/settings#notifications" className="flex w-full items-center gap-2">
                   <BellIcon />
                   Notifications
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-sidebar-border" />
             <DropdownMenuItem
+              className="focus:bg-sidebar-accent focus:text-sidebar-accent-foreground"
               onSelect={async (event) => {
                 event.preventDefault();
                 await signOut();
