@@ -170,24 +170,14 @@ const AIStudyTutor = () => {
             });
         }
 
-        if (!pendingServerState.hasAssistant) {
-            nextMessages.push({
-                _id: `pending-assistant-${pendingExchangeForTopic.clientId}`,
-                role: 'assistant',
-                content: '',
-                pending: true,
-            });
-        }
-
         return nextMessages;
     }, [messageList, messages, pendingExchangeForTopic, pendingServerState]);
+    const isTyping = Boolean(pendingExchangeForTopic && !pendingServerState.hasAssistant);
     const questionAnchorKey = pendingExchangeForTopic && !pendingServerState.hasAssistant
         ? pendingServerState.questionMessageId || `pending-user-${pendingExchangeForTopic.clientId}`
         : '';
     const responseAnchorKey = pendingServerState.assistantMessageId || (
-        pendingExchangeForTopic && !pendingServerState.hasAssistant
-            ? `pending-assistant-${pendingExchangeForTopic.clientId}`
-            : ''
+        isTyping ? `typing-${pendingExchangeForTopic?.clientId || 'active'}` : ''
     );
     const activeScrollAnchorKey = pendingServerState.assistantMessageId
         ? responseAnchorKey
@@ -240,7 +230,7 @@ const AIStudyTutor = () => {
         const frame = requestAnimationFrame(() => {
             const target = pendingServerState.assistantMessageId
                 ? responseAnchorRef.current
-                : questionAnchorRef.current || responseAnchorRef.current;
+                : questionAnchorRef.current || (isTyping ? responseAnchorRef.current : null);
             if (!target) return;
             target.scrollIntoView({
                 block: 'start',
@@ -250,7 +240,7 @@ const AIStudyTutor = () => {
         });
 
         return () => cancelAnimationFrame(frame);
-    }, [activeScrollAnchorKey, displayMessages.length, pendingServerState.assistantMessageId]);
+    }, [activeScrollAnchorKey, displayMessages.length, isTyping, pendingServerState.assistantMessageId]);
 
     if (courses === undefined || (effectiveCourseId && selectedCourse === undefined)) return <TutorSkeleton />;
     if (topicOptions.length === 0) return <EmptyTutorState />;
@@ -346,6 +336,8 @@ const AIStudyTutor = () => {
                     <TutorChatMessages
                         messages={messages === undefined || displayMessages.length === 0 ? [] : displayMessages}
                         messagesContainerRef={messagesContainerRef}
+                        isTyping={isTyping}
+                        typingAnchorRef={responseAnchorRef}
                         getMessageAnchorRef={(message) => {
                             const isQuestionAnchor = questionAnchorKey && String(message._id) === String(questionAnchorKey);
                             const isResponseAnchor = responseAnchorKey && String(message._id) === String(responseAnchorKey);

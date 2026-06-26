@@ -13,6 +13,7 @@ import {
 import { TutorChatComposer } from '@/components/tutor/TutorChatSurface';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
+import { TutorTypingIndicator } from '@/components/tutor/TutorTypingIndicator';
 
 const isAiMessageQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();
@@ -324,12 +325,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                                 );
                             })}
 
-                            {sending ? (
-                                <TutorMessageRow
-                                    message={{ _id: 'pending', role: 'assistant', content: '', pending: true }}
-                                    compact
-                                />
-                            ) : null}
+                            {sending ? <TutorTypingIndicator compact /> : null}
                         </MessageScrollerContent>
                     </MessageScrollerViewport>
                     <MessageScrollerButton />

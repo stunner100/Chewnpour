@@ -8,12 +8,15 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
 import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
+import { TutorTypingIndicator } from '@/components/tutor/TutorTypingIndicator';
 import { cn } from '@/lib/utils';
 
 export function TutorChatMessages({
   messages,
   messagesContainerRef,
   getMessageAnchorRef,
+  isTyping = false,
+  typingAnchorRef,
   loadingState = null,
   emptyState = null,
   courseBadge = null,
@@ -40,6 +43,10 @@ export function TutorChatMessages({
             <TutorMessageRow message={message} />
           </div>
         ))}
+
+      {!loadingState && isTyping ? (
+        <TutorTypingIndicator typingAnchorRef={typingAnchorRef} />
+      ) : null}
     </div>
   );
 }

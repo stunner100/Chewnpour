@@ -5,7 +5,6 @@ import {
   MessageContent,
 } from '@/components/ui/message';
 import { TutorAvatar } from '@/components/tutor/TutorAvatar';
-import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 
 const assistantBubbleClass =
@@ -48,18 +47,9 @@ export function TutorMessageRow({
       <MessageContent>
         <Bubble variant="ghost" className={compact ? 'max-w-[85%]' : 'max-w-[85%] md:max-w-[75%]'}>
           <BubbleContent className={assistantBubbleClass}>
-            {message.pending ? (
-              <div className="flex items-center gap-3" role="status" aria-live="polite">
-                <span className="font-label-xs text-label-xs text-text-secondary">
-                  {compact ? 'Thinking' : 'Tutor is preparing an answer'}
-                </span>
-                <Spinner className={compact ? 'size-3.5' : 'size-4 text-primary'} />
-              </div>
-            ) : (
-              <p className="whitespace-pre-wrap font-body-sm text-body-sm text-text-primary">
-                {message.content}
-              </p>
-            )}
+            <p className="whitespace-pre-wrap font-body-sm text-body-sm text-text-primary">
+              {message.content}
+            </p>
           </BubbleContent>
         </Bubble>
       </MessageContent>

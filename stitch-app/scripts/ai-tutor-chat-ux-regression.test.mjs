@@ -8,7 +8,8 @@ const surfaceSource = await fs.readFile(path.join(root, 'src/components/tutor/Tu
 const messageRowSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorMessageRow.jsx'), 'utf8');
 const tutorAvatarSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorAvatar.jsx'), 'utf8');
 const peepsSpriteSource = await fs.readFile(path.join(root, 'src/lib/peepsSprite.js'), 'utf8');
-const combinedSource = `${source}\n${surfaceSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}`;
+const typingIndicatorSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorTypingIndicator.jsx'), 'utf8');
+const combinedSource = `${source}\n${surfaceSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
 
 const requireIncludes = (snippet, label) => {
   if (!combinedSource.includes(snippet)) {
@@ -27,7 +28,8 @@ requireIncludes('const responseAnchorRef = useRef(null);', 'response anchor ref'
 requireIncludes('const [pendingExchange, setPendingExchange] = useState(null);', 'optimistic pending exchange state');
 requireIncludes('const displayMessages = useMemo(() => {', 'derived display messages');
 requireIncludes("role: 'user',", 'optimistic user message role');
-requireIncludes("role: 'assistant',", 'pending assistant message role');
+requireIncludes('const isTyping = Boolean(pendingExchangeForTopic && !pendingServerState.hasAssistant);', 'derived tutor typing state');
+requireExcludes('pending: true', 'pending assistant bubble row');
 requireIncludes('scrollIntoView({', 'response-start scroll anchor');
 requireIncludes("block: 'start'", 'response starts at top of viewport');
 requireExcludes('top: messagesContainer.scrollHeight', 'bottom-anchored response scrolling');
@@ -53,6 +55,11 @@ requireIncludes('TutorMessageRow', 'shared tutor message row');
 requireIncludes("TUTOR_AVATAR_IMAGE_SRC = '/images/peeps/tutor.png'", 'cropped peeps tutor avatar image');
 requireIncludes('AvatarImage', 'radix avatar image for tutor peep');
 requireExcludes('BotIcon', 'bot fallback avatar icon');
+requireIncludes('TutorTypingIndicator', 'shadcn marker typing indicator');
+requireIncludes('@/components/ui/marker', 'shadcn marker primitive for typing status');
+requireIncludes('is typing...', 'tutor typing copy');
+requireExcludes('Tutor is preparing an answer', 'legacy spinner typing copy');
+requireExcludes('from \'@/components/ui/spinner\'', 'spinner-based tutor pending state');
 requireIncludes('@/components/ai-elements/prompt-input', 'ai-elements prompt input');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');
