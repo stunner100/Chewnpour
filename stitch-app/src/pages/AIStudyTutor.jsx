@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
 import { TutorChatComposer, TutorChatMessages, TutorWelcomeMessage } from '@/components/tutor/TutorChatSurface';
+import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms', prompt: 'Explain this topic in simple terms.' },
@@ -36,8 +37,8 @@ const TutorSkeleton = () => (
 
 const TutorContextLoading = ({ topicTitle }) => (
     <div className="flex justify-start gap-4" role="status" aria-live="polite">
-        <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
-            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
+        <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim overflow-hidden">
+            <TutorAvatarMark size={36} className="size-9" />
         </div>
         <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle dark:!bg-[#212226] rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
             <p className="font-label-md text-label-md text-text-primary">Loading tutor context...</p>
@@ -57,8 +58,8 @@ const EmptyTutorState = () => (
     <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
         <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-6 max-w-container-max mx-auto w-full">
             <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-6 md:p-space-8 text-center">
-                <div className="w-14 h-14 bg-primary-soft text-primary rounded-2xl flex items-center justify-center mx-auto mb-space-4">
-                    <span className="material-symbols-outlined text-[28px]">smart_toy</span>
+                <div className="w-14 h-14 bg-primary-soft text-primary rounded-2xl flex items-center justify-center mx-auto mb-space-4 overflow-hidden border border-primary-fixed-dim">
+                    <TutorAvatarMark size={56} className="size-14 rounded-2xl" />
                 </div>
                 <h2 className="font-display-md text-display-md text-text-primary">AI Tutor needs a lesson first</h2>
                 <p className="font-body-sm text-body-sm text-text-secondary mt-space-3 max-w-xl mx-auto">

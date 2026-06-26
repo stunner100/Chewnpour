@@ -1,11 +1,10 @@
-import { BotIcon } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
 import {
   Message,
   MessageAvatar,
   MessageContent,
 } from '@/components/ui/message';
+import { TutorAvatar } from '@/components/tutor/TutorAvatar';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 
@@ -44,11 +43,7 @@ export function TutorMessageRow({
     <Message align="start" className={className}>
       <MessageAvatar className={cn(compact ? 'min-w-7' : 'min-w-9', !showAvatar && 'invisible')}>
         {showAvatar ? (
-          <Avatar className={avatarClass}>
-            <AvatarFallback className="border border-primary-fixed-dim bg-primary-soft text-primary">
-              <BotIcon className={iconClass} aria-hidden="true" />
-            </AvatarFallback>
-          </Avatar>
+          <TutorAvatar className={avatarClass} iconClassName={iconClass} />
         ) : null}
       </MessageAvatar>
       <MessageContent>
@@ -77,11 +72,7 @@ export function TutorWelcomeMessage({ topicTitle, description, compact = false }
   return (
     <Message align="start">
       <MessageAvatar className={compact ? 'min-w-7' : 'min-w-9'}>
-        <Avatar className={compact ? 'size-7' : 'size-9'}>
-          <AvatarFallback className="border border-primary-fixed-dim bg-primary-soft text-primary">
-            <BotIcon className={compact ? 'size-3.5' : 'size-4'} aria-hidden="true" />
-          </AvatarFallback>
-        </Avatar>
+        <TutorAvatar className={compact ? 'size-7' : 'size-9'} iconClassName={compact ? 'size-3.5' : 'size-4'} />
       </MessageAvatar>
       <MessageContent>
         <Bubble variant="ghost" className="max-w-[85%]">

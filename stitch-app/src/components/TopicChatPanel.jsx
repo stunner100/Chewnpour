@@ -11,6 +11,7 @@ import {
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller';
 import { TutorChatComposer } from '@/components/tutor/TutorChatSurface';
+import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
 
 const isAiMessageQuotaExceededError = (error) => {
@@ -198,7 +199,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 h-14 lg:h-16 border-b border-border-light dark:border-border-dark">
                     <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="material-symbols-outlined text-primary text-[20px] lg:text-[24px]">smart_toy</span>
+                        <TutorAvatarMark size={24} className="size-6" />
                         <div className="min-w-0">
                             <h3 className="text-body-sm lg:text-body-base font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
                             {topicTitle && (

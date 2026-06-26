@@ -6,7 +6,9 @@ const root = process.cwd();
 const source = await fs.readFile(path.join(root, 'src/pages/AIStudyTutor.jsx'), 'utf8');
 const surfaceSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorChatSurface.jsx'), 'utf8');
 const messageRowSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorMessageRow.jsx'), 'utf8');
-const combinedSource = `${source}\n${surfaceSource}\n${messageRowSource}`;
+const tutorAvatarSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorAvatar.jsx'), 'utf8');
+const peepsSpriteSource = await fs.readFile(path.join(root, 'src/lib/peepsSprite.js'), 'utf8');
+const combinedSource = `${source}\n${surfaceSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}`;
 
 const requireIncludes = (snippet, label) => {
   if (!combinedSource.includes(snippet)) {
@@ -48,6 +50,8 @@ requireIncludes('TutorChatComposer', 'shadcn ai-elements tutor composer');
 requireIncludes('@/components/ui/message', 'shadcn radix message primitives');
 requireIncludes('@/components/ui/bubble', 'shadcn radix bubble primitives');
 requireIncludes('TutorMessageRow', 'shared tutor message row');
+requireIncludes("PEEPS_SPRITE_SRC = '/images/peeps/all-peeps.png'", 'notion-style peeps tutor avatar');
+requireIncludes('TUTOR_PEEPS_INDEX', 'selected peep index for tutor avatar');
 requireIncludes('@/components/ai-elements/prompt-input', 'ai-elements prompt input');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');
