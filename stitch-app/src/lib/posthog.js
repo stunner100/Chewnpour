@@ -1,6 +1,9 @@
 const posthogKey = String(import.meta.env.VITE_POSTHOG_KEY || '').trim();
-const posthogHost = String(import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com').trim();
-const posthogUiHost = String(import.meta.env.VITE_POSTHOG_UI_HOST || '').trim();
+// Default to the same-origin reverse proxy (`/ingest`, see vercel.json rewrites)
+// so feature-flag/capture requests are not blocked by ad blockers and tracking
+// protection that filter on the posthog.com domain.
+const posthogHost = String(import.meta.env.VITE_POSTHOG_HOST || '/ingest').trim();
+const posthogUiHost = String(import.meta.env.VITE_POSTHOG_UI_HOST || 'https://us.posthog.com').trim();
 const posthogDebug = String(import.meta.env.VITE_POSTHOG_DEBUG || '')
     .trim()
     .toLowerCase() === 'true';

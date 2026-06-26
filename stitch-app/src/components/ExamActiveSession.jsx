@@ -122,6 +122,15 @@ const ExamActiveSession = ({
                         <p className="text-body-sm text-blue-800 dark:text-blue-300">Premium quiz ready. This set met the higher university-level quality targets.</p>
                     </div>
                 ) : null}
+                {examQualityTier === 'unverified' ? (
+                    <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                        <p className="text-body-sm text-amber-800 dark:text-amber-300">
+                            Heads up: we couldn&apos;t fully match this topic against a verified source index, so these
+                            questions were drawn from the topic text itself. Double-check anything that looks off
+                            against your own notes.
+                        </p>
+                    </div>
+                ) : null}
                 <ExamQuestionCard
                     question={currentQuestionData}
                     questionIndex={currentQuestion}

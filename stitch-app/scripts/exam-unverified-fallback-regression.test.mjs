@@ -6,10 +6,14 @@ const root = process.cwd();
 const aiPath = path.join(root, 'convex', 'ai.ts');
 const examsPath = path.join(root, 'convex', 'exams.ts');
 const examModePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
+const examAttemptHookPath = path.join(root, 'src', 'hooks', 'useExamAttempt.js');
+const examActiveSessionPath = path.join(root, 'src', 'components', 'ExamActiveSession.jsx');
 
 const aiSource = await fs.readFile(aiPath, 'utf8');
 const examsSource = await fs.readFile(examsPath, 'utf8');
 const examModeSource = await fs.readFile(examModePath, 'utf8');
+const examAttemptHookSource = await fs.readFile(examAttemptHookPath, 'utf8');
+const examActiveSessionSource = await fs.readFile(examActiveSessionPath, 'utf8');
 
 if (!/const buildSyntheticEvidenceFromTopic = \(/.test(aiSource)) {
   throw new Error('Expected ai.ts to define buildSyntheticEvidenceFromTopic for the unverified fallback path.');
@@ -92,12 +96,26 @@ if (!/qualityTier: typeof snapshot\?\.qualityTier === "string" \? snapshot\.qual
   throw new Error('Expected startExamAttempt to propagate snapshot qualityTier into the attempt record.');
 }
 
-if (!/setAttemptQualityTier\(typeof result\?\.qualityTier === 'string' \? result\.qualityTier : ''\);/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to store the snapshot qualityTier into component state on successful start.');
+// The exam page was split into the useExamAttempt hook + ExamActiveSession, so
+// the snapshot qualityTier is now captured in the hook (via examState) rather
+// than directly in ExamMode.jsx.
+if (!/qualityTier: typeof result\?\.qualityTier === 'string' \? result\.qualityTier : '',/.test(examAttemptHookSource)) {
+  throw new Error('Expected useExamAttempt to capture the snapshot qualityTier from the start result into exam state.');
 }
 
-if (/These questions were generated without a grounded evidence index/.test(examModeSource)) {
-  throw new Error('Expected ExamMode not to render the old unverified exam disclaimer.');
+if (!/examQualityTier=\{attemptQualityTier\}/.test(examModeSource)) {
+  throw new Error('Expected ExamMode to forward the captured qualityTier to the active exam session.');
+}
+
+// Unverified (synthetic-evidence) exams must warn the learner so the questions
+// are not presented with the same trust as verified ones.
+if (!/examQualityTier === 'unverified'/.test(examActiveSessionSource)) {
+  throw new Error('Expected ExamActiveSession to render an unverified-exam notice when the quality tier is unverified.');
+}
+
+if (/These questions were generated without a grounded evidence index/.test(examModeSource)
+    || /These questions were generated without a grounded evidence index/.test(examActiveSessionSource)) {
+  throw new Error('Expected the app not to render the old unverified exam disclaimer.');
 }
 
 console.log('exam-unverified-fallback-regression.test.mjs passed');

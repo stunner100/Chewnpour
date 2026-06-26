@@ -3,22 +3,33 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const source = await fs.readFile(path.join(root, 'src/components/DashboardLayout.jsx'), 'utf8');
+const layoutSource = await fs.readFile(path.join(root, 'src/components/DashboardLayout.jsx'), 'utf8');
+const sidebarSource = await fs.readFile(path.join(root, 'src/components/app-sidebar.jsx'), 'utf8');
+const sidebarUiSource = await fs.readFile(path.join(root, 'src/components/ui/sidebar.jsx'), 'utf8');
+const navMainSource = await fs.readFile(path.join(root, 'src/components/nav-main.jsx'), 'utf8');
 
-const requireIncludes = (snippet, label) => {
+const requireIncludes = (source, snippet, label) => {
   if (!source.includes(snippet)) {
     throw new Error(`Dashboard sidebar should keep ${label}: ${snippet}`);
   }
 };
 
-requireIncludes('gap-space-4 z-20', 'compact sidebar section spacing');
-requireIncludes('font-label-sm text-label-sm py-2.5', 'compact generate-material button typography');
-requireIncludes('gap-2.5 px-3 py-2.5 rounded-xl', 'compact navigation row spacing');
-requireIncludes('material-symbols-outlined text-[18px]', 'compact navigation icons');
-requireIncludes('font-body-sm text-body-sm', 'compact navigation labels');
+requireIncludes(layoutSource, 'SidebarProvider', 'sidebar-07 provider shell');
+requireIncludes(layoutSource, 'SidebarInset', 'sidebar inset content area');
+requireIncludes(layoutSource, 'SidebarTrigger', 'collapsible sidebar trigger');
+requireIncludes(sidebarSource, 'collapsible="icon"', 'icon-collapsible sidebar');
+requireIncludes(sidebarSource, 'Generate Material', 'primary sidebar CTA');
+requireIncludes(navMainSource, 'SidebarMenuButton', 'compact sidebar menu buttons');
+requireIncludes(navMainSource, 'tooltip={item.title}', 'icon-collapsed tooltips');
+requireIncludes(sidebarUiSource, 'w-[var(--sidebar-width)]', 'tailwind v3 sidebar width classes');
+requireIncludes(sidebarUiSource, 'group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)]', 'collapsed icon sidebar width');
 
-if (source.includes('font-body-base text-body-base">{item.label}</span>')) {
-  throw new Error('Dashboard sidebar nav labels should not use body-base sizing.');
+if (sidebarUiSource.includes('w-(--sidebar-width)')) {
+  throw new Error('Sidebar UI must not use Tailwind v4 width syntax incompatible with Tailwind v3.');
+}
+
+if (layoutSource.includes('w-sidebar-width')) {
+  throw new Error('Dashboard layout should use shadcn sidebar spacing instead of fixed sidebar width offsets.');
 }
 
 console.log('dashboard-sidebar-density-regression.test.mjs passed');

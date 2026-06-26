@@ -65,7 +65,10 @@ const isTransientSessionError = (error) => {
     const statusCode = getErrorStatusCode(error);
     if (statusCode === 0) return true;
     if (statusCode === 408 || statusCode === 429) return true;
-    if (statusCode !== null && statusCode >= 500) return true;
+    // Only genuinely transient gateway states are recoverable/low-signal.
+    // A real 500/501/505 from the auth backend (DB failure, misconfig) must NOT
+    // be downgraded to a warning, or sentry.js drops it and the incident is invisible.
+    if (statusCode === 502 || statusCode === 503 || statusCode === 504) return true;
 
     const message = getErrorMessage(error, '').toLowerCase();
     return (

@@ -3,37 +3,51 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const source = await fs.readFile(path.join(root, 'src/components/DashboardLayout.jsx'), 'utf8');
+const layoutSource = await fs.readFile(path.join(root, 'src/components/DashboardLayout.jsx'), 'utf8');
+const brandSource = await fs.readFile(path.join(root, 'src/components/team-switcher.jsx'), 'utf8');
 
 for (const snippet of [
     "import BrandLogo from './BrandLogo.jsx';",
     "import useThemeMode from '../lib/useThemeMode.js';",
     "variant={isDarkMode ? 'white' : 'default'}",
-    'aria-pressed={isDarkMode}',
     'AI Study Workspace',
 ]) {
-    if (!source.includes(snippet)) {
+    if (!brandSource.includes(snippet) && !layoutSource.includes(snippet)) {
+        throw new Error(`Expected dashboard shell to include "${snippet}".`);
+    }
+}
+
+for (const snippet of [
+    'aria-pressed={isDarkMode}',
+]) {
+    if (!layoutSource.includes(snippet)) {
         throw new Error(`Expected dashboard layout to include "${snippet}".`);
     }
 }
 
-if (source.includes('applyTheme(LIGHT_THEME);')) {
+if (layoutSource.includes('applyTheme(LIGHT_THEME);')) {
     throw new Error('Dashboard layout must not force the light theme when a user chose dark mode.');
 }
 
-if (source.includes('setThemePreference(LIGHT_THEME);')) {
+if (layoutSource.includes('setThemePreference(LIGHT_THEME);')) {
     throw new Error('Dashboard layout must apply the light route theme without persisting user preference.');
 }
 
-if (source.includes('text-[#6D28D9]')) {
+if (layoutSource.includes('text-[#6D28D9]') || brandSource.includes('text-[#6D28D9]')) {
     throw new Error('Dashboard brand should use theme tokens instead of hard-coded purple.');
 }
 
-if (source.includes('>psychiatry</span>')) {
+if (layoutSource.includes('>psychiatry</span>') || brandSource.includes('>psychiatry</span>')) {
     throw new Error('Dashboard brand should not fall back to the old material icon.');
 }
 
-if (source.includes('HexLogo') || source.includes('const DashboardBrandMark = () => (') || source.includes('/logonew.jpeg')) {
+if (
+    layoutSource.includes('HexLogo')
+    || layoutSource.includes('const DashboardBrandMark = () => (')
+    || layoutSource.includes('/logonew.jpeg')
+    || brandSource.includes('HexLogo')
+    || brandSource.includes('/logonew.jpeg')
+) {
     throw new Error('Dashboard should reuse the standard ChewnPour BrandLogo assets.');
 }
 

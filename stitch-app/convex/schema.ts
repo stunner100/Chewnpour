@@ -899,6 +899,11 @@ export default defineSchema({
         targetWordCount: v.optional(v.number()),
         qualityWarnings: v.optional(v.array(v.string())),
         errorMessage: v.optional(v.string()),
+        // Billing safety: whether a (non-premium) voice credit was charged for
+        // this job, and whether it has since been refunded after a failure.
+        // Lets every failure path refund exactly once without double-refunding.
+        creditConsumed: v.optional(v.boolean()),
+        creditRefunded: v.optional(v.boolean()),
         startedAt: v.number(),
         createdAt: v.number(),
         updatedAt: v.number(),

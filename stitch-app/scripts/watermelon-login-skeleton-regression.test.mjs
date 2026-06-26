@@ -32,9 +32,9 @@ for (const pattern of [
 
 const dashboardLayoutSource = await read('src/components/DashboardLayout.jsx');
 for (const pattern of [
-  'const incomingToast = location.state?.watermelonToast',
+  'const incomingToast = routerLocation.state?.watermelonToast',
   'watermelonToast(String(incomingToast.message), options)',
-  'navigate(`${location.pathname}${location.search}`, { replace: true, state: nextState })',
+  'navigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true, state: nextState })',
 ]) {
   if (!dashboardLayoutSource.includes(pattern)) {
     throw new Error(`Expected DashboardLayout.jsx to replay navigation toasts with "${pattern}".`);

@@ -92,6 +92,12 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/x-sentry-envelope',
             },
             body: envelope,
+            // keepalive lets the forwarded request finish even when the browser
+            // navigates away mid-flight (the leg that was dropping envelopes
+            // during page teardown). The timeout prevents a hung upstream from
+            // pinning the serverless function until its hard platform limit.
+            keepalive: true,
+            signal: AbortSignal.timeout(8000),
         });
 
         const responseBody = await upstreamResponse.text();

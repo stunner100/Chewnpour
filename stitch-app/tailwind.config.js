@@ -31,6 +31,16 @@ export default {
                 border: 'rgb(var(--border) / <alpha-value>)',
                 input: 'rgb(var(--input) / <alpha-value>)',
                 ring: 'rgb(var(--ring) / <alpha-value>)',
+                sidebar: {
+                    DEFAULT: 'rgb(var(--sidebar) / <alpha-value>)',
+                    foreground: 'rgb(var(--sidebar-foreground) / <alpha-value>)',
+                    primary: 'rgb(var(--sidebar-primary) / <alpha-value>)',
+                    'primary-foreground': 'rgb(var(--sidebar-primary-foreground) / <alpha-value>)',
+                    accent: 'rgb(var(--sidebar-accent) / <alpha-value>)',
+                    'accent-foreground': 'rgb(var(--sidebar-accent-foreground) / <alpha-value>)',
+                    border: 'rgb(var(--sidebar-border) / <alpha-value>)',
+                    ring: 'rgb(var(--sidebar-ring) / <alpha-value>)',
+                },
                 primary: {
                     DEFAULT: "#914bf1",
                     hover: "#7c3aed",

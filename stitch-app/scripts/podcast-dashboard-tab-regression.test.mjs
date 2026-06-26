@@ -6,9 +6,10 @@ const root = process.cwd();
 
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [appSource, dashboardLayoutSource, mobileBottomNavSource, commandPaletteSource] = await Promise.all([
+const [appSource, dashboardLayoutSource, appSidebarSource, mobileBottomNavSource, commandPaletteSource] = await Promise.all([
   read('src/App.jsx'),
   read('src/components/DashboardLayout.jsx'),
+  read('src/components/app-sidebar.jsx'),
   read('src/components/MobileBottomNav.jsx'),
   read('src/components/CommandPalette.jsx'),
 ]);
@@ -34,9 +35,9 @@ requireIncludes(
 requireExcludes(appSource, '<Route path="/dashboard/podcasts" element={<Navigate', 'App.jsx');
 
 requireIncludes(
-  dashboardLayoutSource,
-  "{ label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts' }",
-  'DashboardLayout.jsx',
+  appSidebarSource,
+  "{ title: 'Podcasts', url: '/dashboard/podcasts', icon: PodcastIcon }",
+  'app-sidebar.jsx',
 );
 requireIncludes(
   mobileBottomNavSource,

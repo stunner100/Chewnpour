@@ -1917,6 +1917,34 @@ export const consumeVoiceGenerationCreditOrThrowInternal = internalMutation({
     },
 });
 
+// Reverse a previously consumed voice-generation credit. Used when a podcast
+// job that charged a free user later fails (action error, stuck-job sweep), so
+// the user is not billed for output they never received. Premium users were
+// never charged, so this is a no-op for them; the counter floors at 0 so a
+// double-call can never grant free credits.
+export const refundVoiceGenerationCreditInternal = internalMutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const userId = String(args.userId || "").trim();
+        if (!userId) return { refunded: false };
+
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        if (!subscription || isUserPremium(subscription)) {
+            return { refunded: false };
+        }
+
+        const used = toNonNegativeInt(subscription.consumedVoiceGenerations);
+        if (used <= 0) {
+            return { refunded: false };
+        }
+
+        await ctx.db.patch(subscription._id, {
+            consumedVoiceGenerations: used - 1,
+        });
+        return { refunded: true };
+    },
+});
+
 export const consumeReExplainCreditOrThrowInternal = internalMutation({
     args: { userId: v.string() },
     handler: async (ctx, args) => {

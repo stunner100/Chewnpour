@@ -54,19 +54,44 @@ const isStuckPodcastJob = (row: {
 }, now = Date.now()) =>
     isPodcastInFlight(row) && getPodcastActivityTimestamp(row) <= now - STUCK_JOB_MS;
 
+// Refund a charged-but-not-yet-refunded credit for a job that is failing.
+// Idempotent: keyed on the row's creditConsumed/creditRefunded flags so no
+// failure path can double-refund. Returns whether the row should be flagged
+// creditRefunded in the accompanying patch.
+const refundPodcastCreditForRow = async (
+    ctx: MutationCtx,
+    row: { userId?: string; status?: string; creditConsumed?: boolean; creditRefunded?: boolean },
+) => {
+    const shouldRefund =
+        row.creditConsumed === true
+        && row.creditRefunded !== true
+        && isPodcastInFlight(row);
+    if (!shouldRefund) return false;
+    const userId = String(row.userId || "").trim();
+    if (userId) {
+        await ctx.runMutation(internal.subscriptions.refundVoiceGenerationCreditInternal, { userId });
+    }
+    return true;
+};
+
 const markStuckPodcastJobsFailed = async <T extends {
     _id: any;
+    userId?: string;
     status?: string;
     startedAt?: number;
     updatedAt?: number;
     createdAt?: number;
+    creditConsumed?: boolean;
+    creditRefunded?: boolean;
 }>(ctx: MutationCtx, rows: T[], now = Date.now()) => {
     const staleRows = rows.filter((row) => isStuckPodcastJob(row, now));
     for (const row of staleRows) {
+        const refunded = await refundPodcastCreditForRow(ctx, row);
         await ctx.db.patch(row._id, {
             status: "failed",
             errorMessage: `Generation stopped updating for more than ${Math.round(STUCK_JOB_MS / 60000)} minutes. Please retry.`,
             updatedAt: now,
+            ...(refunded ? { creditRefunded: true } : {}),
         });
     }
     return staleRows;
@@ -95,10 +120,15 @@ const assertPodcastCapacityAvailable = async (ctx: MutationCtx) => {
 };
 
 const consumePodcastGenerationCredit = async (ctx: MutationCtx, userId: string) => {
-    await ctx.runMutation(internal.subscriptions.consumeVoiceGenerationCreditOrThrowInternal, {
+    return await ctx.runMutation(internal.subscriptions.consumeVoiceGenerationCreditOrThrowInternal, {
         userId,
     });
 };
+
+// A credit is only actually charged for non-premium users; premium is unlimited
+// and increments nothing, so there is nothing to refund for them later.
+const wasCreditCharged = (creditResult: { isPremium?: boolean } | null | undefined) =>
+    creditResult?.isPremium !== true;
 
 // ── Internal helpers (used by the Node-runtime action in podcastsActions.ts) ──
 
@@ -134,16 +164,19 @@ export const markFailedInternal = internalMutation({
         expectedStartedAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        const row = await ctx.db.get(args.podcastId);
+        if (!row) return { updated: false };
         if (typeof args.expectedStartedAt === "number") {
-            const row = await ctx.db.get(args.podcastId);
-            if (!row || row.startedAt !== args.expectedStartedAt || row.status !== "running") {
+            if (row.startedAt !== args.expectedStartedAt || row.status !== "running") {
                 return { updated: false };
             }
         }
+        const refunded = await refundPodcastCreditForRow(ctx, row);
         await ctx.db.patch(args.podcastId, {
             status: "failed",
             errorMessage: args.errorMessage,
             updatedAt: Date.now(),
+            ...(refunded ? { creditRefunded: true } : {}),
         });
         return { updated: true };
     },
@@ -190,10 +223,12 @@ export const sweepStuckPodcastsInternal = internalMutation({
             )
             .collect();
         for (const row of stuck) {
+            const refunded = await refundPodcastCreditForRow(ctx, row);
             await ctx.db.patch(row._id, {
                 status: "failed",
                 errorMessage: `Stuck in "running" for more than ${Math.round(STUCK_JOB_MS / 60000)} minutes.`,
                 updatedAt: Date.now(),
+                ...(refunded ? { creditRefunded: true } : {}),
             });
         }
         return { sweptCount: stuck.length };
@@ -255,7 +290,7 @@ export const requestTopicPodcast = mutation({
         await assertPodcastCapacityAvailable(ctx);
 
         // Gate against the shared voice-generation quota. Throws on exceeded.
-        await consumePodcastGenerationCredit(ctx, userId);
+        const creditResult = await consumePodcastGenerationCredit(ctx, userId);
 
         const targetWordCount = Math.max(
             400,
@@ -269,6 +304,8 @@ export const requestTopicPodcast = mutation({
             status: "pending",
             voiceModel: resolveVoiceModelDescriptor(),
             targetWordCount,
+            creditConsumed: wasCreditCharged(creditResult),
+            creditRefunded: false,
             startedAt: now,
             createdAt: now,
             updatedAt: now,
@@ -436,7 +473,7 @@ export const retryTopicPodcast = mutation({
         }
 
         await assertPodcastCapacityAvailable(ctx);
-        await consumePodcastGenerationCredit(ctx, userId);
+        const creditResult = await consumePodcastGenerationCredit(ctx, userId);
 
         const retryStartedAt = Date.now();
         await ctx.db.patch(args.podcastId, {
@@ -444,6 +481,8 @@ export const retryTopicPodcast = mutation({
             errorMessage: undefined,
             startedAt: retryStartedAt,
             updatedAt: retryStartedAt,
+            creditConsumed: wasCreditCharged(creditResult),
+            creditRefunded: false,
         });
         await ctx.scheduler.runAfter(0, internal.podcastsActions.kickoff, {
             podcastId: args.podcastId,

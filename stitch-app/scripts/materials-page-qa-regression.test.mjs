@@ -67,17 +67,17 @@ requireIncludes(
 );
 requireIncludes(
   dashboardLayoutSource,
-  'className="fixed top-0 flex justify-between items-center gap-2 h-16 px-3 md:px-space-8',
+  'className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface',
   'DashboardLayout.jsx',
 );
 requireIncludes(
   dashboardLayoutSource,
-  'className="flex-1 min-w-0 md:max-w-md',
+  'md:max-w-md',
   'DashboardLayout.jsx',
 );
 requireIncludes(
   dashboardLayoutSource,
-  'className="shrink-0 flex items-center gap-1.5 md:gap-space-4"',
+  'className="flex shrink-0 items-center gap-1.5 pr-3 md:gap-space-4 md:pr-4"',
   'DashboardLayout.jsx',
 );
 

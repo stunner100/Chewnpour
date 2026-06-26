@@ -11,6 +11,14 @@
     --border: 228 228 231;           /* #e4e4e7 */
     --input: 228 228 231;
     --ring: 145 75 241;              /* #914bf1 */
+    --sidebar: 255 255 255;
+    --sidebar-foreground: 31 41 51;
+    --sidebar-primary: 217 119 6;
+    --sidebar-primary-foreground: 255 255 255;
+    --sidebar-accent: 245 241 232;
+    --sidebar-accent-foreground: 31 41 51;
+    --sidebar-border: 238 238 240;
+    --sidebar-ring: 217 119 6;
 }
 
 .dark {
@@ -21,6 +29,14 @@
     --border: 42 43 48;              /* #2a2b30 */
     --input: 42 43 48;
     --ring: 168 123 247;
+    --sidebar: 22 23 25;
+    --sidebar-foreground: 233 233 238;
+    --sidebar-primary: 245 158 11;
+    --sidebar-primary-foreground: 15 15 18;
+    --sidebar-accent: 33 34 38;
+    --sidebar-accent-foreground: 233 233 238;
+    --sidebar-border: 42 43 48;
+    --sidebar-ring: 245 158 11;
 }
 
 @layer base {

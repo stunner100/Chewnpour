@@ -1,0 +1,84 @@
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { NavMain } from '@/components/nav-main';
+import { NavUser } from '@/components/nav-user';
+import { TeamSwitcher } from '@/components/team-switcher';
+import { Button } from '@/components/ui/button';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from '@/components/ui/sidebar';
+import {
+  BarChart3Icon,
+  BookOpenIcon,
+  BotIcon,
+  CloudUploadIcon,
+  FolderIcon,
+  LayoutDashboardIcon,
+  PodcastIcon,
+  SparklesIcon,
+  SquareStackIcon,
+  CircleHelpIcon,
+} from 'lucide-react';
+
+const navItems = [
+  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboardIcon, exact: true },
+  { title: 'Upload', url: '/dashboard/upload', icon: CloudUploadIcon },
+  { title: 'My Materials', url: '/dashboard/library', icon: FolderIcon },
+  { title: 'Lessons', url: '/dashboard/lessons', icon: BookOpenIcon },
+  { title: 'Quizzes', url: '/dashboard/quiz', icon: CircleHelpIcon },
+  { title: 'Flashcards', url: '/dashboard/flashcards', icon: SquareStackIcon },
+  { title: 'Podcasts', url: '/dashboard/podcasts', icon: PodcastIcon },
+  { title: 'AI Tutor', url: '/dashboard/ai-tutor', icon: BotIcon },
+  { title: 'Progress', url: '/dashboard/progress', icon: BarChart3Icon },
+];
+
+const isNavItemActive = (pathname, item) => {
+  if (item.exact) return pathname === item.url;
+  return pathname === item.url || pathname.startsWith(`${item.url}/`);
+};
+
+export function AppSidebar({ ...props }) {
+  const location = useLocation();
+  const { profile } = useAuth();
+
+  const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
+  const user = {
+    name: displayName,
+    email: profile?.email || 'student@chewnpour.com',
+    avatar: profile?.avatar || '',
+  };
+
+  const items = navItems.map((item) => ({
+    title: item.title,
+    url: item.url,
+    icon: <item.icon className="size-4" />,
+    isActive: isNavItemActive(location.pathname, item),
+  }));
+
+  return (
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <TeamSwitcher />
+        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
+          <Button asChild className="w-full justify-center gap-2">
+            <Link to="/dashboard/upload">
+              <SparklesIcon className="size-4" />
+              Generate Material
+            </Link>
+          </Button>
+        </div>
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain items={items} />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={user} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}
