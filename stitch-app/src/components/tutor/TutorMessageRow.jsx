@@ -21,7 +21,6 @@ export function TutorMessageRow({
 }) {
   const isUser = message.role === 'user';
   const avatarClass = compact ? 'size-7' : 'size-9';
-  const iconClass = compact ? 'size-3.5' : 'size-4';
 
   if (isUser) {
     return (
@@ -43,7 +42,7 @@ export function TutorMessageRow({
     <Message align="start" className={className}>
       <MessageAvatar className={cn(compact ? 'min-w-7' : 'min-w-9', !showAvatar && 'invisible')}>
         {showAvatar ? (
-          <TutorAvatar className={avatarClass} iconClassName={iconClass} />
+          <TutorAvatar className={avatarClass} />
         ) : null}
       </MessageAvatar>
       <MessageContent>
@@ -72,7 +71,7 @@ export function TutorWelcomeMessage({ topicTitle, description, compact = false }
   return (
     <Message align="start">
       <MessageAvatar className={compact ? 'min-w-7' : 'min-w-9'}>
-        <TutorAvatar className={compact ? 'size-7' : 'size-9'} iconClassName={compact ? 'size-3.5' : 'size-4'} />
+        <TutorAvatar className={compact ? 'size-7' : 'size-9'} />
       </MessageAvatar>
       <MessageContent>
         <Bubble variant="ghost" className="max-w-[85%]">

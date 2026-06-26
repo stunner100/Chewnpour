@@ -50,8 +50,9 @@ requireIncludes('TutorChatComposer', 'shadcn ai-elements tutor composer');
 requireIncludes('@/components/ui/message', 'shadcn radix message primitives');
 requireIncludes('@/components/ui/bubble', 'shadcn radix bubble primitives');
 requireIncludes('TutorMessageRow', 'shared tutor message row');
-requireIncludes("PEEPS_SPRITE_SRC = '/images/peeps/all-peeps.png'", 'notion-style peeps tutor avatar');
-requireIncludes('TUTOR_PEEPS_INDEX', 'selected peep index for tutor avatar');
+requireIncludes("TUTOR_AVATAR_IMAGE_SRC = '/images/peeps/tutor.png'", 'cropped peeps tutor avatar image');
+requireIncludes('AvatarImage', 'radix avatar image for tutor peep');
+requireExcludes('BotIcon', 'bot fallback avatar icon');
 requireIncludes('@/components/ai-elements/prompt-input', 'ai-elements prompt input');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');

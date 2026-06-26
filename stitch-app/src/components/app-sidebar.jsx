@@ -11,10 +11,10 @@ import {
   SidebarHeader,
   SidebarRail,
 } from '@/components/ui/sidebar';
+import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 import {
   BarChart3Icon,
   BookOpenIcon,
-  BotIcon,
   CloudUploadIcon,
   FolderIcon,
   LayoutDashboardIcon,
@@ -32,7 +32,7 @@ const navItems = [
   { title: 'Quizzes', url: '/dashboard/quiz', icon: CircleHelpIcon },
   { title: 'Flashcards', url: '/dashboard/flashcards', icon: SquareStackIcon },
   { title: 'Podcasts', url: '/dashboard/podcasts', icon: PodcastIcon },
-  { title: 'AI Tutor', url: '/dashboard/ai-tutor', icon: BotIcon },
+  { title: 'AI Tutor', url: '/dashboard/ai-tutor', icon: TutorAvatarMark, isTutorAvatar: true },
   { title: 'Progress', url: '/dashboard/progress', icon: BarChart3Icon },
 ];
 
@@ -56,7 +56,11 @@ export function AppSidebar({ ...props }) {
   const items = navItems.map((item) => ({
     title: item.title,
     url: item.url,
-    icon: <item.icon className="size-4" />,
+    icon: item.isTutorAvatar ? (
+      <item.icon className="size-4 rounded-full" />
+    ) : (
+      <item.icon className="size-4" />
+    ),
     isActive: isNavItemActive(location.pathname, item),
   }));
 

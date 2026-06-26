@@ -1,32 +1,26 @@
-import { BotIcon } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { getPeepSpriteStyle, PEEPS_SPRITE_SRC, TUTOR_PEEPS_INDEX } from '@/lib/peepsSprite';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { TUTOR_AVATAR_ALT, TUTOR_AVATAR_IMAGE_SRC } from '@/lib/peepsSprite';
 import { cn } from '@/lib/utils';
 
-export const TUTOR_AVATAR_SRC = PEEPS_SPRITE_SRC;
-export const TUTOR_AVATAR_ALT = 'ChewnPour AI Tutor';
+export { TUTOR_AVATAR_ALT, TUTOR_AVATAR_IMAGE_SRC as TUTOR_AVATAR_SRC };
 
-export function TutorAvatar({ className, iconClassName = 'size-4', peepIndex = TUTOR_PEEPS_INDEX }) {
+export function TutorAvatar({ className }) {
   return (
     <Avatar className={className}>
-      <span
-        aria-hidden="true"
-        className="size-full rounded-full bg-black"
-        style={getPeepSpriteStyle(peepIndex)}
-      />
-      <AvatarFallback className="border border-primary-fixed-dim bg-primary-soft text-primary">
-        <BotIcon className={iconClassName} aria-hidden="true" />
+      <AvatarImage src={TUTOR_AVATAR_IMAGE_SRC} alt={TUTOR_AVATAR_ALT} />
+      <AvatarFallback className="bg-black text-xs text-white" delayMs={0}>
+        AI
       </AvatarFallback>
     </Avatar>
   );
 }
 
-export function TutorAvatarMark({ className, peepIndex = TUTOR_PEEPS_INDEX }) {
+export function TutorAvatarMark({ className }) {
   return (
-    <span
-      aria-hidden="true"
-      className={cn('inline-block shrink-0 rounded-full bg-black', className)}
-      style={getPeepSpriteStyle(peepIndex)}
+    <img
+      src={TUTOR_AVATAR_IMAGE_SRC}
+      alt={TUTOR_AVATAR_ALT}
+      className={cn('inline-block shrink-0 rounded-full object-cover', className)}
     />
   );
 }

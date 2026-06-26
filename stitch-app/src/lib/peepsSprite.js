@@ -5,6 +5,10 @@ export const PEEPS_SPRITE_COLS = 7;
 /** Friendly glasses + smile peep from the Open Peeps / Notion-style sheet. */
 export const TUTOR_PEEPS_INDEX = 52;
 
+/** Cropped peep used wherever the tutor avatar is shown. */
+export const TUTOR_AVATAR_IMAGE_SRC = '/images/peeps/tutor.png';
+export const TUTOR_AVATAR_ALT = 'ChewnPour AI Tutor';
+
 export function getPeepSpriteStyle(
   index = TUTOR_PEEPS_INDEX,
   rows = PEEPS_SPRITE_ROWS,
