@@ -13,6 +13,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
+import { TutorChatComposer, TutorChatMessages } from '@/components/tutor/TutorChatSurface';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms', prompt: 'Explain this topic in simple terms.' },
@@ -94,7 +95,6 @@ const AIStudyTutor = () => {
         courseTitle: selectedCourse.title,
         icon: 'auto_stories',
     }));
-    const [inputValue, setInputValue] = useState('');
     const [selectedTopicId, setSelectedTopicId] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
@@ -193,7 +193,7 @@ const AIStudyTutor = () => {
         : questionAnchorKey || responseAnchorKey;
 
     const handleSend = useCallback(async (overridePrompt) => {
-        const question = String(overridePrompt || inputValue || '').trim();
+        const question = String(overridePrompt || '').trim();
         if (!question || !selectedTopicOption?.topicId || sending) return;
         const baselineQuestionCount = messageList.filter((message) =>
             message.role === 'user' && String(message.content || '').trim() === question
@@ -206,7 +206,6 @@ const AIStudyTutor = () => {
         });
         setSending(true);
         setError('');
-        setInputValue('');
         try {
             await askTopicTutor({
                 topicId: selectedTopicOption.topicId,
@@ -214,19 +213,12 @@ const AIStudyTutor = () => {
             });
         } catch (err) {
             setPendingExchange(null);
-            setInputValue(question);
             setError(resolveConvexErrorMessage(err, 'Could not get a tutor response. Please try again.'));
+            throw err;
         } finally {
             setSending(false);
         }
-    }, [askTopicTutor, inputValue, messageList, selectedTopicOption?.topicId, sending]);
-
-    const handleKeyDown = useCallback((event) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            handleSend();
-        }
-    }, [handleSend]);
+    }, [askTopicTutor, messageList, selectedTopicOption?.topicId, sending]);
 
     useEffect(() => {
         setPendingExchange(null);
@@ -350,16 +342,20 @@ const AIStudyTutor = () => {
                 </div>
 
                 <div className="flex-1 min-h-0 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden">
-                    <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-space-5 flex flex-col gap-space-6" aria-label="AI Tutor conversation">
-                        <div className="text-center">
-                            <span className="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">
-                                {selectedTopicOption?.courseTitle}
-                            </span>
-                        </div>
-
-                        {messages === undefined ? (
+                    <TutorChatMessages
+                        messages={messages === undefined || displayMessages.length === 0 ? [] : displayMessages}
+                        messagesContainerRef={messagesContainerRef}
+                        getMessageAnchorRef={(message) => {
+                            const isQuestionAnchor = questionAnchorKey && String(message._id) === String(questionAnchorKey);
+                            const isResponseAnchor = responseAnchorKey && String(message._id) === String(responseAnchorKey);
+                            if (isResponseAnchor) return responseAnchorRef;
+                            if (isQuestionAnchor) return questionAnchorRef;
+                            return null;
+                        }}
+                        loadingState={messages === undefined ? (
                             <TutorContextLoading topicTitle={selectedTopicOption?.title} />
-                        ) : displayMessages.length === 0 ? (
+                        ) : null}
+                        emptyState={messages !== undefined && displayMessages.length === 0 ? (
                             <div className="flex justify-start gap-4">
                                 <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
                                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
@@ -373,85 +369,24 @@ const AIStudyTutor = () => {
                                     )}
                                 </div>
                             </div>
-                        ) : (
-                            displayMessages.map((message) => {
-                                const isUser = message.role === 'user';
-                                const isQuestionAnchor = questionAnchorKey && String(message._id) === String(questionAnchorKey);
-                                const isResponseAnchor = responseAnchorKey && String(message._id) === String(responseAnchorKey);
-                                return (
-                                    <div
-                                        key={message._id}
-                                        ref={isResponseAnchor ? responseAnchorRef : isQuestionAnchor ? questionAnchorRef : null}
-                                        className={`flex ${isUser ? 'justify-end' : 'justify-start gap-4'}`}
-                                    >
-                                        {!isUser && (
-                                            <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
-                                                <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
-                                            </div>
-                                        )}
-                                        <div className={`${isUser ? 'max-w-[80%] md:max-w-[70%] bg-surface-muted dark:!bg-[#2a241c] rounded-tr-sm' : 'max-w-[85%] md:max-w-[75%] bg-ai-subtle dark:!bg-[#212226] rounded-tl-sm border-outline-variant'} rounded-2xl p-space-4 shadow-sm border border-border-subtle`}>
-                                            {message.pending ? (
-                                                <div className="flex items-center gap-3" role="status" aria-live="polite">
-                                                    <span className="font-label-xs text-label-xs text-text-secondary">Tutor is preparing an answer</span>
-                                                    <span className="flex items-center gap-1.5" aria-hidden="true">
-                                                        <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" />
-                                                        <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.2s' }} />
-                                                        <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.4s' }} />
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <p className="font-body-sm text-body-sm text-text-primary whitespace-pre-wrap">{message.content}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })
+                        ) : null}
+                        courseBadge={(
+                            <span className="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">
+                                {selectedTopicOption?.courseTitle}
+                            </span>
                         )}
-                    </div>
+                    />
 
-                    <div className="p-space-4 bg-surface border-t border-border-subtle flex flex-col gap-space-3">
-                        <div className="flex flex-wrap gap-2">
-                            {suggestedPrompts.map((prompt) => (
-                                <button
-                                    key={prompt.text}
-                                    type="button"
-                                    onClick={() => handleSend(prompt.prompt)}
-                                    disabled={sending}
-                                    className="px-4 py-2 bg-surface-soft border border-border-default rounded-full font-label-xs text-label-xs text-text-secondary hover:bg-surface-muted hover:text-text-primary transition-colors flex items-center gap-1.5 disabled:opacity-60"
-                                >
-                                    <span className="material-symbols-outlined text-[16px]">{prompt.icon}</span>
-                                    {prompt.text}
-                                </button>
-                            ))}
-                        </div>
-                        {error && (
-                            <p className="font-body-sm text-body-sm text-error bg-error-soft border border-error/20 rounded-lg px-space-3 py-space-2">{error}</p>
-                        )}
-                        <div className="relative flex items-end gap-2 bg-surface-soft rounded-xl border border-border-strong p-2 focus-within:ring-2 focus-within:ring-primary-soft focus-within:border-primary transition-all shadow-sm">
-                            <textarea
-                                aria-label={`Ask AI Tutor a question about ${selectedTopicOption?.title || 'this lesson'}`}
-                                className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-2.5 px-2 font-body-sm text-body-sm text-text-primary placeholder:text-text-muted min-h-[44px] max-h-[120px]"
-                                placeholder={`Ask a question about ${selectedTopicOption?.title || 'this lesson'}...`}
-                                rows={1}
-                                value={inputValue}
-                                onChange={(event) => setInputValue(event.target.value)}
-                                onKeyDown={handleKeyDown}
-                                style={{ overflowY: 'hidden' }}
-                            />
-                            <button
-                                type="button"
-                                aria-label="Send message to AI Tutor"
-                                onClick={() => handleSend()}
-                                disabled={sending || !inputValue.trim()}
-                                className="w-10 h-10 bg-primary text-on-primary rounded-lg flex items-center justify-center hover:bg-primary-hover transition-colors shadow-sm self-end mb-1 flex-shrink-0 disabled:opacity-50 disabled:hover:bg-primary"
-                            >
-                                <span className="material-symbols-outlined">send</span>
-                            </button>
-                        </div>
-                        <div className="text-center">
-                            <p className="font-label-xs text-label-xs text-text-muted">AI Tutor can make mistakes. Verify important academic information.</p>
-                        </div>
-                    </div>
+                    <TutorChatComposer
+                        suggestedPrompts={suggestedPrompts}
+                        onSuggestedPrompt={handleSend}
+                        onSubmit={handleSend}
+                        sending={sending}
+                        error={error}
+                        placeholder={`Ask a question about ${selectedTopicOption?.title || 'this lesson'}...`}
+                        inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption?.title || 'this lesson'}`}
+                        disclaimer="AI Tutor can make mistakes. Verify important academic information."
+                    />
                 </div>
             </main>
         </div>

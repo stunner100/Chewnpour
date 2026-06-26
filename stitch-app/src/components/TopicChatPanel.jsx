@@ -1,9 +1,18 @@
-import React, { memo, useReducer, useState, useEffect, useEffectEvent, useRef, useCallback, useMemo } from 'react';
+import React, { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { DEFAULT_TUTOR_PERSONA, TUTOR_PERSONAS } from '../lib/tutorPersonas';
 import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from '@/components/ai-elements/conversation';
+import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
+import { TutorChatComposer } from '@/components/tutor/TutorChatSurface';
+import { Spinner } from '@/components/ui/spinner';
+import { BotIcon } from 'lucide-react';
 
 const isAiMessageQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();
@@ -13,17 +22,6 @@ const isAiMessageQuotaExceededError = (error) => {
 };
 
 const EXIT_ANIMATION_MS = 250;
-
-const inputReducer = (state, action) => {
-    switch (action.type) {
-        case 'set':
-            return String(action.value || '');
-        case 'clear':
-            return '';
-        default:
-            return state;
-    }
-};
 
 const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose, initialPrompt }) {
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -40,7 +38,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     const clearChat = useMutation(api.topicChat.clearChat);
     const setTutorPersona = useMutation(api.tutor.setTutorPersona);
 
-    const [input, dispatchInput] = useReducer(inputReducer, '');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
@@ -67,12 +64,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         });
         return `/subscription?${query.toString()}`;
     }, [topicId]);
-
-    const textareaRef = useRef(null);
-    const messagesContainerRef = useRef(null);
-    const applyInitialPrompt = useEffectEvent((prompt) => {
-        dispatchInput({ type: 'set', value: prompt });
-    });
 
     useEffect(() => {
         if (!tutorSupport?.persona) return;
@@ -104,24 +95,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         [topicTitle]
     );
 
-    // Auto-scroll to bottom when messages change or sending state changes
-    useEffect(() => {
-        const messagesContainer = messagesContainerRef.current;
-        if (open && messagesContainer) {
-            messagesContainer.scrollTo({
-                top: messagesContainer.scrollHeight,
-                behavior: 'smooth',
-            });
-        }
-    }, [open, messages, sending]);
-
-    // Focus textarea when panel opens
-    useEffect(() => {
-        if (!open || !textareaRef.current) return undefined;
-        const timer = setTimeout(() => textareaRef.current?.focus(), 200);
-        return () => clearTimeout(timer);
-    }, [open]);
-
     // Handle close with exit animation
     const handleClose = useCallback(() => {
         if (isClosing) return;
@@ -146,13 +119,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         return undefined;
     }, [open]);
 
-    // Pre-fill input from initialPrompt (tutor entry points)
-    useEffect(() => {
-        if (!open || !initialPrompt) return undefined;
-        applyInitialPrompt(initialPrompt);
-        return undefined;
-    }, [open, initialPrompt]);
-
     // Escape to close
     useEffect(() => {
         if (!open) return;
@@ -168,9 +134,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         setError(aiMessageLimitMessage);
     }, [aiMessageLimitMessage, error, isFreeQuotaExhausted]);
 
-    const handleSend = useCallback(async (override) => {
-        const raw = typeof override === 'string' ? override : input;
-        const question = String(raw || '').trim();
+    const handleSend = useCallback(async (questionInput) => {
+        const question = String(questionInput || '').trim();
         if (!question || sending) return;
         if (isFreeQuotaExhausted) {
             setError(aiMessageLimitMessage);
@@ -178,8 +143,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         }
         setSending(true);
         setError('');
-        dispatchInput({ type: 'clear' });
-        if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
             await askTutor({ topicId, question, persona: selectedPersona });
         } catch (err) {
@@ -188,10 +151,11 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
             } else {
                 setError(resolveConvexErrorMessage(err, 'Could not get a response. Please try again.'));
             }
+            throw err;
         } finally {
             setSending(false);
         }
-    }, [input, sending, askTutor, topicId, isFreeQuotaExhausted, aiMessageLimitMessage, selectedPersona]);
+    }, [sending, askTutor, topicId, isFreeQuotaExhausted, aiMessageLimitMessage, selectedPersona]);
 
     const handlePersonaChange = useCallback(async (personaKey) => {
         const normalized = String(personaKey || DEFAULT_TUTOR_PERSONA);
@@ -202,19 +166,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
             setError(resolveConvexErrorMessage(err, 'Could not save tutor style. Please try again.'));
         }
     }, [setTutorPersona]);
-
-    const handleKeyDown = useCallback((e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-        }
-    }, [handleSend]);
-
-    const handleTextareaChange = useCallback((e) => {
-        dispatchInput({ type: 'set', value: e.target.value });
-        // Auto-expand textarea
-        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-    }, []);
 
     const handleClearChat = useCallback(async () => {
         if (!topicId) return;
@@ -354,130 +305,95 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     )}
                 </div>
 
-                {/* Messages */}
-                <div
-                    ref={messagesContainerRef}
-                    className="flex-1 overflow-y-auto px-3 py-4 space-y-3"
-                >
-                    {messageList.length === 0 && !sending && (
-                        <div className="space-y-4">
-                            <div className="flex gap-2.5 items-start">
-                                <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
-                                    <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
-                                </div>
-                                <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-main-light dark:text-text-main-dark max-w-[85%]">
-                                    Hi! I&apos;m your AI tutor{topicTitle ? ` for "${topicTitle}"` : ''}. Ask anything, or try one of these:
-                                </div>
-                            </div>
-                            <div className="pl-[38px] flex flex-col gap-2">
-                                {suggestedPrompts.map((item) => (
-                                    <button
-                                        key={item.label}
-                                        type="button"
-                                        onClick={() => handleSend(item.prompt)}
-                                        disabled={sending || isFreeQuotaExhausted}
-                                        className="group flex items-center gap-2 self-start rounded-full border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-3 py-1.5 text-caption text-text-sub-light dark:text-text-sub-dark hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                    >
-                                        <span className="material-symbols-outlined text-[14px] text-text-faint-light dark:text-text-faint-dark group-hover:text-primary">auto_awesome</span>
-                                        {item.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {messageList.map((msg, idx) => {
-                        const isAssistant = msg.role === 'assistant';
-                        const showAvatar = idx === 0 || messageList[idx - 1].role !== msg.role;
-
-                        if (isAssistant) {
-                            return (
-                                <div key={msg._id} className="flex gap-2.5 items-start">
-                                    {showAvatar ? (
-                                        <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
-                                            <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
-                                        </div>
-                                    ) : (
-                                        <div className="w-7 shrink-0" />
-                                    )}
-                                    <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-main-light dark:text-text-main-dark max-w-[85%] whitespace-pre-wrap break-words">
-                                        {msg.content}
+                <Conversation className="flex-1 min-h-0" aria-label="AI Tutor conversation">
+                    <ConversationContent className="gap-3 px-3 py-4">
+                        {messageList.length === 0 && !sending && (
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-2.5">
+                                    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                        <BotIcon className="size-3.5 text-primary" aria-hidden="true" />
+                                    </div>
+                                    <div className="max-w-[85%] rounded-xl rounded-tl-sm border border-border-light bg-background-light px-3 py-2.5 text-body-sm text-text-main-light dark:border-border-dark dark:bg-background-dark dark:text-text-main-dark">
+                                        Hi! I&apos;m your AI tutor{topicTitle ? ` for "${topicTitle}"` : ''}. Ask anything, or try one of these:
                                     </div>
                                 </div>
-                            );
-                        }
-
-                        return (
-                            <div key={msg._id} className="flex justify-end">
-                                <div className="rounded-xl rounded-tr-sm bg-primary px-3 py-2.5 text-body-sm text-white max-w-[85%] whitespace-pre-wrap break-words">
-                                    {msg.content}
-                                </div>
                             </div>
-                        );
-                    })}
-
-                    {sending && (
-                        <div className="flex gap-2.5 items-start">
-                            <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
-                                <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
-                            </div>
-                            <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-faint-light dark:text-text-faint-dark max-w-[85%]">
-                                <span className="inline-flex items-center gap-1">
-                                    Thinking
-                                    <span className="inline-flex gap-0.5">
-                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '0ms' }} />
-                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '150ms' }} />
-                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '300ms' }} />
-                                    </span>
-                                </span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Error */}
-                {error && (
-                    <div className="px-3 py-2 border-t border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10">
-                        <p className="text-caption text-red-600 dark:text-red-300">{error}</p>
-                        {isFreeQuotaExhausted && (
-                            <Link
-                                to={aiMessageLimitPath}
-                                state={{ paywallMessage: error || aiMessageLimitMessage }}
-                                className="mt-1 inline-flex text-caption font-semibold text-primary hover:text-primary-hover transition-colors"
-                            >
-                                Upgrade to premium
-                            </Link>
                         )}
-                    </div>
-                )}
 
-                {/* Composer */}
-                <div className="px-3 pt-2 pb-3 border-t border-border-light dark:border-border-dark">
-                    <div className="flex items-end gap-2 rounded-2xl border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark pl-3 pr-2 py-2 shadow-sm transition-all focus-within:border-primary/50 focus-within:shadow-md focus-within:bg-surface-light dark:focus-within:bg-surface-dark">
-                        <textarea
-                            ref={textareaRef}
-                            value={input}
-                            onChange={handleTextareaChange}
-                            onKeyDown={handleKeyDown}
-                            placeholder={isFreeQuotaExhausted ? 'Daily limit reached' : 'Ask about this lesson...'}
-                            disabled={sending || isFreeQuotaExhausted}
-                            rows={1}
-                            className="flex-1 resize-none bg-transparent border-0 outline-none focus:ring-0 text-body-sm text-text-main-light dark:text-text-main-dark placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark py-1.5 disabled:opacity-50"
-                            style={{ maxHeight: 120 }}
-                        />
-                        <button
-                            onClick={() => handleSend()}
-                            disabled={sending || !input.trim() || isFreeQuotaExhausted}
-                            className="size-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
-                            aria-label="Send message"
+                        {messageList.map((msg, idx) => {
+                            const isAssistant = msg.role === 'assistant';
+                            const showAvatar = idx === 0 || messageList[idx - 1].role !== msg.role;
+
+                            return (
+                                <Message key={msg._id} from={isAssistant ? 'assistant' : 'user'} className="max-w-full">
+                                    {isAssistant ? (
+                                        <div className="flex w-full items-start gap-2.5">
+                                            {showAvatar ? (
+                                                <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                                    <BotIcon className="size-3.5 text-primary" aria-hidden="true" />
+                                                </div>
+                                            ) : (
+                                                <div className="w-7 shrink-0" />
+                                            )}
+                                            <MessageContent className="max-w-[85%] rounded-xl rounded-tl-sm border border-border-light bg-background-light px-3 py-2.5 dark:border-border-dark dark:bg-background-dark">
+                                                <MessageResponse className="text-body-sm text-text-main-light dark:text-text-main-dark">
+                                                    {msg.content}
+                                                </MessageResponse>
+                                            </MessageContent>
+                                        </div>
+                                    ) : (
+                                        <MessageContent className="max-w-[85%] rounded-xl rounded-tr-sm bg-primary px-3 py-2.5 text-body-sm text-white">
+                                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                                        </MessageContent>
+                                    )}
+                                </Message>
+                            );
+                        })}
+
+                        {sending && (
+                            <Message from="assistant" className="max-w-full">
+                                <div className="flex items-start gap-2.5">
+                                    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                        <BotIcon className="size-3.5 text-primary" aria-hidden="true" />
+                                    </div>
+                                    <MessageContent className="max-w-[85%] rounded-xl rounded-tl-sm border border-border-light bg-background-light px-3 py-2.5 dark:border-border-dark dark:bg-background-dark">
+                                        <div className="inline-flex items-center gap-2 text-body-sm text-text-faint-light dark:text-text-faint-dark" role="status" aria-live="polite">
+                                            Thinking
+                                            <Spinner className="size-3.5" />
+                                        </div>
+                                    </MessageContent>
+                                </div>
+                            </Message>
+                        )}
+                    </ConversationContent>
+                    <ConversationScrollButton />
+                </Conversation>
+
+                {error && isFreeQuotaExhausted ? (
+                    <div className="border-t border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/30 dark:bg-red-900/10">
+                        <Link
+                            to={aiMessageLimitPath}
+                            state={{ paywallMessage: error || aiMessageLimitMessage }}
+                            className="inline-flex text-caption font-semibold text-primary transition-colors hover:text-primary-hover"
                         >
-                            <span className="material-symbols-outlined text-[18px]">send</span>
-                        </button>
+                            Upgrade to premium
+                        </Link>
                     </div>
-                    <p className="mt-1.5 px-1 text-[10px] text-text-faint-light dark:text-text-faint-dark">
-                        Enter to send · Shift+Enter for new line
-                    </p>
-                </div>
+                ) : null}
+
+                <TutorChatComposer
+                    className="border-border-light bg-surface-light p-3 dark:border-border-dark dark:bg-surface-dark"
+                    suggestedPrompts={messageList.length === 0 && !sending ? suggestedPrompts : []}
+                    onSuggestedPrompt={handleSend}
+                    onSubmit={handleSend}
+                    sending={sending}
+                    error={error && !isFreeQuotaExhausted ? error : ''}
+                    disabled={isFreeQuotaExhausted}
+                    initialInput={open ? (initialPrompt || '') : ''}
+                    placeholder={isFreeQuotaExhausted ? 'Daily limit reached' : 'Ask about this lesson...'}
+                    inputAriaLabel="Send message to AI Tutor"
+                    disclaimer="Enter to send · Shift+Enter for new line"
+                />
             </div>
         </>
     );
