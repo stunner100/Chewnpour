@@ -579,6 +579,20 @@ html.is-safari .safari-backdrop {
     100% { background-position: -200% 0; }
 }
 
+.shimmer {
+    background-image: linear-gradient(
+        90deg,
+        rgb(var(--muted-foreground)) 0%,
+        rgb(var(--foreground)) 50%,
+        rgb(var(--muted-foreground)) 100%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: shimmer 2s linear infinite;
+}
+
 @keyframes meteor {
     0% {
         transform: rotate(215deg) translateX(0);

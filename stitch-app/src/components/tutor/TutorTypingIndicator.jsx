@@ -1,4 +1,3 @@
-import { Shimmer } from '@/components/ai-elements/shimmer';
 import { Marker, MarkerContent } from '@/components/ui/marker';
 import {
   Message,
@@ -22,19 +21,14 @@ export function TutorTypingIndicator({
         </MessageAvatar>
         <MessageContent>
           <Marker role="status" aria-live="polite">
-            <MarkerContent>
-              <Shimmer
-                as="span"
-                className="font-body-sm text-body-sm text-text-secondary"
-              >
-                {compact ? (
-                  'Tutor is typing...'
-                ) : (
-                  <>
-                    <span className="font-medium">Tutor</span> is typing...
-                  </>
-                )}
-              </Shimmer>
+            <MarkerContent className="shimmer font-body-sm text-body-sm">
+              {compact ? (
+                'Tutor is typing...'
+              ) : (
+                <>
+                  <span className="font-medium">Tutor</span> is typing...
+                </>
+              )}
             </MarkerContent>
           </Marker>
         </MessageContent>

@@ -173,6 +173,7 @@ const AIStudyTutor = () => {
         return nextMessages;
     }, [messageList, messages, pendingExchangeForTopic, pendingServerState]);
     const isTyping = Boolean(pendingExchangeForTopic && !pendingServerState.hasAssistant);
+    const showTypingIndicator = sending || isTyping;
     const questionAnchorKey = pendingExchangeForTopic && !pendingServerState.hasAssistant
         ? pendingServerState.questionMessageId || `pending-user-${pendingExchangeForTopic.clientId}`
         : '';
@@ -241,6 +242,12 @@ const AIStudyTutor = () => {
 
         return () => cancelAnimationFrame(frame);
     }, [activeScrollAnchorKey, displayMessages.length, isTyping, pendingServerState.assistantMessageId]);
+
+    useEffect(() => {
+        if (pendingExchangeForTopic && pendingServerState.hasAssistant) {
+            setPendingExchange(null);
+        }
+    }, [pendingExchangeForTopic, pendingServerState.hasAssistant]);
 
     if (courses === undefined || (effectiveCourseId && selectedCourse === undefined)) return <TutorSkeleton />;
     if (topicOptions.length === 0) return <EmptyTutorState />;
@@ -336,7 +343,7 @@ const AIStudyTutor = () => {
                     <TutorChatMessages
                         messages={messages === undefined || displayMessages.length === 0 ? [] : displayMessages}
                         messagesContainerRef={messagesContainerRef}
-                        isTyping={isTyping}
+                        isTyping={showTypingIndicator}
                         typingAnchorRef={responseAnchorRef}
                         getMessageAnchorRef={(message) => {
                             const isQuestionAnchor = questionAnchorKey && String(message._id) === String(questionAnchorKey);
