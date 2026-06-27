@@ -32,12 +32,14 @@ export function TutorChatMessages({
   'aria-label': ariaLabel = 'AI Tutor conversation',
 }) {
   const showTranscript = !loadingState && messages.length > 0;
+  const hasUserScrollAnchor = messages.some((message) => message.role === 'user');
+  const defaultScrollPosition = hasUserScrollAnchor ? 'last-anchor' : 'start';
 
   return (
     <MessageScrollerProvider
       key={scrollerKey}
       autoScroll
-      defaultScrollPosition="last-anchor"
+      defaultScrollPosition={defaultScrollPosition}
       scrollPreviousItemPeek={64}
     >
       <MessageScroller

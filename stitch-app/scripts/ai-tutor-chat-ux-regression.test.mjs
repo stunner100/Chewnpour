@@ -45,7 +45,9 @@ requireIncludes("'AI Tutor conversation'", 'conversation region label');
 
 requireIncludes('MessageScrollerProvider', 'message scroller provider');
 requireIncludes('autoScroll', 'live-edge follow output');
-requireIncludes('defaultScrollPosition="last-anchor"', 'open saved threads at last anchor');
+requireIncludes('defaultScrollPosition={defaultScrollPosition}', 'context-aware opening scroll position');
+requireIncludes('const hasUserScrollAnchor = messages.some((message) => message.role === \'user\');', 'detect user turn anchors');
+requireIncludes("const defaultScrollPosition = hasUserScrollAnchor ? 'last-anchor' : 'start';", 'start at top without user anchors');
 requireIncludes('scrollPreviousItemPeek={64}', 'previous turn context peek');
 requireIncludes('MessageScrollerItem', 'transcript row boundaries');
 requireIncludes('scrollAnchor={message.role === \'user\'}', 'user-turn scroll anchors');
@@ -75,6 +77,7 @@ requireExcludesIn(messageRowSource, 'rounded-tr-sm', 'asymmetric user bubble tai
 requireExcludesIn(messageRowSource, 'variant="ghost"', 'ghost bubble override in tutor chat');
 requireIncludes('variant="default"', 'primary pill bubble for user messages');
 requireIncludes('variant="muted"', 'muted pill bubble for tutor messages');
+requireIncludes('bg-surface-soft dark:bg-surface-hover-dark', 'visible tutor bubble surface on dark theme');
 requireIncludes('rounded-full', 'uniform pill bubble corners');
 requireIncludes('StudentAvatar', 'student avatar on outgoing tutor messages');
 
