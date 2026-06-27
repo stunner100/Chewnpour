@@ -4,16 +4,9 @@ import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { DEFAULT_TUTOR_PERSONA, TUTOR_PERSONAS } from '../lib/tutorPersonas';
 import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
-import {
-  MessageScroller,
-  MessageScrollerButton,
-  MessageScrollerContent,
-  MessageScrollerViewport,
-} from '@/components/ui/message-scroller';
-import { TutorChatComposer } from '@/components/tutor/TutorChatSurface';
+import { TutorChatComposer, TutorChatMessages } from '@/components/tutor/TutorChatSurface';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
-import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
-import { TutorTypingIndicator } from '@/components/tutor/TutorTypingIndicator';
+import { TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
 
 const isAiMessageQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();
@@ -306,30 +299,18 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     )}
                 </div>
 
-                <MessageScroller className="min-h-0 flex-1" aria-label="AI Tutor conversation">
-                    <MessageScrollerViewport>
-                        <MessageScrollerContent className="gap-3 px-3 py-4">
-                            {messageList.length === 0 && !sending && (
-                                <TutorWelcomeMessage topicTitle={topicTitle} compact />
-                            )}
-
-                            {messageList.map((msg, idx) => {
-                                const showAvatar = idx === 0 || messageList[idx - 1].role !== msg.role;
-                                return (
-                                    <TutorMessageRow
-                                        key={msg._id}
-                                        message={msg}
-                                        showAvatar={showAvatar}
-                                        compact
-                                    />
-                                );
-                            })}
-
-                            {sending ? <TutorTypingIndicator compact /> : null}
-                        </MessageScrollerContent>
-                    </MessageScrollerViewport>
-                    <MessageScrollerButton />
-                </MessageScroller>
+                <TutorChatMessages
+                    scrollerKey={topicId}
+                    compact
+                    className="min-h-0 flex-1"
+                    messages={messageList}
+                    isTyping={sending}
+                    emptyState={
+                        messageList.length === 0 && !sending ? (
+                            <TutorWelcomeMessage topicTitle={topicTitle} compact />
+                        ) : null
+                    }
+                />
 
                 {error && isFreeQuotaExhausted ? (
                     <div className="border-t border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/30 dark:bg-red-900/10">

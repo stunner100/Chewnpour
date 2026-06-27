@@ -7,47 +7,95 @@ import {
   PromptInputTextarea,
 } from '@/components/ai-elements/prompt-input';
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from '@/components/ui/message-scroller';
 import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
 import { TutorTypingIndicator } from '@/components/tutor/TutorTypingIndicator';
 import { cn } from '@/lib/utils';
 
 export function TutorChatMessages({
   messages,
-  messagesContainerRef,
-  getMessageAnchorRef,
   isTyping = false,
-  typingAnchorRef,
   loadingState = null,
   emptyState = null,
   courseBadge = null,
+  compact = false,
+  scrollerKey,
+  contentClassName,
   className,
   'aria-label': ariaLabel = 'AI Tutor conversation',
 }) {
+  const showTranscript = !loadingState && messages.length > 0;
+
   return (
-    <div
-      ref={messagesContainerRef}
-      className={cn('flex min-h-0 flex-1 flex-col gap-space-6 overflow-y-auto p-space-5', className)}
-      aria-label={ariaLabel}
+    <MessageScrollerProvider
+      key={scrollerKey}
+      autoScroll
+      defaultScrollPosition="last-anchor"
+      scrollPreviousItemPeek={64}
     >
-      {courseBadge ? (
-        <div className="text-center">{courseBadge}</div>
-      ) : null}
+      <MessageScroller
+        className={cn('min-h-0 flex-1', className)}
+        aria-label={ariaLabel}
+      >
+        <MessageScrollerViewport>
+          <MessageScrollerContent
+            className={cn(compact ? 'gap-3 px-3 py-4' : 'gap-space-6 p-space-5', contentClassName)}
+            aria-busy={isTyping || undefined}
+          >
+            {courseBadge ? (
+              <MessageScrollerItem messageId="course-badge">
+                <div className="text-center">{courseBadge}</div>
+              </MessageScrollerItem>
+            ) : null}
 
-      {loadingState}
+            {loadingState ? (
+              <MessageScrollerItem messageId="loading-state">
+                {loadingState}
+              </MessageScrollerItem>
+            ) : null}
 
-      {!loadingState && messages.length === 0 && emptyState}
+            {!loadingState && messages.length === 0 && emptyState ? (
+              <MessageScrollerItem messageId="welcome-state">
+                {emptyState}
+              </MessageScrollerItem>
+            ) : null}
 
-      {!loadingState &&
-        messages.map((message) => (
-          <div key={message._id} ref={getMessageAnchorRef?.(message) ?? null}>
-            <TutorMessageRow message={message} />
-          </div>
-        ))}
+            {showTranscript
+              ? messages.map((message, index) => {
+                  const showAvatar = index === 0 || messages[index - 1].role !== message.role;
+                  return (
+                    <MessageScrollerItem
+                      key={message._id}
+                      messageId={String(message._id)}
+                      scrollAnchor={message.role === 'user'}
+                    >
+                      <TutorMessageRow
+                        message={message}
+                        showAvatar={showAvatar}
+                        compact={compact}
+                      />
+                    </MessageScrollerItem>
+                  );
+                })
+              : null}
 
-      {!loadingState && isTyping ? (
-        <TutorTypingIndicator typingAnchorRef={typingAnchorRef} />
-      ) : null}
-    </div>
+            {!loadingState && isTyping ? (
+              <MessageScrollerItem messageId="typing-indicator">
+                <TutorTypingIndicator compact={compact} />
+              </MessageScrollerItem>
+            ) : null}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+        <MessageScrollerButton />
+      </MessageScroller>
+    </MessageScrollerProvider>
   );
 }
 
