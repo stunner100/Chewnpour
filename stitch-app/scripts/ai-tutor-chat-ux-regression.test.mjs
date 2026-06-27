@@ -17,6 +17,12 @@ const requireIncludes = (snippet, label) => {
   }
 };
 
+const requireExcludesIn = (source, snippet, label) => {
+  if (source.includes(snippet)) {
+    throw new Error(`AI tutor chat UX should avoid ${label}: ${snippet}`);
+  }
+};
+
 const requireExcludes = (snippet, label) => {
   if (combinedSource.includes(snippet)) {
     throw new Error(`AI tutor chat UX should avoid ${label}: ${snippet}`);
@@ -42,9 +48,13 @@ requireIncludes('Loading tutor context...', 'visible context loading copy');
 requireIncludes("Getting the latest chat for {topicTitle || 'this lesson'}.", 'specific context loading copy');
 requireExcludes('h-16 rounded-2xl bg-surface-soft ml-auto w-2/3', 'anonymous user-message skeleton');
 requireExcludes('h-28 rounded-2xl bg-ai-subtle w-3/4', 'anonymous assistant-message skeleton');
-requireIncludes('bg-ai-subtle dark:!bg-[#212226]', 'dark assistant bubble surface');
-requireIncludes('bg-surface-muted', 'user bubble surface');
-requireIncludes('dark:!bg-[#2a241c]', 'dark user bubble surface');
+requireExcludesIn(messageRowSource, 'rounded-tl-sm', 'asymmetric assistant bubble tail');
+requireExcludesIn(messageRowSource, 'rounded-tr-sm', 'asymmetric user bubble tail');
+requireExcludesIn(messageRowSource, 'variant="ghost"', 'ghost bubble override in tutor chat');
+requireIncludes('variant="default"', 'primary pill bubble for user messages');
+requireIncludes('variant="muted"', 'muted pill bubble for tutor messages');
+requireIncludes('rounded-full', 'uniform pill bubble corners');
+requireIncludes('StudentAvatar', 'student avatar on outgoing tutor messages');
 
 requireIncludes('inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption?.title || \'this lesson\'}`}', 'textarea accessible label');
 requireIncludes('TutorChatMessages', 'shadcn ai-elements tutor message surface');
