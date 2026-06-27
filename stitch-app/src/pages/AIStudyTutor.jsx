@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAction, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -100,10 +100,6 @@ const AIStudyTutor = () => {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [pendingExchange, setPendingExchange] = useState(null);
-    const messagesContainerRef = useRef(null);
-    const questionAnchorRef = useRef(null);
-    const responseAnchorRef = useRef(null);
-    const lastScrollAnchorKeyRef = useRef('');
     const askTopicTutor = useAction(api.ai.askTopicTutor);
 
     const effectiveSelectedTopicId = topicOptions.some((option) => String(option.topicId) === String(selectedTopicId))
@@ -174,15 +170,10 @@ const AIStudyTutor = () => {
     }, [messageList, messages, pendingExchangeForTopic, pendingServerState]);
     const isTyping = Boolean(pendingExchangeForTopic && !pendingServerState.hasAssistant);
     const showTypingIndicator = sending || isTyping;
-    const questionAnchorKey = pendingExchangeForTopic && !pendingServerState.hasAssistant
-        ? pendingServerState.questionMessageId || `pending-user-${pendingExchangeForTopic.clientId}`
-        : '';
-    const responseAnchorKey = pendingServerState.assistantMessageId || (
-        isTyping ? `typing-${pendingExchangeForTopic?.clientId || 'active'}` : ''
-    );
-    const activeScrollAnchorKey = pendingServerState.assistantMessageId
-        ? responseAnchorKey
-        : questionAnchorKey || responseAnchorKey;
+
+    useEffect(() => {
+        setPendingExchange(null);
+    }, [effectiveSelectedTopicId]);
 
     const handleSend = useCallback(async (overridePrompt) => {
         const question = String(overridePrompt || '').trim();
@@ -211,37 +202,6 @@ const AIStudyTutor = () => {
             setSending(false);
         }
     }, [askTopicTutor, messageList, selectedTopicOption?.topicId, sending]);
-
-    useEffect(() => {
-        setPendingExchange(null);
-        lastScrollAnchorKeyRef.current = '';
-        const messagesContainer = messagesContainerRef.current;
-        if (!messagesContainer) return undefined;
-
-        const frame = requestAnimationFrame(() => {
-            messagesContainer.scrollTo({ top: 0 });
-        });
-
-        return () => cancelAnimationFrame(frame);
-    }, [effectiveSelectedTopicId]);
-
-    useEffect(() => {
-        if (!activeScrollAnchorKey || lastScrollAnchorKeyRef.current === activeScrollAnchorKey) return undefined;
-
-        const frame = requestAnimationFrame(() => {
-            const target = pendingServerState.assistantMessageId
-                ? responseAnchorRef.current
-                : questionAnchorRef.current || (isTyping ? responseAnchorRef.current : null);
-            if (!target) return;
-            target.scrollIntoView({
-                block: 'start',
-                behavior: 'smooth',
-            });
-            lastScrollAnchorKeyRef.current = activeScrollAnchorKey;
-        });
-
-        return () => cancelAnimationFrame(frame);
-    }, [activeScrollAnchorKey, displayMessages.length, isTyping, pendingServerState.assistantMessageId]);
 
     useEffect(() => {
         if (pendingExchangeForTopic && pendingServerState.hasAssistant) {
@@ -341,17 +301,9 @@ const AIStudyTutor = () => {
 
                 <div className="flex-1 min-h-0 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden">
                     <TutorChatMessages
+                        scrollerKey={effectiveSelectedTopicId}
                         messages={messages === undefined || displayMessages.length === 0 ? [] : displayMessages}
-                        messagesContainerRef={messagesContainerRef}
                         isTyping={showTypingIndicator}
-                        typingAnchorRef={responseAnchorRef}
-                        getMessageAnchorRef={(message) => {
-                            const isQuestionAnchor = questionAnchorKey && String(message._id) === String(questionAnchorKey);
-                            const isResponseAnchor = responseAnchorKey && String(message._id) === String(responseAnchorKey);
-                            if (isResponseAnchor) return responseAnchorRef;
-                            if (isQuestionAnchor) return questionAnchorRef;
-                            return null;
-                        }}
                         loadingState={messages === undefined ? (
                             <TutorContextLoading topicTitle={selectedTopicOption?.title} />
                         ) : null}

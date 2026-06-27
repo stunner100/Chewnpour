@@ -9,13 +9,11 @@ import { TutorAvatar } from '@/components/tutor/TutorAvatar';
 export function TutorTypingIndicator({
   compact = false,
   className,
-  typingAnchorRef,
 }) {
   const avatarClass = compact ? 'size-7' : 'size-9';
 
   return (
-    <div ref={typingAnchorRef}>
-      <Message align="start" className={className}>
+    <Message align="start" className={className}>
         <MessageAvatar className={compact ? 'min-w-7' : 'min-w-9'}>
           <TutorAvatar className={avatarClass} />
         </MessageAvatar>
@@ -31,8 +29,7 @@ export function TutorTypingIndicator({
               )}
             </MarkerContent>
           </Marker>
-        </MessageContent>
-      </Message>
-    </div>
+      </MessageContent>
+    </Message>
   );
 }

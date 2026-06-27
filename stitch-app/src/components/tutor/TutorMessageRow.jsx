@@ -72,7 +72,7 @@ export function TutorMessageRow({
       </MessageAvatar>
       <MessageContent>
         <Bubble variant="muted" className={compact ? 'max-w-[85%]' : 'max-w-[85%] md:max-w-[75%]'}>
-          <BubbleContent className={bubbleShapeClass}>
+          <BubbleContent className={cn(bubbleShapeClass, 'bg-surface-soft dark:bg-surface-hover-dark')}>
             <p className="whitespace-pre-wrap font-body-sm text-body-sm text-foreground">
               {message.content}
             </p>
@@ -91,7 +91,7 @@ export function TutorWelcomeMessage({ topicTitle, description, compact = false }
       </MessageAvatar>
       <MessageContent>
         <Bubble variant="muted" className="max-w-[85%]">
-          <BubbleContent className={bubbleShapeClass}>
+          <BubbleContent className={cn(bubbleShapeClass, 'bg-surface-soft dark:bg-surface-hover-dark')}>
             <p className="font-body-sm text-body-sm text-foreground">
               {compact ? (
                 <>Hi! I&apos;m your AI tutor{topicTitle ? ` for "${topicTitle}"` : ''}. Ask anything, or try one of these:</>

@@ -5,11 +5,12 @@ import process from 'node:process';
 const root = process.cwd();
 const source = await fs.readFile(path.join(root, 'src/pages/AIStudyTutor.jsx'), 'utf8');
 const surfaceSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorChatSurface.jsx'), 'utf8');
+const topicPanelSource = await fs.readFile(path.join(root, 'src/components/TopicChatPanel.jsx'), 'utf8');
 const messageRowSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorMessageRow.jsx'), 'utf8');
 const tutorAvatarSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorAvatar.jsx'), 'utf8');
 const peepsSpriteSource = await fs.readFile(path.join(root, 'src/lib/peepsSprite.js'), 'utf8');
 const typingIndicatorSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorTypingIndicator.jsx'), 'utf8');
-const combinedSource = `${source}\n${surfaceSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
+const combinedSource = `${source}\n${surfaceSource}\n${topicPanelSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
 
 const requireIncludes = (snippet, label) => {
   if (!combinedSource.includes(snippet)) {
@@ -17,8 +18,14 @@ const requireIncludes = (snippet, label) => {
   }
 };
 
-const requireExcludesIn = (source, snippet, label) => {
-  if (source.includes(snippet)) {
+const requireIncludesIn = (fileSource, snippet, label) => {
+  if (!fileSource.includes(snippet)) {
+    throw new Error(`AI tutor chat UX should keep ${label}: ${snippet}`);
+  }
+};
+
+const requireExcludesIn = (fileSource, snippet, label) => {
+  if (fileSource.includes(snippet)) {
     throw new Error(`AI tutor chat UX should avoid ${label}: ${snippet}`);
   }
 };
@@ -29,18 +36,35 @@ const requireExcludes = (snippet, label) => {
   }
 };
 
-requireIncludes('const messagesContainerRef = useRef(null);', 'message container ref');
-requireIncludes('const responseAnchorRef = useRef(null);', 'response anchor ref');
 requireIncludes('const [pendingExchange, setPendingExchange] = useState(null);', 'optimistic pending exchange state');
 requireIncludes('const displayMessages = useMemo(() => {', 'derived display messages');
 requireIncludes("role: 'user',", 'optimistic user message role');
 requireIncludes('const isTyping = Boolean(pendingExchangeForTopic && !pendingServerState.hasAssistant);', 'derived tutor typing state');
 requireExcludes('pending: true', 'pending assistant bubble row');
-requireIncludes('scrollIntoView({', 'response-start scroll anchor');
-requireIncludes("block: 'start'", 'response starts at top of viewport');
+requireIncludes("'AI Tutor conversation'", 'conversation region label');
+
+requireIncludes('MessageScrollerProvider', 'message scroller provider');
+requireIncludes('autoScroll', 'live-edge follow output');
+requireIncludes('defaultScrollPosition={defaultScrollPosition}', 'context-aware opening scroll position');
+requireIncludes('const hasUserScrollAnchor = messages.some((message) => message.role === \'user\');', 'detect user turn anchors');
+requireIncludes("const defaultScrollPosition = hasUserScrollAnchor ? 'last-anchor' : 'start';", 'start at top without user anchors');
+requireIncludes('scrollPreviousItemPeek={64}', 'previous turn context peek');
+requireIncludes('MessageScrollerItem', 'transcript row boundaries');
+requireIncludes('scrollAnchor={message.role === \'user\'}', 'user-turn scroll anchors');
+requireIncludes('MessageScrollerButton', 'jump-to-latest control');
+requireIncludes('scrollerKey={effectiveSelectedTopicId}', 'topic-scoped scroller reset');
+requireIncludes('aria-busy={isTyping || undefined}', 'streaming busy state on transcript');
+
+requireExcludes('messagesContainerRef', 'manual message container ref');
+requireExcludes('responseAnchorRef', 'manual response anchor ref');
+requireExcludes('questionAnchorRef', 'manual question anchor ref');
+requireExcludes('scrollIntoView({', 'manual scrollIntoView anchoring');
+requireExcludes("block: 'start'", 'manual viewport-start scroll anchoring');
 requireExcludes('top: messagesContainer.scrollHeight', 'bottom-anchored response scrolling');
 requireExcludes('}, [effectiveSelectedTopicId, messages, sending]);', 'sending-driven bottom auto-scroll');
-requireIncludes("'AI Tutor conversation'", 'conversation region label');
+
+requireIncludesIn(topicPanelSource, 'TutorChatMessages', 'topic panel shared tutor messages');
+requireIncludesIn(topicPanelSource, 'scrollerKey={topicId}', 'topic panel scroller reset');
 
 requireIncludes('const TutorContextLoading = ({ topicTitle }) => (', 'named context loading state');
 requireIncludes('role="status" aria-live="polite"', 'polite loading status');
@@ -53,6 +77,7 @@ requireExcludesIn(messageRowSource, 'rounded-tr-sm', 'asymmetric user bubble tai
 requireExcludesIn(messageRowSource, 'variant="ghost"', 'ghost bubble override in tutor chat');
 requireIncludes('variant="default"', 'primary pill bubble for user messages');
 requireIncludes('variant="muted"', 'muted pill bubble for tutor messages');
+requireIncludes('bg-surface-soft dark:bg-surface-hover-dark', 'visible tutor bubble surface on dark theme');
 requireIncludes('rounded-full', 'uniform pill bubble corners');
 requireIncludes('StudentAvatar', 'student avatar on outgoing tutor messages');
 
@@ -74,5 +99,6 @@ requireExcludes('@/components/ai-elements/shimmer', 'broken motion shimmer depen
 requireExcludes('Tutor is preparing an answer', 'legacy spinner typing copy');
 requireExcludes('from \'@/components/ui/spinner\'', 'spinner-based tutor pending state');
 requireIncludes('@/components/ai-elements/prompt-input', 'ai-elements prompt input');
+requireIncludes('@/components/ui/message-scroller', 'shadcn message scroller primitives');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');
