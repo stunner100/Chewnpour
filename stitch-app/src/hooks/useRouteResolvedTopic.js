@@ -11,7 +11,9 @@ export const useRouteResolvedTopic = (routeTopicId, topicQueryResult, options = 
 
     const rawTopicId = typeof topicQueryResult?._id === 'string'
         ? topicQueryResult._id
-        : '';
+        : typeof topicQueryResult?.id === 'string'
+            ? topicQueryResult.id
+            : '';
     const hasMismatchedCachedTopic = Boolean(routeTopicId && rawTopicId && rawTopicId !== routeTopicId);
     const routeTopicStateKey = topicQueryResult === null ? 'missing' : rawTopicId || 'pending';
     const routeResolutionKey = `${routeTopicId}:${routeTopicStateKey}`;
@@ -81,7 +83,11 @@ export const useRouteResolvedTopic = (routeTopicId, topicQueryResult, options = 
 
     return {
         topic: routeTopic,
-        topicId: typeof routeTopic?._id === 'string' ? routeTopic._id : '',
+        topicId: typeof routeTopic?._id === 'string'
+            ? routeTopic._id
+            : typeof routeTopic?.id === 'string'
+                ? routeTopic.id
+                : '',
         rawTopicId,
         hasMismatchedCachedTopic,
         isLoadingRouteTopic,

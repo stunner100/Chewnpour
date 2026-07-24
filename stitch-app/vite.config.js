@@ -1,66 +1,16 @@
 import { defineConfig, loadEnv } from 'vite'
 import process from 'node:process'
-import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url))
-const convexProjectConfigPath = path.resolve(
-  thisDir,
-  'config',
-  'convex.public.json'
-)
-
-const readConvexProjectConfigUrl = () => {
-  try {
-    const raw = fs.readFileSync(convexProjectConfigPath, 'utf8')
-    const parsed = JSON.parse(raw)
-    return String(parsed?.frontendConvexUrl || '').trim()
-  } catch {
-    return ''
-  }
-}
-
-const getHost = (value) => {
-  try {
-    return new URL(value).host
-  } catch {
-    return ''
-  }
-}
 
 // https://vite.dev/config/
-export default defineConfig(({ mode, command }) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const projectConvexUrl = readConvexProjectConfigUrl()
-  // Only the local dev server may fall back to the checked-in project config.
-  // Preview and production builds must provide an explicit deployment URL so a
-  // preview frontend can never silently point at production Convex. The target
-  // must be the self-hosted DigitalOcean Convex runtime unless explicitly
-  // overridden for a single task.
-  const resolvedConvexUrl = String(
-    command === 'serve'
-      ? env.VITE_CONVEX_URL || env.CONVEX_URL || projectConvexUrl || ''
-      : env.VITE_CONVEX_URL || env.CONVEX_URL || ''
-  ).trim()
-  const resolvedConvexSiteUrl = String(env.VITE_CONVEX_SITE_URL || '').trim()
   const resolvedMaintenanceMode = String(env.VITE_MAINTENANCE_MODE || '').trim()
-  if (command === 'build' && !resolvedConvexUrl) {
-    throw new Error(
-      'Missing Convex URL for build. Set VITE_CONVEX_URL/CONVEX_URL to the DigitalOcean-hosted Convex runtime. Preview and production builds must not fall back to config/convex.public.json.'
-    )
-  }
-  const allowConvexCloudDeploy = env.ALLOW_CONVEX_CLOUD_DEPLOY === 'true'
-  if (
-    command === 'build' &&
-    /\.convex\.cloud$/i.test(getHost(resolvedConvexUrl)) &&
-    !allowConvexCloudDeploy
-  ) {
-    throw new Error(
-      'Refusing to build against Convex Cloud. ChewnPour deploys to the DigitalOcean-hosted Convex runtime. Set VITE_CONVEX_URL/CONVEX_URL to the DigitalOcean Convex URL, or set ALLOW_CONVEX_CLOUD_DEPLOY=true only when the user explicitly requested Convex Cloud for this task.'
-    )
-  }
+  const authDevPort = String(env.AUTH_DEV_PORT || '8787').trim()
 
   return {
     resolve: {
@@ -69,12 +19,46 @@ export default defineConfig(({ mode, command }) => {
       },
     },
     define: {
-      'import.meta.env.VITE_CONVEX_URL': JSON.stringify(resolvedConvexUrl),
-      'import.meta.env.VITE_CONVEX_SITE_URL': JSON.stringify(resolvedConvexSiteUrl),
       'import.meta.env.VITE_MAINTENANCE_MODE': JSON.stringify(resolvedMaintenanceMode),
     },
     worker: {
       format: 'es',
+    },
+    server: {
+      proxy: {
+        '/api/auth': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+        '/api/profile': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+        '/api/uploads': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+        '/api/courses': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+        '/api/topics': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+        '/api/billing': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+        '/api/progress': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+        '/api/quiz-attempts': {
+          target: `http://127.0.0.1:${authDevPort}`,
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       rollupOptions: {
@@ -90,11 +74,7 @@ export default defineConfig(({ mode, command }) => {
               return 'vendor-react';
             }
 
-            if (
-              id.includes('/convex/') ||
-              id.includes('/better-auth/') ||
-              id.includes('/@convex-dev/')
-            ) {
+            if (id.includes('/better-auth/')) {
               return 'vendor-auth';
             }
 

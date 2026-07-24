@@ -1,6 +1,4 @@
 import React, { memo, useReducer, useEffect, useRef, useCallback } from 'react';
-import { useQuery, useMutation } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 
 const SAVE_DEBOUNCE_MS = 1500;
 const EXIT_ANIMATION_MS = 250;
@@ -90,9 +88,32 @@ const formatTimeSince = (timestamp, now = Date.now()) => {
     return `Saved ${Math.round(minutes / 60)}h ago`;
 };
 
+const fetchTopicNote = async (topicId) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/notes`, {
+        credentials: 'include',
+    });
+    if (response.status === 404) return null;
+    if (!response.ok) {
+        throw new Error(`Failed to load notes (${response.status})`);
+    }
+    const payload = await response.json();
+    return payload?.note || null;
+};
+
+const saveTopicNote = async (topicId, content) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/notes`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to save notes (${response.status})`);
+    }
+    return response.json();
+};
+
 const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, appendText }) {
-    const note = useQuery(api.topicNotes.getNote, topicId ? { topicId } : 'skip');
-    const saveNote = useMutation(api.topicNotes.saveNote);
     const [{ draft, saving, lastSavedAt, statusNow, isClosing }, dispatchNotes] = useReducer(
         notesReducer,
         notesInitialState,
@@ -102,41 +123,45 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     const initializedRef = useRef(false);
     const closingTimerRef = useRef(null);
 
-    // Initialize draft from DB on first load
     useEffect(() => {
-        if (note && !initializedRef.current) {
-            dispatchNotes({
-                type: 'noteLoaded',
-                content: note.content || '',
-                updatedAt: note.updatedAt || null,
-            });
-            initializedRef.current = true;
-        }
-        if (note === null && !initializedRef.current) {
-            initializedRef.current = true;
-        }
-    }, [note]);
-
-    // Reset initialization when topic changes
-    useEffect(() => {
+        if (!topicId) return undefined;
+        let cancelled = false;
         initializedRef.current = false;
         dispatchNotes({ type: 'topicChanged' });
+
+        fetchTopicNote(topicId)
+            .then((note) => {
+                if (cancelled || initializedRef.current) return;
+                if (note) {
+                    dispatchNotes({
+                        type: 'noteLoaded',
+                        content: note.content || '',
+                        updatedAt: note.updatedAt || null,
+                    });
+                }
+                initializedRef.current = true;
+            })
+            .catch(() => {
+                if (!cancelled) initializedRef.current = true;
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [topicId]);
 
-    // Handle appendText from "Copy to notes"
     useEffect(() => {
         if (!appendText || !open) return;
         dispatchNotes({ type: 'appendText', text: appendText });
     }, [appendText, open]);
 
-    // Auto-save with debounce
     const debouncedSave = useCallback((content) => {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(async () => {
             if (!topicId) return;
             dispatchNotes({ type: 'saveStarted' });
             try {
-                await saveNote({ topicId, content });
+                await saveTopicNote(topicId, content);
                 dispatchNotes({ type: 'saveSucceeded', savedAt: Date.now() });
             } catch {
                 // Silent — user sees stale "last saved" timestamp
@@ -144,7 +169,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                 dispatchNotes({ type: 'saveFinished' });
             }
         }, SAVE_DEBOUNCE_MS);
-    }, [topicId, saveNote]);
+    }, [topicId]);
 
     const handleDraftChange = (e) => {
         const value = e.target.value;
@@ -152,7 +177,6 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         debouncedSave(value);
     };
 
-    // Update status text periodically
     useEffect(() => {
         if (!open || saving || !lastSavedAt) return undefined;
         dispatchNotes({ type: 'statusTick', now: Date.now() });
@@ -162,14 +186,12 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         return () => clearInterval(interval);
     }, [open, saving, lastSavedAt]);
 
-    // Focus textarea when panel opens
     useEffect(() => {
         if (!open || !textareaRef.current) return undefined;
         const timer = setTimeout(() => textareaRef.current?.focus(), 200);
         return () => clearTimeout(timer);
     }, [open]);
 
-    // Handle close with exit animation
     const handleClose = useCallback(() => {
         if (isClosing) return;
         dispatchNotes({ type: 'startClosing' });
@@ -179,14 +201,13 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         }, EXIT_ANIMATION_MS);
     }, [isClosing, onClose]);
 
-    // Clean up closing timer
     useEffect(() => {
         return () => {
             if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         };
     }, []);
 
-    // Escape to close
     useEffect(() => {
         if (!open) return;
         const handleKeyDown = (e) => {
@@ -205,7 +226,6 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
 
     return (
         <>
-            {/* Backdrop (mobile/medium only) */}
             <button
                 type="button"
                 aria-label="Close notes panel"
@@ -213,9 +233,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                 onClick={handleClose}
             />
 
-            {/* Panel */}
             <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
-                {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-amber-500 text-xl">edit_note</span>
@@ -230,7 +248,6 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                     </button>
                 </div>
 
-                {/* Textarea */}
                 <div className="flex-1 overflow-hidden p-4">
                     <textarea
                         ref={textareaRef}
@@ -241,7 +258,6 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                     />
                 </div>
 
-                {/* Footer */}
                 <div className="px-4 py-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                     <span className="text-xs text-zinc-400 dark:text-neutral-400">
                         {saving && (

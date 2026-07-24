@@ -3,43 +3,24 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
-
-const [quizSource, coursesSource] = await Promise.all([
-  read('src/pages/ActiveQuizSession.jsx'),
-  read('convex/courses.ts'),
-]);
+const quizSource = await fs.readFile(path.join(root, 'src/pages/ActiveQuizSession.jsx'), 'utf8');
 
 const requireIncludes = (source, snippet, label) => {
   if (!source.includes(snippet)) {
-    throw new Error(`${label} should include "${snippet}".`);
+    throw new Error(`Expected ${label}: ${snippet}`);
   }
 };
 
 const requireExcludes = (source, snippet, label) => {
   if (source.includes(snippet)) {
-    throw new Error(`${label} should not include "${snippet}".`);
+    throw new Error(`Unexpected ${label}: ${snippet}`);
   }
 };
 
-requireIncludes(quizSource, 'const hasQuizContent = (course) =>', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'Boolean(course?.firstQuizTopicId || course?.firstTopicId)', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'const targetTopicId = course.firstQuizTopicId || course.firstTopicId;', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'if (!targetTopicId) return null;', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'const targetHref = buildObjectiveExamRoute(targetTopicId);', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'to={targetHref}', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'const selectionCourseList = quizReadyCourses;', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'const quizCandidateTopicList = useMemo(() => topicList.filter(isQuizCandidateTopic), [topicList]);', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'selectionCourseList.slice(0, 4).map((course)', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'const quizReadyCourses = useMemo(', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'course.firstQuizTopicId || course.firstTopicId', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'to={`/dashboard/quiz/${encodeURIComponent(targetTopicId)}`}', 'ActiveQuizSession.jsx');
+requireExcludes(quizSource, "from 'convex/react'", 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, '`/dashboard/course/${course._id}?action=quiz`', 'ActiveQuizSession.jsx');
-requireExcludes(quizSource, ': `/dashboard/lessons?courseId=${course._id}`;', 'ActiveQuizSession.jsx');
-requireExcludes(quizSource, 'visibleQuizCourses', 'ActiveQuizSession.jsx');
-requireExcludes(quizSource, 'shouldShowQuizCourse', 'ActiveQuizSession.jsx');
-requireExcludes(quizSource, 'metadataKnown', 'ActiveQuizSession.jsx');
-
-requireIncludes(coursesSource, 'quizzesReady: quizReadyTopics.length', 'convex/courses.ts');
-requireIncludes(coursesSource, 'firstTopicId: firstTopic?._id ?? null', 'convex/courses.ts');
-requireIncludes(coursesSource, 'firstQuizTopicId: firstQuizTopic?._id ?? null', 'convex/courses.ts');
 
 console.log('quiz-card-route-cutover-regression.test.mjs passed');

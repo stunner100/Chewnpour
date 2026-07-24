@@ -5,17 +5,15 @@ const primaryTabs = [
     { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', matchPaths: ['/dashboard'] },
     { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons', matchPaths: ['/dashboard/lessons', '/dashboard/topic'] },
     { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz', matchPaths: ['/dashboard/quiz'] },
-    { label: 'Flashcards', icon: 'style', path: '/dashboard/flashcards', matchPaths: ['/dashboard/flashcards'] },
+    { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', matchPaths: ['/dashboard/progress'] },
 ];
 
-const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-tutor', '/dashboard/progress', '/dashboard/podcasts', '/dashboard/settings'];
+const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-tutor', '/dashboard/settings'];
 
 const moreItems = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDFs, slides, notes, or audio' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'All uploaded files and progress' },
     { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', description: 'Ask follow-up questions' },
-    { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', description: 'Streaks, mastery, weak topics' },
-    { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Audio revision tracks' },
     { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
 ];
 

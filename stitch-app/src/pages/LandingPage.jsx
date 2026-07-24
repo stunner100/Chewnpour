@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
 import { formatPlanPrice, normalizeTopUpOptions } from '../lib/pricingCurrency';
@@ -12,7 +10,7 @@ import { BlurFade } from '../components/magicui/BlurFade';
 /**
  * Landing page styled to the NajmAI design specification (Outfit font, rgb(16,17,18) background,
  * rgb(39,40,41) cards, rgb(145,75,241) accent, grain texture, glossy purple swirl). Copy and product
- * wiring (Convex pricing, PostHog events, auth redirects, CTAs to /signup, /login) are ChewnPour's.
+ * wiring (static GHS top-up pricing, PostHog events, auth redirects, CTAs to /signup, /login) are ChewnPour's.
  */
 
 const PAGE_BG = 'rgb(16, 17, 18)';
@@ -1322,8 +1320,23 @@ const LandingPage = () => {
         };
     }, [activePost]);
 
-    const pricing = useQuery(api.subscriptions.getPublicTopUpPricing, {});
-    const topUpOptions = useMemo(() => normalizeTopUpOptions(pricing?.topUpOptions), [pricing?.topUpOptions]);
+    const pricing = useMemo(
+        () => ({
+            freeLimit: 3,
+            currency: 'GHS',
+            topUpPriceMajor: 20,
+            topUpCredits: 5,
+            topUpOptions: normalizeTopUpOptions([
+                { id: 'first-time-starter', amountMajor: 15, credits: 5, currency: 'GHS' },
+                { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' },
+                { id: 'max', amountMajor: 40, credits: 12, currency: 'GHS' },
+                { id: 'semester', amountMajor: 60, credits: 20, currency: 'GHS', validityDays: 120, unlimitedAiChat: true },
+            ]),
+            checkoutCurrencies: ['GHS'],
+        }),
+        [],
+    );
+    const topUpOptions = pricing.topUpOptions;
     const starterPlan = topUpOptions.find((plan) => plan.id === 'starter') || topUpOptions[0] || { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' };
     const maxPlan = topUpOptions.find((plan) => plan.id === 'max') || topUpOptions[topUpOptions.length - 1] || { id: 'max', amountMajor: 40, credits: 12, currency: starterPlan.currency || 'GHS' };
     const captureLandingEvent = (eventName, properties = {}) =>

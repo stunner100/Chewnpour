@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAction } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -12,10 +10,26 @@ const sanitizeReturnPath = (value) => {
     return trimmed;
 };
 
+const verifyTopUpPayment = async ({ reference, returnPath }) => {
+    const response = await fetch('/api/billing/verify', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reference, returnPath }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Verification failed (${response.status})`);
+    }
+    return payload;
+};
+
 const SubscriptionCallback = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const verifyTopUp = useAction(api.subscriptions.verifyPaystackTopUpAfterRedirect);
 
     const reference = useMemo(() => String(searchParams.get('reference') || '').trim(), [searchParams]);
     const returnPath = useMemo(() => sanitizeReturnPath(searchParams.get('from') || '/dashboard'), [searchParams]);
@@ -37,7 +51,7 @@ const SubscriptionCallback = () => {
             }
 
             try {
-                const result = await verifyTopUp({
+                const result = await verifyTopUpPayment({
                     reference,
                     returnPath,
                 });
@@ -85,7 +99,7 @@ const SubscriptionCallback = () => {
         return () => {
             cancelled = true;
         };
-    }, [navigate, reference, returnPath, verifyTopUp]);
+    }, [navigate, reference, returnPath]);
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">

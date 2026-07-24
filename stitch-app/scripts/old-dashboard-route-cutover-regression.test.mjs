@@ -16,7 +16,6 @@ const studentDashboardSource = await read('src/pages/StudentDashboard.jsx');
 const materialsSource = await read('src/pages/MyMaterialsLibrary.jsx');
 const lessonsSource = await read('src/pages/LessonMemoryNeuralBasis.jsx');
 const quizSource = await read('src/pages/ActiveQuizSession.jsx');
-const flashcardsSource = await read('src/pages/FlashcardStudySession.jsx');
 const commandPaletteSource = await read('src/components/CommandPalette.jsx');
 
 for (const snippet of [
@@ -33,18 +32,21 @@ for (const snippet of [
   '<Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />',
-  '<Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />',
+  '<Route path="/dashboard/podcasts" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/dashboard/assignment-helper" element={<Navigate to="/dashboard/ai-tutor" replace />} />',
   '<Route path="/dashboard/humanizer" element={<Navigate to="/dashboard/ai-tutor" replace />} />',
   '<Route path="/dashboard/community" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/dashboard/community/:channelId" element={<Navigate to="/dashboard" replace />} />',
-  '<Route path="/dashboard/concept-intro" element={<Navigate to="/dashboard/flashcards" replace />} />',
+  '<Route path="/dashboard/concept-intro" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
-  '<Route path="/dashboard/concept" element={<Navigate to="/dashboard/flashcards" replace />} />',
+  '<Route path="/dashboard/concept" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
-  '<Route path="/subscription" element={<Navigate to="/dashboard/settings#subscription" replace />} />',
+  '<Route path="/dashboard/flashcards" element={<Navigate to="/dashboard/progress" replace />} />',
+  '<Route path="/dashboard/flashcards/:deckId" element={<Navigate to="/dashboard/progress" replace />} />',
+  '<Route path="/subscription" element={withSuspense(<ProtectedRoute><DashboardLayout><Subscription /></DashboardLayout></ProtectedRoute>)} />',
   '<Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />',
   '<Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />',
+  '<Route path="/admin" element={<Navigate to="/dashboard" replace />} />',
 ]) {
   if (!appSource.includes(snippet)) {
     throw new Error(`Expected old route cutover redirect: ${snippet}`);
@@ -58,7 +60,9 @@ for (const forbiddenSnippet of [
   "const PastQuestionsComingSoon = lazyRoute",
   "const Profile = lazyRoute",
   "const EditProfile = lazyRoute",
-  "const Subscription = lazyRoute",
+  "const DashboardPodcasts = lazyRoute",
+  "const FlashcardStudySession = lazyRoute",
+  "const AdminDashboard = lazyRoute",
   "const DashboardProcessing = lazyRoute",
   "const DashboardCourse = lazyRoute",
   "const ExamMode = lazyRoute",
@@ -95,7 +99,6 @@ for (const [source, label] of [
   [materialsSource, 'MyMaterialsLibrary.jsx'],
   [lessonsSource, 'LessonMemoryNeuralBasis.jsx'],
   [quizSource, 'ActiveQuizSession.jsx'],
-  [flashcardsSource, 'FlashcardStudySession.jsx'],
   [commandPaletteSource, 'CommandPalette.jsx'],
 ]) {
   const oldDestinations = [
@@ -109,7 +112,8 @@ for (const [source, label] of [
     '/dashboard/humanizer',
     '/dashboard/community',
     '/dashboard/concept',
-    '/subscription',
+    '/dashboard/flashcards',
+    '/dashboard/podcasts',
   ];
   const oldDestination = oldDestinations.find((destination) => source.includes(destination));
   if (oldDestination) {

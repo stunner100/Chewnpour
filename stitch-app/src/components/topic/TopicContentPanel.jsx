@@ -2,7 +2,6 @@ import React from 'react';
 import TopicSidebar from '../TopicSidebar';
 import LessonContentRenderer from '../LessonContentRenderer';
 import GuidedStudyPath from '../GuidedStudyPath';
-import LessonPodcastCard from '../lesson/LessonPodcastCard';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
 
 const TopicContentPanel = ({
@@ -23,7 +22,7 @@ const TopicContentPanel = ({
     parsed,
     pauseVoice,
     playVoice,
-    podcastEnabled,
+    podcastEnabled: _podcastEnabled,
     resolvedTopicTitle,
     resumeVoice,
     shouldAnimateBlocks,
@@ -118,12 +117,6 @@ const TopicContentPanel = ({
                 />
             </div>
         </details>
-
-        {podcastEnabled ? (
-            <div id="topic-podcast">
-                <LessonPodcastCard topicId={topicId} />
-            </div>
-        ) : null}
     </>
 );
 

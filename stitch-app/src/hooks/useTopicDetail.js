@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from './useStudyTimer';
 import { useRouteResolvedTopic } from './useRouteResolvedTopic';
@@ -19,9 +17,7 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
-import { resolveConvexErrorMessage } from '../lib/convexClientErrors';
 import {
-    isReExplainQuotaExceededError,
     SECTION_SETS,
     EMBEDDED_SECTION_SPLIT_PATTERN,
     SECTION_TEXT_STRIP_PATTERN,
@@ -36,14 +32,67 @@ import {
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
 
+const fetchTopicPayload = async (topicId) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}`, {
+        credentials: 'include',
+    });
+    if (response.status === 404) return null;
+    if (!response.ok) {
+        throw new Error(`Failed to load topic (${response.status})`);
+    }
+    const payload = await response.json();
+    const topic = payload?.topic;
+    if (!topic) return null;
+    return {
+        ...topic,
+        _id: topic.id || topic._id,
+        sourceUploadId: topic.sourceUploadId || topic.uploadId || null,
+        assessmentRoute: topic.assessmentRoute || 'topic_quiz',
+    };
+};
+
+const fetchTopicProgress = async (topicId) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/progress`, {
+        credentials: 'include',
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    return payload?.progress || null;
+};
+
+const upsertTopicProgressRequest = async (topicId, patch) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/progress`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch || {}),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to save progress (${response.status})`);
+    }
+    const payload = await response.json();
+    return payload?.progress || null;
+};
+
+const reExplainTopicRequest = async (topicId, style) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/re-explain`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ style }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Failed to re-explain (${response.status})`);
+    }
+    return payload;
+};
+
 export const useTopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const { user, profile, updateProfile, loading: authLoading } = useAuth();
-    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     useStudyTimer(user?.id);
-    const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
-    const reExplainTopic = useAction(api.ai.reExplainTopic);
     const [reExplainOpen, setReExplainOpen] = useState(false);
     const [reExplainStyle, setReExplainStyle] = useState("Teach me like I'm 12");
     const [reExplainLoading, setReExplainLoading] = useState(false);
@@ -59,6 +108,8 @@ export const useTopicDetail = () => {
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
     const [sourceOpen, setSourceOpen] = useState(false);
+    const [topicQueryResult, setTopicQueryResult] = useState(undefined);
+    const [topicProgress, setTopicProgress] = useState(null);
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
         // Default to full lesson so direct links (e.g. lesson cards) open readable content
@@ -152,56 +203,78 @@ export const useTopicDetail = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topicQueryResult = useQuery(
-        api.topics.getTopicWithQuestions,
-        routeTopicId && !authLoading && isConvexAuthenticated
-            ? { topicId: routeTopicId }
-            : 'skip'
-    );
+
+    useEffect(() => {
+        if (!routeTopicId || authLoading || !user?.id) {
+            setTopicQueryResult(undefined);
+            return undefined;
+        }
+
+        let cancelled = false;
+        setTopicQueryResult(undefined);
+
+        fetchTopicPayload(routeTopicId)
+            .then((topic) => {
+                if (!cancelled) setTopicQueryResult(topic);
+            })
+            .catch(() => {
+                if (!cancelled) setTopicQueryResult(null);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [routeTopicId, authLoading, user?.id]);
+
     const {
         topic,
         topicId,
         isLoadingRouteTopic,
         isMissingRouteTopic,
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult, {
-        suspendMissingDetection: authLoading || !isConvexAuthenticated,
+        suspendMissingDetection: authLoading || !user?.id || topicQueryResult === undefined,
     });
     const courseId = topic?.courseId;
-    const finalAssessmentTopic = useQuery(
-        api.topics.getFinalAssessmentTopicByCourseAndUpload,
-        courseId && topic?.sourceUploadId ? { courseId, sourceUploadId: topic.sourceUploadId } : 'skip'
-    );
-    const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
-    const podcastEnabled = import.meta.env.VITE_PODCAST_GEN_ENABLED === 'true' && topicId;
-    const voiceQuota = useQuery(
-        api.subscriptions.getVoiceGenerationQuotaStatus,
-        user?.id && isConvexAuthenticated ? {} : 'skip'
-    );
-    const topicProgress = useQuery(
-        api.topics.getUserTopicProgress,
-        topicId ? { topicId } : 'skip'
-    );
-    const upsertProgress = useMutation(api.topics.upsertTopicProgress);
-    const sourcePassages = useQuery(
-        api.topics.getTopicSourcePassages,
-        sourceOpen && topicId ? { topicId } : 'skip'
-    );
-    const isVoicePremium = Boolean(voiceQuota?.isPremium);
+    const finalAssessmentTopic = null;
+    const voiceModeEnabled = false;
+    const podcastEnabled = false;
+    const sourcePassages = [];
+    const isVoicePremium = false;
+
+    useEffect(() => {
+        if (!topicId || !user?.id) {
+            setTopicProgress(null);
+            return undefined;
+        }
+        let cancelled = false;
+        fetchTopicProgress(topicId)
+            .then((progress) => {
+                if (!cancelled) setTopicProgress(progress);
+            })
+            .catch(() => {
+                if (!cancelled) setTopicProgress(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [topicId, user?.id]);
+
+    const upsertProgress = useCallback(async (patch) => {
+        if (!topicId) return null;
+        try {
+            const progress = await upsertTopicProgressRequest(topicId, patch);
+            setTopicProgress(progress);
+            return progress;
+        } catch {
+            return null;
+        }
+    }, [topicId]);
+
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
     const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
-    const synthesizeLessonVoice = useCallback(
-        async (text, options = {}) => {
-            if (!topicId) {
-                throw new Error('Topic not found.');
-            }
-            return synthesizeTopicVoice({
-                topicId,
-                text,
-                consumeQuota: options.consumeQuota !== false,
-            });
-        },
-        [synthesizeTopicVoice, topicId]
-    );
+    const synthesizeLessonVoice = useCallback(async () => {
+        throw new Error('Voice playback is temporarily unavailable.');
+    }, []);
     const {
         isSupported: isVoiceSupported,
         status: voiceStatus,
@@ -822,7 +895,7 @@ export const useTopicDetail = () => {
         setReExplainError('');
         setReExplainLoading(true);
         try {
-            const result = await reExplainTopic({ topicId, style: reExplainStyle });
+            const result = await reExplainTopicRequest(topicId, reExplainStyle);
             const nextContent = result?.content || '';
             setOverrideContent(nextContent);
             if (storageKey) {
@@ -838,20 +911,11 @@ export const useTopicDetail = () => {
             }
             setReExplainOpen(false);
         } catch (error) {
-            if (isReExplainQuotaExceededError(error)) {
-                setReExplainError(
-                    resolveConvexErrorMessage(
-                        error,
-                        "You've used your free lesson re-explain. Upgrade to premium for unlimited re-explains."
-                    )
-                );
-            } else {
-                setReExplainError(resolveConvexErrorMessage(error, 'Failed to re-explain. Please try again.'));
-            }
+            setReExplainError(String(error?.message || 'Failed to re-explain. Please try again.'));
         } finally {
             setReExplainLoading(false);
         }
-    }, [topicId, reExplainStyle, reExplainTopic, storageKey]);
+    }, [topicId, reExplainStyle, storageKey]);
 
     const handleStudyModeSelect = useCallback((mode) => {
         setStudyMode(mode || 'full');
@@ -867,11 +931,10 @@ export const useTopicDetail = () => {
 
     const handleTermsStarred = useCallback((starred) => {
         upsertProgress({
-            topicId,
             termsStarred: starred,
             lastStudiedAt: Date.now(),
         }).catch(() => {});
-    }, [topicId, upsertProgress]);
+    }, [upsertProgress]);
 
     const courseHref = courseId ? `/dashboard/course/${courseId}` : '/dashboard';
     const cleanedDescription = cleanLine(topic?.description || '');
@@ -911,13 +974,6 @@ export const useTopicDetail = () => {
             description: essayExamActionLabel,
             href: essayExamRoute,
         },
-        topicId && {
-            id: 'fillins-rail',
-            icon: 'spellcheck',
-            label: 'Concept Fill-ins',
-            description: 'Recall on key terms',
-            href: `/dashboard/concept-intro/${topicId}`,
-        },
     ].filter(Boolean);
 
     const studyToolSecondary = [
@@ -947,7 +1003,6 @@ export const useTopicDetail = () => {
 
     const practiceSecondary = [
         examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
-        topicId && { id: 'p-fillins', icon: 'spellcheck', label: 'Concept Fill-ins', href: `/dashboard/concept-intro/${topicId}` },
         { id: 'p-tutor', icon: 'smart_toy', label: 'Ask AI Tutor', onClick: openChat },
         podcastEnabled && { id: 'p-podcast', icon: 'podcasts', label: 'Generate Podcast', onClick: () => {
             const node = document.getElementById('topic-podcast');

@@ -9,12 +9,12 @@ const [profileSource, lessonRendererSource, definitionBlockSource] = await Promi
     fs.readFile(path.join(root, 'src/components/LessonDefinitionBlock.jsx'), 'utf8'),
 ]);
 
-if (profileSource.includes("to: '/dashboard/exam'")) {
-    throw new Error('Profile quick access should not link to legacy /dashboard/exam.');
+if (!profileSource.includes('Navigate to="/dashboard/settings#profile"')) {
+    throw new Error('Profile.jsx should hard-redirect to settings#profile.');
 }
 
-if (!profileSource.includes("to: '/dashboard/progress'")) {
-    throw new Error('Profile quick access should link past questions to /dashboard/progress.');
+if (profileSource.includes("to: '/dashboard/exam'") || profileSource.includes('/dashboard/exam')) {
+    throw new Error('Profile quick access should not link to legacy /dashboard/exam.');
 }
 
 for (const snippet of [

@@ -29,7 +29,9 @@ console.log('--- Landing page redesign regression ---\n');
 
 assert(landingPage.includes('useAuth'), 'Uses useAuth hook');
 assert(landingPage.includes('<Navigate to="/dashboard" replace />'), 'Redirects logged-in users to dashboard');
-assert(landingPage.includes('useQuery(api.subscriptions.getPublicTopUpPricing'), 'Reads live public pricing');
+assert(!landingPage.includes("from 'convex/react'"), 'Landing page is Convex-free');
+assert(landingPage.includes('normalizeTopUpOptions'), 'Uses static top-up catalog helpers');
+assert(landingPage.includes("amountMajor: 20"), 'Starter plan pricing stays GHS 20');
 assert(landingPage.includes('capturePostHogEvent'), 'Imports PostHog helper');
 assert(landingPage.includes("landing_cta_clicked"), 'Tracks CTA analytics event');
 assert(landingPage.includes('<HeroSection captureLandingEvent={captureLandingEvent} />'), 'Hero section receives CTA tracking');

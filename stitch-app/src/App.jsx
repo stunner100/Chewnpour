@@ -1,10 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
-import { useMutation } from 'convex/react';
 import { LazyMotion, domAnimation } from 'motion/react';
-import { api } from '../convex/_generated/api';
 import { useAuth } from './contexts/AuthContext';
-import { hasConvexUrl } from './lib/convex-config';
 import {
   buildRecordedCampaignAttributionKey,
   clearPendingCampaignAttribution,
@@ -104,15 +101,14 @@ const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'), { c
 const MyMaterialsLibrary = lazyRoute(() => import('./pages/MyMaterialsLibrary'), { componentName: 'MyMaterialsLibrary' });
 const UploadMaterials = lazyRoute(() => import('./pages/UploadMaterials'), { componentName: 'UploadMaterials' });
 const ActiveQuizSession = lazyRoute(() => import('./pages/ActiveQuizSession'), { componentName: 'ActiveQuizSession' });
-const QuizPlayer = lazyRoute(() => import('./pages/ExamMode'), { componentName: 'QuizPlayer' });
+const QuizPlayer = lazyRoute(() => import('./pages/TopicQuizPlayer'), { componentName: 'TopicQuizPlayer' });
 const QuizResults = lazyRoute(() => import('./pages/DashboardResults'), { componentName: 'QuizResults' });
-const FlashcardStudySession = lazyRoute(() => import('./pages/FlashcardStudySession'), { componentName: 'FlashcardStudySession' });
 const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { componentName: 'AIStudyTutor' });
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
 const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySettings'), { componentName: 'AccountStudySettings' });
+const Subscription = lazyRoute(() => import('./pages/Subscription'), { componentName: 'Subscription' });
 const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
 const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });
-const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
 const ResetPassword = lazyRoute(() => import('./pages/ResetPassword'), { componentName: 'ResetPassword' });
@@ -120,15 +116,10 @@ const ProductResearch = lazyRoute(() => import('./pages/ProductResearch'), { com
 const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentName: 'Unsubscribe' });
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
-const KidsParentHome = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsParentHome', namedExport: 'KidsParentHome' });
-const KidsUpload = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsUpload', namedExport: 'KidsUpload' });
-const KidsChildHome = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsChildHome', namedExport: 'KidsChildHome' });
-const KidsLesson = lazyRoute(() => import('./pages/Kids'), { componentName: 'KidsLesson', namedExport: 'KidsLesson' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const OnboardingLevel = lazyRoute(() => import('./pages/OnboardingLevel'), { componentName: 'OnboardingLevel' });
 const OnboardingDepartment = lazyRoute(() => import('./pages/OnboardingDepartment'), { componentName: 'OnboardingDepartment' });
 const SubscriptionCallback = lazyRoute(() => import('./pages/SubscriptionCallback'), { componentName: 'SubscriptionCallback' });
-const AdminDashboard = lazyRoute(() => import('./pages/AdminDashboard'), { componentName: 'AdminDashboard' });
 
 function RouteChangeTracker() {
   const routerLocation = useLocation();
@@ -159,7 +150,6 @@ function RouteChangeTracker() {
 function CampaignAttributionTracker() {
   const routerLocation = useLocation();
   const { user } = useAuth();
-  const recordCampaignLanding = useMutation(api.campaignAttribution.recordCampaignLanding);
 
   useEffect(() => {
     const attributionFromUrl = readCampaignAttributionFromSearch(routerLocation.search, routerLocation.pathname);
@@ -169,53 +159,35 @@ function CampaignAttributionTracker() {
   }, [routerLocation.pathname, routerLocation.search]);
 
   useEffect(() => {
-    if (!user?.id) return undefined;
+    if (!user?.id) return;
 
     const pendingAttribution = readPendingCampaignAttribution();
-    if (!pendingAttribution?.campaignId) return undefined;
+    if (!pendingAttribution?.campaignId) return;
 
     const deliveryKey = buildRecordedCampaignAttributionKey({
       userId: user.id,
       campaignId: pendingAttribution.campaignId,
     });
-    if (!deliveryKey) return undefined;
+    if (!deliveryKey) return;
     if (hasRecordedCampaignAttribution(deliveryKey)) {
       clearPendingCampaignAttribution();
-      return undefined;
+      return;
     }
 
-    let cancelled = false;
-
-    void recordCampaignLanding({
+    // Convex campaign persistence is retired for the Supabase auth cutover.
+    // Keep local + PostHog attribution so landing campaigns still resolve.
+    capturePostHogEvent('campaign_landing', {
       campaignId: pendingAttribution.campaignId,
-      source: pendingAttribution.source,
-      medium: pendingAttribution.medium,
-      content: pendingAttribution.content,
+      campaignSource: pendingAttribution.source,
+      campaignMedium: pendingAttribution.medium,
+      campaignContent: pendingAttribution.content,
       landingPath: pendingAttribution.landingPath || routerLocation.pathname,
       landingSearch: pendingAttribution.landingSearch || routerLocation.search || '',
-    })
-      .then(() => {
-        if (cancelled) return;
-        capturePostHogEvent('campaign_landing', {
-          campaignId: pendingAttribution.campaignId,
-          campaignSource: pendingAttribution.source,
-          campaignMedium: pendingAttribution.medium,
-          campaignContent: pendingAttribution.content,
-          landingPath: pendingAttribution.landingPath || routerLocation.pathname,
-          landingSearch: pendingAttribution.landingSearch || routerLocation.search || '',
-          userId: String(user.id),
-        });
-        markRecordedCampaignAttribution(deliveryKey);
-        clearPendingCampaignAttribution();
-      })
-      .catch(() => {
-        // Leave the pending attribution in session storage so it can retry on the next navigation.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [routerLocation.pathname, routerLocation.search, recordCampaignLanding, user?.id]);
+      userId: String(user.id),
+    });
+    markRecordedCampaignAttribution(deliveryKey);
+    clearPendingCampaignAttribution();
+  }, [routerLocation.pathname, routerLocation.search, user?.id]);
 
   return null;
 }
@@ -287,8 +259,7 @@ const RedirectLegacyQuizRoute = () => {
 };
 
 const RedirectLegacyFlashcardsRoute = () => {
-  const { topicId } = useParams();
-  return <Navigate to={topicId ? `/dashboard/flashcards/${topicId}` : '/dashboard/flashcards'} replace />;
+  return <Navigate to="/dashboard/progress" replace />;
 };
 
 const RedirectCourseToLessonsRoute = () => {
@@ -328,7 +299,7 @@ function App() {
     <LazyMotion features={domAnimation}>
       <Router>
         <RouteChangeTracker />
-        {hasConvexUrl ? <CampaignAttributionTracker /> : null}
+        <CampaignAttributionTracker />
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={withSuspense(<LandingPage />)} />
@@ -339,11 +310,11 @@ function App() {
         <Route path="/unsubscribe" element={withSuspense(<Unsubscribe />)} />
         <Route path="/terms" element={withSuspense(<Terms />)} />
         <Route path="/privacy" element={withSuspense(<Privacy />)} />
-        <Route path="/kids" element={withSuspense(<KidsParentHome />)} />
-        <Route path="/kids/parent" element={withSuspense(<KidsParentHome />)} />
-        <Route path="/kids/upload" element={withSuspense(<KidsUpload />)} />
-        <Route path="/kids/child" element={withSuspense(<KidsChildHome />)} />
-        <Route path="/kids/lesson/:lessonId" element={withSuspense(<KidsLesson />)} />
+        <Route path="/kids" element={<Navigate to="/" replace />} />
+        <Route path="/kids/parent" element={<Navigate to="/" replace />} />
+        <Route path="/kids/upload" element={<Navigate to="/" replace />} />
+        <Route path="/kids/child" element={<Navigate to="/" replace />} />
+        <Route path="/kids/lesson/:lessonId" element={<Navigate to="/" replace />} />
 
         {/* Onboarding Routes — /onboarding/name is sign-up (public), level+department are protected */}
         <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
@@ -357,14 +328,14 @@ function App() {
         <Route path="/dashboard/quiz/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizResults /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/quiz/:topicId" element={withSuspense(<QuizPlayerRoute />)} />
         <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/flashcards" element={<Navigate to="/dashboard/progress" replace />} />
+        <Route path="/dashboard/flashcards/:deckId" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/progress" element={withSuspense(<ProtectedRoute><DashboardLayout><StudyProgressMastery /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />
-        <Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/podcasts" element={<Navigate to="/dashboard" replace />} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
@@ -380,21 +351,21 @@ function App() {
         <Route path="/dashboard/humanizer" element={<Navigate to="/dashboard/ai-tutor" replace />} />
         <Route path="/dashboard/community" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard/community/:channelId" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard/concept-intro" element={<Navigate to="/dashboard/flashcards" replace />} />
+        <Route path="/dashboard/concept-intro" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
-        <Route path="/dashboard/concept" element={<Navigate to="/dashboard/flashcards" replace />} />
+        <Route path="/dashboard/concept" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
 
         {/* Subscription Route */}
-        <Route path="/subscription" element={<Navigate to="/dashboard/settings#subscription" replace />} />
+        <Route path="/subscription" element={withSuspense(<ProtectedRoute><DashboardLayout><Subscription /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/subscription/callback" element={withSuspense(<ProtectedRoute><SubscriptionCallback /></ProtectedRoute>)} />
 
         {/* Profile Routes */}
         <Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />
         <Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />
 
-        {/* Admin Route */}
-        <Route path="/admin" element={withSuspense(<ProtectedRoute><DashboardLayout><AdminDashboard /></DashboardLayout></ProtectedRoute>)} />
+        {/* Admin Route — parked until Supabase admin cutover */}
+        <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />

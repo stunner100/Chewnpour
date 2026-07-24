@@ -18,9 +18,6 @@ import {
   CloudUploadIcon,
   FolderIcon,
   LayoutDashboardIcon,
-  PodcastIcon,
-  SparklesIcon,
-  SquareStackIcon,
   CircleHelpIcon,
 } from 'lucide-react';
 
@@ -30,8 +27,6 @@ const navItems = [
   { title: 'My Materials', url: '/dashboard/library', icon: FolderIcon },
   { title: 'Lessons', url: '/dashboard/lessons', icon: BookOpenIcon },
   { title: 'Quizzes', url: '/dashboard/quiz', icon: CircleHelpIcon },
-  { title: 'Flashcards', url: '/dashboard/flashcards', icon: SquareStackIcon },
-  { title: 'Podcasts', url: '/dashboard/podcasts', icon: PodcastIcon },
   { title: 'AI Tutor', url: '/dashboard/ai-tutor', icon: TutorAvatarMark, isTutorAvatar: true },
   { title: 'Progress', url: '/dashboard/progress', icon: BarChart3Icon },
 ];

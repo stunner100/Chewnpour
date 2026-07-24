@@ -15,38 +15,50 @@ if (!appSource.includes("path=\"/research\"")) {
 
 const productResearchPage = await read('src/pages/ProductResearch.jsx');
 for (const pattern of [
-  'submitResponseByToken',
-  'additionalNotes',
-  "source: 'email_research_form'",
   'How are you mainly using the app?',
   'What would you most like us to improve next?',
+  'Product research intake is temporarily unavailable',
 ]) {
   if (!productResearchPage.includes(pattern)) {
     throw new Error(`Expected ProductResearch.jsx to include "${pattern}".`);
   }
 }
+if (/from ['"]convex\/react['"]|submitResponseByToken/.test(productResearchPage)) {
+  throw new Error('Expected ProductResearch.jsx to stay Convex-free while parked.');
+}
 
 const profilePage = await read('src/pages/Profile.jsx');
-for (const pattern of ['productResearch: true']) {
-  if (!profilePage.includes(pattern)) {
-    throw new Error(`Expected Profile.jsx to include "${pattern}".`);
-  }
+if (!profilePage.includes('Navigate to="/dashboard/settings#profile"')) {
+  throw new Error('Expected Profile.jsx to hard-redirect to settings#profile.');
 }
-for (const forbiddenPattern of ['Product Research', "handleEmailPrefToggle('productResearch')"]) {
+for (const forbiddenPattern of ['Product Research', "handleEmailPrefToggle('productResearch')", "from 'convex/react'"]) {
   if (profilePage.includes(forbiddenPattern)) {
     throw new Error(`Expected Profile.jsx to hide "${forbiddenPattern}" from the profile UI.`);
   }
 }
 
-const adminPage = await read('src/pages/AdminDashboard.jsx');
+const adminPage = await read('src/pages/admin/AdminDashboard.jsx');
 for (const pattern of [
   'recentProductResearchResponses',
+]) {
+  if (!adminPage.includes(pattern)) {
+    throw new Error(`Expected admin/AdminDashboard.jsx to include "${pattern}".`);
+  }
+}
+
+const feedbackPanel = await read('src/pages/admin/panels/FeedbackPanel.jsx');
+for (const pattern of [
   'Product Research Responses',
   'additionalNotes',
 ]) {
-  if (!adminPage.includes(pattern)) {
-    throw new Error(`Expected AdminDashboard.jsx to include "${pattern}".`);
+  if (!feedbackPanel.includes(pattern)) {
+    throw new Error(`Expected FeedbackPanel.jsx to include "${pattern}".`);
   }
+}
+
+const appSourceForAdmin = await read('src/App.jsx');
+if (!appSourceForAdmin.includes('<Route path="/admin" element={<Navigate to="/dashboard" replace />} />')) {
+  throw new Error('Expected /admin to stay parked during Supabase cutover.');
 }
 
 const schemaSource = await read('convex/schema.ts');

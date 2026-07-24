@@ -3,31 +3,19 @@ import path from 'node:path';
 import process from 'node:process';
 
 const workspaceRoot = process.cwd();
-const mainPath = path.join(workspaceRoot, 'src', 'main.jsx');
-const source = await fs.readFile(mainPath, 'utf8');
+const providersPath = path.join(workspaceRoot, 'src', 'bootstrap', 'AppProviders.jsx');
+const source = await fs.readFile(providersPath, 'utf8');
 
-const hasConvexBetterAuthProviderImport =
-  /import\s+\{\s*ConvexBetterAuthProvider\s*\}\s+from\s+["']@convex-dev\/better-auth\/react["']/.test(source);
-if (!hasConvexBetterAuthProviderImport) {
-  throw new Error('Expected src/main.jsx to import ConvexBetterAuthProvider from @convex-dev/better-auth/react.');
+if (/ConvexBetterAuthProvider|ConvexReactClient|@convex-dev\/better-auth/.test(source)) {
+  throw new Error('Expected AppProviders.jsx to stop wrapping the app in Convex auth providers.');
 }
 
-const hasAuthClientImport =
-  /import\s+\{\s*authClient\s*\}\s+from\s+["']\.\/lib\/auth-client\.js["']/.test(source);
-if (!hasAuthClientImport) {
-  throw new Error('Expected src/main.jsx to import authClient from ./lib/auth-client.js.');
+if (!/import\s+\{\s*AuthProvider\s*\}\s+from\s+['"]\.\.\/contexts\/AuthContext\.jsx['"]/.test(source)) {
+  throw new Error('Expected AppProviders.jsx to mount AuthProvider.');
 }
 
-const usesBetterAuthProvider =
-  /<ConvexBetterAuthProvider\s+client=\{convex\}\s+authClient=\{authClient\}>/.test(source);
-if (!usesBetterAuthProvider) {
-  throw new Error('Expected src/main.jsx to initialize ConvexBetterAuthProvider with client={convex} and authClient={authClient}.');
-}
-
-const usesPlainConvexProvider =
-  /<ConvexProvider\s+client=\{convex\}>/.test(source);
-if (usesPlainConvexProvider) {
-  throw new Error('Regression detected: src/main.jsx still uses plain ConvexProvider for the authenticated app tree.');
+if (!/<AuthProvider>/.test(source) || !/<App\s*\/>/.test(source)) {
+  throw new Error('Expected AppProviders.jsx to render AuthProvider around App.');
 }
 
 console.log('convex-auth-provider-regression.test.mjs passed');

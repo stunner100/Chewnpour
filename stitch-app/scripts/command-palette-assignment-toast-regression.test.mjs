@@ -34,9 +34,15 @@ assert(
 
 assert(
     commandPalette.includes("value: '/dashboard/lessons'") &&
-        commandPalette.includes("value: '/dashboard/flashcards'") &&
+        commandPalette.includes("value: '/dashboard/progress'") &&
         commandPalette.includes("value: '/dashboard/ai-tutor'"),
     'Command palette should expose the new study screens.'
+);
+
+assert(
+    !commandPalette.includes("value: '/dashboard/flashcards'") &&
+        !commandPalette.includes("value: '/dashboard/podcasts'"),
+    'Command palette should not expose parked flashcards/podcasts routes.'
 );
 
 for (const oldRoute of [

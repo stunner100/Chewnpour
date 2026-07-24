@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useMutation } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 import PublicShell from '../components/PublicShell';
 
 const LABELS = {
@@ -15,9 +13,12 @@ const LABELS = {
 
 const normalizeType = (value) => String(value || '').trim().toLowerCase();
 
+/**
+ * Unsubscribe is parked during the Supabase hard cutover.
+ * Prefer settings email preferences once that surface is restored.
+ */
 const Unsubscribe = () => {
     const [searchParams] = useSearchParams();
-    const unsubscribeByToken = useMutation(api.profiles.unsubscribeByToken);
     const [unsubscribeState, setUnsubscribeState] = useState({
         status: 'loading',
         message: '',
@@ -29,41 +30,21 @@ const Unsubscribe = () => {
     const label = useMemo(() => LABELS[emailType] || LABELS.all, [emailType]);
 
     useEffect(() => {
-        let disposed = false;
+        if (!token) {
+            setUnsubscribeState({
+                status: 'error',
+                message: 'This unsubscribe link is missing a token.',
+            });
+            return;
+        }
 
-        const run = async () => {
-            let nextState;
-            if (!token) {
-                nextState = {
-                    status: 'error',
-                    message: 'This unsubscribe link is missing a token.',
-                };
-            } else {
-                try {
-                    await unsubscribeByToken({ token, emailType });
-                    nextState = {
-                        status: 'success',
-                        message: `You have been unsubscribed from ${label}.`,
-                    };
-                } catch (error) {
-                    nextState = {
-                        status: 'error',
-                        message: String(error?.message || error || 'We could not process this unsubscribe link.'),
-                    };
-                }
-            }
-
-            if (!disposed) {
-                setUnsubscribeState(nextState);
-            }
-        };
-
-        void run();
-
-        return () => {
-            disposed = true;
-        };
-    }, [emailType, label, token, unsubscribeByToken]);
+        setUnsubscribeState({
+            status: 'error',
+            message:
+                `We could not process this unsubscribe link for ${label} yet. ` +
+                'Email preferences are being moved to the new backend — manage them from Settings once signed in, or reply to the email for help.',
+        });
+    }, [emailType, label, token]);
 
     const iconChip = status === 'success'
         ? { bg: '#B39DFF', fg: '#0A0A0A', icon: 'check_circle' }
@@ -79,22 +60,20 @@ const Unsubscribe = () => {
                         className="mx-auto flex size-16 items-center justify-center rounded-2xl"
                         style={{ background: iconChip.bg, color: iconChip.fg }}
                     >
-                        <span className="material-symbols-outlined text-[28px]">{iconChip.icon}</span>
+                        <span className="material-symbols-outlined text-3xl">{iconChip.icon}</span>
                     </div>
                     <h1 className="mt-5 text-2xl font-semibold">
-                        {status === 'success' ? 'Preferences updated' : status === 'error' ? 'Unsubscribe failed' : 'Updating preferences'}
+                        {status === 'loading' ? 'Updating preferences…' : 'Preferences update'}
                     </h1>
-                    <p className="mt-2 text-sm text-[#687384]">
-                        {status === 'loading' ? 'Please wait while we update your email preferences.' : message}
+                    <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">
+                        {message || 'Working on your request.'}
                     </p>
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                        <Link to="/dashboard" className="cp-btn-primary w-auto px-5">
-                            <span className="material-symbols-outlined text-[18px]">home</span>
-                            Back to dashboard
+                        <Link to="/dashboard/settings" className="btn-primary px-5 py-2.5 text-sm">
+                            Open settings
                         </Link>
-                        <Link to="/profile" className="cp-btn-secondary w-auto px-5">
-                            <span className="material-symbols-outlined text-[18px]">settings</span>
-                            Email settings
+                        <Link to="/" className="btn-secondary px-5 py-2.5 text-sm">
+                            Back to home
                         </Link>
                     </div>
                 </div>

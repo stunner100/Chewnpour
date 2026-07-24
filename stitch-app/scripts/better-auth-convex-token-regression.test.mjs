@@ -4,58 +4,25 @@ import process from 'node:process';
 
 const root = process.cwd();
 
-const authClientPath = path.join(root, 'src', 'lib', 'auth-client.js');
-const authClientSource = await fs.readFile(authClientPath, 'utf8');
-
-if (!/convexClient,\s*crossDomainClient/.test(authClientSource) &&
-  !/crossDomainClient,\s*convexClient/.test(authClientSource)) {
-  throw new Error('Expected src/lib/auth-client.js to import convexClient and crossDomainClient.');
+const authClientSource = await fs.readFile(path.join(root, 'src', 'lib', 'auth-client.js'), 'utf8');
+if (/@convex-dev\/better-auth|crossDomainClient|convexClient/.test(authClientSource)) {
+  throw new Error('Expected auth-client.js to drop Convex Better Auth plugins after Supabase cutover.');
+}
+if (!/createAuthClient\(\{\s*baseURL:\s*authBaseUrl/.test(authClientSource)) {
+  throw new Error('Expected auth-client.js to use same-origin Better Auth baseURL.');
 }
 
-if (!/\[crossDomainClient\(\),\s*convexClient\(\)\]/.test(authClientSource)) {
-  throw new Error('Expected src/lib/auth-client.js to configure plugins as [crossDomainClient(), convexClient()].');
+const authServerSource = await fs.readFile(path.join(root, 'server', 'auth.js'), 'utf8');
+if (!/from "better-auth"/.test(authServerSource) || !/database:\s*getPool\(\)/.test(authServerSource)) {
+  throw new Error('Expected server/auth.js to use Better Auth with a Postgres pool.');
+}
+if (!/BETTER_AUTH_SECRET/.test(authServerSource) || !/BETTER_AUTH_URL/.test(authServerSource)) {
+  throw new Error('Expected server/auth.js to read BETTER_AUTH_SECRET and BETTER_AUTH_URL.');
 }
 
-const authConfigPath = path.join(root, 'convex', 'authConfig.ts');
-const authConfigSource = await fs.readFile(authConfigPath, 'utf8');
-
-if (!/import\s+\{\s*convex,\s*crossDomain\s*\}\s+from\s+["']@convex-dev\/better-auth\/plugins["']/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to import convex and crossDomain plugins.');
-}
-
-if (!/import\s+authConfig\s+from\s+["']\.\/auth\.config["']/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to import authConfig from ./auth.config.');
-}
-
-if (!/import\s+\{\s*sendEmail\s*\}\s+from\s+["']\.\/lib\/emailSender["']/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to import the shared Cloudflare email sender.');
-}
-
-if (!/sendResetPassword:\s*async\s*\(\{\s*user,\s*url\s*\}\)\s*=>[\s\S]*sendEmail\(\{[\s\S]*subject:\s*"Reset your ChewnPour password"[\s\S]*context:\s*"authPasswordReset"/.test(authConfigSource)) {
-  throw new Error('Expected password reset to send a Cloudflare email with the authPasswordReset context.');
-}
-
-if (/Reset URL:/.test(authConfigSource)) {
-  throw new Error('Expected password reset to avoid log-only reset URL delivery.');
-}
-
-if (!/convex\(\{\s*authConfig[\s\S]*jwksRotateOnTokenGenerationError:\s*true[\s\S]*\}\)/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to register convex plugin with authConfig and jwksRotateOnTokenGenerationError: true.');
-}
-
-if (!/crossDomain\(\{\s*siteUrl:\s*frontendUrl\s*\}\)/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to keep crossDomain({ siteUrl: frontendUrl }) plugin.');
-}
-
-const convexAuthConfigPath = path.join(root, 'convex', 'auth.config.ts');
-const convexAuthConfigSource = await fs.readFile(convexAuthConfigPath, 'utf8');
-
-if (!/getAuthConfigProvider/.test(convexAuthConfigSource)) {
-  throw new Error('Expected convex/auth.config.ts to use getAuthConfigProvider from @convex-dev/better-auth/auth-config.');
-}
-
-if (!/providers:\s*\[\s*getAuthConfigProvider\(\)\s*\]/.test(convexAuthConfigSource)) {
-  throw new Error('Expected convex/auth.config.ts to configure providers with getAuthConfigProvider().');
+const apiRouteSource = await fs.readFile(path.join(root, 'api', 'auth', '[...all].js'), 'utf8');
+if (!/toNodeHandler\(auth\)/.test(apiRouteSource)) {
+  throw new Error('Expected api/auth/[...all].js to mount toNodeHandler(auth).');
 }
 
 console.log('better-auth-convex-token-regression.test.mjs passed');

@@ -6,9 +6,8 @@ const root = process.cwd();
 
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [appSource, dashboardLayoutSource, appSidebarSource, mobileBottomNavSource, commandPaletteSource] = await Promise.all([
+const [appSource, appSidebarSource, mobileBottomNavSource, commandPaletteSource] = await Promise.all([
   read('src/App.jsx'),
-  read('src/components/DashboardLayout.jsx'),
   read('src/components/app-sidebar.jsx'),
   read('src/components/MobileBottomNav.jsx'),
   read('src/components/CommandPalette.jsx'),
@@ -26,32 +25,27 @@ const requireExcludes = (source, snippet, label) => {
   }
 };
 
-requireIncludes(appSource, "const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts')", 'App.jsx');
 requireIncludes(
   appSource,
-  '<Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />',
+  '<Route path="/dashboard/podcasts" element={<Navigate to="/dashboard" replace />} />',
   'App.jsx',
 );
-requireExcludes(appSource, '<Route path="/dashboard/podcasts" element={<Navigate', 'App.jsx');
+requireExcludes(appSource, "import('./pages/DashboardPodcasts')", 'App.jsx');
+requireExcludes(appSource, 'DashboardPodcasts', 'App.jsx');
 
-requireIncludes(
+requireExcludes(
   appSidebarSource,
-  "{ title: 'Podcasts', url: '/dashboard/podcasts', icon: PodcastIcon }",
+  "/dashboard/podcasts",
   'app-sidebar.jsx',
 );
-requireIncludes(
+requireExcludes(
   mobileBottomNavSource,
-  "'/dashboard/podcasts'",
+  '/dashboard/podcasts',
   'MobileBottomNav.jsx',
 );
-requireIncludes(
-  mobileBottomNavSource,
-  "Podcasts",
-  'MobileBottomNav.jsx',
-);
-requireIncludes(
+requireExcludes(
   commandPaletteSource,
-  "{ label: 'Podcasts', value: '/dashboard/podcasts', icon: 'podcasts'",
+  "/dashboard/podcasts",
   'CommandPalette.jsx',
 );
 

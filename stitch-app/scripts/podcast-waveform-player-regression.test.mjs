@@ -28,10 +28,8 @@ for (const token of [
 }
 
 assert.ok(
-  !panelSource.includes('<audio')
-    && panelSource.includes("import PodcastWaveformPlayer from './podcast/PodcastWaveformPlayer'")
-    && panelSource.includes('<PodcastWaveformPlayer'),
-  'Expected TopicPodcastPanel to use the custom waveform player instead of native audio controls.',
+  !/from ['"]convex\/react['"]/.test(panelSource),
+  'Expected TopicPodcastPanel to stay Convex-free while podcasts are parked.',
 );
 
 assert.ok(

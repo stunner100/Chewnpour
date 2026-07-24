@@ -1,6 +1,4 @@
 import React, { memo, useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useAction } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 
 const STYLES = [
     { key: 'explain', label: 'Explain', icon: 'lightbulb' },
@@ -8,13 +6,26 @@ const STYLES = [
     { key: 'simplify', label: 'Simplify', icon: 'child_care' },
 ];
 
+const explainSelectionRequest = async ({ topicId, selectedText, style }) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/explain`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedText, style }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Explain failed (${response.status})`);
+    }
+    return payload;
+};
+
 const HighlightExplainPopover = memo(function HighlightExplainPopover({
     selection,
     topicId,
     onClose,
     onCopyToNotes,
 }) {
-    const explainSelection = useAction(api.ai.explainSelection);
     const [explainState, setExplainState] = useState({
         selectionText: '',
         loading: false,
@@ -41,7 +52,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
             activeStyle: style,
         });
         try {
-            const result = await explainSelection({
+            const result = await explainSelectionRequest({
                 topicId,
                 selectedText: selectedText.slice(0, 1000),
                 style,
@@ -62,7 +73,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                 activeStyle: style,
             });
         }
-    }, [topicId, selection, explainSelection]);
+    }, [topicId, selection]);
 
     // Click outside to dismiss
     useEffect(() => {

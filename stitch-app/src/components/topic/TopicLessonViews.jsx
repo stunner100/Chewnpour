@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAction, useQuery } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
 import TopicSidebar from '../TopicSidebar';
 import TopicNotesPanel from '../TopicNotesPanel';
 import TopicChatPanel from '../TopicChatPanel';
@@ -353,7 +351,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
             {prevTopic ? (
                 <button
                     type="button"
-                    onClick={goTo(prevTopic._id)}
+                    onClick={goTo(prevTopic.id || prevTopic._id)}
                     className="inline-flex items-center gap-space-2 rounded-xl border border-border-default bg-surface px-space-4 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
                 >
                     <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -365,7 +363,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
             {nextTopic ? (
                 <button
                     type="button"
-                    onClick={goTo(nextTopic._id)}
+                    onClick={goTo(nextTopic.id || nextTopic._id)}
                     className="inline-flex items-center gap-space-2 rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-label-md text-surface transition-colors hover:bg-primary-hover"
                 >
                     <span className="line-clamp-1">Next Lesson</span>
@@ -386,6 +384,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
     );
 };
 
+
 const STUDY_ASSISTANT_PROMPTS = [
     'Explain this lesson in simpler terms',
     'Give me a real-world example',
@@ -397,12 +396,11 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [pendingExchange, setPendingExchange] = useState(null);
+    const [messages, setMessages] = useState([]);
     const transcriptRef = useRef(null);
-    const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
-    const askTutor = useAction(api.ai.askTopicTutor);
     const messageList = Array.isArray(messages) ? messages : [];
     const visibleMessages = messageList.slice(-4);
-    const latestMessageId = messageList.at(-1)?._id || '';
+    const latestMessageId = messageList.at(-1)?.id || messageList.at(-1)?._id || '';
     const pendingQuestion = pendingExchange?.question || '';
     const hasSavedPendingQuestion = pendingExchange
         ? messageList.filter((message) =>
@@ -412,6 +410,30 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
         : false;
     const shouldShowPendingQuestion = Boolean(pendingQuestion) && !hasSavedPendingQuestion;
     const hasTranscript = visibleMessages.length > 0 || shouldShowPendingQuestion || sending || Boolean(error);
+
+    useEffect(() => {
+        if (!topicId) {
+            setMessages([]);
+            return undefined;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/chat`, {
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload?.error || 'Failed to load chat');
+                if (!cancelled) setMessages(Array.isArray(payload.messages) ? payload.messages : []);
+            } catch {
+                if (!cancelled) setMessages([]);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [topicId]);
 
     useEffect(() => {
         if (!hasTranscript || !transcriptRef.current) return undefined;
@@ -438,7 +460,18 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
         setError('');
         setPendingExchange({ question, baselineQuestionCount });
         try {
-            await askTutor({ topicId, question });
+            const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/chat`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ question }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload?.error || 'Could not get a response.');
+            setMessages(Array.isArray(payload.messages) ? payload.messages : []);
         } catch (err) {
             setDraft(question);
             setError(err?.message || 'Could not get a response. Please try again.');
@@ -452,6 +485,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
         event.preventDefault();
         sendQuestion(draft);
     };
+
     return (
         <aside className="sticky top-space-6 flex max-h-[calc(100vh-8rem)] min-h-0 flex-col gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm">
             <header className="flex items-center justify-between">
@@ -475,7 +509,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                     {visibleMessages.map((message) => {
                         const isUser = message.role === 'user';
                         return (
-                            <div key={message._id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                            <div key={message.id || message._id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                                 <p className={`max-w-[92%] rounded-xl px-space-3 py-space-2 font-body-sm text-body-sm leading-relaxed ${
                                     isUser
                                         ? 'bg-primary text-on-primary'
@@ -557,13 +591,36 @@ export const TopicLessonShell = ({ controller }) => {
         topicProgress,
     } = controller;
 
-    const courseQueryResult = useQuery(
-        api.courses.getCourseWithTopics,
-        topic?.courseId ? { courseId: topic.courseId } : 'skip',
-    );
-    const courseTitle = courseQueryResult?.title || '';
-    const courseTopics = Array.isArray(courseQueryResult?.topics) ? courseQueryResult.topics : [];
-    const currentIndex = courseTopics.findIndex((entry) => String(entry._id) === String(topicId));
+    const [coursePayload, setCoursePayload] = useState(null);
+
+    useEffect(() => {
+        const courseId = topic?.courseId;
+        if (!courseId) {
+            setCoursePayload(null);
+            return undefined;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await fetch(`/api/courses/${encodeURIComponent(courseId)}`, {
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload?.error || 'Failed to load course');
+                if (!cancelled) setCoursePayload(payload.course || null);
+            } catch {
+                if (!cancelled) setCoursePayload(null);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [topic?.courseId]);
+
+    const courseTitle = coursePayload?.title || '';
+    const courseTopics = Array.isArray(coursePayload?.topics) ? coursePayload.topics : [];
+    const currentIndex = courseTopics.findIndex((entry) => String(entry.id || entry._id) === String(topicId));
     const prevTopic = currentIndex > 0 ? courseTopics[currentIndex - 1] : null;
     const nextTopic = currentIndex >= 0 && currentIndex < courseTopics.length - 1
         ? courseTopics[currentIndex + 1]

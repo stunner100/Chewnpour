@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useReducer } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useMutation } from 'convex/react';
 import { m as Motion } from 'motion/react';
-import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import BrandLogo from '../components/BrandLogo';
 import { BlurFade } from '../components/magicui/BlurFade';
@@ -76,7 +74,6 @@ const OnboardingName = () => {
     const { signUp, profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const setReferredBy = useMutation(api.profiles.setReferredBy);
 
     const referralCode = useMemo(
         () => (searchParams.get('ref') || '').trim().toUpperCase(),
@@ -115,14 +112,16 @@ const OnboardingName = () => {
 
         dispatchName({ type: 'submitStarted' });
         try {
-            const { error, data } = await signUp(trimmedEmail, password, trimmedName);
+            const { error } = await signUp(trimmedEmail, password, trimmedName);
             if (error) {
                 dispatchName({ type: 'submitFailed', error: error.message });
                 watermelonToast(error.message, { type: 'error' });
             } else {
                 if (referralCode) {
-                    const newUserId = data?.user?.id ?? data?.id;
-                    if (newUserId) setReferredBy({ referralCode }).catch(() => {});
+                    // Referral persistence moves with the Supabase domain cutover.
+                    watermelonToast(`Referral ${referralCode} noted for later linking.`, {
+                        type: 'info',
+                    });
                 }
                 navigate('/dashboard', {
                     replace: true,

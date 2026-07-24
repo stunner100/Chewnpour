@@ -167,42 +167,19 @@ if (!/internal\.podcasts\.sweepStuckPodcastsInternal/.test(cronsSource)) {
     throw new Error('Expected crons.ts to schedule the podcast stuck-job sweeper.');
 }
 
-if (!/api\.podcasts\.requestTopicPodcast/.test(panelSource)) {
-    throw new Error('Expected TopicPodcastPanel to call api.podcasts.requestTopicPodcast.');
+if (!/temporarily unavailable|LessonPodcastCard/.test(panelSource)) {
+    throw new Error('Expected TopicPodcastPanel to stay parked/Convex-free during Supabase cutover.');
 }
-if (!/two-speaker audio explainer/.test(panelSource)) {
-    throw new Error('Expected TopicPodcastPanel copy to describe the two-speaker format.');
-}
-if (!/PodcastWaveformPlayer/.test(panelSource) || !/<audio\b/.test(waveformPlayerSource)) {
-    throw new Error('Expected TopicPodcastPanel to render an audio player when ready.');
-}
-if (!/api\.podcasts\.retryTopicPodcast/.test(panelSource)) {
-    throw new Error('Expected TopicPodcastPanel to expose a retry path for failed podcasts.');
-}
-for (const snippet of [
-    'const PODCAST_STALE_AFTER_MS = 15 * 60 * 1000;',
-    'const useLiveNow = (enabled) => {',
-    'const latestIsStale = latestIsInFlight',
-    'const canRetryStale = latestIsInFlight && latestIsStale',
-    'Retry podcast',
-    'Podcast is still preparing.',
-]) {
-    if (!panelSource.includes(snippet)) {
-        throw new Error(`Expected TopicPodcastPanel stale-generation recovery to include "${snippet}".`);
-    }
-}
-if (!/class TopicPodcastPanelBoundary extends Component/.test(panelSource)) {
-    throw new Error('Expected TopicPodcastPanel to isolate podcast query failures from the topic page.');
+if (/from ['"]convex\/react['"]|api\.podcasts/.test(panelSource)) {
+    throw new Error('Expected TopicPodcastPanel stub to stop depending on Convex.');
 }
 
-if (!/import LessonPodcastCard from '\.\.\/components\/lesson\/LessonPodcastCard'/.test(topicDetailSource)) {
-    throw new Error('Expected TopicDetail.jsx to import LessonPodcastCard.');
-}
-if (!/VITE_PODCAST_GEN_ENABLED/.test(topicDetailSource)) {
-    throw new Error('Expected TopicDetail.jsx to gate the podcast panel on VITE_PODCAST_GEN_ENABLED.');
-}
-if (!/<LessonPodcastCard\b/.test(topicDetailSource)) {
-    throw new Error('Expected TopicDetail.jsx to mount the podcast lesson card.');
+const contentPanelSource = await fs.readFile(
+    path.join(root, 'src', 'components', 'topic', 'TopicContentPanel.jsx'),
+    'utf8',
+);
+if (contentPanelSource.includes('LessonPodcastCard') || contentPanelSource.includes('TopicPodcastPanel')) {
+    throw new Error('Expected live TopicContentPanel to stop mounting podcast UI during cutover.');
 }
 
 console.log('topic-podcast-generation-regression.test.mjs passed');

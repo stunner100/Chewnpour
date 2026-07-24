@@ -28,12 +28,8 @@ if (!/initializeTheme\(\)/.test(mainSource)) {
   throw new Error('Regression detected: app startup no longer applies persisted theme.');
 }
 
-if (!/toggleThemePreference/.test(profileSource) || !/handleDarkModeToggle/.test(profileSource)) {
-  throw new Error('Regression detected: profile dark mode toggle is not wired to persisted theme helpers.');
-}
-
-if (/document\.documentElement\.classList\.toggle\('dark'\)/.test(profileSource)) {
-  throw new Error('Regression detected: profile dark mode toggle bypasses theme persistence.');
+if (!sourceIncludesRedirect(profileSource)) {
+  throw new Error('Regression detected: Profile.jsx is no longer a hard redirect to settings.');
 }
 
 if (!/useThemeMode/.test(dashboardLayoutSource) || !/aria-pressed=\{isDarkMode\}/.test(dashboardLayoutSource)) {
@@ -46,6 +42,10 @@ if (/applyTheme\(LIGHT_THEME\)/.test(dashboardLayoutSource)) {
 
 if (!/return preferredTheme;/.test(routeThemeSource)) {
   throw new Error('Regression detected: dashboard routes no longer honor persisted theme preference.');
+}
+
+function sourceIncludesRedirect(source) {
+  return source.includes('Navigate to="/dashboard/settings#profile"');
 }
 
 console.log('dark-mode-persistence-regression.test.mjs passed');

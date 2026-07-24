@@ -7,14 +7,19 @@ const source = await fs.readFile(webhookPath, 'utf8');
 
 for (const pattern of [
   'x-paystack-signature',
-  "createHmac('sha512'",
-  'PAYSTACK_WEBHOOK_FORWARD_SECRET',
-  'ConvexHttpClient',
-  'api.subscriptions.processPaystackWebhookEvent',
+  'createHmac("sha512"',
   'secureCompare',
+  'applySuccessfulPayment',
+  'PAYSTACK_SECRET_KEY',
 ]) {
   if (!source.includes(pattern)) {
     throw new Error(`Expected paystack webhook route to include "${pattern}".`);
+  }
+}
+
+for (const stale of ['ConvexHttpClient', 'api.subscriptions.processPaystackWebhookEvent', 'PAYSTACK_WEBHOOK_FORWARD_SECRET']) {
+  if (source.includes(stale)) {
+    throw new Error(`Expected paystack webhook to drop Convex dependency: ${stale}`);
   }
 }
 

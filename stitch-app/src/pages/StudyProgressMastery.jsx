@@ -1,7 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useConvexAuth, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const EMPTY_LIST = [];
 
@@ -14,7 +13,7 @@ const scoreStyle = (score) => {
 const buildCourseProgressItems = (courses) => {
     const visible = courses.slice(0, 7);
     return visible.map((course) => ({
-        id: String(course._id || course.title),
+        id: String(course.id || course._id || course.title),
         title: String(course.title || 'Untitled course'),
         progress: Math.max(0, Math.min(100, Math.round(Number(course.progress || 0)))),
         topicCount: Number(course.topicCount || 0),
@@ -33,13 +32,53 @@ const ProgressSkeleton = () => (
 );
 
 const StudyProgressMastery = () => {
-    const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-    const userStats = useQuery(api.profiles.getUserStats, isAuthenticated ? {} : 'skip');
-    const performanceInsights = useQuery(api.exams.getUserPerformanceInsights, isAuthenticated ? {} : 'skip');
-    const conceptReviewQueue = useQuery(api.concepts.getConceptReviewQueue, isAuthenticated ? { limit: 6 } : 'skip');
-    const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
-    const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
-    const safeCourses = courses || EMPTY_LIST;
+    const { user } = useAuth();
+    const [progress, setProgress] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (!user?.id) {
+            setProgress(null);
+            setLoading(false);
+            return undefined;
+        }
+
+        let cancelled = false;
+        setLoading(true);
+        setError('');
+        (async () => {
+            try {
+                const response = await fetch('/api/progress', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(payload?.error || `Failed to load progress (${response.status})`);
+                }
+                if (!cancelled) setProgress(payload.progress || null);
+            } catch (err) {
+                console.error('Failed to load progress:', err);
+                if (!cancelled) {
+                    setError(err.message || 'Could not load progress.');
+                    setProgress(null);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
+
+    const userStats = progress?.stats || null;
+    const performanceInsights = progress?.performanceInsights || null;
+    const resumeTarget = progress?.resumeTarget || null;
+    const safeCourses = progress?.courses || EMPTY_LIST;
     const activityData = useMemo(() => buildCourseProgressItems(safeCourses), [safeCourses]);
     const topicBreakdown = useMemo(() => {
         const insightTopics = [
@@ -59,14 +98,10 @@ const StudyProgressMastery = () => {
         }));
     }, [performanceInsights, safeCourses]);
 
-    const nextReviewItem = conceptReviewQueue?.items?.[0] || null;
     const averageAccuracy = performanceInsights?.overallPreparedness ?? userStats?.accuracy ?? 0;
-    const recommendedHref = nextReviewItem?.topicId
-        ? `/dashboard/flashcards/${nextReviewItem.topicId}`
-        : resumeTarget?.topicId
-            ? `/dashboard/topic/${resumeTarget.topicId}`
-            : '/dashboard/upload';
-    const loading = authLoading || !isAuthenticated || [userStats, performanceInsights, conceptReviewQueue, courses, resumeTarget].some((value) => value === undefined);
+    const recommendedHref = resumeTarget?.topicId
+        ? `/dashboard/topic/${resumeTarget.topicId}`
+        : '/dashboard/upload';
 
     if (loading) return <ProgressSkeleton />;
 
@@ -77,6 +112,9 @@ const StudyProgressMastery = () => {
                 <p className="font-body-lg text-body-lg text-text-secondary max-w-2xl">
                     A quick view of your lessons, quizzes, and study activity.
                 </p>
+                {error ? (
+                    <p className="font-body-sm text-body-sm text-error">{error}</p>
+                ) : null}
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-space-6">
@@ -149,18 +187,16 @@ const StudyProgressMastery = () => {
                             <h3 className="font-headline-sm text-headline-sm text-text-primary">Next up</h3>
                         </div>
                         <p className="font-body-base text-body-base text-text-secondary mb-6">
-                            {nextReviewItem
-                                ? <>Review flashcards from <strong>{nextReviewItem.topicTitle}</strong>.</>
-                                : resumeTarget
-                                    ? <>Continue <strong>{resumeTarget.topicTitle}</strong> from your latest course.</>
-                                    : 'Upload a material to start building your progress history.'}
+                            {resumeTarget
+                                ? <>Continue <strong>{resumeTarget.topicTitle}</strong> from your latest course.</>
+                                : 'Upload a material to start building your progress history.'}
                         </p>
                     </div>
                     <Link
                         to={recommendedHref}
                         className="w-full bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl shadow-md hover:bg-primary-hover transition-colors flex justify-center items-center gap-2"
                     >
-                        {nextReviewItem ? 'Open Deck' : resumeTarget ? 'Continue Studying' : 'Upload Material'}
+                        {resumeTarget ? 'Continue Studying' : 'Upload Material'}
                         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </Link>
                 </section>
@@ -217,7 +253,7 @@ const StudyProgressMastery = () => {
                             })}
                         </div>
                     ) : (
-                        <p className="font-body-sm text-body-sm text-text-muted">Course progress will appear after your first generated lesson.</p>
+                        <p className="font-body-sm text-body-sm text-text-muted">Topic scores will appear after your first quiz.</p>
                     )}
                 </section>
             </div>

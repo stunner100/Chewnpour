@@ -14,13 +14,13 @@ const dashboardPlanSource = read('src/lib/dashboardPlan.js');
 const continueLearningSource = read('src/components/dashboard/ContinueLearningCard.jsx');
 
 assert.ok(
-    !profileSource.includes('Bypass detection'),
-    'Profile quick access must not market the Humanizer as bypassing detection.',
+    profileSource.includes('Navigate to="/dashboard/settings#profile"'),
+    'Profile.jsx must hard-redirect to settings after Supabase cutover.',
 );
 
 assert.ok(
-    profileSource.includes("label: 'Past Questions', sub: 'Coming soon'"),
-    'Past Questions quick access must disclose that the feature is coming soon.',
+    !profileSource.includes('Bypass detection'),
+    'Profile quick access must not market the Humanizer as bypassing detection.',
 );
 
 assert.ok(

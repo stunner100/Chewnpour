@@ -1,7 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
     DropdownMenu,
@@ -29,12 +27,19 @@ const NOTIFICATION_OPTIONS = [
 
 const BILLING_SUPPORT_MAILTO = 'mailto:info@chewnpour.com?subject=ChewnPour%20Billing%20Support';
 
+const TUTOR_STYLE_OPTIONS = [
+    { value: 'coach', icon: 'school', title: 'Coach', desc: 'Practical, exam-ready help.' },
+    { value: 'socratic', icon: 'forum', title: 'Socratic', desc: 'Guides with questions.' },
+    { value: 'patient', icon: 'child_care', title: 'Patient', desc: 'Simple, step-by-step teaching.' },
+];
+
 const DEFAULT_STUDY_PREFERENCES = {
     dailyGoalMinutes: 120,
     preferredSessionLength: '45',
     dailyReminders: true,
     processingAlerts: true,
     weeklyProgressReport: false,
+    preferredPersona: 'coach',
 };
 
 const normalizeStudyPreferences = (value = {}) => ({
@@ -54,6 +59,9 @@ const normalizeStudyPreferences = (value = {}) => ({
     weeklyProgressReport: typeof value?.weeklyProgressReport === 'boolean'
         ? value.weeklyProgressReport
         : DEFAULT_STUDY_PREFERENCES.weeklyProgressReport,
+    preferredPersona: TUTOR_STYLE_OPTIONS.some((option) => option.value === value?.preferredPersona)
+        ? value.preferredPersona
+        : DEFAULT_STUDY_PREFERENCES.preferredPersona,
 });
 
 const MaterialIcon = ({ children, className = '', style }) => (
@@ -62,51 +70,15 @@ const MaterialIcon = ({ children, className = '', style }) => (
     </span>
 );
 
-const TUTOR_STYLE_OPTIONS = [
-    { value: 'coach', icon: 'school', title: 'Coach', desc: 'Practical, exam-ready help.' },
-    { value: 'socratic', icon: 'forum', title: 'Socratic', desc: 'Guides with questions.' },
-    { value: 'patient', icon: 'child_care', title: 'Patient', desc: 'Simple, step-by-step teaching.' },
-];
-
-const formatSubscriptionDate = (timestamp) => {
-    const value = Number(timestamp || 0);
-    if (!Number.isFinite(value) || value <= 0) return '';
-    return new Intl.DateTimeFormat(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    }).format(new Date(value));
-};
-
-const resolveSubscriptionPlanLabel = (subscription) => {
-    const plan = String(subscription?.plan || 'free').trim().toLowerCase();
-    if (plan === 'premium') return 'Premium';
-    return 'Free';
-};
-
-const buildSubscriptionSummary = (subscription) => {
-    if (subscription === undefined) return 'Loading billing status...';
-
-    const planLabel = resolveSubscriptionPlanLabel(subscription);
-    const status = String(subscription?.status || 'active').trim().toLowerCase();
-    const purchasedCredits = Math.max(0, Number(subscription?.purchasedUploadCredits || 0));
-    const consumedCredits = Math.max(0, Number(subscription?.consumedUploadCredits || 0));
-    const remainingCredits = Math.max(0, purchasedCredits - consumedCredits);
-    const expiryDate = formatSubscriptionDate(subscription?.planExpiresAt);
-    const billingDate = formatSubscriptionDate(subscription?.nextBillingDate);
-
-    if (expiryDate) return `${planLabel} ${status}; pass expires ${expiryDate}. ${remainingCredits} upload credits remaining.`;
-    if (billingDate) return `${planLabel} ${status}; next billing date is ${billingDate}.`;
-    if (planLabel === 'Premium') return `${planLabel} ${status}; ${remainingCredits} upload credits remaining.`;
-    return 'Free plan active. Upgrade when you need more upload credits.';
+const formatPlanLabel = (plan) => {
+    const value = String(plan || 'free').trim().toLowerCase();
+    if (!value) return 'Free';
+    return value.charAt(0).toUpperCase() + value.slice(1);
 };
 
 const AccountStudySettings = () => {
     const { user, profile, updateProfile, signOut } = useAuth();
     const navigate = useNavigate();
-    const tutorProfile = useQuery(api.tutor.getTutorProfile, {});
-    const subscription = useQuery(api.subscriptions.getSubscription, {});
-    const setTutorPersona = useMutation(api.tutor.setTutorPersona);
     const profileStudyPreferences = useMemo(
         () => normalizeStudyPreferences(profile?.studyPreferences),
         [profile?.studyPreferences],
@@ -118,6 +90,8 @@ const AccountStudySettings = () => {
     const [draftNotifications, setDraftNotifications] = useState(null);
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
+    const [billing, setBilling] = useState(null);
+    const [billingStatus, setBillingStatus] = useState('loading');
     const fullName = draftFullName ?? profile?.fullName ?? user?.name ?? '';
     const dailyGoal = draftDailyGoal ?? profileStudyPreferences.dailyGoalMinutes;
     const sessionLength = String(draftSessionLength ?? profileStudyPreferences.preferredSessionLength);
@@ -126,9 +100,53 @@ const AccountStudySettings = () => {
         processingAlerts: Boolean(profileStudyPreferences.processingAlerts),
         weeklyProgressReport: Boolean(profileStudyPreferences.weeklyProgressReport),
     };
-    const aiTone = draftAiTone ?? tutorProfile?.preferredPersona ?? 'coach';
-    const subscriptionPlanLabel = resolveSubscriptionPlanLabel(subscription);
-    const subscriptionSummary = buildSubscriptionSummary(subscription);
+    const aiTone = draftAiTone ?? profileStudyPreferences.preferredPersona;
+    const subscriptionPlanLabel = formatPlanLabel(billing?.plan);
+    const remainingCredits = Math.max(0, Number(billing?.remainingUploadCredits || 0));
+    const subscriptionSummary = billing
+        ? `${subscriptionPlanLabel} plan · ${remainingCredits} upload credit${remainingCredits === 1 ? '' : 's'} remaining.`
+        : billingStatus === 'error'
+            ? 'Could not load upload credits right now.'
+            : 'Loading upload credits…';
+
+    useEffect(() => {
+        if (!user?.id) {
+            setBilling(null);
+            setBillingStatus('idle');
+            return undefined;
+        }
+
+        let cancelled = false;
+        setBillingStatus('loading');
+
+        (async () => {
+            try {
+                const response = await fetch('/api/billing', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(payload?.error || `Failed to load billing (${response.status})`);
+                }
+                if (!cancelled) {
+                    setBilling(payload?.billing || null);
+                    setBillingStatus('ready');
+                }
+            } catch (error) {
+                console.error('Failed to load billing:', error);
+                if (!cancelled) {
+                    setBilling(null);
+                    setBillingStatus('error');
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
     const selectedSessionLength = SESSION_LENGTH_OPTIONS.find((option) => option.value === sessionLength) || SESSION_LENGTH_OPTIONS[1];
     const emailAddress = user?.email || '';
     const initials = useMemo(() => {
@@ -169,6 +187,7 @@ const AccountStudySettings = () => {
                 studyPreferences: {
                     dailyGoalMinutes: numericDailyGoal,
                     preferredSessionLength: normalizedSessionLength,
+                    preferredPersona: normalizedAiTone,
                     ...normalizedNotifications,
                 },
             });
@@ -177,7 +196,6 @@ const AccountStudySettings = () => {
                 return;
             }
 
-            await setTutorPersona({ persona: normalizedAiTone });
             setDraftFullName(null);
             setDraftDailyGoal(null);
             setDraftSessionLength(null);
@@ -262,9 +280,17 @@ const AccountStudySettings = () => {
                                     </span>
                                 </div>
                                 <p className="font-body-sm text-body-sm text-text-muted mb-space-6">{subscriptionSummary}</p>
-                                <a href={BILLING_SUPPORT_MAILTO} className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
-                                    Contact Billing Support
-                                </a>
+                                <div className="flex flex-col gap-space-3">
+                                    <Link
+                                        to="/subscription?from=%2Fdashboard%2Fsettings%23subscription"
+                                        className="flex w-full items-center justify-center py-space-3 px-space-4 bg-primary text-white rounded-xl font-label-md text-label-md hover:opacity-95 transition-opacity shadow-sm"
+                                    >
+                                        Buy upload credits
+                                    </Link>
+                                    <a href={BILLING_SUPPORT_MAILTO} className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
+                                        Contact Billing Support
+                                    </a>
+                                </div>
                             </div>
                         </section>
 

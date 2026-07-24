@@ -1,7 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAction, useConvexAuth, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import {
     buildUploadLimitMessageFromOptions,
@@ -12,7 +10,6 @@ import { ShimmerButton } from '../components/magicui/ShimmerButton';
 import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
 import { WatermelonDisclosure } from '../components/watermelon/WatermelonDisclosure';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
-import { resolveConvexActionError } from '../lib/convexClientErrors';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -43,31 +40,90 @@ const DEFAULT_TOP_UP_OPTIONS = [
     { id: 'semester', amountMajor: 60, credits: 20, currency: 'GHS', validityDays: 120, unlimitedAiChat: true },
 ];
 
+const fetchBillingQuota = async () => {
+    const response = await fetch('/api/billing', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Failed to load billing (${response.status})`);
+    }
+    return payload;
+};
+
+const startCheckout = async ({ returnPath, topUpPlanId }) => {
+    const response = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ returnPath, topUpPlanId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Checkout failed (${response.status})`);
+    }
+    return payload;
+};
+
 const Subscription = () => {
     const routerLocation = useLocation();
     const { user } = useAuth();
-    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const userId = user?.id;
 
     const [loading, setLoading] = useState(false);
     const [checkoutError, setCheckoutError] = useState('');
     const [providerHint, setProviderHint] = useState('');
     const [selectedPlanId, setSelectedPlanId] = useState(DEFAULT_TOP_UP_OPTIONS[0].id);
-
-    const quota = useQuery(
-        api.subscriptions.getUploadQuotaStatus,
-        userId && isConvexAuthenticated ? {} : 'skip'
-    );
-    const initializeCheckout = useAction(api.subscriptions.initializePaystackTopUpCheckout);
+    const [quota, setQuota] = useState(null);
+    const [quotaLoading, setQuotaLoading] = useState(true);
 
     const searchParams = useMemo(() => new URLSearchParams(routerLocation.search), [routerLocation.search]);
     const returnPath = useMemo(
         () => sanitizeReturnPath(searchParams.get('from') || '/dashboard'),
-        [searchParams]
+        [searchParams],
     );
     const paywallStateMessage = typeof routerLocation.state?.paywallMessage === 'string'
         ? routerLocation.state.paywallMessage.trim()
         : '';
+
+    useEffect(() => {
+        if (!userId) {
+            setQuota(null);
+            setQuotaLoading(false);
+            return undefined;
+        }
+
+        let cancelled = false;
+        setQuotaLoading(true);
+        (async () => {
+            try {
+                const payload = await fetchBillingQuota();
+                if (cancelled) return;
+                setQuota(payload?.quota || null);
+                const options = normalizeTopUpOptions(payload?.quota?.topUpOptions);
+                if (options[0]?.id) {
+                    setSelectedPlanId(options[0].id);
+                }
+            } catch (error) {
+                console.error('Failed to load billing quota:', error);
+                if (!cancelled) {
+                    setCheckoutError(error.message || 'Could not load top-up plans.');
+                    setQuota(null);
+                }
+            } finally {
+                if (!cancelled) setQuotaLoading(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [userId]);
 
     const safeQuota = quota || {
         freeLimit: 3,
@@ -89,12 +145,12 @@ const Subscription = () => {
     const currency = String(safeQuota.currency || 'GHS').toUpperCase();
     const topUpOptions = useMemo(
         () => normalizeTopUpOptions(safeQuota.topUpOptions, currency),
-        [safeQuota.topUpOptions, currency]
+        [safeQuota.topUpOptions, currency],
     );
     const selectedTopUpPlan = topUpOptions.find((plan) => plan.id === selectedPlanId) || topUpOptions[0];
     const uploadLimitMessage = useMemo(
         () => buildUploadLimitMessageFromOptions(topUpOptions, currency),
-        [topUpOptions, currency]
+        [topUpOptions, currency],
     );
     const routeError = useMemo(() => {
         const reason = String(searchParams.get('reason') || '').trim();
@@ -144,7 +200,7 @@ const Subscription = () => {
         setCheckoutError('');
 
         try {
-            const result = await initializeCheckout({
+            const result = await startCheckout({
                 returnPath,
                 topUpPlanId: selectedTopUpPlan.id,
             });
@@ -155,7 +211,7 @@ const Subscription = () => {
             }
             window.location.assign(authorizationUrl);
         } catch (err) {
-            const message = resolveConvexActionError(err, 'Could not initialize checkout.');
+            const message = err instanceof Error ? err.message : 'Could not initialize checkout.';
             setCheckoutError(message);
             watermelonToast(message, { type: 'warning', duration: 4500 });
             setLoading(false);
@@ -164,7 +220,6 @@ const Subscription = () => {
 
     return (
         <div className="w-full max-w-3xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12 space-y-6">
-            {/* Header */}
             <div>
                 <Link
                     to={returnPath}
@@ -179,7 +234,6 @@ const Subscription = () => {
                 </p>
             </div>
 
-            {/* Alerts */}
             {error && (
                 <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
                     <p className="text-body-sm text-amber-800 dark:text-amber-300">{error}</p>
@@ -197,7 +251,6 @@ const Subscription = () => {
                 </div>
             )}
 
-            {/* Usage Stats */}
             <WatermelonWidgetsGrid cols={3}>
                 <WatermelonWidget
                     title="Used"
@@ -222,7 +275,6 @@ const Subscription = () => {
                 />
             </WatermelonWidgetsGrid>
 
-            {/* Top-Up Plans */}
             <div className="card-base p-5 space-y-4">
                 <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark">Top-Up Plans</h3>
                 <div className={`grid grid-cols-1 ${topUpOptions.length > 3 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3`}>
@@ -295,10 +347,9 @@ const Subscription = () => {
                 </div>
             </div>
 
-            {/* Checkout Button */}
             <ShimmerButton
                 onClick={handleCheckout}
-                disabled={loading || quota === undefined || !selectedTopUpPlan}
+                disabled={loading || quotaLoading || !selectedTopUpPlan}
                 className="w-full btn-primary text-body-base py-3 flex items-center justify-center gap-2"
                 shimmerColor="#914bf1"
             >
@@ -310,7 +361,6 @@ const Subscription = () => {
                 ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
             </ShimmerButton>
 
-            {/* FAQ */}
             <div className="space-y-2">
                 <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Frequently Asked Questions</h3>
                 <WatermelonDisclosure title="What does an upload credit cover?">

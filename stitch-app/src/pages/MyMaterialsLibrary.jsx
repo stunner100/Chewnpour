@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useConvexAuth, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const filterTabs = [
     { label: 'All Files', value: 'all' },
@@ -9,8 +8,6 @@ const filterTabs = [
     { label: 'Notes', value: 'notes' },
     { label: 'Processing', value: 'processing' },
 ];
-
-const EMPTY_LIST = [];
 
 const typeIcons = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -57,42 +54,74 @@ const MaterialsSkeleton = () => (
 );
 
 const MyMaterialsLibrary = () => {
+    const { user } = useAuth();
     const [activeFilter, setActiveFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-    const shouldLoadMaterials = isAuthenticated && !authLoading;
-    const uploads = useQuery(api.uploads.getUserUploads, shouldLoadMaterials ? {} : 'skip');
-    const courses = useQuery(api.courses.getUserCourses, shouldLoadMaterials ? {} : 'skip');
-    const safeUploads = uploads || EMPTY_LIST;
-    const safeCourses = courses || EMPTY_LIST;
+    const [uploads, setUploads] = useState([]);
+    const [courses, setCourses] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    const loadLibrary = useCallback(async () => {
+        if (!user?.id) {
+            setUploads([]);
+            setCourses([]);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+            const [uploadsRes, coursesRes] = await Promise.all([
+                fetch('/api/uploads', { credentials: 'include', headers: { Accept: 'application/json' } }),
+                fetch('/api/courses', { credentials: 'include', headers: { Accept: 'application/json' } }),
+            ]);
+            const uploadsPayload = await uploadsRes.json().catch(() => ({}));
+            const coursesPayload = await coursesRes.json().catch(() => ({}));
+            if (!uploadsRes.ok) throw new Error(uploadsPayload.error || 'Failed to load uploads');
+            if (!coursesRes.ok) throw new Error(coursesPayload.error || 'Failed to load courses');
+            setUploads(Array.isArray(uploadsPayload.uploads) ? uploadsPayload.uploads : []);
+            setCourses(Array.isArray(coursesPayload.courses) ? coursesPayload.courses : []);
+        } catch (err) {
+            setError(err.message || 'Could not load library');
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id]);
+
+    useEffect(() => {
+        loadLibrary();
+    }, [loadLibrary]);
+
     const materials = useMemo(() => {
-        return safeUploads.map((upload) => {
-            const course = safeCourses.find((item) => String(item.uploadId || '') === String(upload._id));
-            const topicCount = Number(course?.topicCount || 0);
-            const quizzesReady = Number(course?.quizzesReady || 0);
+        return uploads.map((upload) => {
+            const course = courses.find((item) => String(item.uploadId || '') === String(upload.id))
+                || (upload.courseId ? courses.find((item) => item.id === upload.courseId) : null);
+            const topicCount = Number(course?.topicCount || upload.topicCount || 0);
+            const quizzesReady = Number(course?.quizzesReady || upload.quizzesReady || 0);
             return {
-                uploadId: upload._id,
-                courseId: course?._id || null,
+                uploadId: upload.id,
+                courseId: course?.id || upload.courseId || null,
                 title: course?.title || upload.fileName,
                 fileName: upload.fileName,
                 kind: resolveFileKind(upload.fileType, upload.fileName),
                 status: upload.status,
-                processingProgress: upload.processingProgress || 0,
+                processingProgress: upload.status === 'ready' ? 100 : 35,
                 processingStep: upload.processingStep || '',
-                createdAt: upload._creationTime,
+                createdAt: upload.createdAt,
                 lessons: topicCount,
                 quizzes: quizzesReady,
                 topicCount,
             };
         });
-    }, [safeCourses, safeUploads]);
+    }, [courses, uploads]);
 
     const filteredMaterials = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
         return materials.filter((material) => {
             const matchesFilter = activeFilter === 'all'
                 || material.kind === activeFilter
-                || (activeFilter === 'processing' && material.status === 'processing')
+                || (activeFilter === 'processing' && material.status !== 'ready' && material.status !== 'error')
                 || (activeFilter === 'notes' && ['notes', 'docx', 'pptx'].includes(material.kind));
             const matchesSearch = !normalizedSearch
                 || String(material.title || '').toLowerCase().includes(normalizedSearch)
@@ -101,7 +130,7 @@ const MyMaterialsLibrary = () => {
         });
     }, [activeFilter, materials, searchTerm]);
 
-    if (!shouldLoadMaterials || uploads === undefined || courses === undefined) return <MaterialsSkeleton />;
+    if (loading) return <MaterialsSkeleton />;
 
     return (
         <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-6 p-space-6 md:p-space-8 pb-24 md:pb-space-8">
@@ -124,6 +153,12 @@ const MyMaterialsLibrary = () => {
                 </div>
             </div>
 
+            {error && (
+                <div role="alert" className="rounded-xl border border-error-soft bg-error-soft/40 p-space-4 text-body-sm text-error">
+                    {error}
+                </div>
+            )}
+
             <div className="flex overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 hide-scrollbar gap-2">
                 {filterTabs.map((tab) => (
                     <button
@@ -144,7 +179,7 @@ const MyMaterialsLibrary = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-space-6">
                 {filteredMaterials.map((material) => {
                     const typeConfig = typeIcons[material.kind] || typeIcons.notes;
-                    const isProcessing = material.status === 'processing';
+                    const isProcessing = material.status !== 'ready' && material.status !== 'error';
                     const hasGeneratedContent = material.status === 'ready' && material.courseId && material.topicCount > 0;
                     const studyHref = hasGeneratedContent ? `/dashboard/lessons?courseId=${material.courseId}` : '';
                     return (
@@ -178,48 +213,33 @@ const MyMaterialsLibrary = () => {
                             <h3 className="font-body-base text-body-base font-bold text-text-primary mb-1 line-clamp-2">{material.title}</h3>
                             <p className="text-caption font-medium text-text-muted mb-5">Uploaded {formatUploadedAt(material.createdAt)}</p>
                             <div className="mt-auto">
+                                <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
+                                    <div className="flex flex-col">
+                                        <span className="font-label-md text-label-md text-text-primary">{material.topicCount}</span>
+                                        <span className="font-label-xs text-label-xs text-text-muted">Topics</span>
+                                    </div>
+                                    <div className="w-px h-full bg-border-subtle" />
+                                    <div className="flex flex-col">
+                                        <span className="font-label-md text-label-md text-text-primary">{material.quizzes}</span>
+                                        <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
+                                    </div>
+                                </div>
                                 {hasGeneratedContent ? (
-                                    <>
-                                        <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
-                                            <div className="flex flex-col">
-                                                <span className="font-label-md text-label-md text-text-primary">{material.topicCount}</span>
-                                                <span className="font-label-xs text-label-xs text-text-muted">Topics</span>
-                                            </div>
-                                            <div className="w-px h-full bg-border-subtle" />
-                                            <div className="flex flex-col">
-                                                <span className="font-label-md text-label-md text-text-primary">{material.quizzes}</span>
-                                                <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
-                                            </div>
-                                        </div>
-                                        <Link
-                                            to={studyHref}
-                                            className="w-full bg-primary text-on-primary py-2.5 rounded-lg font-label-sm text-label-sm hover:bg-primary-hover transition-colors shadow-sm flex items-center justify-center gap-2"
-                                        >
-                                            Continue Study
-                                            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                                        </Link>
-                                    </>
+                                    <Link
+                                        to={studyHref}
+                                        className="w-full bg-primary text-on-primary py-2.5 rounded-lg font-label-sm text-label-sm hover:bg-primary-hover transition-colors shadow-sm flex items-center justify-center gap-2"
+                                    >
+                                        Continue Study
+                                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                                    </Link>
                                 ) : (
                                     <>
-                                        <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
-                                            <div className="flex flex-col">
-                                                <span className="font-label-md text-label-md text-text-primary">{material.topicCount}</span>
-                                                <span className="font-label-xs text-label-xs text-text-muted">Topics</span>
-                                            </div>
-                                            <div className="w-px h-full bg-border-subtle" />
-                                            <div className="flex flex-col">
-                                                <span className="font-label-md text-label-md text-text-primary">{material.quizzes}</span>
-                                                <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
-                                            </div>
+                                        <div className="w-full bg-surface-muted rounded-full h-1.5 mb-5">
+                                            <div
+                                                className={`bg-warning h-1.5 rounded-full ${isProcessing ? 'animate-pulse' : ''}`}
+                                                style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
+                                            />
                                         </div>
-                                        {!hasGeneratedContent && (
-                                            <div className="w-full bg-surface-muted rounded-full h-1.5 mb-5">
-                                                <div
-                                                    className={`bg-warning h-1.5 rounded-full ${isProcessing ? 'animate-pulse' : ''}`}
-                                                    style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
-                                                />
-                                            </div>
-                                        )}
                                         <button
                                             className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-sm text-label-sm cursor-not-allowed flex items-center justify-center"
                                             disabled
@@ -237,38 +257,18 @@ const MyMaterialsLibrary = () => {
 
             {filteredMaterials.length === 0 && (
                 <div className="mt-space-8 bg-surface border-2 border-dashed border-border-strong rounded-2xl p-space-12 flex flex-col items-center justify-center text-center max-w-2xl mx-auto w-full shadow-sm">
-                    <div className="w-16 h-16 rounded-full bg-surface-soft flex items-center justify-center text-text-muted mb-6">
-                        <span className="material-symbols-outlined text-[32px]">{materials.length === 0 ? 'upload_file' : 'search_off'}</span>
-                    </div>
-                    <h3 className="font-headline-md text-headline-md text-text-primary mb-2">
-                        {materials.length === 0 ? 'No materials yet' : 'No matching materials'}
-                    </h3>
-                    <p className="font-body-base text-body-base text-text-secondary mb-8 max-w-md">
-                        {materials.length === 0
-                            ? 'Upload a file to generate real lessons, quizzes, and flashcards.'
-                            : 'Try adjusting your search or filter to find a material.'}
+                    <span className="material-symbols-outlined text-[40px] text-text-muted mb-4">folder_open</span>
+                    <h3 className="font-headline-sm text-headline-sm text-text-primary mb-2">No materials yet</h3>
+                    <p className="font-body-sm text-body-sm text-text-secondary mb-6">
+                        Upload a PDF, slide deck, or document to generate topics and quizzes.
                     </p>
-                    <div className="flex gap-4">
-                        {materials.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setActiveFilter('all');
-                                    setSearchTerm('');
-                                }}
-                                className="bg-surface border border-border-default text-text-primary px-6 py-2.5 rounded-xl font-label-md text-label-md hover:bg-surface-soft transition-colors"
-                            >
-                                Clear Filters
-                            </button>
-                        )}
-                        <Link
-                            to="/dashboard/upload"
-                            className="bg-primary text-on-primary px-6 py-2.5 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center gap-2"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-                            Upload New
-                        </Link>
-                    </div>
+                    <Link
+                        to="/dashboard/upload"
+                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-label-md text-label-md text-on-primary hover:bg-primary-hover"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                        Upload Material
+                    </Link>
                 </div>
             )}
         </div>

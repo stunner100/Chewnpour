@@ -10,8 +10,6 @@ const NAV_OPTIONS = [
     { label: 'Upload', value: '/dashboard/upload', icon: 'cloud_upload', keywords: ['file', 'pdf', 'material'] },
     { label: 'Lessons', value: '/dashboard/lessons', icon: 'menu_book', keywords: ['read', 'course', 'topic'] },
     { label: 'Quizzes', value: '/dashboard/quiz', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
-    { label: 'Flashcards', value: '/dashboard/flashcards', icon: 'style', keywords: ['cards', 'review', 'concept'] },
-    { label: 'Podcasts', value: '/dashboard/podcasts', icon: 'podcasts', keywords: ['audio', 'listen', 'revision'] },
     { label: 'AI Tutor', value: '/dashboard/ai-tutor', icon: 'smart_toy', keywords: ['chat', 'help', 'explain'] },
     { label: 'Study Plan', value: '/dashboard/progress', icon: 'event_note', keywords: ['schedule', 'plan', 'analysis'] },
     { label: 'Subscription', value: '/dashboard/settings#subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },

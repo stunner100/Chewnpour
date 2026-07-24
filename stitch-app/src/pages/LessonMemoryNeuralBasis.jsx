@@ -1,286 +1,150 @@
-import React, { useMemo } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useConvexAuth, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
-
-const EMPTY_LIST = [];
-
-const matchCourseId = (course, rawId) => String(course?._id) === String(rawId);
-
-const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(Object(object), key);
-
-const hasLessonReadinessMetadata = (course) =>
-    hasOwn(course, 'topicCount') || hasOwn(course, 'firstTopicId');
-
-const hasLessonContent = (course) =>
-    Boolean(course?.firstTopicId) || Number(course?.topicCount || 0) > 0;
-
-const shouldShowLessonCourse = (course) =>
-    hasLessonContent(course) || !hasLessonReadinessMetadata(course);
-
-const StudyToolSkeleton = () => (
-    <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0">
-        <article className="flex-1 mx-auto w-full max-w-5xl px-space-4 md:px-space-10 pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12">
-            <div className="animate-pulse space-y-space-6">
-                <div className="h-8 w-48 rounded-lg bg-surface-muted" />
-                <div className="h-36 rounded-2xl bg-surface" />
-                <div className="grid gap-space-4 md:grid-cols-2">
-                    <div className="h-44 rounded-2xl bg-surface" />
-                    <div className="h-44 rounded-2xl bg-surface" />
-                </div>
-            </div>
-        </article>
-    </div>
-);
-
-const EmptyLessonsState = ({ title = 'Upload material to generate lessons', description }) => (
-    <section className="rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
-        <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
-            <span className="material-symbols-outlined">menu_book</span>
-        </div>
-        <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
-            {title}
-        </h2>
-        <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
-            {description || 'Lessons are created from your own notes, slides, documents, and images. Add material to build your first real lesson.'}
-        </p>
-        <Link
-            to="/dashboard/upload"
-            className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
-        >
-            <span className="material-symbols-outlined text-[20px]">cloud_upload</span>
-            Upload Material
-        </Link>
-    </section>
-);
-
-const ResumeLessonCard = ({ resumeTarget }) => {
-    if (!resumeTarget?.topicId) return null;
-
-    return (
-        <section className="rounded-2xl border border-primary/20 bg-primary-soft p-space-6 shadow-sm">
-            <div className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
-                        Continue reading
-                    </p>
-                    <h2 className="mt-space-2 font-display-sm text-display-sm text-text-primary">
-                        {resumeTarget.topicTitle || 'Your latest topic'}
-                    </h2>
-                    <p className="mt-space-2 font-body-base text-body-base text-text-secondary">
-                        Jump back into the generated lesson you last studied.
-                    </p>
-                </div>
-                <Link
-                    to={`/dashboard/topic/${resumeTarget.topicId}`}
-                    className="inline-flex shrink-0 items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
-                >
-                    Open Lesson
-                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                </Link>
-            </div>
-        </section>
-    );
-};
-
-const LESSONS_TOPICS_HASH = 'lessons-course-topics';
-
-const buildLessonsTopicsLocation = (courseId) => {
-    const id = typeof courseId === 'string' && courseId.trim() ? courseId.trim() : String(courseId ?? '').trim();
-    return {
-        pathname: '/dashboard/lessons',
-        ...(id ? { search: `?courseId=${encodeURIComponent(id)}` } : {}),
-        hash: LESSONS_TOPICS_HASH,
-    };
-};
-
-const CourseLessonCard = ({ course, selected = false }) => {
-    const navigate = useNavigate();
-    const firstTopicId = course?.firstTopicId ? String(course.firstTopicId) : '';
-    const firstTopicLocation = firstTopicId ? `/dashboard/topic/${firstTopicId}` : '';
-    const topicsLocation = buildLessonsTopicsLocation(course?._id);
-    const targetLocation = firstTopicLocation || topicsLocation;
-
-    const handleCardClick = (event) => {
-        if (event.defaultPrevented) return;
-        if (event.button !== 0) return;
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        if (firstTopicLocation) {
-            navigate(firstTopicLocation);
-            return;
-        }
-        navigate(topicsLocation);
-    };
-
-    const ctaLabel = firstTopicId ? 'Open first lesson' : 'View topics';
-
-    return (
-        <Link
-            to={targetLocation}
-            onClick={handleCardClick}
-            className={`group rounded-2xl border bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
-                selected ? 'border-primary/50 ring-2 ring-primary-soft' : 'border-border-subtle'
-            }`}
-        >
-            <div className="mb-space-5 flex items-start justify-between gap-space-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                    <span className="material-symbols-outlined">auto_stories</span>
-                </div>
-                <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                    {Number(course.progress || 0)}% complete
-                </span>
-            </div>
-            <h3 className="font-headline-sm text-headline-sm text-text-primary">
-                {course.title || 'Untitled course'}
-            </h3>
-            {course.description && (
-                <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
-                    {course.description}
-                </p>
-            )}
-            <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>{ctaLabel}</span>
-                <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
-                    arrow_forward
-                </span>
-            </div>
-        </Link>
-    );
-};
-
-const TopicLessonCard = ({ topic }) => (
-    <Link
-        to={`/dashboard/topic/${topic._id}`}
-        className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-    >
-        <div className="mb-space-4 flex items-start justify-between gap-space-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-info-soft text-info">
-                <span className="material-symbols-outlined">article</span>
-            </div>
-            <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                {Number(topic.progress || topic.bestScore || 0)}%
-            </span>
-        </div>
-        <h3 className="font-headline-sm text-headline-sm text-text-primary">
-            {topic.title || 'Untitled lesson'}
-        </h3>
-        {topic.description && (
-            <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
-                {topic.description}
-            </p>
-        )}
-        <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>Open lesson</span>
-            <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
-                arrow_forward
-            </span>
-        </div>
-    </Link>
-);
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const LessonMemoryNeuralBasis = () => {
+    const { user } = useAuth();
     const [searchParams] = useSearchParams();
-    const { isAuthenticated } = useConvexAuth();
-    const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
-    const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
-    const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
-    const visibleLessonCourses = useMemo(() => courseList.filter(shouldShowLessonCourse), [courseList]);
-    const requestedCourseId = searchParams.get('courseId') || '';
-    const requestedCourse = visibleLessonCourses.find((course) => matchCourseId(course, requestedCourseId))
-        || courseList.find((course) => matchCourseId(course, requestedCourseId));
-    const resumeCourse = resumeTarget?.courseId
-        ? (visibleLessonCourses.find((course) => matchCourseId(course, resumeTarget.courseId))
-            || courseList.find((course) => matchCourseId(course, resumeTarget.courseId)))
-        : null;
-    const selectedCourseId = requestedCourse?._id || resumeCourse?._id || visibleLessonCourses[0]?._id || courseList[0]?._id || '';
-    const courseWithTopics = useQuery(
-        api.courses.getCourseWithTopics,
-        isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
+    const courseId = String(searchParams.get('courseId') || '').trim();
+    const [courses, setCourses] = useState([]);
+    const [selectedCourse, setSelectedCourse] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    const load = useCallback(async () => {
+        if (!user?.id) {
+            setCourses([]);
+            setSelectedCourse(null);
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+            if (courseId) {
+                const response = await fetch(`/api/courses/${encodeURIComponent(courseId)}`, {
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || 'Failed to load course');
+                setSelectedCourse(payload.course || null);
+                setCourses(payload.course ? [payload.course] : []);
+            } else {
+                const response = await fetch('/api/courses', {
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || 'Failed to load courses');
+                const list = Array.isArray(payload.courses) ? payload.courses : [];
+                setCourses(list);
+                setSelectedCourse(null);
+            }
+        } catch (err) {
+            setError(err.message || 'Could not load lessons');
+        } finally {
+            setLoading(false);
+        }
+    }, [courseId, user?.id]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const topics = useMemo(
+        () => (Array.isArray(selectedCourse?.topics) ? selectedCourse.topics : []),
+        [selectedCourse],
     );
 
-    if (
-        !isAuthenticated
-        || courses === undefined
-        || resumeTarget === undefined
-        || (selectedCourseId && courseWithTopics === undefined)
-    ) {
-        return <StudyToolSkeleton />;
+    if (loading) {
+        return (
+            <div className="md:ml-0 pt-16 min-h-screen p-space-6 md:p-space-8 animate-pulse">
+                <div className="h-10 w-64 rounded-lg bg-surface-soft mb-6" />
+                <div className="space-y-4">
+                    {[0, 1, 2].map((item) => (
+                        <div key={item} className="h-24 rounded-xl bg-surface-soft" />
+                    ))}
+                </div>
+            </div>
+        );
     }
 
-    const selectedCourse = visibleLessonCourses.find((course) => matchCourseId(course, selectedCourseId))
-        || courseList.find((course) => matchCourseId(course, selectedCourseId))
-        || null;
-    const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
-    const hasPendingCourses = courseList.length > 0 && visibleLessonCourses.length === 0;
-
     return (
-        <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0">
-            <article className="flex-1 mx-auto w-full max-w-5xl px-space-4 md:px-space-10 pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12">
-                <div className="mb-space-6 flex flex-col gap-space-2">
-                    <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
-                        Lessons
-                    </p>
-                    <h1 className="font-display-sm text-display-sm text-text-primary">
-                        Read lessons generated from your materials
-                    </h1>
-                    <p className="max-w-2xl font-body-base text-body-base text-text-secondary">
-                        Continue generated topic lessons, summaries, Word Banks, and practice checks from your own uploads.
-                    </p>
-                </div>
+        <div className="md:ml-0 pt-16 min-h-screen p-space-6 md:p-space-8 pb-24">
+            <div className="max-w-3xl mx-auto">
+                <p className="text-body-sm font-medium text-text-secondary">Lessons</p>
+                <h1 className="mt-2 font-headline-lg text-headline-lg font-bold text-text-primary">
+                    {selectedCourse?.title || 'Your courses'}
+                </h1>
+                <p className="mt-3 text-body text-text-secondary">
+                    Topics are generated from your uploads. Full AI lesson polish comes in later milestones.
+                </p>
 
-                <div className="space-y-space-5">
-                    <ResumeLessonCard resumeTarget={resumeTarget} />
+                {error && (
+                    <div role="alert" className="mt-6 rounded-xl border border-error-soft bg-error-soft/40 p-4 text-body-sm text-error">
+                        {error}
+                    </div>
+                )}
 
-                    {visibleLessonCourses.length > 0 ? (
-                        <section className="grid gap-space-4 md:grid-cols-2">
-                            {visibleLessonCourses.map((course) => (
-                                <CourseLessonCard
-                                    key={course._id}
-                                    course={course}
-                                    selected={matchCourseId(course, selectedCourseId)}
-                                />
-                            ))}
-                        </section>
-                    ) : !resumeTarget?.topicId ? (
-                        <EmptyLessonsState
-                            title={hasPendingCourses ? 'Lessons are still preparing' : undefined}
-                            description={hasPendingCourses
-                                ? 'Your materials are uploaded, but no generated lesson topics are ready yet. When processing finishes, the lesson cards will appear here.'
-                                : undefined}
-                        />
-                    ) : null}
-
-                    {selectedCourse && (
-                        <section
-                            id="lessons-course-topics"
-                            className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5 scroll-mt-24"
-                        >
-                            <div className="mb-space-4 flex flex-col gap-space-1">
-                                <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
-                                    Topics
-                                </p>
-                                <h2 className="font-headline-sm text-headline-sm text-text-primary">
-                                    {selectedCourse.title || 'Selected course'}
-                                </h2>
+                {!courseId && (
+                    <div className="mt-8 space-y-4">
+                        {courses.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-border-strong bg-surface-soft p-8 text-center">
+                                <p className="text-body-sm text-text-secondary">No courses yet. Upload material to generate topics.</p>
+                                <Link to="/dashboard/upload" className="btn-primary mt-4 inline-flex">Upload Material</Link>
                             </div>
-                            {topicList.length > 0 ? (
-                                <div className="grid gap-space-4 md:grid-cols-2">
-                                    {topicList.map((topic) => (
-                                        <TopicLessonCard key={topic._id} topic={topic} />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="rounded-xl border border-dashed border-border-strong bg-surface p-space-5">
-                                    <p className="font-body-sm text-body-sm text-text-secondary">
-                                        This material is still preparing topic lessons.
+                        ) : (
+                            courses.map((course) => (
+                                <Link
+                                    key={course.id}
+                                    to={`/dashboard/lessons?courseId=${encodeURIComponent(course.id)}`}
+                                    className="block rounded-2xl border border-border-subtle bg-surface p-5 hover:shadow-md transition-shadow"
+                                >
+                                    <h2 className="font-headline-sm text-headline-sm text-text-primary">{course.title}</h2>
+                                    <p className="mt-2 text-body-sm text-text-secondary">
+                                        {course.topicCount} topics · {course.quizzesReady} quizzes ready
                                     </p>
-                                </div>
-                            )}
-                        </section>
-                    )}
-                </div>
-            </article>
+                                </Link>
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {courseId && (
+                    <div className="mt-8 space-y-4">
+                        <Link to="/dashboard/lessons" className="text-body-sm text-primary hover:text-primary-hover">
+                            ← All courses
+                        </Link>
+                        {topics.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-border-strong bg-surface-soft p-8 text-center text-body-sm text-text-secondary">
+                                This course has no topics yet.
+                            </div>
+                        ) : (
+                            topics.map((topic) => (
+                                <article key={topic.id} className="rounded-2xl border border-border-subtle bg-surface p-5">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <h2 className="font-headline-sm text-headline-sm text-text-primary">{topic.title}</h2>
+                                            <p className="mt-2 text-body-sm text-text-secondary line-clamp-3">
+                                                {topic.description || topic.content}
+                                            </p>
+                                        </div>
+                                        {topic.questionCount > 0 && (
+                                            <Link
+                                                to={`/dashboard/quiz/${encodeURIComponent(topic.id)}`}
+                                                className="shrink-0 rounded-lg bg-primary px-3 py-2 text-label-sm text-on-primary hover:bg-primary-hover"
+                                            >
+                                                Quiz
+                                            </Link>
+                                        )}
+                                    </div>
+                                </article>
+                            ))
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

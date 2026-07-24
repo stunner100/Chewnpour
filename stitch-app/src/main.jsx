@@ -9,15 +9,12 @@ import {
   isStaleTopicRouteLookupError,
   redirectForStaleTopicRoute,
 } from './lib/chunkLoadRecovery.js';
-import { convexSiteUrl } from './lib/convex-config.js';
 import { maintenanceModeEnabled } from './lib/maintenance-mode.js';
 import { ensurePromiseWithResolvers } from './lib/runtimePolyfills.js';
-import { stashOttFromUrl } from './lib/ott.js';
 import { initializeTheme } from './lib/theme.js';
 
 initializeTheme();
 ensurePromiseWithResolvers();
-stashOttFromUrl();
 
 const ensureMetaTag = ({ property, name, content }) => {
   if (!content || typeof document === 'undefined') return;
@@ -81,9 +78,8 @@ const appendResourceHint = (rel, href, crossOrigin = false) => {
 };
 
 const applyNetworkHints = () => {
-  if (!convexSiteUrl) return;
-  appendResourceHint('preconnect', convexSiteUrl, true);
-  appendResourceHint('dns-prefetch', convexSiteUrl);
+  if (typeof window === 'undefined') return;
+  appendResourceHint('preconnect', window.location.origin, true);
 };
 
 const LEGACY_PWA_CLEANUP_KEY = '__legacy_pwa_cleanup_ts';

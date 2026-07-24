@@ -9,8 +9,6 @@ const read = async (relativePath) =>
 
 const settingsSource = await read('src/pages/AccountStudySettings.jsx');
 const layoutSource = await read('src/components/DashboardLayout.jsx');
-const profilesSource = await read('convex/profiles.ts');
-const schemaSource = await read('convex/schema.ts');
 
 const requireIncludes = (source, snippet, label) => {
   if (!source.includes(snippet)) {
@@ -25,9 +23,7 @@ const requireExcludes = (source, snippet, label) => {
 };
 
 requireIncludes(settingsSource, 'const normalizeStudyPreferences = (value = {}) => ({', 'normalized persisted study preferences');
-requireIncludes(profilesSource, 'studyPreferences: v.optional(v.object({', 'profile mutation study preferences');
-requireIncludes(schemaSource, 'studyPreferences: v.optional(v.object({', 'database schema study preferences');
-requireIncludes(profilesSource, 'if (args.studyPreferences !== undefined) updates.studyPreferences = args.studyPreferences;', 'profile mutation writes study preferences');
+requireIncludes(settingsSource, 'preferredPersona', 'tutor persona persists in study preferences');
 
 requireIncludes(settingsSource, 'const handleCancel = () => {', 'settings cancel handler');
 requireIncludes(settingsSource, 'setDraftFullName(null);', 'cancel restores profile name');
@@ -45,7 +41,8 @@ requireIncludes(settingsSource, 'id="settings-daily-goal-minutes"', 'daily goal 
 
 requireIncludes(settingsSource, 'const handleTutorStyleChange = (persona) => {', 'tutor style is draft-only');
 requireExcludes(settingsSource, 'const handleTutorStyleChange = async', 'immediate tutor style persistence');
-requireIncludes(settingsSource, 'await setTutorPersona({ persona: normalizedAiTone });', 'tutor style saves with Save Changes');
+requireIncludes(settingsSource, 'preferredPersona: normalizedAiTone', 'tutor style saves with Save Changes');
+requireExcludes(settingsSource, "from 'convex/react'", 'settings page is Convex-free after Supabase cutover');
 
 requireIncludes(settingsSource, 'role="switch"', 'notification toggles expose switch role');
 requireIncludes(settingsSource, 'aria-checked={Boolean(notifications[toggle.key])}', 'notification toggles expose checked state');

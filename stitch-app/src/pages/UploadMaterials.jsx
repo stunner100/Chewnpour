@@ -1,7 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const typeConfig = {
@@ -78,22 +76,23 @@ const formatFileSize = (bytes) => {
 
 const formatRelativeTime = (timestamp) => {
     const value = Number(timestamp || 0);
-    if (!Number.isFinite(value) || value <= 0) return 'recently';
-    const diffMs = Date.now() - value;
-    const minutes = Math.max(1, Math.round(diffMs / 60000));
+    if (!Number.isFinite(value) || value <= 0) return 'just now';
+    const deltaMs = Date.now() - value;
+    const minutes = Math.round(deltaMs / 60000);
+    if (minutes < 1) return 'just now';
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.round(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
     const days = Math.round(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
+    return `${days}d ago`;
 };
 
-const getStatusConfig = (status) => {
-    const normalized = String(status || 'processing').toLowerCase();
-    if (normalized === 'ready') {
+const getStatusConfig = (status, extractionStatus) => {
+    const normalized = String(status || '').toLowerCase();
+    const extraction = String(extractionStatus || '').toLowerCase();
+    if (normalized === 'ready' && (extraction === 'complete' || extraction === 'deferred' || extraction === 'not_configured')) {
         return {
-            label: 'Ready',
+            label: extraction === 'complete' ? 'Extracted' : 'Stored',
             icon: 'check_circle',
             className: 'bg-success-soft text-success',
             isProcessing: false,
@@ -105,6 +104,14 @@ const getStatusConfig = (status) => {
             icon: 'schedule',
             className: 'bg-surface-soft text-text-muted',
             isProcessing: false,
+        };
+    }
+    if (normalized === 'extracting' || extraction === 'running') {
+        return {
+            label: 'Extracting',
+            icon: 'sync',
+            className: 'bg-info-soft text-info',
+            isProcessing: true,
         };
     }
     return {
@@ -121,12 +128,6 @@ const getProcessingText = (upload) => {
     return `${step.charAt(0).toUpperCase()}${step.slice(1)}...`;
 };
 
-const stripExtension = (fileName) =>
-    String(fileName || 'Untitled material').replace(
-        /\.(pdf|pptx|docx|mp3|m4a|mp4|wav|webm|ogg|aac|flac)$/i,
-        '',
-    );
-
 const isInternalQaUpload = (upload) => {
     const normalized = `${upload?.fileName || ''} ${upload?.title || ''}`
         .toLowerCase()
@@ -138,28 +139,93 @@ const isInternalQaUpload = (upload) => {
         || /\bqa\s+probe\b/.test(normalized);
 };
 
+const fetchUploads = async () => {
+    const response = await fetch('/api/uploads', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Failed to load uploads (${response.status})`);
+    }
+    return Array.isArray(payload.uploads) ? payload.uploads : [];
+};
+
+const initUpload = async ({ fileName, fileType, fileSize, contentType }) => {
+    const response = await fetch('/api/uploads/init', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileName, fileType, fileSize, contentType }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const error = new Error(payload?.error || `Upload init failed (${response.status})`);
+        error.status = response.status;
+        error.code = payload?.code;
+        throw error;
+    }
+    return payload;
+};
+
+const finalizeUpload = async (uploadId) => {
+    const response = await fetch(`/api/uploads/${encodeURIComponent(uploadId)}/finalize`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const error = new Error(payload?.error || `Upload finalize failed (${response.status})`);
+        error.status = response.status;
+        error.code = payload?.code;
+        throw error;
+    }
+    return payload.upload;
+};
+
 const UploadMaterials = () => {
-    const navigate = useNavigate();
     const { user } = useAuth();
-    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
-    const uploads = useQuery(api.uploads.getUserUploads, {});
-    const recentUploads = useMemo(
-        () => (uploads || []).filter((upload) => !isInternalQaUpload(upload)).slice(0, 3),
-        [uploads],
-    );
-    const isLoading = uploads === undefined;
-
-    const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
-    const createUpload = useMutation(api.uploads.createUpload);
-    const createCourse = useMutation(api.courses.createCourse);
-    const processUploadedFile = useAction(api.ai.processUploadedFile);
-
+    const navigate = useNavigate();
+    const [uploads, setUploads] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const [isDragging, setIsDragging] = useState(false);
 
-    const userId = user?.id || user?._id || '';
+    const userId = user?.id || '';
+
+    const refreshUploads = useCallback(async () => {
+        if (!userId) {
+            setUploads([]);
+            setIsLoading(false);
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const nextUploads = await fetchUploads();
+            setUploads(nextUploads);
+        } catch (error) {
+            console.error('Failed to load uploads:', error);
+            setUploadError(error.message || 'Could not load uploads.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        refreshUploads();
+    }, [refreshUploads]);
+
+    const recentUploads = useMemo(
+        () => (uploads || []).filter((upload) => !isInternalQaUpload(upload)).slice(0, 3),
+        [uploads],
+    );
 
     const handleFile = useCallback(async (file) => {
         if (!file) return;
@@ -167,10 +233,6 @@ const UploadMaterials = () => {
 
         if (!userId) {
             setUploadError('Please log in to upload files.');
-            return;
-        }
-        if (!isConvexAuthenticated) {
-            setUploadError('Connecting to your account. Please wait a moment and try again.');
             return;
         }
 
@@ -186,51 +248,44 @@ const UploadMaterials = () => {
 
         setIsUploading(true);
         try {
-            const uploadUrl = await generateUploadUrl();
-            const result = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: file.type ? { 'Content-Type': file.type } : undefined,
-                body: file,
-            });
-            if (!result.ok) {
-                throw new Error(`Storage responded with ${result.status}`);
-            }
-            const { storageId } = await result.json();
-
-            const uploadId = await createUpload({
+            const init = await initUpload({
                 fileName: file.name,
                 fileType: uploadFileType,
                 fileSize: file.size,
-                storageId,
+                contentType: file.type || 'application/octet-stream',
             });
 
-            const courseId = await createCourse({
-                title: stripExtension(file.name),
-                description: 'Processing your study materials...',
-                uploadId,
+            const putResponse = await fetch(init.signedUrl, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': file.type || 'application/octet-stream',
+                },
+                body: file,
             });
+            if (!putResponse.ok) {
+                throw new Error(`Storage responded with ${putResponse.status}`);
+            }
 
-            processUploadedFile({ uploadId, courseId, userId, extractedText: '' }).catch((err) => {
-                console.error('AI processing dispatch failed:', err);
+            const finalized = await finalizeUpload(init.upload.id);
+            setUploads((current) => {
+                const without = (current || []).filter((item) => item.id !== finalized.id);
+                return [finalized, ...without];
             });
-
-            navigate('/dashboard/library');
         } catch (err) {
             console.error('Upload failed:', err);
-            const message = err?.data?.message || err?.message || 'Upload failed. Please try again.';
-            setUploadError(String(message));
+            if (err?.status === 402 || err?.code === 'UPLOAD_CREDITS_EXHAUSTED') {
+                navigate('/subscription?from=%2Fdashboard%2Fupload&reason=upload_limit', {
+                    state: {
+                        paywallMessage: err.message || 'No upload credits remaining. Top up to continue.',
+                    },
+                });
+                return;
+            }
+            setUploadError(String(err?.message || 'Upload failed. Please try again.'));
         } finally {
             setIsUploading(false);
         }
-    }, [
-        userId,
-        isConvexAuthenticated,
-        generateUploadUrl,
-        createUpload,
-        createCourse,
-        processUploadedFile,
-        navigate,
-    ]);
+    }, [navigate, userId]);
 
     const handleInputChange = useCallback((event) => {
         const file = event.target.files?.[0];
@@ -388,13 +443,11 @@ const UploadMaterials = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-5">
                                 {recentUploads.map((upload) => {
                                     const config = typeConfig[resolveFileKind(upload.fileType, upload.fileName)] || typeConfig.docx;
-                                    const statusConfig = getStatusConfig(upload.status);
-                                    const progress = Math.max(8, Math.min(100, Number(upload.processingProgress || 0)));
+                                    const statusConfig = getStatusConfig(upload.status, upload.extractionStatus);
                                     return (
-                                        <Link
-                                            key={upload._id}
-                                            to="/dashboard/library"
-                                            className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-5 hover:shadow-md transition-shadow cursor-pointer group flex flex-col h-full"
+                                        <div
+                                            key={upload.id}
+                                            className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-5 group flex flex-col h-full"
                                         >
                                             <div className="flex justify-between items-start mb-space-4">
                                                 <div className={`w-10 h-10 rounded-lg ${config.color} flex items-center justify-center`}>
@@ -407,27 +460,32 @@ const UploadMaterials = () => {
                                                     {statusConfig.label}
                                                 </span>
                                             </div>
-                                            <h5 className="font-label-md text-label-md text-text-primary mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+                                            <h5 className="font-label-md text-label-md text-text-primary mb-1 line-clamp-1">
                                                 {upload.fileName || 'Untitled material'}
                                             </h5>
                                             <p className="font-body-sm text-body-sm text-text-secondary mb-space-4">
-                                                Uploaded {formatRelativeTime(upload._creationTime)} &bull; {formatFileSize(upload.fileSize)}
+                                                Uploaded {formatRelativeTime(upload.createdAt)} &bull; {formatFileSize(upload.fileSize)}
                                             </p>
                                             {!statusConfig.isProcessing ? (
-                                                <div className="mt-auto pt-space-4 border-t border-border-subtle flex gap-2 items-center">
-                                                    <span className="flex-1 bg-surface-soft text-text-primary rounded-lg py-2 font-label-xs text-label-xs text-center">
-                                                        Open in Library
-                                                    </span>
+                                                <div className="mt-auto pt-space-4 border-t border-border-subtle">
+                                                    <p className="font-body-sm text-body-sm text-text-secondary line-clamp-3">
+                                                        {upload.extractedTextPreview
+                                                            || (upload.extractionStatus === 'not_configured'
+                                                                ? 'Stored in Supabase. Configure Docling to extract text.'
+                                                                : upload.extractionStatus === 'deferred'
+                                                                    ? 'Stored. Extraction for this type comes later.'
+                                                                    : upload.errorMessage || 'Ready for the next study milestone.')}
+                                                    </p>
                                                 </div>
                                             ) : (
                                                 <div className="mt-auto pt-space-4 border-t border-border-subtle">
                                                     <div className="w-full bg-surface-muted rounded-full h-1.5 mb-1">
-                                                        <div className="bg-info h-1.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                                                        <div className="bg-info h-1.5 rounded-full" style={{ width: '55%' }}></div>
                                                     </div>
                                                     <p className="font-label-xs text-label-xs text-text-muted text-right">{getProcessingText(upload)}</p>
                                                 </div>
                                             )}
-                                        </Link>
+                                        </div>
                                     );
                                 })}
                             </div>

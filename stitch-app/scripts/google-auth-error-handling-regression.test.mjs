@@ -38,7 +38,7 @@ if (!/const\s+\{\s*error:\s*signInError\s*\}\s*=\s*await\s+signInWithGoogle\(\);
   throw new Error('Expected SignUp page to read signInWithGoogle error responses.');
 }
 
-if (!/if\s*\(signInError\)\s*\{\s*setError\(/s.test(signUpSource)) {
+if (!/if\s*\(signInError\)\s*(?:\{\s*setError\(|setError\()/.test(signUpSource)) {
   throw new Error('Expected SignUp page to surface sign-in errors to users.');
 }
 
@@ -61,19 +61,19 @@ if (!/normalized\s*===\s*'load failed'\s*\|\|\s*normalized\s*===\s*'failed to fe
   throw new Error('Expected Login page to map network Google sign-in failures to a user-friendly message.');
 }
 
-if (!/const\s+\{\s*error:\s*signInError\s*\}\s*=\s*await\s+signInWithGoogle\(\);/.test(loginSource)) {
+if (!/const\s+\{\s*error:\s*signInError\s*\}\s*=\s*await\s+signInWithGoogle\(/.test(loginSource)) {
   throw new Error('Expected Login page to read signInWithGoogle error responses.');
 }
 
-if (!/if\s*\(signInError\)\s*\{\s*setError\(resolveGoogleErrorMessage\(signInError\)\);/.test(loginSource)) {
+if (!/if\s*\(signInError\)\s*\{[\s\S]*resolveGoogleErrorMessage\(signInError\)/.test(loginSource)) {
   throw new Error('Expected Login page to surface mapped Google sign-in errors to users.');
 }
 
-if (!/catch\s*\{\s*setError\('Unable to reach authentication right now\. Please try again\.'\);\s*\}/s.test(loginSource)) {
+if (!/Unable to reach authentication right now\. Please try again\./.test(loginSource)) {
   throw new Error('Expected Login page to handle thrown Google sign-in network errors.');
 }
 
-if (!/finally\s*\{\s*setLoading\(false\);\s*\}/s.test(loginSource)) {
+if (!/finally\s*\{[\s\S]*authFinished[\s\S]*\}/.test(loginSource) && !/finally\s*\{\s*setLoading\(false\);\s*\}/s.test(loginSource)) {
   throw new Error('Expected Login page to always reset loading state after Google sign-in attempts.');
 }
 

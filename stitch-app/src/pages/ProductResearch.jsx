@@ -1,7 +1,5 @@
 import React, { useReducer } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useMutation } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 
 const HOW_USING_OPTIONS = [
     { value: 'exam_prep', label: 'Preparing for exams and quizzes' },
@@ -64,9 +62,12 @@ const researchReducer = (state, action) => {
     }
 };
 
+/**
+ * Product research is parked during the Supabase hard cutover.
+ * Keep the public route live with a clear unavailable state (no Convex).
+ */
 const ProductResearch = () => {
     const [searchParams] = useSearchParams();
-    const submitResponseByToken = useMutation(api.productResearch.submitResponseByToken);
     const [{
         howUsingApp,
         wantedFeatures,
@@ -77,167 +78,120 @@ const ProductResearch = () => {
     }, dispatchResearch] = useReducer(researchReducer, initialResearchState);
 
     const token = getTrimmedParam(searchParams, 'token');
-    const campaign = getTrimmedParam(searchParams, 'campaign');
-    const cohort = getTrimmedParam(searchParams, 'cohort');
     const tokenMissing = !token;
 
     const handleSubmit = async (event) => {
         event.preventDefault();
         if (tokenMissing || submitting) return;
-
         dispatchResearch({ type: 'submitStarted' });
-
-        try {
-            await submitResponseByToken({
-                token,
-                campaign: campaign || undefined,
-                cohort: cohort || undefined,
-                howUsingApp,
-                wantedFeatures,
-                additionalNotes: notes.trim() || undefined,
-                source: 'email_research_form',
-            });
-            dispatchResearch({ type: 'submitSucceeded' });
-        } catch (error) {
-            const message = String(error?.message || error || '');
-            if (message.includes('invalid or expired')) {
-                dispatchResearch({
-                    type: 'submitFailed',
-                    message: 'This research link is no longer valid. Please use the latest email link.',
-                });
-            } else {
-                dispatchResearch({
-                    type: 'submitFailed',
-                    message: 'We could not save your response right now. Please try again shortly.',
-                });
-            }
-        }
+        dispatchResearch({
+            type: 'submitFailed',
+            message: 'Product research intake is temporarily unavailable while we finish the backend cutover. Please try again later.',
+        });
     };
 
     if (submitted) {
         return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4 py-10">
-                <div className="w-full max-w-2xl card-base p-6 sm:p-8 text-center">
-                    <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-accent-emerald/10 text-accent-emerald">
-                        <span className="material-symbols-outlined text-[24px]">done</span>
-                    </div>
-                    <h1 className="mt-4 text-display-sm text-text-main-light dark:text-text-main-dark">Thanks for your feedback</h1>
-                    <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                        Your response was saved and will help shape the next product updates.
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-6">
+                <div className="max-w-lg w-full card-base p-8 text-center">
+                    <h1 className="text-2xl font-semibold">Thanks for the feedback</h1>
+                    <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">
+                        Your responses help us improve ChewnPour.
                     </p>
-                    <div className="mt-6 flex justify-center">
-                        <Link
-                            to="/dashboard"
-                            className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-body-sm"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                            Back to dashboard
-                        </Link>
-                    </div>
+                    <Link to="/" className="btn-primary inline-flex mt-6 px-5 py-2.5 text-sm">
+                        Back to home
+                    </Link>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4 py-10">
-            <div className="w-full max-w-2xl card-base p-6 sm:p-8">
-                <div className="mb-6">
-                    <p className="text-overline text-primary">Product Research</p>
-                    <h1 className="mt-2 text-display-sm text-text-main-light dark:text-text-main-dark">Help us improve ChewnPour</h1>
-                    <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                        This takes less than a minute. Your answers help us prioritize the next features.
+        <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-6 py-10">
+            <div className="max-w-lg w-full card-base p-8">
+                <p className="text-overline text-primary">Product Research</p>
+                <h1 className="mt-2 text-2xl font-semibold">How are you mainly using the app?</h1>
+                <p className="mt-2 text-sm text-text-faint-light dark:text-text-faint-dark">
+                    What would you most like us to improve next?
+                </p>
+
+                {tokenMissing ? (
+                    <p className="mt-6 text-sm text-amber-700 dark:text-amber-300">
+                        This research link is missing a token.
                     </p>
-                </div>
+                ) : (
+                    <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+                        <fieldset>
+                            <legend className="text-sm font-semibold mb-2">How are you mainly using the app?</legend>
+                            <div className="space-y-2">
+                                {HOW_USING_OPTIONS.map((option) => (
+                                    <label key={option.value} className="flex items-center gap-2 text-sm">
+                                        <input
+                                            type="radio"
+                                            name="howUsingApp"
+                                            value={option.value}
+                                            checked={howUsingApp === option.value}
+                                            onChange={(event) => dispatchResearch({
+                                                type: 'fieldChanged',
+                                                field: 'howUsingApp',
+                                                value: event.target.value,
+                                            })}
+                                        />
+                                        {option.label}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
 
-                {tokenMissing && (
-                    <div className="mb-5 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 text-body-sm text-amber-800 dark:text-amber-300">
-                        This research link is missing a token. Please open the full link from the email.
-                    </div>
-                )}
+                        <fieldset>
+                            <legend className="text-sm font-semibold mb-2">What would you most like us to improve next?</legend>
+                            <div className="space-y-2">
+                                {WANTED_FEATURES_OPTIONS.map((option) => (
+                                    <label key={option.value} className="flex items-center gap-2 text-sm">
+                                        <input
+                                            type="radio"
+                                            name="wantedFeatures"
+                                            value={option.value}
+                                            checked={wantedFeatures === option.value}
+                                            onChange={(event) => dispatchResearch({
+                                                type: 'fieldChanged',
+                                                field: 'wantedFeatures',
+                                                value: event.target.value,
+                                            })}
+                                        />
+                                        {option.label}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <label className="block space-y-2">
-                        <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">How are you mainly using the app?</span>
-                        <select
-                            value={howUsingApp}
-                            onChange={(event) => dispatchResearch({
-                                type: 'fieldChanged',
-                                field: 'howUsingApp',
-                                value: event.target.value,
-                            })}
-                            required
-                            disabled={tokenMissing || submitting}
-                            className="input-field text-body-sm"
-                        >
-                            <option value="" disabled>Select one option</option>
-                            {HOW_USING_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                        </select>
-                    </label>
+                        <label className="block text-sm">
+                            <span className="font-semibold">Additional notes</span>
+                            <textarea
+                                className="mt-2 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 py-2"
+                                rows={4}
+                                value={notes}
+                                onChange={(event) => dispatchResearch({
+                                    type: 'fieldChanged',
+                                    field: 'notes',
+                                    value: event.target.value,
+                                })}
+                            />
+                        </label>
 
-                    <label className="block space-y-2">
-                        <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">What would you most like us to improve next?</span>
-                        <select
-                            value={wantedFeatures}
-                            onChange={(event) => dispatchResearch({
-                                type: 'fieldChanged',
-                                field: 'wantedFeatures',
-                                value: event.target.value,
-                            })}
-                            required
-                            disabled={tokenMissing || submitting}
-                            className="input-field text-body-sm"
-                        >
-                            <option value="" disabled>Select one option</option>
-                            {WANTED_FEATURES_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                        </select>
-                    </label>
+                        {errorMessage ? (
+                            <p className="text-sm text-amber-700 dark:text-amber-300">{errorMessage}</p>
+                        ) : null}
 
-                    <label className="block space-y-2">
-                        <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Anything else we should know? (optional)</span>
-                        <textarea
-                            value={notes}
-                            onChange={(event) => dispatchResearch({
-                                type: 'fieldChanged',
-                                field: 'notes',
-                                value: event.target.value,
-                            })}
-                            rows={4}
-                            maxLength={1200}
-                            disabled={tokenMissing || submitting}
-                            placeholder="Share examples, blockers, or feature ideas..."
-                            className="input-field text-body-sm resize-y"
-                        />
-                    </label>
-
-                    {errorMessage && (
-                        <p className="p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300">
-                            {errorMessage}
-                        </p>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-3 pt-2">
                         <button
                             type="submit"
-                            disabled={tokenMissing || submitting || !howUsingApp || !wantedFeatures}
-                            className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-body-sm"
+                            disabled={submitting || !howUsingApp || !wantedFeatures}
+                            className="btn-primary px-5 py-2.5 text-sm disabled:opacity-60"
                         >
-                            <span className="material-symbols-outlined text-[18px]">{submitting ? 'hourglass_top' : 'send'}</span>
-                            {submitting ? 'Submitting...' : 'Submit feedback'}
+                            {submitting ? 'Submitting…' : 'Submit feedback'}
                         </button>
-                        <Link
-                            to="/dashboard"
-                            className="btn-secondary inline-flex items-center gap-2 px-4 py-2.5 text-body-sm"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">close</span>
-                            Skip for now
-                        </Link>
-                    </div>
-                </form>
+                    </form>
+                )}
             </div>
         </div>
     );

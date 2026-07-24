@@ -16,19 +16,20 @@ for (const pattern of ['path="/unsubscribe"', "import('./pages/Unsubscribe')"]) 
 }
 
 const unsubscribeSource = await read('src/pages/Unsubscribe.jsx');
-for (const pattern of ['unsubscribeByToken', 'winback_offers', 'Preferences updated']) {
+for (const pattern of ['winback_offers', 'Email preferences are being moved', 'Open settings']) {
   if (!unsubscribeSource.includes(pattern)) {
     throw new Error(`Expected Unsubscribe.jsx to include "${pattern}".`);
   }
 }
+if (/from ['"]convex\/react['"]|unsubscribeByToken/.test(unsubscribeSource)) {
+  throw new Error('Expected Unsubscribe.jsx to stay Convex-free while parked.');
+}
 
 const profileSource = await read('src/pages/Profile.jsx');
-for (const pattern of ['winbackOffers: true']) {
-  if (!profileSource.includes(pattern)) {
-    throw new Error(`Expected Profile.jsx to include "${pattern}".`);
-  }
+if (!profileSource.includes('Navigate to="/dashboard/settings#profile"')) {
+  throw new Error('Expected Profile.jsx to hard-redirect to settings#profile.');
 }
-for (const forbiddenPattern of ['Win-back Offers', "handleEmailPrefToggle('winbackOffers')"]) {
+for (const forbiddenPattern of ['Win-back Offers', "handleEmailPrefToggle('winbackOffers')", "from 'convex/react'"]) {
   if (profileSource.includes(forbiddenPattern)) {
     throw new Error(`Expected Profile.jsx to hide "${forbiddenPattern}" from the profile UI.`);
   }

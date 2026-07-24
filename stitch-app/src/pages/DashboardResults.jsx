@@ -1,7 +1,6 @@
 import React, { useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useAction, useConvexAuth } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { useAuth } from '../contexts/AuthContext';
 import {
     QUESTION_TYPE_FILL_BLANK,
     isEssayFormat,
@@ -14,8 +13,29 @@ import { Confetti } from '../components/magicui/Confetti';
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
 const PostExamUpgradeCard = () => {
-    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
-    const uploadQuota = useQuery(api.subscriptions.getUploadQuotaStatus, isConvexAuthenticated ? {} : 'skip');
+    const [uploadQuota, setUploadQuota] = useState(undefined);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch('/api/billing', { credentials: 'include' })
+            .then(async (response) => {
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || 'Billing unavailable');
+                return payload;
+            })
+            .then((payload) => {
+                if (cancelled) return;
+                setUploadQuota({
+                    remaining: Number(payload?.billing?.remainingUploadCredits ?? 0),
+                });
+            })
+            .catch(() => {
+                if (!cancelled) setUploadQuota(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // Don't render while loading or if query fails
     if (uploadQuota === undefined || uploadQuota === null) return null;
@@ -319,8 +339,23 @@ const tutorFeedbackReducer = (state, action) => {
     }
 };
 
-const TutorReport = ({ attemptId, storedFeedback }) => {
-    const generateFeedback = useAction(api.ai.generateExamFeedback);
+const buildHeuristicTutorFeedback = (attempt) => {
+    const percentage = Number(attempt?.percentage || attempt?.percent || 0);
+    const topicTitle = attempt?.topicTitle || 'this lesson';
+    const incorrect = (attempt?.answers || []).filter((answer) => !answer.isCorrect && !answer.skipped);
+    if (percentage >= 85) {
+        return `Exam Ready\n\nStrong work on ${topicTitle}. You scored ${percentage}%. Keep reviewing explanations on any misses, then move to another topic while this one is fresh.`;
+    }
+    if (percentage >= 70) {
+        return `Almost Ready\n\nYou scored ${percentage}% on ${topicTitle}. Review the incorrect questions below, then retry once to lock in the weak spots.`;
+    }
+    if (incorrect.length > 0) {
+        return `Not Ready\n\nYou scored ${percentage}% on ${topicTitle}. Focus first on the ${incorrect.length} missed question${incorrect.length === 1 ? '' : 's'} in the review list, then retake the quiz.`;
+    }
+    return `Ready\n\nYou finished ${topicTitle} at ${percentage}%. Review the question list once, then decide whether to retry or continue to the next lesson.`;
+};
+
+const TutorReport = ({ attemptId, storedFeedback, attempt }) => {
     const normalizedStoredFeedback = typeof storedFeedback === 'string'
         ? storedFeedback.trim()
         : '';
@@ -336,25 +371,20 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
 
     useEffect(() => {
         if (!attemptId || normalizedStoredFeedback || generatedFeedback !== null) return undefined;
-        // #3 — prevent duplicate concurrent calls for same attempt
         if (feedbackInFlight.has(attemptId)) return undefined;
         feedbackInFlight.add(attemptId);
         let cancelled = false;
-        generateFeedback({ attemptId })
+        Promise.resolve()
+            .then(() => buildHeuristicTutorFeedback(attempt))
             .then((text) => {
-                // Success — feedback confirmed generated, safe to clear guard
                 feedbackInFlight.delete(attemptId);
                 if (cancelled) return;
                 const normalized = String(text || '').trim();
                 dispatchTutorFeedback({ type: 'loaded', feedback: normalized || null });
             })
             .catch((err) => {
-                // #5 — log error instead of silently swallowing
                 console.error('[TutorReport] Tutor feedback preparation did not complete:', err);
-                // Permanent failure (4xx-class) — clear guard so retry is possible on next mount
-                const isPermanent = err?.data?.code === 'INVALID_ARGUMENT' || err?.data?.code === 'NOT_FOUND';
-                if (isPermanent) feedbackInFlight.delete(attemptId);
-                // Transient failure — keep the Set entry so rapid re-mount won't re-trigger
+                feedbackInFlight.delete(attemptId);
                 if (!cancelled) {
                     dispatchTutorFeedback({ type: 'failed' });
                 }
@@ -362,7 +392,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
         return () => {
             cancelled = true;
         };
-    }, [attemptId, normalizedStoredFeedback, generatedFeedback, generateFeedback]);
+    }, [attemptId, attempt, normalizedStoredFeedback, generatedFeedback]);
 
     const readinessLabel = feedback ? extractReadinessLabel(feedback) : null;
 
@@ -413,15 +443,38 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
 // react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardResults = () => {
     const { attemptId } = useParams();
-    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
-
-    const attempt = useQuery(
-        api.exams.getExamAttempt,
-        attemptId ? { attemptId } : 'skip'
-    );
-    const profile = useQuery(api.profiles.getProfile, isConvexAuthenticated ? {} : 'skip');
+    const { profile } = useAuth();
+    const [attempt, setAttempt] = useState(undefined);
     const [showConfetti, setShowConfetti] = useState(false);
     const confettiTriggeredRef = useRef(false);
+
+    useEffect(() => {
+        if (!attemptId) {
+            setAttempt(null);
+            return undefined;
+        }
+        let cancelled = false;
+        setAttempt(undefined);
+        fetch(`/api/quiz-attempts/${encodeURIComponent(attemptId)}`, {
+            credentials: 'include',
+            headers: { Accept: 'application/json' },
+        })
+            .then(async (response) => {
+                if (response.status === 404) return null;
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || 'Failed to load results');
+                return payload.attempt || null;
+            })
+            .then((nextAttempt) => {
+                if (!cancelled) setAttempt(nextAttempt);
+            })
+            .catch(() => {
+                if (!cancelled) setAttempt(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [attemptId]);
 
     // Compute percentage early for confetti hook (must be before any early return)
     const rawPercentage = attempt && typeof attempt === 'object'
@@ -638,7 +691,7 @@ const DashboardResults = () => {
 
                 {/* Tutor Report */}
                 <section className="w-full flex justify-center">
-                    <TutorReport key={attemptId} attemptId={attemptId} storedFeedback={attempt.tutorFeedback} />
+                    <TutorReport key={attemptId} attemptId={attemptId} storedFeedback={attempt.tutorFeedback} attempt={attempt} />
                 </section>
 
                 {/* Next Steps Guidance */}

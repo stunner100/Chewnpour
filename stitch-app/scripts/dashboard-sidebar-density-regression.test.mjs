@@ -14,13 +14,21 @@ const requireIncludes = (source, snippet, label) => {
   }
 };
 
+const requireExcludes = (source, snippet, label) => {
+  if (source.includes(snippet)) {
+    throw new Error(`Dashboard sidebar should not keep ${label}: ${snippet}`);
+  }
+};
+
 requireIncludes(layoutSource, 'SidebarProvider', 'sidebar-07 provider shell');
 requireIncludes(layoutSource, 'SidebarInset', 'sidebar inset content area');
 requireIncludes(layoutSource, 'SidebarTrigger', 'collapsible sidebar trigger');
 requireIncludes(sidebarSource, 'collapsible="icon"', 'icon-collapsible sidebar');
 requireIncludes(sidebarSource, 'Generate Material', 'primary sidebar CTA');
-requireIncludes(sidebarSource, 'profile?.fullName', 'convex profile fullName for sidebar display name');
-requireIncludes(sidebarSource, 'profile?.avatarUrl', 'convex profile avatarUrl for sidebar avatar');
+requireIncludes(sidebarSource, 'profile?.fullName', 'profile fullName for sidebar display name');
+requireIncludes(sidebarSource, 'profile?.avatarUrl', 'profile avatarUrl for sidebar avatar');
+requireExcludes(sidebarSource, '/dashboard/flashcards', 'parked flashcards nav');
+requireExcludes(sidebarSource, '/dashboard/podcasts', 'parked podcasts nav');
 requireIncludes(navMainSource, 'SidebarMenuButton', 'compact sidebar menu buttons');
 requireIncludes(navMainSource, 'tooltip={item.title}', 'icon-collapsed tooltips');
 requireIncludes(sidebarUiSource, 'w-[var(--sidebar-width)]', 'tailwind v3 sidebar width classes');

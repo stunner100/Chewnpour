@@ -1,6 +1,4 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useMutation } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 
 /**
  * Tracks time spent on a page and periodically flushes it to the backend.
@@ -15,9 +13,19 @@ import { api } from '../../convex/_generated/api';
 const FLUSH_INTERVAL_MS = 5 * 60 * 1000; // flush every 5 min
 const MIN_FLUSH_MINUTES = 0.25;           // ignore < 15 s
 
-export function useStudyTimer(userId) {
-    const addStudyTime = useMutation(api.profiles.addStudyTime);
+const postStudyTime = async (minutes) => {
+    const response = await fetch('/api/profile/study-time', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes }),
+    });
+    if (!response.ok) {
+        throw new Error(`Study time flush failed (${response.status})`);
+    }
+};
 
+export function useStudyTimer(userId) {
     // Accumulated minutes not yet flushed.
     const accMinutesRef = useRef(0);
     // Failed flush retries, stored per user to avoid cross-user leakage.
@@ -63,13 +71,13 @@ export function useStudyTimer(userId) {
             accMinutesRef.current = 0;
             setPendingMinutesForUser(normalizedUserId, 0);
             // Fire-and-forget; don't await — avoids blocking unmount.
-            addStudyTime({ minutes }).catch(() => {
+            postStudyTime(minutes).catch(() => {
                 // Retry failed minutes for the same user only.
                 const currentPending = getPendingMinutesForUser(normalizedUserId);
                 setPendingMinutesForUser(normalizedUserId, currentPending + minutes);
             });
         }
-    }, [addStudyTime, getPendingMinutesForUser, markElapsed, setPendingMinutesForUser]);
+    }, [getPendingMinutesForUser, markElapsed, setPendingMinutesForUser]);
 
     const flush = useCallback(() => {
         flushForUser(userIdRef.current);
