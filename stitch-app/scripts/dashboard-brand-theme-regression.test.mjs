@@ -8,13 +8,16 @@ const brandSource = await fs.readFile(path.join(root, 'src/components/team-switc
 
 for (const snippet of [
     "import BrandLogo from './BrandLogo.jsx';",
-    "import useThemeMode from '../lib/useThemeMode.js';",
-    "variant={isDarkMode ? 'white' : 'default'}",
+    'variant="mark"',
     'AI Study Workspace',
 ]) {
     if (!brandSource.includes(snippet) && !layoutSource.includes(snippet)) {
         throw new Error(`Expected dashboard shell to include "${snippet}".`);
     }
+}
+
+if (brandSource.includes("variant={isDarkMode ? 'white' : 'default'}")) {
+    throw new Error('Sidebar brand slot must use the square mark, not the wordmark.');
 }
 
 for (const snippet of [

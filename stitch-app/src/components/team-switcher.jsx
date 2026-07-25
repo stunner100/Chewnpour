@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom';
 import BrandLogo from './BrandLogo.jsx';
-import useThemeMode from '../lib/useThemeMode.js';
-import { DARK_THEME } from '../lib/theme.js';
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -9,9 +7,6 @@ import {
 } from '@/components/ui/sidebar';
 
 export function TeamSwitcher() {
-  const { mode: themeMode } = useThemeMode();
-  const isDarkMode = themeMode === DARK_THEME;
-
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -19,7 +14,7 @@ export function TeamSwitcher() {
           <Link to="/dashboard" aria-label="ChewnPour dashboard">
             <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
               <BrandLogo
-                variant={isDarkMode ? 'white' : 'default'}
+                variant="mark"
                 size={28}
                 decorative
                 className="max-h-full max-w-full"
