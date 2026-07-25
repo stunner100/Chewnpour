@@ -67,6 +67,18 @@
       "destination": "https://us.i.posthog.com/:path"
     },
     {
+      "source": "/api/paystack-webhook",
+      "destination": "/api/paystack-webhook"
+    },
+    {
+      "source": "/api/sentry-tunnel",
+      "destination": "/api/sentry-tunnel"
+    },
+    {
+      "source": "/api/:path(.*)",
+      "destination": "/api/router?__path=:path"
+    },
+    {
       "source": "/((?!api/|ingest/|.*\\.).*)",
       "destination": "/"
     }

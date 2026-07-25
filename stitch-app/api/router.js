@@ -1,3 +1,5 @@
+import { toNodeHandler } from "better-auth/node";
+import { auth } from "../server/auth.js";
 import { handleBillingRequest } from "../server/billingHttp.js";
 import {
     handleCoursesRequest,
@@ -8,13 +10,38 @@ import { handleProfileRequest } from "../server/profileHttp.js";
 import { handleProgressRequest } from "../server/progressHttp.js";
 import { handleUploadsRequest } from "../server/uploadHttp.js";
 
+// Better Auth must parse the raw body itself.
+export const config = {
+    api: {
+        bodyParser: false,
+    },
+};
+
+const authHandler = toNodeHandler(auth);
+
+const restoreOriginalUrl = (req) => {
+    const current = String(req.url || "/");
+    const url = new URL(current, "http://localhost");
+    const encoded = url.searchParams.get("__path");
+    if (!encoded) return;
+
+    url.searchParams.delete("__path");
+    const qs = url.searchParams.toString();
+    req.url = `/api/${encoded}${qs ? `?${qs}` : ""}`;
+};
+
 /**
- * Single catch-all for product APIs so Hobby stays under the 12-function limit.
- * Better Auth stays at api/auth/[...all].js; paystack + sentry keep dedicated files.
+ * Single API entrypoint. Vercel Hobby / non-Next catch-alls only reliably match
+ * one path segment, so multi-segment routes (/api/auth/sign-in/social) are
+ * rewritten here via vercel.json.
  */
 export default async function handler(req, res) {
+    restoreOriginalUrl(req);
     const pathname = String(req.url || "").split("?")[0];
 
+    if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) {
+        return authHandler(req, res);
+    }
     if (pathname === "/api/profile" || pathname.startsWith("/api/profile/")) {
         return handleProfileRequest(req, res);
     }
@@ -42,5 +69,5 @@ export default async function handler(req, res) {
 
     res.statusCode = 404;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.end(JSON.stringify({ error: "Not found" }));
+    res.end(JSON.stringify({ error: "Not found", path: pathname }));
 }
