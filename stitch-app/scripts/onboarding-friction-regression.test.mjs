@@ -28,14 +28,24 @@ for (const pattern of [
   'const EMAIL_PATTERN',
   'form={NAME_FORM_ID}',
   'fixed bottom-0 left-0 w-full',
-  'Step 1 of 3',
   'isEmailValid',
   'isPasswordValid',
   'Valid email address.',
   'At least 6 characters required.',
+  'Create account',
 ]) {
   if (!onboardingNameSource.includes(pattern)) {
     throw new Error(`Expected OnboardingName to include "${pattern}" for visible submit support.`);
+  }
+}
+
+for (const retired of [
+  'Step 1 of 3',
+  'OnboardingProgress',
+  'total={3}',
+]) {
+  if (onboardingNameSource.includes(retired)) {
+    throw new Error(`OnboardingName still references retired multi-step UI: "${retired}".`);
   }
 }
 

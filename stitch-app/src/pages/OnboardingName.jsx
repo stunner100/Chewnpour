@@ -4,7 +4,6 @@ import { m as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import BrandLogo from '../components/BrandLogo';
 import { BlurFade } from '../components/magicui/BlurFade';
-import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 import AppIcon from '../components/AppIcon';
@@ -167,25 +166,19 @@ const OnboardingName = () => {
             className="min-h-screen flex flex-col"
             style={{ background: PAGE_BG, color: TEXT_MAIN, fontFamily: '"Space Grotesk", "DM Sans", system-ui, sans-serif' }}
         >
-            {/* Header — logo + progress + step indicator */}
+            {/* Header — logo + back */}
             <header className="w-full pt-6 pb-2 px-6">
                 <div className="max-w-md mx-auto">
                     <Link to="/" className="flex items-center gap-2.5 text-[#0F766E] mb-5" aria-label="ChewnPour home">
                         <BrandLogo size={28} decorative />
                     </Link>
-                    <OnboardingProgress step={1} total={3} />
-                    <div className="flex items-center justify-between mt-4">
-                        <Link
-                            to="/signup"
-                            className="inline-flex items-center justify-center size-9 rounded-full text-[#687384] hover:text-[#1F2933] hover:bg-[#F3EEE7] transition-colors"
-                            aria-label="Back"
-                        >
-                            <AppIcon name="arrow_back" className="text-[20px]" />
-                        </Link>
-                        <span className="text-xs font-semibold ui-text" style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}>
-                            Step 1 of 3
-                        </span>
-                    </div>
+                    <Link
+                        to="/signup"
+                        className="inline-flex items-center justify-center size-9 rounded-full text-[#687384] hover:text-[#1F2933] hover:bg-[#F3EEE7] transition-colors"
+                        aria-label="Back"
+                    >
+                        <AppIcon name="arrow_back" className="text-[20px]" />
+                    </Link>
                 </div>
             </header>
 
@@ -211,7 +204,7 @@ const OnboardingName = () => {
                     </BlurFade>
                     <BlurFade delay={0.15} yOffset={10}>
                         <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55, marginBottom: 32 }}>
-                            Tell us a bit about yourself to get started.
+                            Enter your name, email, and password to start studying.
                         </p>
                     </BlurFade>
 
@@ -361,7 +354,7 @@ const OnboardingName = () => {
                                 <span>Creating account…</span>
                             </>
                         ) : (
-                            <span>Continue</span>
+                            <span>Create account</span>
                         )}
                     </button>
                 </div>
