@@ -155,9 +155,9 @@ const Login = () => {
                     </BlurFade>
                     <BlurFade delay={0.12} yOffset={14}>
                         <h1 className="text-5xl xl:text-6xl font-semibold leading-[1.05] tracking-tight">
-                            Your AI
+                            Your AI{' '}
                             <br />
-                            <span className="text-[rgb(13, 148, 136)]">study</span>
+                            <span className="text-[rgb(13, 148, 136)]">study</span>{' '}
                             <br />
                             <span className="inline-flex items-center gap-3">
                                 <ArrowBadge size={44} /> companion

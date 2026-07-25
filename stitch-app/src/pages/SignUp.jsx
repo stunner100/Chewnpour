@@ -70,8 +70,10 @@ const SignUp = () => {
                             letterSpacing: '-0.025em',
                         }}
                     >
-                        Study<br />
-                        <span style={{ color: ACCENT }}>smarter,</span><br />
+                        Study{' '}
+                        <br />
+                        <span style={{ color: ACCENT }}>smarter,</span>{' '}
+                        <br />
                         not harder
                     </h1>
                     <p
