@@ -27,7 +27,7 @@ const DashboardHero = ({
                 className="absolute inset-0 size-full"
                 quantity={60}
                 ease={70}
-                color="#914bf1"
+                color="#0D9488"
                 size={0.5}
             />
 

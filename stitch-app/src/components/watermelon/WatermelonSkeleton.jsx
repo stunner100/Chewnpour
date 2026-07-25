@@ -3,7 +3,7 @@ import { m as Motion, useReducedMotion } from 'motion/react';
 
 const EMPTY_OBJECT = {};
 
-const ACCENT = 'rgb(145, 75, 241)';
+const ACCENT = 'rgb(13, 148, 136)';
 const BASE = 'rgba(255,255,255,0.05)';
 const HIGHLIGHT = 'rgba(255,255,255,0.10)';
 

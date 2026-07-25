@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PublicShell from '../components/PublicShell';
 
-const ACCENT = 'rgb(145, 75, 241)';
+const ACCENT = 'rgb(13, 148, 136)';
 const CARD_BG = '#FFFFFF';
 const SUBTEXT = '#687384';
 
@@ -55,14 +55,14 @@ const SignUp = () => {
                 <div className="hidden lg:flex flex-col gap-8">
                     <div
                         className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em]"
-                        style={{ color: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                        style={{ color: ACCENT, fontFamily: 'DM Sans, sans-serif' }}
                     >
                         <span className="inline-block w-8 h-[2px]" style={{ background: ACCENT }} />
                         New here
                     </div>
                     <h1
                         style={{
-                            fontFamily: 'Outfit, sans-serif',
+                            fontFamily: 'Space Grotesk, sans-serif',
                             fontWeight: 600,
                             fontSize: 'clamp(40px, 5vw, 60px)',
                             lineHeight: 1.05,
@@ -75,7 +75,7 @@ const SignUp = () => {
                     </h1>
                     <p
                         className="max-w-md"
-                        style={{ color: SUBTEXT, fontSize: 17, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}
+                        style={{ color: SUBTEXT, fontSize: 17, lineHeight: 1.55, fontFamily: 'Space Grotesk, sans-serif' }}
                     >
                         Upload your slides and notes. Get AI-generated lessons, practice quizzes, and a personal tutor in seconds.
                     </p>
@@ -94,7 +94,7 @@ const SignUp = () => {
                                 </span>
                                 <span
                                     className="text-[11px] font-semibold uppercase tracking-wider text-[#1F2933]"
-                                    style={{ fontFamily: 'Inter, sans-serif' }}
+                                    style={{ fontFamily: 'DM Sans, sans-serif' }}
                                 >
                                     {f.label}
                                 </span>
@@ -108,7 +108,7 @@ const SignUp = () => {
                     <div className="mb-6">
                         <h2
                             style={{
-                                fontFamily: 'Outfit, sans-serif',
+                                fontFamily: 'Space Grotesk, sans-serif',
                                 fontWeight: 600,
                                 fontSize: 28,
                                 letterSpacing: '-0.02em',
@@ -117,7 +117,7 @@ const SignUp = () => {
                         >
                             Create your account
                         </h2>
-                        <p style={{ color: SUBTEXT, fontSize: 14, fontFamily: 'Outfit, sans-serif' }}>
+                        <p style={{ color: SUBTEXT, fontSize: 14, fontFamily: 'Space Grotesk, sans-serif' }}>
                             Join your campus community and start studying smarter.
                         </p>
                     </div>
@@ -127,9 +127,9 @@ const SignUp = () => {
                             className="mb-5 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
                             style={{
                                 border: `1px solid ${ACCENT}66`,
-                                background: 'rgba(145,75,241,0.1)',
+                                background: 'rgba(13, 148, 136,0.1)',
                                 color: ACCENT,
-                                fontFamily: 'Inter, sans-serif',
+                                fontFamily: 'DM Sans, sans-serif',
                             }}
                         >
                             <span className="material-symbols-outlined text-[18px]">redeem</span>
@@ -144,7 +144,7 @@ const SignUp = () => {
                                 border: '1px solid rgba(239,68,68,0.4)',
                                 background: 'rgba(239,68,68,0.1)',
                                 color: 'rgb(185,28,28)',
-                                fontFamily: 'Inter, sans-serif',
+                                fontFamily: 'DM Sans, sans-serif',
                             }}
                         >
                             <span className="material-symbols-outlined text-[18px]">error</span>
@@ -170,7 +170,7 @@ const SignUp = () => {
                         <div className="flex-1" style={{ borderTop: '1px solid #E7E0D4' }} />
                         <span
                             className="text-[11px] font-semibold tracking-[0.15em] uppercase"
-                            style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}
+                            style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}
                         >
                             or
                         </span>
@@ -187,7 +187,7 @@ const SignUp = () => {
 
                     <p
                         className="mt-6 text-center text-sm"
-                        style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}
+                        style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}
                     >
                         Already have an account?{' '}
                         <Link to="/login" className="font-semibold hover:underline" style={{ color: ACCENT }}>

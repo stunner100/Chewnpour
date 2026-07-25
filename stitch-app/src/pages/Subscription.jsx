@@ -351,7 +351,7 @@ const Subscription = () => {
                 onClick={handleCheckout}
                 disabled={loading || quotaLoading || !selectedTopUpPlan}
                 className="w-full btn-primary text-body-base py-3 flex items-center justify-center gap-2"
-                shimmerColor="#914bf1"
+                shimmerColor="#0D9488"
             >
                 {loading ? (
                     <>

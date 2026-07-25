@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const EMPTY_ARRAY = [];
 
 const gradients = [
-    '#7c3aed',
+    '#0F766E',
     '#f43f5e',
     '#06b6d4',
     '#10b981',

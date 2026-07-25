@@ -8,16 +8,15 @@ import BrandLogo from '../components/BrandLogo';
 import { BlurFade } from '../components/magicui/BlurFade';
 
 /**
- * Landing page styled to the NajmAI design specification (Outfit font, rgb(16,17,18) background,
- * rgb(39,40,41) cards, rgb(145,75,241) accent, grain texture, glossy purple swirl). Copy and product
- * wiring (static GHS top-up pricing, PostHog events, auth redirects, CTAs to /signup, /login) are ChewnPour's.
+ * Landing page: Space Grotesk + DM Sans, dark surface, teal accent #0D9488, amber CTAs via app tokens.
+ * Copy and product wiring (static GHS top-up pricing, PostHog events, auth redirects, CTAs to /signup, /login) are ChewnPour's.
  */
 
 const PAGE_BG = 'rgb(16, 17, 18)';
 const CARD_BG = 'rgb(39, 40, 41)';
 const HERO_BG = 'rgb(30, 31, 32)';
 const FOOTER_BG = 'rgb(20, 20, 19)';
-const ACCENT = 'rgb(145, 75, 241)';
+const ACCENT = 'rgb(13, 148, 136)';
 const SUBTEXT = 'rgb(163, 163, 163)';
 const VIDEO_BTN = 'rgb(255, 38, 0)';
 
@@ -123,7 +122,7 @@ const BLOG_POSTS = [
         read: '5 min read',
         title: 'Listen, do not just read, why podcast revision actually works',
         excerpt: 'The science behind audio learning and how converting your slides into a two-speaker podcast helps concepts stick on the bus, at the gym, or between lectures.',
-        tone: 'rgb(145, 75, 241)',
+        tone: 'rgb(13, 148, 136)',
         author: 'The ChewnPour Team',
         body: [
             { type: 'p', text: 'Most students think learning has to happen at a desk with a textbook. That assumption is the single biggest reason revision feels miserable. The truth is that your brain is happy to absorb structured material from your ears, sometimes more so than from your eyes.' },
@@ -178,7 +177,7 @@ const PurpleSwirl = ({ className = '' }) => (
 const PartnerMark = ({ icon, label }) => (
     <div className="flex items-center gap-2 text-white/85" aria-hidden="true">
         <span className="material-symbols-outlined text-[26px]">{icon}</span>
-        <span style={{ fontFamily: '"Outfit", sans-serif', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
+        <span style={{ fontFamily: '"Space Grotesk", sans-serif', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
             {label}
         </span>
     </div>
@@ -216,7 +215,7 @@ const FOOTER_LINKS = [
     { href: '#contact', label: 'Contact' },
 ];
 const COLLAB_AVATARS = [
-    { color: '#7C3AED', id: 'akosua', initial: 'A' },
+    { color: '#0F766E', id: 'akosua', initial: 'A' },
     { color: '#22C55E', id: 'kwame', initial: 'K' },
     { color: '#F59E0B', id: 'efua', initial: 'E' },
     { color: '#EC4899', id: 'yaw', initial: 'Y' },
@@ -251,18 +250,18 @@ const PODCAST_WAVEFORM_BARS = [6, 14, 22, 16, 28, 34, 24, 32, 38, 28, 22, 30, 36
 // `react-hooks/static-components`).
 const FilesMock = () => (
         <div className="rounded-xl bg-white shadow-2xl p-4 w-[78%] text-[#0A0A0A]">
-            <div className="flex items-center justify-between text-[11px] font-semibold mb-3" style={{ fontFamily: 'Inter, sans-serif' }}>
+            <div className="flex items-center justify-between text-[11px] font-semibold mb-3" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                 <span className="text-[#0A0A0A]/55">File Type</span>
                 <span className="px-2 py-0.5 rounded-full text-white text-[10px]" style={{ background: ACCENT }}>Total</span>
             </div>
             {[['PDF', '237 KB'], ['DOC', '560 KB'], ['Slides', '257 KB'], ['Notes', '137 KB']].map(([k, v]) => (
-                <div key={k} className="flex items-center justify-between py-1.5 text-[12px] border-b border-[#0A0A0A]/8 last:border-0" style={{ fontFamily: 'Inter, sans-serif' }}>
+                <div key={k} className="flex items-center justify-between py-1.5 text-[12px] border-b border-[#0A0A0A]/8 last:border-0" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                     <span className="font-semibold">{k}</span>
                     <span className="text-[#0A0A0A]/60">{v}</span>
                 </div>
             ))}
-            <div className="mt-3 rounded-lg p-2.5" style={{ background: 'rgba(145,75,241,0.08)' }}>
-                <p className="text-[11px] font-semibold text-[#0A0A0A]/65" style={{ fontFamily: 'Inter, sans-serif' }}>Mastery</p>
+            <div className="mt-3 rounded-lg p-2.5" style={{ background: 'rgba(13, 148, 136,0.08)' }}>
+                <p className="text-[11px] font-semibold text-[#0A0A0A]/65" style={{ fontFamily: 'DM Sans, sans-serif' }}>Mastery</p>
                 <svg viewBox="0 0 200 50" className="w-full h-10 mt-1">
                     <defs>
                         <linearGradient id="mockArea" x1="0" y1="0" x2="0" y2="1">
@@ -280,7 +279,7 @@ const FilesMock = () => (
 
 const CollabMock = () => (
     <div className="rounded-xl bg-white shadow-2xl p-4 w-[80%] text-[#0A0A0A]">
-        <div className="flex items-center justify-between text-[11px] font-semibold mb-3" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="flex items-center justify-between text-[11px] font-semibold mb-3" style={{ fontFamily: 'DM Sans, sans-serif' }}>
             <span className="text-[#0A0A0A]/55">Collaborators</span>
             <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">chevron_right</span>
         </div>
@@ -292,7 +291,7 @@ const CollabMock = () => (
             ))}
         </div>
         <div className="rounded-lg p-3" style={{ background: '#F4F1FE' }}>
-            <p className="text-[11px] font-bold text-[#0A0A0A] mb-2" style={{ fontFamily: 'Inter, sans-serif' }}>Building Study Group Notes</p>
+            <p className="text-[11px] font-bold text-[#0A0A0A] mb-2" style={{ fontFamily: 'DM Sans, sans-serif' }}>Building Study Group Notes</p>
             <div className="space-y-1.5">
                 {COLLAB_PROGRESS_BARS.map(({ id, width }) => (
                     <div key={id} className="h-1.5 rounded-full bg-white overflow-hidden">
@@ -307,7 +306,7 @@ const CollabMock = () => (
 
 const ScheduleMock = () => (
     <div className="rounded-xl bg-white shadow-2xl p-4 w-[80%] text-[#0A0A0A]">
-        <div className="flex items-center justify-between mb-3 text-xs font-semibold" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="flex items-center justify-between mb-3 text-xs font-semibold" style={{ fontFamily: 'DM Sans, sans-serif' }}>
             <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[16px]" style={{ color: ACCENT }}>calendar_today</span>
                 <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">person</span>
@@ -315,8 +314,8 @@ const ScheduleMock = () => (
                 <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">place</span>
             </div>
         </div>
-        <div className="text-center text-xs font-bold mb-2" style={{ fontFamily: 'Inter, sans-serif' }}>April 2026</div>
-        <div className="grid grid-cols-7 gap-1 text-[10px]" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="text-center text-xs font-bold mb-2" style={{ fontFamily: 'DM Sans, sans-serif' }}>April 2026</div>
+        <div className="grid grid-cols-7 gap-1 text-[10px]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
             {CALENDAR_DAYS.map(({ id, label }) => (
                 <div key={id} className="text-center text-[#0A0A0A]/55 font-semibold">{label}</div>
             ))}
@@ -324,10 +323,10 @@ const ScheduleMock = () => (
                 <div
                     key={id}
                     className={`h-7 rounded flex items-center justify-center font-semibold ${
-                        isActive ? 'text-white' : isStudy ? 'text-[color:rgb(145,75,241)]' : 'text-[#0A0A0A]/65'
+                        isActive ? 'text-white' : isStudy ? 'text-[color:rgb(13, 148, 136)]' : 'text-[#0A0A0A]/65'
                     }`}
                     style={{
-                        background: isActive ? ACCENT : isStudy ? 'rgba(145,75,241,0.12)' : 'transparent',
+                        background: isActive ? ACCENT : isStudy ? 'rgba(13, 148, 136,0.12)' : 'transparent',
                     }}
                 >
                     {date}
@@ -344,10 +343,10 @@ const PodcastMock = () => (
                 <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>headphones</span>
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-bold text-[#0A0A0A] truncate" style={{ fontFamily: 'Inter, sans-serif' }}>
+                <p className="text-[12px] font-bold text-[#0A0A0A] truncate" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                     Biochem · Enzyme Kinetics
                 </p>
-                <p className="text-[10px] text-[#0A0A0A]/55" style={{ fontFamily: 'Inter, sans-serif' }}>
+                <p className="text-[10px] text-[#0A0A0A]/55" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                     Two-speaker dialogue · 12 min
                 </p>
             </div>
@@ -359,12 +358,12 @@ const PodcastMock = () => (
                     className="flex-1 rounded-full"
                     style={{
                         height,
-                        background: played ? ACCENT : 'rgba(145,75,241,0.22)',
+                        background: played ? ACCENT : 'rgba(13, 148, 136,0.22)',
                     }}
                 />
             ))}
         </div>
-        <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(10,10,10,0.55)', fontFamily: 'Inter, sans-serif' }}>
+        <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(10,10,10,0.55)', fontFamily: 'DM Sans, sans-serif' }}>
             <span>3:42</span>
             <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-[18px]">replay_10</span>
@@ -381,13 +380,13 @@ const PodcastMock = () => (
         <div className="flex items-center gap-2 mt-3">
             <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                style={{ background: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                style={{ background: ACCENT, fontFamily: 'DM Sans, sans-serif' }}
             >
                 <span className="size-1.5 rounded-full bg-white" /> Tutor
             </span>
             <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                style={{ background: 'rgba(145,75,241,0.12)', color: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                style={{ background: 'rgba(13, 148, 136,0.12)', color: ACCENT, fontFamily: 'DM Sans, sans-serif' }}
             >
                 <span className="size-1.5 rounded-full" style={{ background: ACCENT }} /> Student
             </span>
@@ -399,7 +398,7 @@ const FeatureMockup = ({ kind }) => {
     const Card = kind === 'podcast' ? PodcastMock : kind === 'collab' ? CollabMock : kind === 'schedule' ? ScheduleMock : FilesMock;
     return (
         <div className="relative aspect-[5/4] rounded-2xl overflow-hidden border border-white/5">
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #4A1AA0 0%, #7C3AED 45%, #A259FF 100%)' }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #115E59 0%, #0F766E 45%, #2DD4BF 100%)' }} />
             <div
                 className="absolute inset-0 opacity-70 mix-blend-screen"
                 style={{
@@ -418,12 +417,12 @@ const FeatureMockup = ({ kind }) => {
 const FaqItem = ({ q, a, open, onToggle }) => (
     <div className="border-b" style={{ borderColor: 'rgba(217,217,217,0.15)' }}>
         <button type="button" onClick={onToggle} className="w-full flex items-center justify-between gap-6 py-5 text-left" aria-expanded={open}>
-            <span className="text-[16px] font-semibold text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>{q}</span>
+            <span className="text-[16px] font-semibold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{q}</span>
             <span className={`material-symbols-outlined text-white/70 text-[22px] transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>expand_more</span>
         </button>
         <div className={`grid transition-all duration-300 ease-out ${open ? 'grid-rows-[1fr] opacity-100 pb-5' : 'grid-rows-[0fr] opacity-0'}`}>
             <div className="overflow-hidden">
-                <p className="text-[15px] leading-relaxed" style={{ color: SUBTEXT, fontFamily: 'Outfit, sans-serif' }}>{a}</p>
+                <p className="text-[15px] leading-relaxed" style={{ color: SUBTEXT, fontFamily: 'Space Grotesk, sans-serif' }}>{a}</p>
             </div>
         </div>
     </div>
@@ -431,10 +430,10 @@ const FaqItem = ({ q, a, open, onToggle }) => (
 
 const LandingPageStyles = () => (
     <style>{`
-        .landing-root { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-        .landing-root .font-mono { font-family: 'Outfit', 'Inter', system-ui, sans-serif !important; }
-        .landing-root h1, .landing-root h2, .landing-root h3, .landing-root h4 { font-family: 'Outfit', sans-serif; letter-spacing: -0.025em; }
-        .landing-root .ui-text { font-family: 'Inter', sans-serif; }
+        .landing-root { font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif; }
+        .landing-root .font-mono { font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif !important; }
+        .landing-root h1, .landing-root h2, .landing-root h3, .landing-root h4 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.025em; }
+        .landing-root .ui-text { font-family: 'DM Sans', sans-serif; }
         .grain { position: relative; isolation: isolate; }
         .grain::before {
             content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -708,11 +707,11 @@ const HeroSection = ({ captureLandingEvent }) => (
         <div className="hero-card grain relative overflow-hidden border border-white/5">
             <div className="hero-grid h-full">
                 <div className="hero-copy">
-                    <h1 className="hero-title" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, lineHeight: 1.05 }}>
+                    <h1 className="hero-title" style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, lineHeight: 1.05 }}>
                         Your AI-Powered<br />
                         <span style={{ color: ACCENT }}>Study</span> Assistant
                     </h1>
-                    <p className="hero-sub" style={{ color: SUBTEXT, fontFamily: 'Outfit, sans-serif', lineHeight: 1.55 }}>
+                    <p className="hero-sub" style={{ color: SUBTEXT, fontFamily: 'Space Grotesk, sans-serif', lineHeight: 1.55 }}>
                         Unlock your learning potential. Seamlessly turn slides and PDFs into structured lessons,
                         quizzes, and an always-on tutor, built for African students.
                     </p>
@@ -751,7 +750,7 @@ const PartnerMarqueeSection = () => (
 
 const HowSection = () => (
     <section id="how" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+        <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
             Unleash Your <span style={{ color: ACCENT }}>Creativity</span>
         </h2>
         <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
@@ -765,7 +764,7 @@ const HowSection = () => (
                         <span className="inline-flex items-center justify-center size-12 rounded-full" style={{ background: ACCENT }}>
                             <span className="material-symbols-outlined text-white text-[24px]">{card.icon}</span>
                         </span>
-                        <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 26 }}>
+                        <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 26 }}>
                             {card.title}
                         </h3>
                         <p className="mt-2" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
@@ -784,7 +783,7 @@ const FeatureRowsSection = ({ captureLandingEvent }) => (
             <BlurFade key={row.title} inView yOffset={24} duration={0.55}>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
                     <div className={row.side === 'right' ? 'lg:order-1' : 'lg:order-2'}>
-                        <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(28px, 3.5vw, 38px)', lineHeight: 1.1 }}>
+                        <h3 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(28px, 3.5vw, 38px)', lineHeight: 1.1 }}>
                             {row.title}
                         </h3>
                         <p className="mt-5 max-w-[460px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
@@ -810,7 +809,7 @@ const FeatureRowsSection = ({ captureLandingEvent }) => (
 
 const TransformSection = () => (
     <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+        <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
             Transforming Study<br />
             into <span style={{ color: ACCENT }}>Reality</span>
         </h2>
@@ -841,7 +840,7 @@ const TransformSection = () => (
                                 className="transform-card-copy"
                                 style={{
                                     color: 'rgb(217, 217, 217)',
-                                    fontFamily: 'Outfit, sans-serif',
+                                    fontFamily: 'Space Grotesk, sans-serif',
                                     fontSize: 16,
                                     fontWeight: 400,
                                     lineHeight: '19.2px',
@@ -872,7 +871,7 @@ const TransformSection = () => (
                                 </svg>
                             </span>
                         </div>
-                        <h4 className="transform-card-title relative z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
+                        <h4 className="transform-card-title relative z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Space_Grotesk,sans-serif]">
                             {card.title}
                         </h4>
                     </a>
@@ -884,7 +883,7 @@ const TransformSection = () => (
 
 const PricingSection = ({ billing, onBillingChange, planCards, starterCurrency, captureLandingEvent }) => (
     <section id="pricing" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+        <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
             Affordable Plans for <span style={{ color: ACCENT }}>Every Student</span>
         </h2>
         <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
@@ -926,14 +925,14 @@ const PricingSection = ({ billing, onBillingChange, planCards, starterCurrency, 
                     >
                         <p className="ui-text font-semibold uppercase tracking-widest" style={{ color: subColor, fontSize: 13 }}>{plan.tier}</p>
                         <div className="mt-3 flex items-baseline gap-1.5">
-                            <span className="text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 48, lineHeight: 1 }}>{plan.price}</span>
+                            <span className="text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, fontSize: 48, lineHeight: 1 }}>{plan.price}</span>
                             <span className="ui-text" style={{ color: subColor, fontSize: 16 }}>/{billing === 'yearly' ? 'yr' : 'm'}</span>
                         </div>
                         <p className="mt-2 ui-text" style={{ color: subColor, fontSize: 14 }}>{plan.suffix}</p>
                         <div className="my-5 h-px" style={{ background: isFeatured ? 'rgba(255,255,255,0.25)' : 'rgba(217,217,217,0.15)' }} />
                         <ul className="space-y-3 flex-1">
                             {plan.features.map((f) => (
-                                <li key={f} className="flex items-start gap-2.5 text-white" style={{ fontSize: 14, fontFamily: 'Outfit, sans-serif' }}>
+                                <li key={f} className="flex items-start gap-2.5 text-white" style={{ fontSize: 14, fontFamily: 'Space Grotesk, sans-serif' }}>
                                     <span className="material-symbols-outlined text-[18px] mt-[1px] flex-shrink-0" style={{ color: isFeatured ? '#fff' : ACCENT }}>check_circle</span>
                                     <span>{f}</span>
                                 </li>
@@ -960,7 +959,7 @@ const PricingSection = ({ billing, onBillingChange, planCards, starterCurrency, 
 
 const IntegrationSection = () => (
     <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+        <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
             Seamless Tool <span style={{ color: ACCENT }}>Integration</span>
         </h2>
         <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
@@ -970,7 +969,7 @@ const IntegrationSection = () => (
 
         <div className="mt-10 grain rounded-[16px] p-8 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 items-center" style={{ background: CARD_BG }}>
             <div>
-                <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 32, lineHeight: 1.1 }}>
+                <h3 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 32, lineHeight: 1.1 }}>
                     Connect your<br />
                     <span style={{ color: ACCENT }}>study stack</span>
                 </h3>
@@ -993,7 +992,7 @@ const TestimonialsSection = () => (
     <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
         <div className="flex items-end justify-between gap-6 flex-wrap">
             <div className="max-w-[680px]">
-                <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+                <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
                     Student <span style={{ color: ACCENT }}>Success</span> Stories
                 </h2>
                 <p className="mt-5" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
@@ -1010,15 +1009,15 @@ const TestimonialsSection = () => (
                         <div className="flex items-center gap-4 mb-6">
                             <div
                                 className="rounded-full text-white flex items-center justify-center font-bold flex-shrink-0"
-                                style={{ background: ACCENT, fontFamily: 'Inter, sans-serif', fontSize: 22, width: 56, height: 56 }}
+                                style={{ background: ACCENT, fontFamily: 'DM Sans, sans-serif', fontSize: 22, width: 56, height: 56 }}
                             >
                                 {t.name.charAt(0)}
                             </div>
-                            <p className="text-white" style={{ fontSize: 22, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
+                            <p className="text-white" style={{ fontSize: 22, fontWeight: 600, fontFamily: 'Space Grotesk, sans-serif' }}>
                                 {t.name}
                             </p>
                         </div>
-                        <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}>
+                        <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55, fontFamily: 'Space Grotesk, sans-serif' }}>
                             “{t.quote}”
                         </p>
                     </div>
@@ -1032,7 +1031,7 @@ const FaqSection = ({ openFaq, onToggleFaq }) => (
     <section id="faq" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
         <div className="grain rounded-[16px] p-8 md:p-12 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 lg:gap-16" style={{ background: CARD_BG }}>
             <div>
-                <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+                <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
                     Frequently Asked<br />
                     <span style={{ color: ACCENT }}>Questions</span>
                 </h2>
@@ -1052,7 +1051,7 @@ const FaqSection = ({ openFaq, onToggleFaq }) => (
 
 const BlogSection = ({ onOpenPost }) => (
     <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+        <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
             Stay Inspired with Our<br />
             Latest <span style={{ color: ACCENT }}>Insights</span>
         </h2>
@@ -1079,17 +1078,17 @@ const BlogSection = ({ onOpenPost }) => (
                             <span>{post.date}</span>
                             <span>{post.read}</span>
                         </div>
-                        <h3 className="mt-3 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 18, lineHeight: 1.3 }}>
+                        <h3 className="mt-3 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 18, lineHeight: 1.3 }}>
                             {post.title}
                         </h3>
                         {post.excerpt && (
-                            <p className="mt-2" style={{ color: SUBTEXT, fontSize: 13, lineHeight: 1.5, fontFamily: 'Outfit, sans-serif' }}>
+                            <p className="mt-2" style={{ color: SUBTEXT, fontSize: 13, lineHeight: 1.5, fontFamily: 'Space Grotesk, sans-serif' }}>
                                 {post.excerpt}
                             </p>
                         )}
                         <span
                             className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold"
-                            style={{ color: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                            style={{ color: ACCENT, fontFamily: 'DM Sans, sans-serif' }}
                         >
                             Read article
                             <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -1127,7 +1126,7 @@ const CtaSection = ({ captureLandingEvent }) => (
         >
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 items-center h-full pr-0">
                 <div className="py-10 lg:py-0">
-                    <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 'clamp(36px, 5vw, 56px)', lineHeight: 1.05 }}>
+                    <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, fontSize: 'clamp(36px, 5vw, 56px)', lineHeight: 1.05 }}>
                         Start Your Study<br />
                         <span style={{ color: ACCENT }}>Journey</span> Today
                     </h2>
@@ -1187,7 +1186,7 @@ const BlogPostModal = ({ activePost, captureLandingEvent, onClose }) => {
                 </div>
 
                 <article className="px-7 sm:px-10 py-8 sm:py-10">
-                    <div className="flex items-center gap-3 ui-text" style={{ color: SUBTEXT, fontSize: 12, fontFamily: 'Inter, sans-serif' }}>
+                    <div className="flex items-center gap-3 ui-text" style={{ color: SUBTEXT, fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}>
                         <span>{activePost.date}</span>
                         <span aria-hidden="true">·</span>
                         <span>{activePost.read}</span>
@@ -1201,14 +1200,14 @@ const BlogPostModal = ({ activePost, captureLandingEvent, onClose }) => {
                     <h2
                         id="post-title"
                         className="mt-3 text-white"
-                        style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 'clamp(28px, 4vw, 36px)', lineHeight: 1.15, letterSpacing: '-0.02em' }}
+                        style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, fontSize: 'clamp(28px, 4vw, 36px)', lineHeight: 1.15, letterSpacing: '-0.02em' }}
                     >
                         {activePost.title}
                     </h2>
                     {activePost.excerpt && (
                         <p
                             className="mt-4"
-                            style={{ color: 'rgba(255,255,255,0.78)', fontSize: 17, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}
+                            style={{ color: 'rgba(255,255,255,0.78)', fontSize: 17, lineHeight: 1.55, fontFamily: 'Space Grotesk, sans-serif' }}
                         >
                             {activePost.excerpt}
                         </p>
@@ -1220,14 +1219,14 @@ const BlogPostModal = ({ activePost, captureLandingEvent, onClose }) => {
                                 <h3
                                     key={`${block.type}-${block.text}`}
                                     className="text-white"
-                                    style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', marginTop: 24 }}
+                                    style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', marginTop: 24 }}
                                 >
                                     {block.text}
                                 </h3>
                             ) : (
                                 <p
                                     key={`${block.type}-${block.text}`}
-                                    style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.65, fontFamily: 'Outfit, sans-serif' }}
+                                    style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.65, fontFamily: 'Space Grotesk, sans-serif' }}
                                 >
                                     {block.text}
                                 </p>
@@ -1392,7 +1391,7 @@ const LandingPage = () => {
     return (
         <div
             className="landing-root relative min-h-screen overflow-x-hidden"
-            style={{ background: PAGE_BG, color: '#fff', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
+            style={{ background: PAGE_BG, color: '#fff', fontFamily: '"Space Grotesk", "DM Sans", system-ui, sans-serif' }}
         >
             <LandingPageStyles />
             <LandingHeader

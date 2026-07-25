@@ -8,7 +8,7 @@ import { OnboardingProgress } from '../components/onboarding/OnboardingProgress'
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 
-const ACCENT = 'rgb(145, 75, 241)';
+const ACCENT = 'rgb(13, 148, 136)';
 const PAGE_BG = '#FAFAFB';
 const SUBTEXT = '#687384';
 const INPUT_BG = '#FFFFFF';
@@ -156,7 +156,7 @@ const OnboardingName = () => {
         border: `1px solid ${fieldBorder(valid, isTouched, value)}`,
         color: TEXT_MAIN,
         fontSize: 15,
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'DM Sans, sans-serif',
         outline: 'none',
         transition: 'border-color 0.15s ease',
     });
@@ -164,12 +164,12 @@ const OnboardingName = () => {
     return (
         <div
             className="min-h-screen flex flex-col"
-            style={{ background: PAGE_BG, color: TEXT_MAIN, fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
+            style={{ background: PAGE_BG, color: TEXT_MAIN, fontFamily: '"Space Grotesk", "DM Sans", system-ui, sans-serif' }}
         >
             {/* Header — logo + progress + step indicator */}
             <header className="w-full pt-6 pb-2 px-6">
                 <div className="max-w-md mx-auto">
-                    <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9] mb-5" aria-label="ChewnPour home">
+                    <Link to="/" className="flex items-center gap-2.5 text-[#0F766E] mb-5" aria-label="ChewnPour home">
                         <BrandLogo size={28} decorative />
                     </Link>
                     <OnboardingProgress step={1} total={3} />
@@ -181,7 +181,7 @@ const OnboardingName = () => {
                         >
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
-                        <span className="text-xs font-semibold ui-text" style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}>
+                        <span className="text-xs font-semibold ui-text" style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}>
                             Step 1 of 3
                         </span>
                     </div>
@@ -197,7 +197,7 @@ const OnboardingName = () => {
                     <BlurFade delay={0.05} yOffset={12}>
                         <h1
                             style={{
-                                fontFamily: 'Outfit, sans-serif',
+                                fontFamily: 'Space Grotesk, sans-serif',
                                 fontWeight: 600,
                                 fontSize: 'clamp(32px, 5vw, 44px)',
                                 lineHeight: 1.05,
@@ -218,7 +218,7 @@ const OnboardingName = () => {
                         <BlurFade delay={0.2} yOffset={8}>
                             <div
                                 className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
-                                style={{ background: 'rgba(145,75,241,0.1)', border: `1px solid ${ACCENT}66`, color: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                                style={{ background: 'rgba(13, 148, 136,0.1)', border: `1px solid ${ACCENT}66`, color: ACCENT, fontFamily: 'DM Sans, sans-serif' }}
                             >
                                 <span className="material-symbols-outlined text-[18px]">redeem</span>
                                 You were referred! Sign up and upload to earn a free credit.
@@ -234,7 +234,7 @@ const OnboardingName = () => {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                             className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
-                            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgb(185,28,28)', fontFamily: 'Inter, sans-serif' }}
+                            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgb(185,28,28)', fontFamily: 'DM Sans, sans-serif' }}
                         >
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
@@ -244,7 +244,7 @@ const OnboardingName = () => {
                     <BlurFade delay={0.25} yOffset={10} className="space-y-5">
                         {/* Name */}
                         <div className="space-y-2">
-                            <label htmlFor="onboarding-name" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-name" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                                 Your name
                             </label>
                             <input
@@ -262,7 +262,7 @@ const OnboardingName = () => {
                                 required
                             />
                             {(touched.name || name.length > 0) && (
-                                <p className="text-xs" style={{ color: isNameValid ? 'rgb(74,222,128)' : 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}>
+                                <p className="text-xs" style={{ color: isNameValid ? 'rgb(74,222,128)' : 'rgb(252,165,165)', fontFamily: 'DM Sans, sans-serif' }}>
                                     {isNameValid ? 'Looks good.' : 'Enter your name to continue.'}
                                 </p>
                             )}
@@ -270,7 +270,7 @@ const OnboardingName = () => {
 
                         {/* Email */}
                         <div className="space-y-2">
-                            <label htmlFor="onboarding-email" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-email" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                                 Email address
                             </label>
                             <input
@@ -288,7 +288,7 @@ const OnboardingName = () => {
                                 required
                             />
                             {(touched.email || email.length > 0) && (
-                                <p className="text-xs" style={{ color: isEmailValid ? 'rgb(74,222,128)' : 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}>
+                                <p className="text-xs" style={{ color: isEmailValid ? 'rgb(74,222,128)' : 'rgb(252,165,165)', fontFamily: 'DM Sans, sans-serif' }}>
                                     {isEmailValid ? 'Valid email address.' : 'Enter a valid email address.'}
                                 </p>
                             )}
@@ -296,7 +296,7 @@ const OnboardingName = () => {
 
                         {/* Password */}
                         <div className="space-y-2">
-                            <label htmlFor="onboarding-password" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-password" className="text-sm font-semibold text-[#1F2933]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                                 Password
                             </label>
                             <input
@@ -315,7 +315,7 @@ const OnboardingName = () => {
                                 required
                             />
                             {(touched.password || password.length > 0) && (
-                                <p className="text-xs" style={{ color: isPasswordValid ? 'rgb(74,222,128)' : 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}>
+                                <p className="text-xs" style={{ color: isPasswordValid ? 'rgb(74,222,128)' : 'rgb(252,165,165)', fontFamily: 'DM Sans, sans-serif' }}>
                                     {isPasswordValid ? 'Strong enough.' : 'At least 6 characters required.'}
                                 </p>
                             )}
@@ -323,7 +323,7 @@ const OnboardingName = () => {
                     </BlurFade>
 
                     <BlurFade delay={0.35} yOffset={6}>
-                        <p className="mt-6 text-center text-sm" style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}>
+                        <p className="mt-6 text-center text-sm" style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}>
                             Already have an account?{' '}
                             <Link to="/login" className="font-semibold hover:underline" style={{ color: ACCENT }}>
                                 Sign in
@@ -349,7 +349,7 @@ const OnboardingName = () => {
                         className="w-full inline-flex items-center justify-center gap-2 h-12 rounded-lg text-white text-sm font-bold transition-opacity"
                         style={{
                             background: ACCENT,
-                            fontFamily: 'Inter, sans-serif',
+                            fontFamily: 'DM Sans, sans-serif',
                             opacity: isSubmitDisabled ? 0.45 : 1,
                             cursor: isSubmitDisabled ? 'not-allowed' : 'pointer',
                         }}

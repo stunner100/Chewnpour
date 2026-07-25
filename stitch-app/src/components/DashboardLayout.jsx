@@ -171,7 +171,7 @@ const DashboardLayout = ({ children }) => {
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">
                     <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:px-4">
-                        <SidebarTrigger className="-ml-1" />
+                        <SidebarTrigger className="-ml-1 min-h-11 min-w-11" />
                         <Separator
                             orientation="vertical"
                             className="mr-1 data-[orientation=vertical]:h-4"
@@ -180,7 +180,7 @@ const DashboardLayout = ({ children }) => {
                             type="button"
                             onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
                             aria-label="Open command palette to search pages and actions"
-                            className="relative flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-surface-soft py-2 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
+                            className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
                         >
                             <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
                             <span className="truncate">Search materials, lessons, or topics...</span>
@@ -189,18 +189,18 @@ const DashboardLayout = ({ children }) => {
                             </kbd>
                         </button>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5 pr-3 md:gap-space-4 md:pr-4">
+                    <div className="flex shrink-0 items-center gap-1 pr-2 md:gap-2 md:pr-4">
                         <button
                             type="button"
                             onClick={toggleTheme}
                             aria-label={isDarkMode ? 'Switch dashboard to light mode' : 'Switch dashboard to dark mode'}
                             aria-pressed={isDarkMode}
                             title={isDarkMode ? 'Light mode' : 'Dark mode'}
-                            className="relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border border-border-subtle bg-surface-soft p-1 text-text-muted transition-colors hover:bg-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
+                            className="relative inline-flex h-11 w-16 shrink-0 items-center rounded-full border border-border-subtle bg-surface-soft p-1 text-text-secondary transition-colors hover:bg-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
                         >
                             <span
                                 aria-hidden="true"
-                                className={`inline-flex size-6 items-center justify-center rounded-full bg-surface text-[16px] text-primary shadow-sm transition-transform ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`}
+                                className={`inline-flex size-8 items-center justify-center rounded-full bg-surface text-[16px] text-primary shadow-sm transition-transform ${isDarkMode ? 'translate-x-7' : 'translate-x-0'}`}
                             >
                                 <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                                     {isDarkMode ? 'light_mode' : 'dark_mode'}
@@ -211,7 +211,7 @@ const DashboardLayout = ({ children }) => {
                             href={SUPPORT_MAILTO}
                             aria-label={`Email support at ${SUPPORT_EMAIL}`}
                             title={`Email support at ${SUPPORT_EMAIL}`}
-                            className="rounded-full p-1.5 text-text-muted transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:p-2"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
                         >
                             <span aria-hidden="true" className="material-symbols-outlined">help_outline</span>
                         </a>
@@ -220,7 +220,7 @@ const DashboardLayout = ({ children }) => {
                             onClick={handleNotificationSettingsClick}
                             aria-label="Open notification settings"
                             title="Open notification settings"
-                            className="rounded-full p-1.5 text-text-muted transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:p-2"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
                         >
                             <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
                         </Link>
@@ -228,7 +228,7 @@ const DashboardLayout = ({ children }) => {
                             to="/dashboard/settings"
                             aria-label="Open settings"
                             title="Open settings"
-                            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary-soft text-xs font-bold text-primary transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:ml-space-2"
+                            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary-soft text-xs font-bold text-primary transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:ml-1"
                         >
                             {profile?.avatarUrl ? (
                                 <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />

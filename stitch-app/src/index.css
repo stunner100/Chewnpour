@@ -4,43 +4,43 @@
 
 /* ── shadcn-compatible CSS variables (used by hero section components) ── */
 :root {
-    --background: 250 250 251;       /* #fafafb */
-    --foreground: 15 15 18;          /* #0f0f12 */
-    --muted-foreground: 82 82 91;    /* #52525b */
-    --accent-foreground: 15 15 18;
-    --border: 228 228 231;           /* #e4e4e7 */
-    --input: 228 228 231;
-    --ring: 145 75 241;              /* #914bf1 */
+    --background: 240 253 250;       /* #F0FDFA */
+    --foreground: 19 78 74;          /* #134E4A */
+    --muted-foreground: 63 75 85;    /* #3F4B55 AA on mint/white */
+    --accent-foreground: 19 78 74;
+    --border: 94 234 212;            /* #5EEAD4 */
+    --input: 204 251 241;            /* #CCFBF1 */
+    --ring: 13 148 136;              /* #0D9488 */
     --sidebar: 255 255 255;
-    --sidebar-foreground: 31 41 51;
-    --sidebar-primary: 217 119 6;
+    --sidebar-foreground: 19 78 74;
+    --sidebar-primary: 217 119 6;    /* #D97706 CTA */
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 245 241 232;
-    --sidebar-accent-foreground: 31 41 51;
-    --sidebar-border: 238 238 240;
-    --sidebar-ring: 217 119 6;
+    --sidebar-accent: 232 241 244;   /* #E8F1F4 */
+    --sidebar-accent-foreground: 19 78 74;
+    --sidebar-border: 153 246 228;   /* #99F6E4 */
+    --sidebar-ring: 13 148 136;
     --popover: 255 255 255;
-    --popover-foreground: 31 41 51;
+    --popover-foreground: 19 78 74;
 }
 
 .dark {
-    --background: 12 13 16;          /* #0c0d10 */
-    --foreground: 233 233 238;       /* #e9e9ee */
-    --muted-foreground: 161 161 170; /* #a1a1aa */
-    --accent-foreground: 233 233 238;
-    --border: 42 43 48;              /* #2a2b30 */
-    --input: 42 43 48;
-    --ring: 168 123 247;
-    --sidebar: 22 23 25;
-    --sidebar-foreground: 233 233 238;
+    --background: 4 47 46;           /* #042F2E */
+    --foreground: 204 251 241;       /* #CCFBF1 */
+    --muted-foreground: 94 234 212;  /* #5EEAD4 */
+    --accent-foreground: 204 251 241;
+    --border: 17 94 89;              /* #115E59 */
+    --input: 17 94 89;
+    --ring: 45 212 191;              /* #2DD4BF */
+    --sidebar: 6 54 52;
+    --sidebar-foreground: 204 251 241;
     --sidebar-primary: 245 158 11;
     --sidebar-primary-foreground: 15 15 18;
-    --sidebar-accent: 33 34 38;
-    --sidebar-accent-foreground: 233 233 238;
-    --sidebar-border: 42 43 48;
-    --sidebar-ring: 245 158 11;
-    --popover: 28 29 32;
-    --popover-foreground: 233 233 238;
+    --sidebar-accent: 17 94 89;
+    --sidebar-accent-foreground: 204 251 241;
+    --sidebar-border: 17 94 89;
+    --sidebar-ring: 45 212 191;
+    --popover: 6 54 52;
+    --popover-foreground: 204 251 241;
 }
 
 @layer base {
@@ -80,8 +80,8 @@ html.is-safari .safari-backdrop {
 
     /* ── Buttons ── */
     .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-semibold text-sm
-               shadow-button hover:shadow-button-hover hover:bg-primary-hover
+        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-cta text-cta-foreground font-semibold text-sm
+               shadow-button hover:shadow-button-hover hover:bg-cta-hover
                active:scale-[0.98] transition-all duration-150 ease-spring;
     }
 
@@ -103,7 +103,7 @@ html.is-safari .safari-backdrop {
     }
 
     .btn-icon {
-        @apply inline-flex items-center justify-center w-9 h-9 rounded-xl
+        @apply inline-flex items-center justify-center min-h-11 min-w-11 w-11 h-11 rounded-xl
                text-text-sub-light dark:text-text-sub-dark
                hover:bg-surface-hover dark:hover:bg-surface-hover-dark
                active:scale-95 transition-all duration-150;
@@ -393,8 +393,8 @@ html.is-safari .safari-backdrop {
 .cp-input::placeholder { color: rgba(104,115,132,0.7); }
 .cp-input:focus {
     outline: none;
-    border-color: rgb(145, 75, 241);
-    box-shadow: 0 0 0 3px rgba(145,75,241,0.16);
+    border-color: rgb(13, 148, 136);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.18);
 }
 .cp-input:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -408,7 +408,7 @@ html.is-safari .safari-backdrop {
     margin-bottom: 0.4rem;
 }
 
-/* Public surfaces: Outfit type, white cards, purple accent, compact radius. */
+/* Public surfaces: Space Grotesk / DM Sans, white cards, teal accent, amber CTA. */
 .cp-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -417,14 +417,14 @@ html.is-safari .safari-backdrop {
     width: 100%;
     height: 2.75rem;
     border-radius: 0.5rem;
-    background: rgb(145, 75, 241);
+    background: #D97706;
     color: #fff;
-    font-family: 'Inter', 'Outfit', system-ui, sans-serif;
+    font-family: 'DM Sans', system-ui, sans-serif;
     font-weight: 700;
     font-size: 0.875rem;
     transition: background 0.15s ease, transform 0.1s ease;
 }
-.cp-btn-primary:hover:not(:disabled) { background: rgb(124, 58, 237); }
+.cp-btn-primary:hover:not(:disabled) { background: #B45309; }
 .cp-btn-primary:active:not(:disabled) { transform: scale(0.98); }
 .cp-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -437,14 +437,14 @@ html.is-safari .safari-backdrop {
     height: 2.75rem;
     border-radius: 0.5rem;
     background: #fff;
-    border: 1px solid #d9d2c6;
-    color: #1f2933;
-    font-family: 'Inter', 'Outfit', system-ui, sans-serif;
+    border: 2px solid #0D9488;
+    color: #0D9488;
+    font-family: 'DM Sans', system-ui, sans-serif;
     font-weight: 600;
     font-size: 0.875rem;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
-.cp-btn-secondary:hover:not(:disabled) { background: #faf8f3; border-color: rgba(145,75,241,0.32); }
+.cp-btn-secondary:hover:not(:disabled) { background: #F0FDFA; border-color: #0F766E; }
 .cp-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .cp-card {
@@ -487,8 +487,8 @@ html.is-safari .safari-backdrop {
 .cp-prose h2 { font-size: 1.35rem; }
 .cp-prose h3 { font-size: 1.1rem; }
 .cp-prose p { margin-bottom: 1rem; }
-.cp-prose a { color: rgb(109, 40, 217); text-decoration: underline; text-underline-offset: 3px; }
-.cp-prose a:hover { color: rgb(124, 58, 237); }
+.cp-prose a { color: #0D9488; text-decoration: underline; text-underline-offset: 3px; }
+.cp-prose a:hover { color: #0F766E; }
 .cp-prose ul, .cp-prose ol { margin: 0.75rem 0 1rem 1.25rem; }
 .cp-prose li { margin-bottom: 0.35rem; }
 .cp-prose strong { color: #1f2933; }
@@ -499,7 +499,7 @@ html.is-safari .safari-backdrop {
 .lesson-prose h2,
 .lesson-prose h3,
 .lesson-prose h4 {
-    font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+    font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.018em;
     color: #0f0f12;
@@ -531,8 +531,8 @@ html.is-safari .safari-backdrop {
 }
 .dark .lesson-prose ul li,
 .dark .lesson-prose ol li { color: #c8c8d0; }
-.lesson-prose ul li::marker { color: #914bf1; }
-.lesson-prose ol li::marker { color: #914bf1; font-weight: 700; }
+.lesson-prose ul li::marker { color: #0D9488; }
+.lesson-prose ol li::marker { color: #0D9488; font-weight: 700; }
 .lesson-prose strong { color: #0f0f12; font-weight: 600; }
 .dark .lesson-prose strong { color: #f4f4f7; }
 .lesson-prose blockquote {
@@ -553,8 +553,8 @@ html.is-safari .safari-backdrop {
 }
 .dark .lesson-prose hr { border-top-color: #202124; }
 .lesson-prose code {
-    background: rgba(145, 75, 241, 0.08);
-    color: #6d28d9;
+    background: rgba(13, 148, 136, 0.08);
+    color: #0F766E;
     padding: 0.1rem 0.35rem;
     border-radius: 6px;
     font-size: 0.94em;

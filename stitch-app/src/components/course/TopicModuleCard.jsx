@@ -14,8 +14,8 @@ const GRADIENT_PALETTE = [
     'linear-gradient(135deg, #15803D 0%, #059669 100%)',
     'linear-gradient(135deg, #B75E45 0%, #9F3A2E 100%)',
     'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-    'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)',
-    'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+    'linear-gradient(135deg, #2563EB 0%, #0F766E 100%)',
+    'linear-gradient(135deg, #0F766E 0%, #0F766E 100%)',
 ];
 
 const initialsFromTitle = (title) => {

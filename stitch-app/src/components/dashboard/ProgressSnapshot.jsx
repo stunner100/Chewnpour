@@ -53,7 +53,7 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
     const progressingCount = insights?.progressing?.length ?? 0;
     const needsWorkCount = insights?.needsWork?.length ?? 0;
 
-    const ringColor = overall >= 80 ? '#10b981' : overall >= 50 ? '#914bf1' : '#f59e0b';
+    const ringColor = overall >= 80 ? '#10b981' : overall >= 50 ? '#0D9488' : '#f59e0b';
 
     return (
         <section className="space-y-4 animate-fade-in-up animate-delay-300">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { m as Motion } from 'motion/react';
 
-const ACCENT = 'rgb(145, 75, 241)';
+const ACCENT = 'rgb(13, 148, 136)';
 const INACTIVE = 'rgba(31,41,51,0.12)';
 
 export const OnboardingProgress = ({ step = 1, total = 3 }) => {

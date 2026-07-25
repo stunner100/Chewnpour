@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import CanvasCrowd from './blocks/CanvasCrowd';
 import BrandLogo from './BrandLogo';
 
-const ACCENT = 'rgb(145, 75, 241)';
+const ACCENT = 'rgb(13, 148, 136)';
 const PAGE_BG = '#FAFAFB';
 const FOOTER_BG = '#FAF8F3';
 const TEXT = '#1F2933';
@@ -31,16 +31,16 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
         style={{
             background: PAGE_BG,
             color: TEXT,
-            fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+            fontFamily: '"Space Grotesk", "DM Sans", system-ui, sans-serif',
         }}
     >
         <header className="sticky top-0 z-50" style={{ background: PAGE_BG }}>
             <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-5 flex items-center justify-between">
-                <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9]" aria-label="ChewnPour home">
+                <Link to="/" className="flex items-center gap-2.5 text-[#0F766E]" aria-label="ChewnPour home">
                     <BrandLogo size={28} decorative />
                 </Link>
                 {showAuthNav && (
-                    <nav className="flex items-center gap-6 text-sm" style={{ fontFamily: 'Inter, sans-serif' }}>
+                    <nav className="flex items-center gap-6 text-sm" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                         <Link to="/" className="text-[#687384] hover:text-[#1F2933] transition-colors">Home</Link>
                         <Link to="/login" className="text-[#687384] hover:text-[#1F2933] transition-colors">Sign In</Link>
                         <Link
@@ -61,12 +61,12 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
 
         <footer className="mt-16 overflow-hidden" style={{ background: FOOTER_BG, borderTop: '1px solid rgba(217,217,217,0.08)' }}>
             <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9]">
+                <Link to="/" className="flex items-center gap-2.5 text-[#0F766E]">
                     <BrandLogo size={28} />
                 </Link>
                 <nav
                     className="flex flex-wrap items-center gap-6 text-sm"
-                    style={{ fontFamily: 'Inter, sans-serif' }}
+                    style={{ fontFamily: 'DM Sans, sans-serif' }}
                 >
                     <Link to="/" className="text-[#687384] hover:text-[#1F2933] transition-colors">Home</Link>
                     <Link to="/login" className="text-[#687384] hover:text-[#1F2933] transition-colors">Sign In</Link>
@@ -94,7 +94,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
                 style={{
                     borderTop: '1px solid rgba(217,217,217,0.08)',
                     color: SUBTEXT,
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: 'DM Sans, sans-serif',
                 }}
             >
                 © {FOOTER_YEAR} ChewnPour, Inc. Built for students.

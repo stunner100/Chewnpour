@@ -23,6 +23,11 @@ const isPathActive = (pathname, matchPaths) =>
         return pathname === p || pathname.startsWith(p + '/');
     });
 
+const tabClassName = (active) =>
+    `flex min-h-11 flex-col items-center justify-center gap-0.5 flex-1 min-w-0 px-0.5
+    transition-colors duration-150 rounded-lg
+    ${active ? 'text-primary bg-primary-soft' : 'text-text-muted'}`;
+
 const MobileBottomNav = () => {
     const location = useLocation();
     const [moreState, setMoreState] = useState({ open: false, pathname: location.pathname });
@@ -60,32 +65,44 @@ const MobileBottomNav = () => {
                        border-t border-border-subtle"
                 aria-label="Main navigation"
             >
-                <div className="flex items-stretch h-16 max-w-md mx-auto">
+                <div className="flex items-stretch min-h-16 max-w-md mx-auto px-1">
                     {primaryTabs.map((tab) => {
                         const active = isActive(tab);
-                        const className = `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0
-                            transition-colors duration-150 rounded-lg
-                            ${active ? 'text-primary bg-primary-soft' : 'text-text-muted'}`;
-
                         const content = (
-                            <span
-                                className="material-symbols-outlined text-[24px]"
-                                style={active ? { fontVariationSettings: "'FILL' 1, 'wght' 500" } : { fontVariationSettings: "'FILL' 0, 'wght' 400" }}
-                            >
-                                {tab.icon}
-                            </span>
+                            <>
+                                <span
+                                    className="material-symbols-outlined text-[22px]"
+                                    aria-hidden="true"
+                                    style={active ? { fontVariationSettings: "'FILL' 1, 'wght' 500" } : { fontVariationSettings: "'FILL' 0, 'wght' 400" }}
+                                >
+                                    {tab.icon}
+                                </span>
+                                <span className="max-w-full truncate text-[10px] font-semibold leading-tight tracking-tight">
+                                    {tab.label}
+                                </span>
+                            </>
                         );
 
                         if (active) {
                             return (
-                                <span key={tab.path} className={className} aria-current="page">
+                                <span
+                                    key={tab.path}
+                                    className={tabClassName(true)}
+                                    aria-current="page"
+                                    aria-label={tab.label}
+                                >
                                     {content}
                                 </span>
                             );
                         }
 
                         return (
-                            <Link key={tab.path} to={tab.path} className={`${className} active:scale-95`}>
+                            <Link
+                                key={tab.path}
+                                to={tab.path}
+                                aria-label={tab.label}
+                                className={`${tabClassName(false)} active:scale-95`}
+                            >
                                 {content}
                             </Link>
                         );
@@ -95,16 +112,18 @@ const MobileBottomNav = () => {
                         onClick={() => setMoreOpen((value) => !value)}
                         aria-expanded={moreOpen}
                         aria-haspopup="menu"
-                        aria-label="More navigation"
-                        className={`flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 transition-colors duration-150 active:scale-95 ${
-                            moreOpen || moreActive ? 'text-primary' : 'text-text-muted'
-                        }`}
+                        aria-label={moreOpen ? 'Close more navigation' : 'More navigation'}
+                        className={`${tabClassName(moreOpen || moreActive)} active:scale-95`}
                     >
                         <span
-                            className="material-symbols-outlined text-[24px]"
+                            className="material-symbols-outlined text-[22px]"
+                            aria-hidden="true"
                             style={moreOpen || moreActive ? { fontVariationSettings: "'FILL' 1, 'wght' 500" } : { fontVariationSettings: "'FILL' 0, 'wght' 400" }}
                         >
                             {moreOpen ? 'close' : 'menu'}
+                        </span>
+                        <span className="max-w-full truncate text-[10px] font-semibold leading-tight tracking-tight">
+                            More
                         </span>
                     </button>
                 </div>
@@ -131,13 +150,15 @@ const MobileBottomNav = () => {
                                         <Link
                                             to={item.path}
                                             onClick={closeMore}
-                                            className={`flex items-center gap-space-3 px-space-3 py-space-3 rounded-xl transition-colors ${
+                                            aria-label={item.label}
+                                            className={`flex min-h-11 items-center gap-space-3 px-space-3 py-space-3 rounded-xl transition-colors ${
                                                 active ? 'text-primary bg-primary-soft' : 'text-text-primary hover:bg-surface-soft'
                                             }`}
                                             role="menuitem"
                                         >
                                             <span
                                                 className="material-symbols-outlined text-[22px]"
+                                                aria-hidden="true"
                                                 style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                             >
                                                 {item.icon}

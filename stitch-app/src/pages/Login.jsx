@@ -148,15 +148,15 @@ const Login = () => {
                 {/* Left — brand pitch (landing style) */}
                 <div className="hidden lg:flex flex-col gap-8">
                     <BlurFade delay={0.05} yOffset={12}>
-                        <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[rgb(145,75,241)]">
-                            <span className="inline-block w-8 h-[2px] bg-[rgb(145,75,241)]" /> Welcome back
+                        <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[rgb(13, 148, 136)]">
+                            <span className="inline-block w-8 h-[2px] bg-[rgb(13, 148, 136)]" /> Welcome back
                         </div>
                     </BlurFade>
                     <BlurFade delay={0.12} yOffset={14}>
                         <h1 className="text-5xl xl:text-6xl font-semibold leading-[1.05] tracking-tight">
                             Your AI
                             <br />
-                            <span className="text-[rgb(145,75,241)]">study</span>
+                            <span className="text-[rgb(13, 148, 136)]">study</span>
                             <br />
                             <span className="inline-flex items-center gap-3">
                                 <ArrowBadge size={44} /> companion
@@ -201,7 +201,7 @@ const Login = () => {
                             initial={{ opacity: 0, y: -8, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                            className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[rgb(145,75,241)] flex items-center gap-2"
+                            className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[rgb(13, 148, 136)] flex items-center gap-2"
                         >
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
@@ -249,7 +249,7 @@ const Login = () => {
                         <div>
                             <div className="flex items-center justify-between">
                                 <label className="cp-label" htmlFor="password">Password</label>
-                                <Link to="/reset-password" className="text-xs font-semibold text-[rgb(145,75,241)] hover:underline">
+                                <Link to="/reset-password" className="text-xs font-semibold text-[rgb(13, 148, 136)] hover:underline">
                                     Forgot password?
                                 </Link>
                             </div>
@@ -294,7 +294,7 @@ const Login = () => {
 
                     <p className="mt-6 text-center text-sm text-[#687384]">
                         New here?{' '}
-                        <Link to="/signup" className="font-semibold text-[rgb(145,75,241)] hover:underline">
+                        <Link to="/signup" className="font-semibold text-[rgb(13, 148, 136)] hover:underline">
                             Create an account
                         </Link>
                     </p>

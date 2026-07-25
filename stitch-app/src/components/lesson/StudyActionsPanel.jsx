@@ -31,7 +31,7 @@ const ActionButton = ({ icon, label, description, onClick, href, reloadDocument,
 
 const ProgressRing = ({ progress = 0, completed }) => {
     const dash = (Math.min(100, Math.max(0, progress)) / 100) * 175.9;
-    const color = completed ? '#10b981' : '#914bf1';
+    const color = completed ? '#10b981' : '#0D9488';
     return (
         <div className="relative size-16 shrink-0">
             <svg className="size-16 -rotate-90" viewBox="0 0 64 64">

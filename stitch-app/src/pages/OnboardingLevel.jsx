@@ -9,7 +9,7 @@ import { OnboardingProgress } from '../components/onboarding/OnboardingProgress'
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 
-const ACCENT = 'rgb(145, 75, 241)';
+const ACCENT = 'rgb(13, 148, 136)';
 const PAGE_BG = '#FAFAFB';
 const CARD_BG = '#FFFFFF';
 const SUBTEXT = '#687384';
@@ -62,11 +62,11 @@ const OnboardingLevel = () => {
     return (
         <div
             className="min-h-screen flex flex-col"
-            style={{ background: PAGE_BG, color: TEXT_MAIN, fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
+            style={{ background: PAGE_BG, color: TEXT_MAIN, fontFamily: '"Space Grotesk", "DM Sans", system-ui, sans-serif' }}
         >
             <header className="w-full pt-6 pb-2 px-6">
                 <div className="max-w-md mx-auto">
-                    <Link to="/" className="flex items-center gap-2.5 text-[#6D28D9] mb-5" aria-label="ChewnPour home">
+                    <Link to="/" className="flex items-center gap-2.5 text-[#0F766E] mb-5" aria-label="ChewnPour home">
                         <BrandLogo size={28} decorative />
                     </Link>
                     <OnboardingProgress step={2} total={3} />
@@ -79,14 +79,14 @@ const OnboardingLevel = () => {
                         >
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </button>
-                        <span className="text-xs font-semibold" style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}>
+                        <span className="text-xs font-semibold" style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}>
                             Step 2 of 3
                         </span>
                         <button
                             onClick={handleSkip}
                             disabled={loading}
                             className="text-xs font-semibold hover:text-[#1F2933] transition-colors disabled:opacity-50"
-                            style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}
+                            style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}
                         >
                             Skip
                         </button>
@@ -99,7 +99,7 @@ const OnboardingLevel = () => {
                     <BlurFade delay={0.05} yOffset={12}>
                         <h1
                             style={{
-                                fontFamily: 'Outfit, sans-serif',
+                                fontFamily: 'Space Grotesk, sans-serif',
                                 fontWeight: 600,
                                 fontSize: 'clamp(32px, 5vw, 44px)',
                                 lineHeight: 1.05,
@@ -125,7 +125,7 @@ const OnboardingLevel = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="w-full max-w-md mb-6 p-3.5 rounded-xl text-sm font-medium text-center"
-                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgb(185,28,28)', fontFamily: 'Inter, sans-serif' }}
+                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgb(185,28,28)', fontFamily: 'DM Sans, sans-serif' }}
                     >
                         {error}
                     </Motion.div>
@@ -145,7 +145,7 @@ const OnboardingLevel = () => {
                                     style={{
                                         background: CARD_BG,
                                         border: `1px solid ${isSelected ? ACCENT : '#E7E0D4'}`,
-                                        boxShadow: isSelected ? `0 0 0 3px rgba(145,75,241,0.18)` : 'none',
+                                        boxShadow: isSelected ? `0 0 0 3px rgba(13, 148, 136,0.18)` : 'none',
                                     }}
                                 >
                                     {isSelected && (
@@ -158,7 +158,7 @@ const OnboardingLevel = () => {
                                     )}
                                     <span
                                         style={{
-                                            fontFamily: 'Outfit, sans-serif',
+                                            fontFamily: 'Space Grotesk, sans-serif',
                                             fontWeight: 600,
                                             fontSize: 40,
                                             color: isSelected ? ACCENT : TEXT_MAIN,
@@ -170,7 +170,7 @@ const OnboardingLevel = () => {
                                     </span>
                                     <span
                                         className="font-semibold uppercase tracking-widest"
-                                        style={{ color: isSelected ? `${ACCENT}cc` : SUBTEXT, fontSize: 12, fontFamily: 'Inter, sans-serif' }}
+                                        style={{ color: isSelected ? `${ACCENT}cc` : SUBTEXT, fontSize: 12, fontFamily: 'DM Sans, sans-serif' }}
                                     >
                                         Level
                                     </span>
@@ -195,7 +195,7 @@ const OnboardingLevel = () => {
                         className="w-full inline-flex items-center justify-center gap-2 h-12 rounded-lg text-white text-sm font-bold transition-opacity"
                         style={{
                             background: ACCENT,
-                            fontFamily: 'Inter, sans-serif',
+                            fontFamily: 'DM Sans, sans-serif',
                             opacity: loading ? 0.55 : 1,
                             cursor: loading ? 'not-allowed' : 'pointer',
                         }}

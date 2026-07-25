@@ -24,8 +24,8 @@
   --kids-color-focus: oklch(48% 0.2 235);
   --kids-color-error: oklch(58% 0.2 25);
   --kids-color-success: oklch(55% 0.16 145);
-  --kids-font-display: "Plus Jakarta Sans", "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --kids-font-body: "Plus Jakarta Sans", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --kids-font-display: "Space Grotesk", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --kids-font-body: "Space Grotesk", "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --kids-font-mono: "JetBrains Mono", ui-monospace, monospace;
   --kids-text-xs: 0.75rem;
   --kids-text-sm: 0.875rem;

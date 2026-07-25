@@ -23,7 +23,7 @@ const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', on
             <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-0">
                 <div
                     className="relative md:h-full h-32 flex items-center justify-center"
-                    style={{ background: course.coverColor || 'linear-gradient(135deg, #914bf1 0%, #6d28d9 100%)' }}
+                    style={{ background: course.coverColor || 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)' }}
                 >
                     <span className="material-symbols-outlined text-white/95 text-[56px]" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
                     <span className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/30 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider">

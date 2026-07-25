@@ -7,7 +7,7 @@ export const ShimmerButton = ({
     onClick,
     disabled,
     type = 'button',
-    shimmerColor = '#914bf1',
+    shimmerColor = '#0D9488',
     shimmerDuration = '2.5s',
     borderRadius = '12px',
 }) => {

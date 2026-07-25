@@ -6,7 +6,7 @@ export const MagicCard = ({
     children,
     className,
     spotlightSize = 240,
-    spotlightColor = 'rgba(145, 75, 241, 0.18)',
+    spotlightColor = 'rgba(13, 148, 136, 0.18)',
 }) => {
     const cardRef = useRef(null);
     const mouseX = useMotionValue(-spotlightSize);

@@ -259,7 +259,7 @@ const ResetPassword = () => {
 
                     <p className="mt-6 text-center text-sm text-[#687384]">
                         Remembered it?{' '}
-                        <Link to="/login" className="font-semibold text-[rgb(145,75,241)] hover:underline">
+                        <Link to="/login" className="font-semibold text-[rgb(13, 148, 136)] hover:underline">
                             Back to sign in
                         </Link>
                     </p>

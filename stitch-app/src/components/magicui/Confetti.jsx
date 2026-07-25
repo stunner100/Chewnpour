@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 
 const COLORS = [
-    '#914bf1', '#10b981', '#f59e0b', '#ef4444',
+    '#0D9488', '#10b981', '#f59e0b', '#ef4444',
     '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6',
 ];
 
