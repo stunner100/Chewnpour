@@ -19,6 +19,7 @@ import {
   FolderIcon,
   LayoutDashboardIcon,
   CircleHelpIcon,
+  SparklesIcon,
 } from 'lucide-react';
 
 const navItems = [
