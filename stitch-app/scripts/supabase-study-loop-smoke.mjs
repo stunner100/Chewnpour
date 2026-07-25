@@ -9,7 +9,17 @@ const root = path.resolve(thisDir, '..');
 loadEnv({ path: path.join(root, '.env.local') });
 loadEnv({ path: path.join(root, '.env') });
 
-const baseUrl = `http://127.0.0.1:${process.env.AUTH_DEV_PORT || 8787}`;
+const baseUrl = String(
+  process.env.SMOKE_BASE_URL ||
+    `http://127.0.0.1:${process.env.AUTH_DEV_PORT || 8787}`,
+).replace(/\/$/, '');
+const origin = String(
+  process.env.SMOKE_ORIGIN ||
+    process.env.BETTER_AUTH_URL ||
+    (baseUrl.includes('chewnpour.com')
+      ? 'https://www.chewnpour.com'
+      : 'http://localhost:5173'),
+).replace(/\/$/, '');
 const stamp = Date.now();
 const email = `study-loop-smoke-${stamp}@example.com`;
 const password = `SmokePass!${stamp}`;
@@ -39,7 +49,7 @@ const api = async (pathname, { method = 'GET', body, headers = {} } = {}) => {
     method,
     headers: {
       Accept: 'application/json',
-      Origin: process.env.BETTER_AUTH_URL || 'http://localhost:5173',
+      Origin: origin,
       ...(cookieJar.size ? { Cookie: cookieHeader() } : {}),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...headers,
@@ -61,11 +71,16 @@ const fileBytes = Buffer.from(
   'utf8',
 );
 
-console.log(`[study-loop-smoke] using ${baseUrl}`);
+console.log(`[study-loop-smoke] using ${baseUrl} (origin ${origin})`);
 
 {
-  const health = await fetch(baseUrl).catch(() => null);
-  assert(health, `Auth server is not reachable at ${baseUrl}. Run: npm run dev:auth`);
+  const health = await fetch(`${baseUrl}/api/auth/get-session`).catch(() => null);
+  assert(
+    health,
+    baseUrl.includes('127.0.0.1')
+      ? `Auth server is not reachable at ${baseUrl}. Run: npm run dev:auth`
+      : `Production API is not reachable at ${baseUrl}`,
+  );
 }
 
 // 1) Login / signup
