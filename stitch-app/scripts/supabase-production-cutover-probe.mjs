@@ -47,18 +47,32 @@ await check("homepage 200", async () => {
     }
 });
 
-await check("JS bundle is Convex-free", async () => {
+await check("JS bundles are Convex-free", async () => {
     const { text: html } = await fetchText("/");
-    const match = html.match(/\/assets\/index-[^"']+\.js/);
-    if (!match) throw new Error("no index JS found");
-    const { text: js } = await fetchText(match[0]);
-    for (const needle of ["api.chewnpour.com", "site.chewnpour.com"]) {
-        if (js.includes(needle)) {
-            throw new Error(`bundle still references ${needle}`);
+    const assets = Array.from(
+        html.matchAll(/\/assets\/[^"']+\.js/g),
+        (match) => match[0],
+    );
+    if (assets.length === 0) throw new Error("no JS assets found");
+
+    let sawBetterAuth = false;
+    for (const asset of assets.slice(0, 8)) {
+        const { text: js } = await fetchText(asset);
+        for (const needle of ["api.chewnpour.com", "site.chewnpour.com"]) {
+            if (js.includes(needle)) {
+                throw new Error(`${asset} still references ${needle}`);
+            }
+        }
+        if (
+            js.includes("/api/auth") ||
+            js.includes("api/auth") ||
+            js.includes("better-auth")
+        ) {
+            sawBetterAuth = true;
         }
     }
-    if (!js.includes("/api/auth") && !js.includes("api/auth")) {
-        throw new Error("bundle does not reference /api/auth");
+    if (!sawBetterAuth) {
+        throw new Error("no Better Auth markers found in initial JS assets");
     }
 });
 
