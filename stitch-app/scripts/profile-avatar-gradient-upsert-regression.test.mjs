@@ -2,30 +2,38 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const schemaPath = path.join(root, 'convex', 'schema.ts');
-const profilesPath = path.join(root, 'convex', 'profiles.ts');
 const editProfilePath = path.join(root, 'src', 'pages', 'EditProfile.jsx');
+const settingsPath = path.join(root, 'src', 'pages', 'AccountStudySettings.jsx');
+const appPath = path.join(root, 'src', 'App.jsx');
+const profilesPath = path.join(root, 'server', 'profiles.js');
 
-const [schemaSource, profilesSource, editProfileSource] = await Promise.all([
-  fs.readFile(schemaPath, 'utf8'),
+try {
+  await fs.access(editProfilePath);
+  throw new Error('EditProfile.jsx should be deleted; profile editing lives in Settings.');
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
+
+const [settingsSource, appSource, profilesSource] = await Promise.all([
+  fs.readFile(settingsPath, 'utf8'),
+  fs.readFile(appPath, 'utf8'),
   fs.readFile(profilesPath, 'utf8'),
-  fs.readFile(editProfilePath, 'utf8'),
 ]);
 
-if (!/avatarGradient:\s*v\.optional\(v\.number\(\)\)/.test(schemaSource)) {
-  throw new Error('Regression detected: profiles schema no longer allows avatarGradient.');
+if (!settingsSource.includes('id="profile"')) {
+  throw new Error('Settings should own the profile section after EditProfile cutover.');
 }
 
-if (!/avatarGradient:\s*v\.optional\(v\.number\(\)\)/.test(profilesSource)) {
-  throw new Error('Regression detected: upsertProfile args no longer accept avatarGradient.');
+if (!appSource.includes('<Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />')) {
+  throw new Error('Legacy /profile/edit should redirect to Settings profile.');
 }
 
-if (!/updates\.avatarGradient\s*=\s*args\.avatarGradient/.test(profilesSource)) {
-  throw new Error('Regression detected: upsertProfile does not patch avatarGradient updates.');
+if (appSource.includes("import('./pages/EditProfile')") || appSource.includes('const EditProfile = lazyRoute')) {
+  throw new Error('App should not mount EditProfile.');
 }
 
-if (!/avatarGradient:\s*selectedGradient/.test(editProfileSource)) {
-  throw new Error('Regression detected: EditProfile no longer submits avatarGradient.');
+if (!profilesSource.includes('"avatarGradient"') || !profilesSource.includes('avatar_gradient')) {
+  throw new Error('Server profiles API should still accept avatarGradient for storage compatibility.');
 }
 
 console.log('profile-avatar-gradient-upsert-regression.test.mjs passed');
