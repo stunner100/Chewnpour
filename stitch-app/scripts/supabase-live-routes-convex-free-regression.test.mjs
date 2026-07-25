@@ -9,6 +9,7 @@ const livePageModules = [
   'src/pages/MyMaterialsLibrary.jsx',
   'src/pages/UploadMaterials.jsx',
   'src/pages/ActiveQuizSession.jsx',
+  'src/pages/ExamMode.jsx',
   'src/pages/TopicQuizPlayer.jsx',
   'src/pages/DashboardResults.jsx',
   'src/pages/AIStudyTutor.jsx',

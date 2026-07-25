@@ -172,6 +172,7 @@ const StudentDashboard = () => {
                 { to: '/dashboard/library', label: 'My materials', icon: 'folder' },
                 { to: '/dashboard/lessons', label: 'Lessons', icon: 'menu_book' },
                 { to: '/dashboard/quiz', label: 'Quizzes', icon: 'quiz' },
+                { to: '/dashboard/exam', label: 'Exam', icon: 'school' },
                 { to: '/dashboard/progress', label: 'Progress', icon: 'bar_chart' },
               ].map((action) => (
                 <li key={action.to}>

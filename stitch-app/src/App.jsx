@@ -103,6 +103,7 @@ const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'), { c
 const MyMaterialsLibrary = lazyRoute(() => import('./pages/MyMaterialsLibrary'), { componentName: 'MyMaterialsLibrary' });
 const UploadMaterials = lazyRoute(() => import('./pages/UploadMaterials'), { componentName: 'UploadMaterials' });
 const ActiveQuizSession = lazyRoute(() => import('./pages/ActiveQuizSession'), { componentName: 'ActiveQuizSession' });
+const ExamMode = lazyRoute(() => import('./pages/ExamMode'), { componentName: 'ExamMode' });
 const QuizPlayer = lazyRoute(() => import('./pages/TopicQuizPlayer'), { componentName: 'TopicQuizPlayer' });
 const QuizResults = lazyRoute(() => import('./pages/DashboardResults'), { componentName: 'QuizResults' });
 const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { componentName: 'AIStudyTutor' });
@@ -348,6 +349,8 @@ function App() {
         <Route path="/dashboard/quiz/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizResults /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/quiz/:topicId" element={withSuspense(<QuizPlayerRoute />)} />
         <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/exam" element={withSuspense(<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
         <Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />
         <Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
@@ -363,8 +366,6 @@ function App() {
         <Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/course/:courseId" element={<RedirectCourseToLessonsRoute />} />
         <Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />
-        <Route path="/dashboard/exam" element={<ParkedDashboardFeature title="Exam mode" />} />
-        <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
         <Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />

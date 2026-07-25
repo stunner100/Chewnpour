@@ -17,6 +17,7 @@ import {
   BookOpenIcon,
   CloudUploadIcon,
   FolderIcon,
+  GraduationCapIcon,
   LayoutDashboardIcon,
   CircleHelpIcon,
   SparklesIcon,
@@ -28,6 +29,7 @@ const navItems = [
   { title: 'My Materials', url: '/dashboard/library', icon: FolderIcon },
   { title: 'Lessons', url: '/dashboard/lessons', icon: BookOpenIcon },
   { title: 'Quizzes', url: '/dashboard/quiz', icon: CircleHelpIcon },
+  { title: 'Exam', url: '/dashboard/exam', icon: GraduationCapIcon },
   { title: 'AI Tutor', url: '/dashboard/ai-tutor', icon: TutorAvatarMark, isTutorAvatar: true },
   { title: 'Progress', url: '/dashboard/progress', icon: BarChart3Icon },
 ];
