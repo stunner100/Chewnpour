@@ -119,8 +119,6 @@ const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentNa
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
-const OnboardingLevel = lazyRoute(() => import('./pages/OnboardingLevel'), { componentName: 'OnboardingLevel' });
-const OnboardingDepartment = lazyRoute(() => import('./pages/OnboardingDepartment'), { componentName: 'OnboardingDepartment' });
 const SubscriptionCallback = lazyRoute(() => import('./pages/SubscriptionCallback'), { componentName: 'SubscriptionCallback' });
 
 function RouteChangeTracker() {
@@ -332,10 +330,16 @@ function App() {
         <Route path="/kids/child" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
         <Route path="/kids/lesson/:lessonId" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
 
-        {/* Onboarding Routes — /onboarding/name is sign-up (public), level+department are protected */}
+        {/* Onboarding — name is signup; level/department cut over to Settings profile */}
         <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
-        <Route path="/onboarding/level" element={withSuspense(<ProtectedRoute><OnboardingLevel /></ProtectedRoute>)} />
-        <Route path="/onboarding/department" element={withSuspense(<ProtectedRoute><OnboardingDepartment /></ProtectedRoute>)} />
+        <Route
+          path="/onboarding/level"
+          element={withSuspense(<ProtectedRoute><Navigate to="/dashboard/settings#profile" replace /></ProtectedRoute>)}
+        />
+        <Route
+          path="/onboarding/department"
+          element={withSuspense(<ProtectedRoute><Navigate to="/dashboard/settings#profile" replace /></ProtectedRoute>)}
+        />
 
         {/* Protected Dashboard Routes — wrapped in DashboardLayout for mobile nav */}
         <Route path="/dashboard" element={withSuspense(<ProtectedRoute><DashboardLayout><StudentDashboard /></DashboardLayout></ProtectedRoute>)} />

@@ -34,6 +34,47 @@ const TUTOR_STYLE_OPTIONS = [
     { value: 'patient', icon: 'child_care', title: 'Patient', desc: 'Simple, step-by-step teaching.' },
 ];
 
+const EDUCATION_LEVELS = [
+    { value: 'freshman', label: 'Level 1' },
+    { value: 'sophomore', label: 'Level 2' },
+    { value: 'junior', label: 'Level 3' },
+    { value: 'senior', label: 'Level 4' },
+    { value: 'high_school', label: 'High School' },
+    { value: 'undergrad', label: 'Undergraduate' },
+    { value: 'postgrad', label: 'Postgraduate' },
+    { value: 'professional', label: 'Professional' },
+];
+
+const DEPARTMENTS = [
+    { value: 'cs', label: 'Computer Science' },
+    { value: 'business', label: 'Business' },
+    { value: 'engineering', label: 'Engineering' },
+    { value: 'nursing', label: 'Nursing' },
+    { value: 'economics', label: 'Economics' },
+    { value: 'psychology', label: 'Psychology' },
+    { value: 'arts', label: 'Arts & Design' },
+    { value: 'biology', label: 'Biology' },
+    { value: 'law', label: 'Law' },
+    { value: 'math', label: 'Mathematics' },
+];
+
+const EDUCATION_LEVEL_VALUES = new Set(EDUCATION_LEVELS.map((option) => option.value));
+const DEPARTMENT_VALUES = new Set(DEPARTMENTS.map((option) => option.value));
+
+const normalizeEducationLevel = (value) => {
+    const key = String(value || '').trim();
+    return EDUCATION_LEVEL_VALUES.has(key) ? key : '';
+};
+
+const normalizeDepartment = (value) => {
+    // Legacy onboarding allowed multi-select joined by commas; keep the first known value.
+    const key = String(value || '')
+        .split(',')
+        .map((part) => part.trim())
+        .find((part) => DEPARTMENT_VALUES.has(part));
+    return key || '';
+};
+
 const DEFAULT_STUDY_PREFERENCES = {
     dailyGoalMinutes: 120,
     preferredSessionLength: '45',
@@ -79,6 +120,8 @@ const AccountStudySettings = () => {
         [profile?.studyPreferences],
     );
     const [draftFullName, setDraftFullName] = useState(null);
+    const [draftEducationLevel, setDraftEducationLevel] = useState(null);
+    const [draftDepartment, setDraftDepartment] = useState(null);
     const [draftDailyGoal, setDraftDailyGoal] = useState(null);
     const [draftSessionLength, setDraftSessionLength] = useState(null);
     const [draftAiTone, setDraftAiTone] = useState(null);
@@ -88,6 +131,8 @@ const AccountStudySettings = () => {
     const [billing, setBilling] = useState(null);
     const [billingStatus, setBillingStatus] = useState('loading');
     const fullName = draftFullName ?? profile?.fullName ?? user?.name ?? '';
+    const educationLevel = draftEducationLevel ?? normalizeEducationLevel(profile?.educationLevel);
+    const department = draftDepartment ?? normalizeDepartment(profile?.department);
     const dailyGoal = draftDailyGoal ?? profileStudyPreferences.dailyGoalMinutes;
     const sessionLength = String(draftSessionLength ?? profileStudyPreferences.preferredSessionLength);
     const notifications = draftNotifications ?? {
@@ -176,9 +221,15 @@ const AccountStudySettings = () => {
             ? aiTone
             : TUTOR_STYLE_OPTIONS[0].value;
 
+        const normalizedEducationLevel = normalizeEducationLevel(educationLevel);
+        const normalizedDepartment = normalizeDepartment(department);
+
         try {
             const result = await updateProfile({
                 fullName: fullName.trim(),
+                educationLevel: normalizedEducationLevel || null,
+                department: normalizedDepartment || null,
+                onboardingCompleted: true,
                 studyPreferences: {
                     dailyGoalMinutes: numericDailyGoal,
                     preferredSessionLength: normalizedSessionLength,
@@ -192,6 +243,8 @@ const AccountStudySettings = () => {
             }
 
             setDraftFullName(null);
+            setDraftEducationLevel(null);
+            setDraftDepartment(null);
             setDraftDailyGoal(null);
             setDraftSessionLength(null);
             setDraftNotifications(null);
@@ -206,6 +259,8 @@ const AccountStudySettings = () => {
 
     const handleCancel = () => {
         setDraftFullName(null);
+        setDraftEducationLevel(null);
+        setDraftDepartment(null);
         setDraftDailyGoal(null);
         setDraftSessionLength(null);
         setDraftAiTone(null);
@@ -258,6 +313,51 @@ const AccountStudySettings = () => {
                                 <label htmlFor="settings-email-address" className="block font-label-md text-label-md text-text-secondary mb-space-2">Email Address</label>
                                 <input id="settings-email-address" className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="email" value={emailAddress} readOnly />
                             </div>
+                            <div className="grid grid-cols-1 gap-space-4 sm:grid-cols-2">
+                                <div>
+                                    <label htmlFor="settings-education-level" className="block font-label-md text-label-md text-text-secondary mb-space-2">Education Level</label>
+                                    <div className="relative">
+                                        <select
+                                            id="settings-education-level"
+                                            className="w-full appearance-none bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 pr-10 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all cursor-pointer"
+                                            value={educationLevel}
+                                            onChange={(event) => {
+                                                setDraftEducationLevel(event.target.value);
+                                                setSaveMessage('');
+                                            }}
+                                        >
+                                            <option value="">Select your level</option>
+                                            {EDUCATION_LEVELS.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                        <AppIcon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-text-muted" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label htmlFor="settings-department" className="block font-label-md text-label-md text-text-secondary mb-space-2">Department</label>
+                                    <div className="relative">
+                                        <select
+                                            id="settings-department"
+                                            className="w-full appearance-none bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 pr-10 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all cursor-pointer"
+                                            value={department}
+                                            onChange={(event) => {
+                                                setDraftDepartment(event.target.value);
+                                                setSaveMessage('');
+                                            }}
+                                        >
+                                            <option value="">Select your department</option>
+                                            {DEPARTMENTS.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                        <AppIcon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-text-muted" />
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="font-body-sm text-body-sm text-text-muted">
+                                Education details help keep study recommendations relevant. Saving settings finishes profile setup.
+                            </p>
                         </section>
 
                         {/* Account/Subscription */}

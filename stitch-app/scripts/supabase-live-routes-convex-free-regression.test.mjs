@@ -25,8 +25,6 @@ const livePageModules = [
   'src/pages/Terms.jsx',
   'src/pages/Privacy.jsx',
   'src/pages/OnboardingName.jsx',
-  'src/pages/OnboardingLevel.jsx',
-  'src/pages/OnboardingDepartment.jsx',
   'src/pages/SubscriptionCallback.jsx',
   'src/hooks/useTopicDetail.js',
   'src/components/topic/TopicLessonViews.jsx',

@@ -15,48 +15,57 @@ const { resolveOnboardingPath } = onboardingModule;
 
 assert.equal(
   resolveOnboardingPath(null),
-  '/onboarding/level',
-  'Users without saved onboarding progress should resume at level.'
+  '/dashboard',
+  'Users without a profile should still reach the dashboard.',
 );
 
 assert.equal(
   resolveOnboardingPath({ educationLevel: 'junior', onboardingCompleted: false }),
-  '/onboarding/department',
-  'Users with a saved education level should resume at department.'
+  '/dashboard',
+  'Incomplete education details must not force the retired onboarding steps.',
 );
 
 assert.equal(
   resolveOnboardingPath({ educationLevel: 'junior', onboardingCompleted: true }),
   '/dashboard',
-  'Completed onboarding should resolve to the dashboard.'
+  'Completed onboarding should resolve to the dashboard.',
 );
 
-const protectedRouteSource = await fs.readFile(
-  path.join(rootDir, 'src/components/ProtectedRoute.jsx'),
-  'utf8'
-);
-
-assert.match(
-  protectedRouteSource,
-  /loading && user && profileReady/,
-  'ProtectedRoute should only bypass the loading screen when the profile gate is ready.'
+const protectedRouteStateSource = await fs.readFile(
+  path.join(rootDir, 'src/lib/protectedRouteState.js'),
+  'utf8',
 );
 
 assert.match(
-  protectedRouteSource,
+  protectedRouteStateSource,
   /resolveOnboardingPath\(profile\)/,
-  'ProtectedRoute should use shared onboarding path resolution.'
+  'Protected route state should use shared onboarding path resolution.',
 );
 
-const onboardingLevelSource = await fs.readFile(
-  path.join(rootDir, 'src/pages/OnboardingLevel.jsx'),
-  'utf8'
+const appSource = await fs.readFile(path.join(rootDir, 'src/App.jsx'), 'utf8');
+
+assert.match(
+  appSource,
+  /path="\/onboarding\/level"[\s\S]*Navigate to="\/dashboard\/settings#profile"/,
+  'Legacy /onboarding/level should redirect to Settings profile.',
 );
 
 assert.match(
-  onboardingLevelSource,
-  /resolveOnboardingPath\(profile\)/,
-  'OnboardingLevel should redirect forward when the user already has saved level progress.'
+  appSource,
+  /path="\/onboarding\/department"[\s\S]*Navigate to="\/dashboard\/settings#profile"/,
+  'Legacy /onboarding/department should redirect to Settings profile.',
+);
+
+assert.doesNotMatch(
+  appSource,
+  /import\('\.\/pages\/OnboardingLevel'\)/,
+  'App should not mount the retired OnboardingLevel page.',
+);
+
+assert.doesNotMatch(
+  appSource,
+  /import\('\.\/pages\/OnboardingDepartment'\)/,
+  'App should not mount the retired OnboardingDepartment page.',
 );
 
 console.log('onboarding-resume-routing-regression: ok');

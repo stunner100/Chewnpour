@@ -11,15 +11,11 @@ const [
   publicShellSource,
   cssSource,
   onboardingNameSource,
-  onboardingLevelSource,
-  onboardingDepartmentSource,
 ] = await Promise.all([
   read('src/App.jsx'),
   read('src/components/PublicShell.jsx'),
   read('src/index.css'),
   read('src/pages/OnboardingName.jsx'),
-  read('src/pages/OnboardingLevel.jsx'),
-  read('src/pages/OnboardingDepartment.jsx'),
 ]);
 
 for (const snippet of [
@@ -47,8 +43,6 @@ if (!routeThemeSource.includes('return preferredTheme;')) {
 for (const [label, source] of [
   ['PublicShell', publicShellSource],
   ['OnboardingName', onboardingNameSource],
-  ['OnboardingLevel', onboardingLevelSource],
-  ['OnboardingDepartment', onboardingDepartmentSource],
 ]) {
   if (!source.includes("const PAGE_BG = '#FAFAFB';")) {
     throw new Error(`${label} should use the light product background.`);
