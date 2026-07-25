@@ -7,6 +7,10 @@ import {
     resolveDoclingParser,
 } from "./doclingClient.js";
 import {
+    callLocalExtract,
+    isLocalExtractable,
+} from "./localExtract.js";
+import {
     createSignedUpload,
     downloadUploadObject,
     getStorageBucket,
@@ -179,6 +183,40 @@ const updateUploadRow = async (uploadId, fields) => {
     return result.rows[0] || null;
 };
 
+const persistExtractedUpload = async (uploadId, payload) => {
+    const text = String(payload?.text || "").slice(0, MAX_EXTRACT_TEXT_CHARS);
+    return updateUploadRow(uploadId, {
+        status: "ready",
+        processing_step: "ready",
+        extraction_status: "complete",
+        extracted_text: text || null,
+        char_count: text.length,
+        page_count: Number.isFinite(Number(payload?.pageCount))
+            ? Number(payload.pageCount)
+            : null,
+        extraction_backend: payload?.backend || "local",
+        extraction_parser: payload?.parser || null,
+        extraction_warnings: JSON.stringify(payload?.warnings || []),
+        error_message: null,
+    });
+};
+
+const tryLocalExtract = async ({ row, fileBuffer }) => {
+    if (!isLocalExtractable({
+        fileType: row.file_type,
+        contentType: row.content_type,
+        fileName: row.file_name,
+    })) {
+        return null;
+    }
+    return callLocalExtract({
+        fileName: row.file_name,
+        contentType: row.content_type || "application/octet-stream",
+        fileType: row.file_type,
+        fileBuffer,
+    });
+};
+
 export const finalizeUploadForUser = async (userId, uploadId) => {
     const row = await getUploadRowForUser(userId, uploadId);
     if (!row) {
@@ -221,56 +259,29 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         return toClientUpload(failed);
     }
 
-    const extractable = isDoclingExtractable({
+    const meta = {
         fileType: row.file_type,
         contentType: row.content_type,
         fileName: row.file_name,
-    });
+    };
+    const doclingCapable = isDoclingExtractable(meta);
+    const localCapable = isLocalExtractable(meta);
 
-    if (!extractable) {
+    if (!doclingCapable && !localCapable) {
         const deferred = await updateUploadRow(uploadId, {
             status: "ready",
             processing_step: "ready",
             extraction_status: "deferred",
             extraction_warnings: JSON.stringify([
-                "Extraction deferred for this file type in the upload milestone.",
+                "Extraction is not available for this file type yet.",
             ]),
             extracted_text: null,
             char_count: 0,
             page_count: null,
+            extraction_backend: null,
+            extraction_parser: null,
         });
         return finishReady(deferred);
-    }
-
-    if (!isDoclingEnabled()) {
-        const bootstrapTitle = String(row.file_name || "Study material")
-            .replace(/\.[^.]+$/, "");
-        const bootstrapText = [
-            `# ${bootstrapTitle}`,
-            "",
-            `This study material was uploaded as ${row.file_name}.`,
-            "Configure Docling extraction to replace this bootstrap outline with real document text.",
-            "",
-            "## Key ideas",
-            "",
-            "The source file is stored in Supabase Storage and linked to a generated course shell.",
-            "Use the bootstrap quiz to verify the courses and topics pipeline while OCR is offline.",
-            "",
-            "## Next step",
-            "",
-            "Once Docling is configured, re-upload or re-extract to refresh topics from the real document.",
-        ].join("\n");
-        const stored = await updateUploadRow(uploadId, {
-            status: "ready",
-            processing_step: "stored",
-            extraction_status: "not_configured",
-            extraction_warnings: JSON.stringify([
-                "File stored. Bootstrap course/topics generated because Docling is not configured.",
-            ]),
-            extracted_text: bootstrapText,
-            char_count: bootstrapText.length,
-        });
-        return finishReady(stored);
     }
 
     await updateUploadRow(uploadId, {
@@ -278,41 +289,78 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         extraction_status: "running",
     });
 
-    try {
-        const parser = resolveDoclingParser({
-            fileType: row.file_type,
-            contentType: row.content_type,
-            fileName: row.file_name,
-        });
-        const payload = await callDoclingExtract({
-            fileName: row.file_name,
-            contentType: row.content_type || "application/octet-stream",
-            fileBuffer,
-            parser,
-        });
-        const text = String(payload?.text || "").slice(0, MAX_EXTRACT_TEXT_CHARS);
-        const ready = await updateUploadRow(uploadId, {
+    const extractionErrors = [];
+
+    if (isDoclingEnabled() && doclingCapable) {
+        try {
+            const parser = resolveDoclingParser(meta);
+            const payload = await callDoclingExtract({
+                fileName: row.file_name,
+                contentType: row.content_type || "application/octet-stream",
+                fileBuffer,
+                parser,
+            });
+            const ready = await persistExtractedUpload(uploadId, {
+                text: payload?.text,
+                pageCount: payload?.pageCount,
+                backend: payload?.backend || "docling",
+                parser: payload?.parser || parser,
+                warnings: payload?.warnings || [],
+            });
+            return finishReady(ready);
+        } catch (error) {
+            extractionErrors.push(error.message || "Docling extraction failed");
+            console.warn("[uploads] Docling extract failed; trying local fallback", {
+                uploadId,
+                message: error?.message || String(error),
+            });
+        }
+    }
+
+    if (localCapable) {
+        try {
+            const payload = await tryLocalExtract({ row, fileBuffer });
+            if (payload) {
+                const warnings = [...(payload.warnings || [])];
+                if (extractionErrors.length > 0) {
+                    warnings.unshift(
+                        `Docling unavailable (${extractionErrors[0]}). Used local text extraction.`,
+                    );
+                }
+                const ready = await persistExtractedUpload(uploadId, {
+                    ...payload,
+                    warnings,
+                });
+                return finishReady(ready);
+            }
+        } catch (error) {
+            extractionErrors.push(error.message || "Local extraction failed");
+        }
+    }
+
+    // Images (and similar) that Docling could OCR, but we have no OCR host.
+    if (doclingCapable && !localCapable) {
+        const deferred = await updateUploadRow(uploadId, {
             status: "ready",
             processing_step: "ready",
-            extraction_status: "complete",
-            extracted_text: text || null,
-            char_count: text.length,
-            page_count: Number.isFinite(Number(payload?.pageCount))
-                ? Number(payload.pageCount)
-                : null,
-            extraction_backend: payload?.backend || "docling",
-            extraction_parser: payload?.parser || parser,
-            extraction_warnings: JSON.stringify(payload?.warnings || []),
-            error_message: null,
+            extraction_status: "deferred",
+            extraction_warnings: JSON.stringify([
+                "This file needs OCR. Local text extraction cannot read it; connect a cloud OCR service later.",
+            ]),
+            extracted_text: null,
+            char_count: 0,
+            page_count: null,
+            extraction_backend: null,
+            extraction_parser: null,
         });
-        return finishReady(ready);
-    } catch (error) {
-        const failed = await updateUploadRow(uploadId, {
-            status: "error",
-            processing_step: "extract_failed",
-            extraction_status: "failed",
-            error_message: error.message || "Extraction failed",
-        });
-        return toClientUpload(failed);
+        return finishReady(deferred);
     }
+
+    const failed = await updateUploadRow(uploadId, {
+        status: "error",
+        processing_step: "extract_failed",
+        extraction_status: "failed",
+        error_message: extractionErrors.filter(Boolean).join(" | ") || "Extraction failed",
+    });
+    return toClientUpload(failed);
 };

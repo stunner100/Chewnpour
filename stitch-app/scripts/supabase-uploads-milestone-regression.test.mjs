@@ -27,14 +27,25 @@ if (!/handleUploadsRequest/.test(uploadHttp) || !/auth\.api\.getSession/.test(up
   throw new Error('Expected upload HTTP handler to require a Better Auth session.');
 }
 
-const apiRoute = await fs.readFile(path.join(root, 'api', 'uploads', '[...all].js'), 'utf8');
-if (!/handleUploadsRequest/.test(apiRoute)) {
-  throw new Error('Expected api/uploads/[...all].js to export the uploads HTTP handler.');
+const apiRoute = await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8');
+if (!/handleUploadsRequest/.test(apiRoute) || !/\/api\/uploads/.test(apiRoute)) {
+  throw new Error('Expected api/router.js to route /api/uploads to the uploads HTTP handler.');
 }
 
 const doclingClient = await fs.readFile(path.join(root, 'server', 'doclingClient.js'), 'utf8');
 if (!/callDoclingExtract/.test(doclingClient) || !/isDoclingEnabled/.test(doclingClient)) {
   throw new Error('Expected server/doclingClient.js to expose Docling extract helpers.');
+}
+
+const localExtract = await fs.readFile(path.join(root, 'server', 'localExtract.js'), 'utf8');
+if (!/callLocalExtract/.test(localExtract) || !/isLocalExtractable/.test(localExtract)) {
+  throw new Error('Expected server/localExtract.js to expose local PDF/DOCX extract helpers.');
+}
+if (!uploadsSource.includes('callLocalExtract') || !uploadsSource.includes('isLocalExtractable')) {
+  throw new Error('Expected finalizeUploadForUser to fall back to local extraction.');
+}
+if (uploadsSource.includes('extraction_status: "not_configured"')) {
+  throw new Error('Bootstrap not_configured path should be retired in favor of local extract.');
 }
 
 const page = await fs.readFile(path.join(root, 'src', 'pages', 'UploadMaterials.jsx'), 'utf8');

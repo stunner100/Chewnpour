@@ -79,7 +79,7 @@ export const buildTopicsFromExtractedText = ({ fileName, extractedText }) => {
                 title: titleBase,
                 description: "Source file is stored. Extraction is still pending.",
                 content:
-                    "This course was created from an uploaded file. Configure Docling extraction to generate richer topics and quizzes.",
+                    "This course was created from an uploaded file, but no extractable text was found. Re-upload a text-based PDF/DOCX, or use a cloud OCR service for scanned pages.",
             },
         ];
     }

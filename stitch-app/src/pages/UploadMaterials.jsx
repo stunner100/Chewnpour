@@ -465,11 +465,9 @@ const UploadMaterials = () => {
                                                 <div className="mt-auto pt-space-4 border-t border-border-subtle">
                                                     <p className="font-body-sm text-body-sm text-text-secondary line-clamp-3">
                                                         {upload.extractedTextPreview
-                                                            || (upload.extractionStatus === 'not_configured'
-                                                                ? 'Stored in Supabase. Configure Docling to extract text.'
-                                                                : upload.extractionStatus === 'deferred'
-                                                                    ? 'Stored. Extraction for this type comes later.'
-                                                                    : upload.errorMessage || 'Ready for the next study milestone.')}
+                                                            || (upload.extractionStatus === 'deferred'
+                                                                ? 'Stored. Text extraction is not available for this file type yet.'
+                                                                : upload.errorMessage || 'Ready for the next study milestone.')}
                                                     </p>
                                                 </div>
                                             ) : (
