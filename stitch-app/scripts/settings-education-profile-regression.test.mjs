@@ -35,4 +35,12 @@ if (!dashboardSource.includes('onboardingCompleted === true')) {
   throw new Error('Dashboard should hide the complete-profile banner after onboardingCompleted.');
 }
 
+if (settingsSource.includes('AppIcon name="edit"')) {
+  throw new Error('Settings profile should not show a non-functional avatar edit control.');
+}
+
+if (settingsSource.includes('group-hover:scale-105')) {
+  throw new Error('Settings profile should not keep the decorative avatar edit affordance.');
+}
+
 console.log('settings-education-profile-regression.test.mjs passed');

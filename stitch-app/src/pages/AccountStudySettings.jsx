@@ -294,15 +294,13 @@ const AccountStudySettings = () => {
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Profile</h3>
                             </div>
                             <div className="flex items-center gap-space-6">
-                                <div className="relative group">
-                                    <div className="w-20 h-20 rounded-full bg-surface-muted overflow-hidden border-2 border-surface shadow-sm flex items-center justify-center text-2xl font-bold text-text-muted">
-                                        {profile?.avatarUrl ? (
-                                            <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-                                        ) : initials}
-                                    </div>
-                                    <button className="absolute bottom-0 right-0 w-8 h-8 bg-surface border border-border-subtle rounded-full flex items-center justify-center text-text-secondary hover:text-primary shadow-sm group-hover:scale-105 transition-transform" type="button">
-                                        <AppIcon name="edit" className="text-[16px]" />
-                                    </button>
+                                <div
+                                    className="w-20 h-20 shrink-0 rounded-full bg-surface-muted overflow-hidden border-2 border-surface shadow-sm flex items-center justify-center text-2xl font-bold text-text-muted"
+                                    aria-hidden={profile?.avatarUrl ? undefined : true}
+                                >
+                                    {profile?.avatarUrl ? (
+                                        <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                                    ) : initials}
                                 </div>
                                 <div className="flex-1">
                                     <label htmlFor="settings-full-name" className="block font-label-md text-label-md text-text-secondary mb-space-2">Full Name</label>
