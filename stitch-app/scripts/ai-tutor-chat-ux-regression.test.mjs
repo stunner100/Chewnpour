@@ -75,10 +75,11 @@ requireExcludes('h-28 rounded-2xl bg-ai-subtle w-3/4', 'anonymous assistant-mess
 requireExcludesIn(messageRowSource, 'rounded-tl-sm', 'asymmetric assistant bubble tail');
 requireExcludesIn(messageRowSource, 'rounded-tr-sm', 'asymmetric user bubble tail');
 requireExcludesIn(messageRowSource, 'variant="ghost"', 'ghost bubble override in tutor chat');
-requireIncludes('variant="default"', 'primary pill bubble for user messages');
-requireIncludes('variant="muted"', 'muted pill bubble for tutor messages');
+requireIncludes('variant="default"', 'primary bubble for user messages');
+requireIncludes('variant="muted"', 'muted bubble for tutor messages');
 requireIncludes('bg-surface-soft dark:bg-surface-hover-dark', 'visible tutor bubble surface on dark theme');
-requireIncludes('rounded-full', 'uniform pill bubble corners');
+requireIncludes('rounded-2xl', 'chat-friendly bubble corners for multi-line replies');
+requireExcludesIn(messageRowSource, 'rounded-full', 'pill bubbles that dome on long replies');
 requireIncludes('StudentAvatar', 'student avatar on outgoing tutor messages');
 
 requireIncludes('inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption?.title || \'this lesson\'}`}', 'textarea accessible label');

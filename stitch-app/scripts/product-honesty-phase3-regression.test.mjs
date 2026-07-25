@@ -42,6 +42,8 @@ assert.match(kids, /ParkedFeatureView/, 'kids route page must use honest parked 
 assert.match(podcasts, /ParkedFeatureView/, 'podcasts page must use honest parked view');
 assert.match(app, /ParkedDashboardFeature title="Study podcasts"/, 'podcasts route must be parked, not silent redirect');
 assert.match(app, /ParkedDashboardFeature title="Flashcards"/, 'flashcards route must be parked, not silent redirect');
+assert.match(app, /ParkedDashboardFeature title="Kids mode"/, 'dashboard kids route must be parked honestly');
+assert.match(app, /import AppIcon from ['"].*AppIcon['"]/, 'App.jsx NotFound must import AppIcon');
 assert.doesNotMatch(app, /path="\/dashboard\/podcasts" element=\{<Navigate to="\/dashboard"/, 'podcasts must not silently Navigate to dashboard');
 
 console.log('product-honesty-phase3-regression: ok');

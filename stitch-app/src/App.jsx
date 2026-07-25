@@ -16,6 +16,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import PublicShell, { ArrowBadge } from './components/PublicShell';
 import ParkedFeatureView from './components/ParkedFeatureView';
+import AppIcon from './components/AppIcon';
 import SignUpPage from './pages/SignUp';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
@@ -351,6 +352,7 @@ function App() {
         <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />
         <Route path="/dashboard/podcasts" element={<ParkedDashboardFeature title="Study podcasts" />} />
+        <Route path="/dashboard/kids" element={<ParkedDashboardFeature title="Kids mode" />} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />

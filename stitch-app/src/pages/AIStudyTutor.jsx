@@ -57,7 +57,7 @@ const TutorContextLoading = ({ topicTitle }) => (
         <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim overflow-hidden">
             <TutorAvatarMark size={36} className="size-9" />
         </div>
-        <div className="max-w-[85%] md:max-w-[75%] rounded-full bg-muted px-4 py-3 shadow-sm">
+        <div className="max-w-[85%] md:max-w-[75%] rounded-2xl bg-muted px-4 py-3 shadow-sm">
             <p className="font-label-md text-label-md text-text-primary">Loading tutor context...</p>
             <p className="font-body-sm text-body-sm text-text-secondary mt-1">
                 Getting the latest chat for {topicTitle || 'this lesson'}.

@@ -9,7 +9,7 @@ import {
 import { TutorAvatar } from '@/components/tutor/TutorAvatar';
 import { cn } from '@/lib/utils';
 
-const bubbleShapeClass = 'rounded-full px-4 py-2.5';
+const bubbleShapeClass = 'rounded-2xl px-4 py-2.5';
 
 function StudentAvatar({ className }) {
   const { profile, user } = useAuth();
