@@ -6,6 +6,13 @@ const resolveBaseUrl = (value, fallback) => {
 
 const isPlaceholderUrl = (value) => /your_resource_name/i.test(String(value || ""));
 
+const GRID_BASE_URL = resolveBaseUrl(
+    process.env.GRID_BASE_URL,
+    "https://api.thegrid.ai/v1/",
+);
+const GRID_MODEL = String(process.env.GRID_MODEL || "text-prime").trim() || "text-prime";
+const GRID_TIMEOUT_MS = Number(process.env.GRID_TIMEOUT_MS || 60000);
+
 const DEEPSEEK_BASE_URL = resolveBaseUrl(
     process.env.DEEPSEEK_BASE_URL,
     "https://api.deepseek.com/v1/",
@@ -29,11 +36,13 @@ const courseAiFlagEnabled = () => {
 
 export const isCourseAiEnabled = () => {
     if (!courseAiFlagEnabled()) return false;
+    const gridKey = String(process.env.GRID_API_KEY || "").trim();
     const deepseekKey = String(process.env.DEEPSEEK_API_KEY || "").trim();
     const inceptionKey = String(process.env.INCEPTION_API_KEY || "").trim();
+    const gridOk = Boolean(gridKey) && !isPlaceholderUrl(GRID_BASE_URL);
     const deepseekOk = Boolean(deepseekKey) && !isPlaceholderUrl(DEEPSEEK_BASE_URL);
     const inceptionOk = Boolean(inceptionKey) && !isPlaceholderUrl(INCEPTION_BASE_URL);
-    return deepseekOk || inceptionOk;
+    return gridOk || deepseekOk || inceptionOk;
 };
 
 const callOpenAiCompatibleChat = async ({
@@ -46,6 +55,7 @@ const callOpenAiCompatibleChat = async ({
     maxTokens = 4096,
     responseFormat = null,
     timeoutMs = 60000,
+    redirect = "follow",
 }) => {
     if (!apiKey) {
         throw new Error(`${provider} API key environment variable not set.`);
@@ -72,6 +82,7 @@ const callOpenAiCompatibleChat = async ({
                 response_format: responseFormat ? { type: responseFormat } : undefined,
             }),
             signal: controller.signal,
+            redirect,
         });
 
         if (!response.ok) {
@@ -88,7 +99,7 @@ const callOpenAiCompatibleChat = async ({
         }
         return {
             text: responseText,
-            model,
+            model: data?.model || model,
             provider,
             usage: data?.usage || null,
         };
@@ -105,6 +116,23 @@ const callOpenAiCompatibleChat = async ({
 
 export const callCourseLlmChat = async (args) => {
     const errors = [];
+
+    // The Grid first: OpenAI-compatible spot market (follows 307 supplier redirects).
+    const gridKey = String(process.env.GRID_API_KEY || "").trim();
+    if (gridKey && !isPlaceholderUrl(GRID_BASE_URL)) {
+        try {
+            return await callOpenAiCompatibleChat({
+                provider: "grid",
+                baseUrl: GRID_BASE_URL,
+                apiKey: gridKey,
+                model: GRID_MODEL,
+                timeoutMs: args.timeoutMs ?? GRID_TIMEOUT_MS,
+                ...args,
+            });
+        } catch (error) {
+            errors.push(error?.message || String(error));
+        }
+    }
 
     const deepseekKey = String(process.env.DEEPSEEK_API_KEY || "").trim();
     if (deepseekKey && !isPlaceholderUrl(DEEPSEEK_BASE_URL)) {
