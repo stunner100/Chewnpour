@@ -1,4 +1,5 @@
 import React from 'react';
+import AppIcon from '../AppIcon';
 
 const LessonProgressBar = ({ progress = 0, activeSection, quizReady }) => (
     <div className="sticky top-[68px] lg:top-[72px] z-20 bg-background-light/85 dark:bg-background-dark/85 backdrop-blur-md border-b border-border-subtle dark:border-border-subtle-dark">
@@ -20,7 +21,7 @@ const LessonProgressBar = ({ progress = 0, activeSection, quizReady }) => (
             </span>
             {quizReady !== undefined && (
                 <span className={`hidden sm:inline-flex items-center gap-1 font-semibold shrink-0 ${quizReady ? 'text-emerald-600 dark:text-emerald-400' : 'text-text-faint-light dark:text-text-faint-dark'}`}>
-                    <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>{quizReady ? 'check_circle' : 'hourglass_top'}</span>
+                    <AppIcon name={quizReady ? 'check_circle' : 'hourglass_top'} className="text-[12px]" />
                     {quizReady ? 'Quiz ready' : 'Quiz preparing'}
                 </span>
             )}

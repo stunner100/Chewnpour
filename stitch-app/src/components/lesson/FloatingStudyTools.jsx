@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -38,7 +39,7 @@ const FloatingStudyTools = ({ tools = EMPTY_ARRAY, hidden }) => {
                             onClick={() => { tool.onClick?.(); setOpen(false); }}
                             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-body-sm font-medium text-text-main-light dark:text-text-main-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors text-left"
                         >
-                            <span className="material-symbols-outlined text-[18px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>{tool.icon}</span>
+                            <AppIcon name={tool.icon} className="text-[18px] text-primary" />
                             <span className="flex-1">{tool.label}</span>
                             {tool.hint && <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{tool.hint}</span>}
                         </button>
@@ -52,9 +53,7 @@ const FloatingStudyTools = ({ tools = EMPTY_ARRAY, hidden }) => {
                 aria-label={open ? 'Close study tools' : 'Open study tools'}
                 aria-expanded={open}
             >
-                <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {open ? 'close' : 'auto_awesome'}
-                </span>
+                <AppIcon name={open ? 'close' : 'auto_awesome'} className="text-[22px]" />
             </button>
         </div>
     );

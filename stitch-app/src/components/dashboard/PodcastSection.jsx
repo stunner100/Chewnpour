@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PodcastStatusBadge from './PodcastStatusBadge';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -52,7 +53,7 @@ const PodcastSection = ({ podcasts = EMPTY_ARRAY }) => {
                 </div>
                 {hasPodcasts && (
                     <Link to={GENERATE_PATH} className="btn-ghost text-caption">
-                        <span className="material-symbols-outlined text-[16px]">add</span>
+                        <AppIcon name="add" className="text-[16px]" />
                         New podcast
                     </Link>
                 )}
@@ -81,15 +82,13 @@ const PodcastSection = ({ podcasts = EMPTY_ARRAY }) => {
                             <div className="mt-auto space-y-3">
                                 <div className="flex items-center gap-3">
                                     <span className="inline-flex items-center justify-center size-12 rounded-full bg-white text-[#2c1c4a] shadow-lg group-hover:scale-105 transition-transform">
-                                        <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                                            {featured.status === 'ready' ? 'play_arrow' : 'graphic_eq'}
-                                        </span>
+                                        <AppIcon name={featured.status === 'ready' ? 'play_arrow' : 'graphic_eq'} className="text-[26px]" />
                                     </span>
                                     <WaveformBars />
                                 </div>
                                 <div className="flex items-center justify-between text-caption text-white/70">
                                     <span className="inline-flex items-center gap-1.5">
-                                        <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                        <AppIcon name="schedule" className="text-[14px]" />
                                         {formatDuration(featured.durationSeconds)}
                                     </span>
                                     <span>{formatDate(featured.createdAt)}</span>
@@ -102,7 +101,7 @@ const PodcastSection = ({ podcasts = EMPTY_ARRAY }) => {
                         <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-primary/40 blur-3xl" aria-hidden="true" />
                         <div className="relative space-y-4 max-w-md">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-white text-[10px] font-bold uppercase tracking-wide">
-                                <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                                <AppIcon name="auto_awesome" className="text-[12px]" />
                                 AI Audio
                             </span>
                             <h3 className="text-display-md font-semibold leading-tight">Turn your slides into a study podcast</h3>
@@ -111,7 +110,7 @@ const PodcastSection = ({ podcasts = EMPTY_ARRAY }) => {
                                 to={GENERATE_PATH}
                                 className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                             >
-                                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>graphic_eq</span>
+                                <AppIcon name="graphic_eq" className="text-[18px]" />
                                 Generate Podcast
                             </Link>
                         </div>
@@ -133,7 +132,7 @@ const PodcastSection = ({ podcasts = EMPTY_ARRAY }) => {
                     </div>
                     {rest.length === 0 ? (
                         <div className="text-center py-6 px-2">
-                            <span className="material-symbols-outlined text-[32px] text-text-faint-light dark:text-text-faint-dark">podcasts</span>
+                            <AppIcon name="podcasts" className="text-[32px] text-text-faint-light dark:text-text-faint-dark" />
                             <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">
                                 Generate your first study podcast from a PDF, slide deck, or document.
                             </p>
@@ -147,7 +146,7 @@ const PodcastSection = ({ podcasts = EMPTY_ARRAY }) => {
                                         className="flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary-50/40 dark:hover:bg-primary-900/10 transition-all group"
                                     >
                                         <span className="inline-flex items-center justify-center size-9 rounded-lg bg-primary/10 text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
-                                            <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
+                                            <AppIcon name="play_arrow" className="text-[18px]" />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark line-clamp-1">{p.topicTitle}</p>

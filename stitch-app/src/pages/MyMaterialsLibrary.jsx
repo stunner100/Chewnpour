@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
 
 const filterTabs = [
     { label: 'All Files', value: 'all' },
@@ -141,7 +142,7 @@ const MyMaterialsLibrary = () => {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-space-3 items-center">
                     <div className="flex items-center gap-2 bg-surface px-4 py-2.5 rounded-xl border border-border-default shadow-sm w-full sm:w-64 focus-within:ring-2 focus-within:ring-primary-soft transition-all">
-                        <span className="material-symbols-outlined text-[18px] text-text-muted">search</span>
+                        <AppIcon name="search" className="text-[18px] text-text-muted" />
                         <input
                             className="bg-transparent border-none outline-none text-body-sm font-body-sm w-full placeholder:text-text-muted focus:ring-0 p-0"
                             placeholder="Search materials..."
@@ -191,7 +192,7 @@ const MyMaterialsLibrary = () => {
                         >
                             <div className="flex justify-between items-start mb-3">
                                 <div className={`w-9 h-9 rounded-lg ${typeConfig.color} flex items-center justify-center`}>
-                                    <span className="material-symbols-outlined text-[20px]">{typeConfig.icon}</span>
+                                    <AppIcon name={typeConfig.icon} className="text-[20px]" />
                                 </div>
                                 {hasGeneratedContent ? (
                                     <span className="bg-success-soft text-success px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
@@ -200,12 +201,12 @@ const MyMaterialsLibrary = () => {
                                     </span>
                                 ) : isProcessing ? (
                                     <span className="bg-warning-soft text-warning px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
+                                        <AppIcon name="sync" className="text-[14px] animate-spin" />
                                         Processing
                                     </span>
                                 ) : (
                                     <span className="bg-surface-soft text-text-muted px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                        <AppIcon name="schedule" className="text-[14px]" />
                                         Not ready
                                     </span>
                                 )}
@@ -230,7 +231,7 @@ const MyMaterialsLibrary = () => {
                                         className="w-full bg-primary text-on-primary py-2.5 rounded-lg font-label-sm text-label-sm hover:bg-primary-hover transition-colors shadow-sm flex items-center justify-center gap-2"
                                     >
                                         Continue Study
-                                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                                        <AppIcon name="arrow_forward" className="text-[16px]" />
                                     </Link>
                                 ) : (
                                     <>
@@ -257,7 +258,7 @@ const MyMaterialsLibrary = () => {
 
             {filteredMaterials.length === 0 && (
                 <div className="mt-space-8 bg-surface border-2 border-dashed border-border-strong rounded-2xl p-space-12 flex flex-col items-center justify-center text-center max-w-2xl mx-auto w-full shadow-sm">
-                    <span className="material-symbols-outlined text-[40px] text-text-muted mb-4">folder_open</span>
+                    <AppIcon name="folder_open" className="text-[40px] text-text-muted mb-4" />
                     <h3 className="font-headline-sm text-headline-sm text-text-primary mb-2">No materials yet</h3>
                     <p className="font-body-sm text-body-sm text-text-secondary mb-6">
                         Upload a PDF, slide deck, or document to generate topics and quizzes.
@@ -266,7 +267,7 @@ const MyMaterialsLibrary = () => {
                         to="/dashboard/upload"
                         className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-label-md text-label-md text-on-primary hover:bg-primary-hover"
                     >
-                        <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                        <AppIcon name="cloud_upload" className="text-[18px]" />
                         Upload Material
                     </Link>
                 </div>

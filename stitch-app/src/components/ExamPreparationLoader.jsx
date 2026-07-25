@@ -1,4 +1,5 @@
 import { useState, useEffect, useReducer, useRef, useMemo, memo } from 'react';
+import AppIcon from './AppIcon';
 
 /**
  * Gamified preparation loader for exams and fill-in exercises.
@@ -179,7 +180,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                 <div className="w-full max-w-md">
                     <div className="card-base p-8 text-center">
                         <div className="size-16 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
-                            <span className="material-symbols-outlined text-2xl text-accent-amber">hourglass_top</span>
+                            <AppIcon name="hourglass_top" className="text-2xl text-accent-amber" />
                         </div>
                         <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
                             {waitingTitle}
@@ -190,7 +191,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                         <div className="flex gap-3">
                             {isSessionExpired ? (
                                 <a href="/login" className="flex-1 btn-primary py-3 flex items-center justify-center gap-2">
-                                    <span className="material-symbols-outlined text-[18px]">login</span>
+                                    <AppIcon name="login" className="text-[18px]" />
                                     <span>Sign In</span>
                                 </a>
                             ) : (
@@ -199,7 +200,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                                         onClick={onRetry}
                                         className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
                                     >
-                                        <span className="material-symbols-outlined text-[18px]">refresh</span>
+                                        <AppIcon name="refresh" className="text-[18px]" />
                                         <span>Retry</span>
                                     </button>
                                     {onBack && (
@@ -207,7 +208,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                                             onClick={onBack}
                                             className="btn-secondary px-4 py-3 flex items-center justify-center"
                                         >
-                                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                                            <AppIcon name="arrow_back" className="text-[18px]" />
                                         </button>
                                     )}
                                 </>
@@ -244,9 +245,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                             </defs>
                         </svg>
                         <div className="absolute inset-3 rounded-full bg-primary/10 flex items-center justify-center transition-all duration-500">
-                            <span key={currentStageData.key} className="material-symbols-outlined text-3xl text-primary animate-fade-in">
-                                {currentStageData.icon}
-                            </span>
+                            <AppIcon name={currentStageData.icon} className="text-3xl text-primary animate-fade-in" />
                         </div>
                     </div>
 
@@ -291,9 +290,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                                     className={`flex items-center gap-3 py-2 px-3 rounded-xl transition-all duration-300 ${isActive ? 'bg-primary/[0.06]' : ''}`}
                                 >
                                     <div className={`size-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${isDone ? 'bg-primary/15' : isActive ? 'bg-primary/15' : 'bg-transparent'}`}>
-                                        <span className={`material-symbols-outlined text-[18px] transition-all duration-300 ${isDone ? 'text-primary' : isActive ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark opacity-40'}`}>
-                                            {isDone ? 'check_circle' : isActive ? stage.icon : 'radio_button_unchecked'}
-                                        </span>
+                                        <AppIcon name={isDone ? 'check_circle' : isActive ? stage.icon : 'radio_button_unchecked'} />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className={`text-body-sm transition-colors duration-300 ${isDone ? 'text-text-faint-light dark:text-text-faint-dark line-through decoration-text-faint-light/30 dark:decoration-text-faint-dark/30' : isActive ? 'text-text-main-light dark:text-text-main-dark font-medium' : 'text-text-faint-light dark:text-text-faint-dark opacity-60'}`}>
@@ -319,7 +316,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                         {currentStageData.encouragement}
                     </p>
                     <div className="flex items-start gap-2 justify-center px-4">
-                        <span className="material-symbols-outlined text-[14px] text-primary/60 mt-0.5 shrink-0">lightbulb</span>
+                        <AppIcon name="lightbulb" className="text-[14px] text-primary/60 mt-0.5 shrink-0" />
                         <p key={funFactIdx} className="text-caption text-text-faint-light dark:text-text-faint-dark leading-relaxed text-left animate-fade-in">
                             {funFacts[funFactIdx]}
                         </p>

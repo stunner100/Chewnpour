@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
+import AppIcon from '../AppIcon';
 
 export const WatermelonDisclosure = ({
     title,
@@ -45,9 +46,9 @@ export const WatermelonDisclosure = ({
                 <Motion.span
                     animate={{ rotate: isOpen ? 180 : 0 }}
                     transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                    className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[20px] shrink-0"
+                    className="inline-flex shrink-0"
                 >
-                    {icon}
+                    <AppIcon name={icon} className="text-text-faint-light dark:text-text-faint-dark text-[20px]" />
                 </Motion.span>
             </div>
             <AnimatePresence initial={false}>

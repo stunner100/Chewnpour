@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import AccessibleProgressBar from '../AccessibleProgressBar';
+import AppIcon from '../AppIcon';
 
 const ContinueLearningPanel = ({
     topic,
@@ -30,12 +31,7 @@ const ContinueLearningPanel = ({
                             'linear-gradient(135deg, #B45309 0%, #D97706 50%, #F59E0B 100%)',
                     }}
                 >
-                    <span
-                        className="material-symbols-outlined text-white/95 text-[56px]"
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                        {isCompletedAll ? 'workspace_premium' : 'play_circle'}
-                    </span>
+                    <AppIcon name={isCompletedAll ? 'workspace_premium' : 'play_circle'} className="text-white/95 text-[56px]" />
                     <span className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider">
                         {isCompletedAll ? 'Course complete' : 'Continue learning'}
                     </span>
@@ -64,7 +60,7 @@ const ContinueLearningPanel = ({
                                     {progressPercent}% complete
                                 </span>
                                 <span className="text-text-faint-light dark:text-text-faint-dark inline-flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[13px]">schedule</span>
+                                    <AppIcon name="schedule" className="text-[13px]" />
                                     {timeLabel}
                                 </span>
                             </div>
@@ -85,12 +81,7 @@ const ContinueLearningPanel = ({
                                     to={`/dashboard/topic/${topic._id}`}
                                     className="btn-primary text-body-sm h-10 px-4"
                                 >
-                                    <span
-                                        className="material-symbols-outlined text-[16px]"
-                                        style={{ fontVariationSettings: "'FILL' 1" }}
-                                    >
-                                        play_arrow
-                                    </span>
+                                    <AppIcon name="play_arrow" className="text-[16px]" />
                                     {progressPercent > 0 ? 'Continue topic' : 'Start topic'}
                                 </Link>
                                 {quizReady && (
@@ -99,19 +90,14 @@ const ContinueLearningPanel = ({
                                         reloadDocument
                                         className="btn-secondary text-body-sm h-10 px-4"
                                     >
-                                        <span className="material-symbols-outlined text-[16px]">quiz</span>
+                                        <AppIcon name="quiz" className="text-[16px]" />
                                         Take quiz
                                     </Link>
                                 )}
                             </>
                         ) : (
                             <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark inline-flex items-center gap-1.5">
-                                <span
-                                    className="material-symbols-outlined text-success text-[18px]"
-                                    style={{ fontVariationSettings: "'FILL' 1" }}
-                                >
-                                    check_circle
-                                </span>
+                                <AppIcon name="check_circle" className="text-success text-[18px]" />
                                 You&apos;ve completed every module in this course.
                             </span>
                         )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const ProgressRing = ({ value = 0, size = 80, stroke = 6, accent = '#6c2bd9' }) => {
     const clamped = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
@@ -76,7 +77,7 @@ const CourseProgressSidebar = ({
         <div className="space-y-3">
             <section className="card-base p-5">
                 <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark inline-flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-primary text-[18px]">analytics</span>
+                    <AppIcon name="analytics" className="text-primary text-[18px]" />
                     Course progress
                 </h3>
                 <div className="flex items-center gap-4">
@@ -103,7 +104,7 @@ const CourseProgressSidebar = ({
 
             <section className="card-base p-5">
                 <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark inline-flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-primary text-[18px]">bolt</span>
+                    <AppIcon name="bolt" className="text-primary text-[18px]" />
                     Quick actions
                 </h3>
                 <div className="space-y-2">
@@ -112,12 +113,7 @@ const CourseProgressSidebar = ({
                         onClick={onContinue}
                         className="btn-primary w-full justify-center text-body-sm h-10"
                     >
-                        <span
-                            className="material-symbols-outlined text-[16px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                            play_arrow
-                        </span>
+                        <AppIcon name="play_arrow" className="text-[16px]" />
                         Continue learning
                     </button>
                     <button
@@ -125,14 +121,14 @@ const CourseProgressSidebar = ({
                         onClick={onGeneratePodcast}
                         className="btn-secondary w-full justify-center text-body-sm h-10"
                     >
-                        <span className="material-symbols-outlined text-[16px]">graphic_eq</span>
+                        <AppIcon name="graphic_eq" className="text-[16px]" />
                         {podcastStatus === 'ready' ? 'Open podcast' : 'Generate podcast'}
                     </button>
                     <Link
                         to="/dashboard/progress"
                         className="btn-ghost w-full justify-center text-body-sm h-10"
                     >
-                        <span className="material-symbols-outlined text-[16px]">trending_up</span>
+                        <AppIcon name="trending_up" className="text-[16px]" />
                         View study plan
                     </Link>
                 </div>

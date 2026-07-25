@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import AppIcon from './AppIcon';
 
 const primaryTabs = [
     { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', matchPaths: ['/dashboard'] },
@@ -70,13 +71,7 @@ const MobileBottomNav = () => {
                         const active = isActive(tab);
                         const content = (
                             <>
-                                <span
-                                    className="material-symbols-outlined text-[22px]"
-                                    aria-hidden="true"
-                                    style={active ? { fontVariationSettings: "'FILL' 1, 'wght' 500" } : { fontVariationSettings: "'FILL' 0, 'wght' 400" }}
-                                >
-                                    {tab.icon}
-                                </span>
+                                <AppIcon name={tab.icon} className="text-[22px]" aria-hidden="true" />
                                 <span className="max-w-full truncate text-[10px] font-semibold leading-tight tracking-tight">
                                     {tab.label}
                                 </span>
@@ -115,13 +110,7 @@ const MobileBottomNav = () => {
                         aria-label={moreOpen ? 'Close more navigation' : 'More navigation'}
                         className={`${tabClassName(moreOpen || moreActive)} active:scale-95`}
                     >
-                        <span
-                            className="material-symbols-outlined text-[22px]"
-                            aria-hidden="true"
-                            style={moreOpen || moreActive ? { fontVariationSettings: "'FILL' 1, 'wght' 500" } : { fontVariationSettings: "'FILL' 0, 'wght' 400" }}
-                        >
-                            {moreOpen ? 'close' : 'menu'}
-                        </span>
+                        <AppIcon name={moreOpen ? 'close' : 'menu'} className="text-[22px]" aria-hidden="true" />
                         <span className="max-w-full truncate text-[10px] font-semibold leading-tight tracking-tight">
                             More
                         </span>
@@ -156,13 +145,7 @@ const MobileBottomNav = () => {
                                             }`}
                                             role="menuitem"
                                         >
-                                            <span
-                                                className="material-symbols-outlined text-[22px]"
-                                                aria-hidden="true"
-                                                style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                                            >
-                                                {item.icon}
-                                            </span>
+                                            <AppIcon name={item.icon} className="text-[22px]" aria-hidden="true" />
                                             <span className="flex flex-col">
                                                 <span className="font-label-md text-label-md">{item.label}</span>
                                                 <span className="font-label-xs text-label-xs text-text-muted">{item.description}</span>

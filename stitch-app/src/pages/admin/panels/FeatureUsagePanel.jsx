@@ -21,6 +21,7 @@ import {
 } from '../../../lib/admin/formatters';
 import { PAYMENT_PROVIDER_FALLBACK_OPTIONS } from '../../../lib/admin/constants';
 import { BarChart, SectionCard, StatCard, StatRow } from '../../../components/admin/AdminUi';
+import AppIcon from '../../../components/AppIcon';
 
 export const FeatureUsagePanel = ({ snapshot, activeUsersDays }) => {
     const usage = snapshot.featureUsageAnalytics || {};
@@ -74,7 +75,7 @@ export const FeatureUsagePanel = ({ snapshot, activeUsersDays }) => {
                                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="flex min-w-0 items-start gap-3">
                                             <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
-                                                <span className="material-symbols-outlined text-[20px]">{feature.icon || 'analytics'}</span>
+                                                <AppIcon name={feature.icon || 'analytics'} className="text-[20px]" />
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-bold text-text-primary">{feature.label}</p>

@@ -1,4 +1,5 @@
 import React from 'react';
+import AppIcon from '../AppIcon';
 
 const SOURCE_LABEL = {
     pdf: 'PDF',
@@ -83,23 +84,18 @@ const GeneratedCourseHeader = ({
                 <div className="min-w-0 max-w-2xl space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/15 text-[10px] font-bold uppercase tracking-wider">
-                            <span
-                                className="material-symbols-outlined text-[12px]"
-                                style={{ fontVariationSettings: "'FILL' 1" }}
-                            >
-                                auto_awesome
-                            </span>
+                            <AppIcon name="auto_awesome" className="text-[12px]" />
                             AI generated course
                         </span>
                         {sourceFileType && (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark text-[10px] font-bold uppercase tracking-wider">
-                                <span className="material-symbols-outlined text-[12px]">description</span>
+                                <AppIcon name="description" className="text-[12px]" />
                                 {sourceLabel}
                             </span>
                         )}
                         {isGenerating && (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 text-[10px] font-bold uppercase tracking-wider">
-                                <span className="material-symbols-outlined text-[12px] animate-spin">sync</span>
+                                <AppIcon name="sync" className="text-[12px] animate-spin" />
                                 Still generating
                             </span>
                         )}
@@ -121,7 +117,7 @@ const GeneratedCourseHeader = ({
 
                     {lastStudiedAt && (
                         <p className="text-caption text-text-faint-light dark:text-text-faint-dark inline-flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">schedule</span>
+                            <AppIcon name="schedule" className="text-[14px]" />
                             Last studied {formatRelative(lastStudiedAt)}
                         </p>
                     )}
@@ -134,12 +130,7 @@ const GeneratedCourseHeader = ({
                         disabled={primaryDisabled}
                         className="btn-primary text-body-sm md:text-body-base h-11 px-5 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                        <span
-                            className="material-symbols-outlined text-[18px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                            play_arrow
-                        </span>
+                        <AppIcon name="play_arrow" className="text-[18px]" />
                         Continue learning
                     </button>
                     <button
@@ -147,7 +138,7 @@ const GeneratedCourseHeader = ({
                         onClick={onGeneratePodcast}
                         className="btn-secondary text-body-sm md:text-body-base h-11 px-5"
                     >
-                        <span className="material-symbols-outlined text-[18px]">graphic_eq</span>
+                        <AppIcon name="graphic_eq" className="text-[18px]" />
                         {podcastReady ? 'Open podcast' : 'Generate podcast'}
                     </button>
                 </div>

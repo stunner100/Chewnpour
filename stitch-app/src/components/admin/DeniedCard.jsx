@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
     const reasonMessage = (() => {
@@ -16,7 +17,7 @@ const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
         <div className="flex-1 px-space-6 py-space-10">
             <div className="mx-auto w-full max-w-3xl rounded-xl border border-border-subtle bg-surface p-space-8 shadow-sm">
                 <div className="flex items-center gap-3 text-amber-600">
-                    <span className="material-symbols-outlined">lock</span>
+                    <AppIcon name="lock" />
                     <h1 className="text-xl font-semibold text-text-primary">Admin access required</h1>
                 </div>
                 <p className="mt-3 text-sm text-text-secondary">{reasonMessage}</p>
@@ -30,7 +31,7 @@ const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
                         to="/dashboard"
                         className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary-hover transition-colors"
                     >
-                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                        <AppIcon name="arrow_back" className="text-[18px]" />
                         Back to dashboard
                     </Link>
                 </div>

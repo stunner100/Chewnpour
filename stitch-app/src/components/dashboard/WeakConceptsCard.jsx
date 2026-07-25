@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { buildConceptPracticePath } from '../../lib/conceptReviewLinks';
+import AppIcon from '../AppIcon';
 
 const MASTERY_STYLES = {
     due: {
@@ -39,7 +40,7 @@ const WeakConceptsCard = ({ queue }) => {
             <section className="card-base p-5 md:p-6 animate-fade-in-up animate-delay-200">
                 <div className="flex items-start gap-3">
                     <div className="size-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-emerald-600 text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                        <AppIcon name="check_circle" className="text-emerald-600 text-[20px]" />
                     </div>
                     <div>
                         <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">You're all caught up</h3>
@@ -76,7 +77,7 @@ const WeakConceptsCard = ({ queue }) => {
                         >
                             <div className="flex items-start justify-between gap-3 mb-2">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${styles.className}`}>
-                                    <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                                    <AppIcon name="auto_awesome" className="text-[12px]" />
                                     {styles.label}
                                 </span>
                                 <span className="text-caption text-text-faint-light dark:text-text-faint-dark shrink-0">
@@ -99,7 +100,7 @@ const WeakConceptsCard = ({ queue }) => {
                                 </span>
                                 <span className="inline-flex items-center gap-1 text-caption font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
                                     Review
-                                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                                    <AppIcon name="arrow_forward" className="text-[14px]" />
                                 </span>
                             </div>
                         </Link>

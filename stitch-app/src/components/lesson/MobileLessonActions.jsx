@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -25,12 +26,7 @@ const MobileLessonActions = ({ items = EMPTY_ARRAY }) => {
                                     : 'text-text-sub-light dark:text-text-sub-dark hover:text-primary'
                             }`}
                         >
-                            <span
-                                className="material-symbols-outlined text-[22px]"
-                                style={item.primary ? { fontVariationSettings: "'FILL' 1, 'wght' 600" } : undefined}
-                            >
-                                {item.icon}
-                            </span>
+                            <AppIcon name={item.icon} className="text-[22px]" />
                             <span className="text-[10px] font-semibold tracking-tight leading-none">{item.label}</span>
                         </Tag>
                     );

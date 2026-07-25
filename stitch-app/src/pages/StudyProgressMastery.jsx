@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
 
 const EMPTY_LIST = [];
 
@@ -122,7 +123,7 @@ const StudyProgressMastery = () => {
                     <div className="flex items-center justify-between">
                         <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Study Streak</span>
                         <div className="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center text-primary">
-                            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
+                            <AppIcon name="local_fire_department" />
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
@@ -135,7 +136,7 @@ const StudyProgressMastery = () => {
                     <div className="flex items-center justify-between">
                         <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Topics Practiced</span>
                         <div className="w-10 h-10 rounded-full bg-info-soft flex items-center justify-center text-info">
-                            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
+                            <AppIcon name="menu_book" />
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
@@ -148,7 +149,7 @@ const StudyProgressMastery = () => {
                     <div className="flex items-center justify-between">
                         <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Quiz Average</span>
                         <div className="w-10 h-10 rounded-full bg-success-soft flex items-center justify-center text-success">
-                            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>analytics</span>
+                            <AppIcon name="analytics" />
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
@@ -183,7 +184,7 @@ const StudyProgressMastery = () => {
                 <section className="progress-next-card bg-ai-subtle dark:!bg-[#161719] shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col justify-between self-start">
                     <div>
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="material-symbols-outlined text-primary">lightbulb</span>
+                            <AppIcon name="lightbulb" className="text-primary" />
                             <h3 className="font-headline-sm text-headline-sm text-text-primary">Next up</h3>
                         </div>
                         <p className="font-body-base text-body-base text-text-secondary mb-6">
@@ -197,7 +198,7 @@ const StudyProgressMastery = () => {
                         className="w-full bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl shadow-md hover:bg-primary-hover transition-colors flex justify-center items-center gap-2"
                     >
                         {resumeTarget ? 'Continue Studying' : 'Upload Material'}
-                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        <AppIcon name="arrow_forward" className="text-[18px]" />
                     </Link>
                 </section>
 

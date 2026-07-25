@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AppIcon from './AppIcon';
 
 const SourcePanel = ({ open, onClose, passages }) => {
     const [isClosing, setIsClosing] = useState(false);
@@ -32,11 +33,11 @@ const SourcePanel = ({ open, onClose, passages }) => {
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 h-14 border-b border-border-light dark:border-border-dark shrink-0">
                     <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-primary">link</span>
+                        <AppIcon name="link" className="text-[18px] text-primary" />
                         <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Sources</h3>
                     </div>
                     <button onClick={handleClose} className="btn-icon size-8">
-                        <span className="material-symbols-outlined text-[18px]">close</span>
+                        <AppIcon name="close" className="text-[18px]" />
                     </button>
                 </div>
 
@@ -44,7 +45,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {!passages || passages.length === 0 ? (
                         <div className="text-center py-12">
-                            <span className="material-symbols-outlined text-[32px] text-text-faint-light dark:text-text-faint-dark mb-3 block">source</span>
+                            <AppIcon name="source" className="text-[32px] text-text-faint-light dark:text-text-faint-dark mb-3 block" />
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                                 No source passages available for this topic.
                             </p>
@@ -54,7 +55,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                             <div key={passage.passageId || i} className="card-flat p-4 space-y-2">
                                 <div className="flex items-center gap-2">
                                     <span className="badge badge-primary gap-1">
-                                        <span className="material-symbols-outlined text-[10px]">description</span>
+                                        <AppIcon name="description" className="text-[10px]" />
                                         Page {passage.page}
                                     </span>
                                     {passage.sectionHint && (

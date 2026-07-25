@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import AppIcon from './AppIcon';
 
 const STATUS = { unseen: 'unseen', revealed: 'revealed', mastered: 'mastered', review: 'review' };
 
@@ -95,13 +96,13 @@ const QuickCheckCard = ({ pair, status, onReveal, onMastered, onReview }) => {
             {/* Status indicator */}
             {isMastered && (
                 <div className="flex items-center gap-1.5 mb-3">
-                    <span className="material-symbols-outlined text-accent-emerald text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    <AppIcon name="check_circle" className="text-accent-emerald text-[14px]" />
                     <span className="text-caption font-medium text-accent-emerald">Mastered</span>
                 </div>
             )}
             {isReview && !isMastered && (
                 <div className="flex items-center gap-1.5 mb-3">
-                    <span className="material-symbols-outlined text-amber-500 text-[14px]">replay</span>
+                    <AppIcon name="replay" className="text-amber-500 text-[14px]" />
                     <span className="text-caption font-medium text-amber-600 dark:text-amber-400">Review again</span>
                 </div>
             )}
@@ -125,14 +126,14 @@ const QuickCheckCard = ({ pair, status, onReveal, onMastered, onReview }) => {
                                 onClick={onMastered}
                                 className="btn-primary text-caption px-4 py-2 gap-1.5"
                             >
-                                <span className="material-symbols-outlined text-[16px]">check</span>
+                                <AppIcon name="check" className="text-[16px]" />
                                 Got it
                             </button>
                             <button
                                 onClick={onReview}
                                 className="btn-secondary text-caption px-4 py-2 gap-1.5"
                             >
-                                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                                <AppIcon name="refresh" className="text-[16px]" />
                                 Review again
                             </button>
                         </div>
@@ -143,7 +144,7 @@ const QuickCheckCard = ({ pair, status, onReveal, onMastered, onReview }) => {
                     onClick={onReveal}
                     className="btn-secondary text-caption px-4 py-2 gap-1.5"
                 >
-                    <span className="material-symbols-outlined text-[16px]">visibility</span>
+                    <AppIcon name="visibility" className="text-[16px]" />
                     Reveal Answer
                 </button>
             )}

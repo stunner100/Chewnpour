@@ -10,6 +10,7 @@ import {
     readCampaignAttributionFromSearch,
     stashPendingCampaignAttribution,
 } from '../lib/campaignAttribution';
+import AppIcon from '../components/AppIcon';
 
 const initialLoginState = {
     email: '',
@@ -203,7 +204,7 @@ const Login = () => {
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                             className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[rgb(13, 148, 136)] flex items-center gap-2"
                         >
-                            <span className="material-symbols-outlined text-[18px]">error</span>
+                            <AppIcon name="error" className="text-[18px]" />
                             {error}
                         </Motion.div>
                     )}
@@ -273,9 +274,7 @@ const Login = () => {
                                     onClick={() => dispatchLogin({ type: 'togglePassword' })}
                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">
-                                        {showPassword ? 'visibility' : 'visibility_off'}
-                                    </span>
+                                    <AppIcon name={showPassword ? 'visibility' : 'visibility_off'} className="text-[18px]" />
                                 </button>
                             </div>
                         </div>

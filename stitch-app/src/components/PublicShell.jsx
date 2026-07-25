@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import CanvasCrowd from './blocks/CanvasCrowd';
 import BrandLogo from './BrandLogo';
+import AppIcon from './AppIcon';
 
 const ACCENT = 'rgb(13, 148, 136)';
 const PAGE_BG = '#FAFAFB';
@@ -17,9 +18,7 @@ export const ArrowBadge = ({ size = 40, className = '' }) => (
         style={{ width: size, height: size, background: ACCENT }}
         aria-hidden="true"
     >
-        <span className="material-symbols-outlined" style={{ fontSize: Math.round(size * 0.55) }}>
-            arrow_outward
-        </span>
+        <AppIcon name="arrow_outward" style={{ fontSize: Math.round(size * 0.55)}} />
     </span>
 );
 

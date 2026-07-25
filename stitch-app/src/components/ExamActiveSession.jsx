@@ -4,6 +4,7 @@ import ExamQuestionCard from './ExamQuestionCard';
 import AccessibleProgressBar from './AccessibleProgressBar';
 import { WatermelonTabs, WatermelonTabsList, WatermelonTabsTrigger } from './watermelon/WatermelonTabs';
 import { isQuestionAnswered } from '../lib/examAttemptSupport';
+import AppIcon from './AppIcon';
 
 const ExamQuestionNavigator = ({
     questions,
@@ -70,7 +71,7 @@ const ExamActiveSession = ({
                             className="btn-icon size-9"
                             aria-label="Close quiz and return to topic"
                         >
-                            <span className="material-symbols-outlined text-lg">close</span>
+                            <AppIcon name="close" className="text-lg" />
                         </Link>
                         <div>
                             <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Exam</h1>
@@ -87,7 +88,7 @@ const ExamActiveSession = ({
                             aria-live="polite"
                             aria-label={`Time remaining, ${formattedTime}`}
                         >
-                            <span className="material-symbols-outlined text-[16px]">timer</span>
+                            <AppIcon name="timer" className="text-[16px]" />
                             {formattedTime}
                         </div>
                     </div>
@@ -172,7 +173,7 @@ const ExamActiveSession = ({
                         disabled={currentQuestion === 0}
                         className="btn-ghost px-4 py-2.5 flex items-center gap-1 disabled:opacity-30"
                     >
-                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                        <AppIcon name="arrow_back" className="text-[18px]" />
                         <span className="hidden sm:inline text-body-sm">Prev</span>
                     </button>
 
@@ -190,7 +191,7 @@ const ExamActiveSession = ({
                             className="btn-primary px-6 py-2.5 flex items-center gap-1 disabled:opacity-60"
                         >
                             <span>Submit</span>
-                            <span className="material-symbols-outlined text-[18px]">check</span>
+                            <AppIcon name="check" className="text-[18px]" />
                         </button>
                     ) : (
                         <button
@@ -199,7 +200,7 @@ const ExamActiveSession = ({
                             className="btn-primary px-6 py-2.5 flex items-center gap-1"
                         >
                             <span>Next</span>
-                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                            <AppIcon name="arrow_forward" className="text-[18px]" />
                         </button>
                     )}
                 </div>

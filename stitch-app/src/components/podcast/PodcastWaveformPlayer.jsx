@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useReducer, useRef } from 'react';
+import AppIcon from '../AppIcon';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -204,12 +205,7 @@ const PodcastWaveformPlayer = ({
                         className="group inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[#22143d] shadow-lg transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label={playing ? 'Pause podcast' : 'Play podcast'}
                     >
-                        <span
-                            className="material-symbols-outlined text-[30px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                            {buffering ? 'hourglass_top' : playing ? 'pause' : 'play_arrow'}
-                        </span>
+                        <AppIcon name={buffering ? 'hourglass_top' : playing ? 'pause' : 'play_arrow'} className="text-[30px]" />
                     </button>
 
                     <div className="min-w-0 flex-1">

@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import InteractiveQuickCheck from './InteractiveQuickCheck';
 import InteractiveWordBank from './InteractiveWordBank';
 import LessonDefinitionBlock from './LessonDefinitionBlock';
+import AppIcon from './AppIcon';
 
 const HEADER_SIZES = {
     1: "text-3xl md:text-4xl font-extrabold text-neutral-900 dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
@@ -161,7 +162,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                                 className={`group ${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
                                 style={animationStyle}
                             >
-                                {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
+                                {icon && <AppIcon name={icon} className="text-primary/70" />}
                                 <span className="flex-1">{block.text}</span>
                                 {onViewSource && (
                                     <button
@@ -171,9 +172,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                                         title="View source"
                                         aria-label="View source for this section"
                                     >
-                                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                                            link
-                                        </span>
+                                        <AppIcon name="link" className="text-[14px]" aria-hidden="true" />
                                     </button>
                                 )}
                             </div>
@@ -186,7 +185,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                                             onClick={() => onAskTutor(`${tp.prompt} "${block.text}"`)}
                                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all"
                                         >
-                                            <span className="material-symbols-outlined text-[14px]">{tp.icon}</span>
+                                            <AppIcon name={tp.icon} className="text-[14px]" />
                                             {tp.label}
                                         </button>
                                     ))}
@@ -218,7 +217,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                             className={`my-4 md:my-6 p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 ${variant.className} ${animationClass}`}
                             style={animationStyle}
                         >
-                            <span className="material-symbols-outlined shrink-0 text-current opacity-70">{variant.icon}</span>
+                            <AppIcon name={variant.icon} className="shrink-0 text-current opacity-70" />
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{block.alertType}</span>
                                 <div className="text-[15px] md:text-base font-medium leading-relaxed">{bold(block.text)}</div>
@@ -244,7 +243,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                     return (
                         <div key={block.key} className={`my-4 md:my-6 pl-5 pr-5 md:pl-6 md:pr-6 py-4 md:py-5 border-l-4 border-primary-400 dark:border-primary-600 bg-primary-50/30 dark:bg-primary-950/20 rounded-r-2xl ${animationClass}`} style={animationStyle}>
                             <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 mb-2">
-                                <span className="material-symbols-outlined text-[20px]">lightbulb_circle</span>
+                                <AppIcon name="lightbulb_circle" className="text-[20px]" />
                                 <span className="text-xs font-black uppercase tracking-widest">Example</span>
                             </div>
                             <div className="text-neutral-700 dark:text-neutral-300 text-[15px] md:text-base leading-relaxed">
@@ -258,7 +257,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                     return (
                         <div key={block.key} className={`flex items-start gap-3 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
                             <div className="mt-1.5 size-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                                <span className="material-symbols-outlined text-[14px] text-primary">arrow_forward</span>
+                                <AppIcon name="arrow_forward" className="text-[14px] text-primary" />
                             </div>
                             <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
                         </div>
@@ -309,7 +308,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 if (block.type === 'analogycard') {
                     return (
                         <div key={block.key} className={`my-3 p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-700/30 flex gap-3 ${animationClass}`} style={animationStyle}>
-                            <span className="material-symbols-outlined text-amber-500 dark:text-amber-400 text-[20px] shrink-0 mt-0.5">lightbulb</span>
+                            <AppIcon name="lightbulb" className="text-amber-500 dark:text-amber-400 text-[20px] shrink-0 mt-0.5" />
                             <div>
                                 <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">{block.label}</span>
                                 <p className="text-[15px] md:text-base text-neutral-700 dark:text-neutral-300 mt-1 leading-relaxed">{bold(block.text)}</p>
@@ -324,7 +323,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                     return (
                         <div key={block.key} className={`flex items-start gap-3 ml-1 mb-4 group ${animationClass}`} style={animationStyle}>
                             <div className="mt-1.5 size-5 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-[14px] text-red-500">close</span>
+                                <AppIcon name="close" className="text-[14px] text-red-500" />
                             </div>
                             <div className="flex-1">
                                 {block.label && (
@@ -339,7 +338,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 if (block.type === 'quote') {
                     return (
                         <div key={block.key} className={`border-l-4 border-primary/30 bg-primary/5 pl-6 md:pl-8 py-5 md:py-6 pr-5 md:pr-6 rounded-r-3xl my-6 md:my-8 relative ${animationClass}`} style={animationStyle}>
-                            <span className="absolute top-2 left-2 material-symbols-outlined text-primary/10 text-4xl">format_quote</span>
+                            <AppIcon name="format_quote" className="absolute top-2 left-2 text-primary/10 text-4xl" />
                             <div className="text-base md:text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed relative z-10 italic">
                                 {bold(block.text)}
                             </div>

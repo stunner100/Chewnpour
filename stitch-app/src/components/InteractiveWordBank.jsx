@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import FlashcardDeck from './FlashcardDeck';
+import AppIcon from './AppIcon';
 
 const TABS = [
     { id: 'flashcards', label: 'Flashcards', icon: 'style' },
@@ -32,12 +33,7 @@ const BrowseTab = ({ terms, starred, onToggleStar }) => (
                             className="shrink-0 text-text-faint-light dark:text-text-faint-dark hover:text-amber-500 transition-colors"
                             aria-label={isStarred ? 'Unstar term' : 'Star term'}
                         >
-                            <span
-                                className="material-symbols-outlined text-[18px]"
-                                style={isStarred ? { fontVariationSettings: "'FILL' 1", color: 'rgb(245 158 11)' } : undefined}
-                            >
-                                star
-                            </span>
+                            <AppIcon name="star" className="text-[18px]" style={isStarred ? { color: 'rgb(245 158 11)' } : undefined} />
                         </button>
                     </div>
                     <p className="text-caption text-text-sub-light dark:text-text-sub-dark mt-1 leading-relaxed">
@@ -78,9 +74,7 @@ const QuizTab = ({ terms }) => {
         const pct = Math.round((score / terms.length) * 100);
         return (
             <div className="rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark p-8 text-center">
-                <span className="material-symbols-outlined text-[40px] text-amber-500 mb-3" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    emoji_events
-                </span>
+                <AppIcon name="emoji_events" className="text-[40px] text-amber-500 mb-3" />
                 <h4 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">
                     Quiz complete
                 </h4>
@@ -90,7 +84,7 @@ const QuizTab = ({ terms }) => {
                 </p>
                 <div className="flex gap-2 justify-center">
                     <button type="button" onClick={restart} className="btn-primary text-body-sm gap-1.5">
-                        <span className="material-symbols-outlined text-[16px]">refresh</span>
+                        <AppIcon name="refresh" className="text-[16px]" />
                         Try again
                     </button>
                 </div>
@@ -106,7 +100,7 @@ const QuizTab = ({ terms }) => {
                     {index + 1} <span className="text-text-faint-light dark:text-text-faint-dark font-normal">/ {terms.length}</span>
                 </span>
                 <button type="button" onClick={restart} className="btn-ghost text-caption px-3 py-1.5 gap-1">
-                    <span className="material-symbols-outlined text-[14px]">refresh</span>
+                    <AppIcon name="refresh" className="text-[14px]" />
                     Restart
                 </button>
             </div>
@@ -129,18 +123,18 @@ const QuizTab = ({ terms }) => {
                         </div>
                         <div className="flex gap-2">
                             <button type="button" onClick={() => advance(true)} className="btn-primary text-body-sm gap-1.5">
-                                <span className="material-symbols-outlined text-[16px]">check</span>
+                                <AppIcon name="check" className="text-[16px]" />
                                 Got it
                             </button>
                             <button type="button" onClick={() => advance(false)} className="btn-secondary text-body-sm gap-1.5">
-                                <span className="material-symbols-outlined text-[16px]">close</span>
+                                <AppIcon name="close" className="text-[16px]" />
                                 Didn't know
                             </button>
                         </div>
                     </>
                 ) : (
                     <button type="button" onClick={() => setRevealed(true)} className="btn-secondary text-body-sm gap-1.5">
-                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                        <AppIcon name="visibility" className="text-[16px]" />
                         Reveal definition
                     </button>
                 )}
@@ -172,7 +166,7 @@ const InteractiveWordBank = ({ terms, starredTerms, onTermsStarred }) => {
             {/* Section header */}
             <div className="flex items-center gap-2">
                 <span className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-primary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>style</span>
+                    <AppIcon name="style" className="text-primary text-[16px]" />
                 </span>
                 <div>
                     <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Word Bank</p>
@@ -193,7 +187,7 @@ const InteractiveWordBank = ({ terms, starredTerms, onTermsStarred }) => {
                                 : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                         }`}
                     >
-                        <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
+                        <AppIcon name={tab.icon} className="text-[15px]" />
                         <span className="hidden sm:inline">{tab.label}</span>
                     </button>
                 ))}

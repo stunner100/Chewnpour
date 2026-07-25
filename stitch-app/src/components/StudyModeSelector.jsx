@@ -1,4 +1,5 @@
 import React from 'react';
+import AppIcon from './AppIcon';
 
 const MODES = [
     {
@@ -36,7 +37,7 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
         <div className="min-h-[60vh] flex items-center justify-center px-4 py-12">
             <div className="w-full max-w-lg">
                 <div className="text-center mb-8">
-                    <span className="material-symbols-outlined text-[32px] text-primary mb-3 block">menu_book</span>
+                    <AppIcon name="menu_book" className="text-[32px] text-primary mb-3 block" />
                     <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
                         How do you want to study?
                     </h2>
@@ -54,9 +55,7 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
                             onClick={() => onSelect(mode.id)}
                             className="card-interactive p-5 text-left flex flex-col gap-2"
                         >
-                            <span className={`material-symbols-outlined text-[24px] ${mode.color}`}>
-                                {mode.icon}
-                            </span>
+                            <AppIcon name={mode.icon} />
                             <span className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
                                 {mode.title}
                             </span>
@@ -80,7 +79,7 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
                     <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-soft-light/80 dark:bg-surface-soft-dark/60 p-4">
                         <div className="flex items-start gap-3">
                             <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-[20px]">quiz</span>
+                                <AppIcon name="quiz" className="text-[20px]" />
                             </div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
@@ -93,7 +92,7 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
                                     onClick={onStartExam}
                                     className="btn-primary mt-3 w-full sm:w-auto px-4 py-2 text-body-sm gap-2"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                    <AppIcon name="quiz" className="text-[18px]" />
                                     Start Exam
                                 </button>
                             </div>

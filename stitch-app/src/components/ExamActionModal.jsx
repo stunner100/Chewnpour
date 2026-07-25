@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect, useEffectEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AppIcon from './AppIcon';
 
 // Haptic feedback helper
 const triggerHaptic = (type = 'light') => {
@@ -190,7 +191,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                     onClick={handleCloseClick}
                     className="absolute top-4 right-4 z-10 size-10 rounded-full flex items-center justify-center bg-black/10 hover:bg-black/20 transition-colors active:scale-95"
                 >
-                    <span className="material-symbols-outlined text-zinc-700 dark:text-zinc-300">close</span>
+                    <AppIcon name="close" className="text-zinc-700 dark:text-zinc-300" />
                 </button>
 
                 {/* Header with Gradient */}
@@ -202,7 +203,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                     onTouchEnd={handleTouchEnd}
                 >
                     <div className="size-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-4xl text-white filled">quiz</span>
+                        <AppIcon name="quiz" className="text-4xl text-white filled" />
                     </div>
                     <h2 className="text-xl font-semibold text-white mb-1">
                         {attempt.topicTitle || 'Exam'}
@@ -234,9 +235,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                                 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                 : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                         }`}>
-                            <span className="material-symbols-outlined text-[14px] filled">
-                                {isExcellent ? 'emoji_events' : isGood ? 'thumb_up' : 'trending_up'}
-                            </span>
+                            <AppIcon name={isExcellent ? 'emoji_events' : isGood ? 'thumb_up' : 'trending_up'} className="text-[14px] filled" />
                             {isExcellent ? 'Excellent!' : isGood ? 'Good Job!' : 'Keep Practicing!'}
                         </span>
                     </div>
@@ -248,7 +247,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                         onClick={handleViewResults}
                         className="w-full h-14 rounded-2xl bg-primary text-white font-bold shadow-lg shadow-primary/25 hover:bg-primary-hover hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                     >
-                        <span className="material-symbols-outlined">visibility</span>
+                        <AppIcon name="visibility" />
                         View Full Results
                     </button>
 
@@ -256,7 +255,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                         onClick={handleRetryExam}
                         className="w-full h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                     >
-                        <span className="material-symbols-outlined">replay</span>
+                        <AppIcon name="replay" />
                         Retry Exam
                     </button>
                 </div>

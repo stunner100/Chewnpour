@@ -1,4 +1,5 @@
 import React, { memo, useState, useEffect, useCallback } from 'react';
+import AppIcon from './AppIcon';
 
 const TopicSidebar = memo(function TopicSidebar({
     normalizedContent,
@@ -57,13 +58,11 @@ const TopicSidebar = memo(function TopicSidebar({
                 onClick={() => setMobileOpen(v => !v)}
                 className="flex items-center gap-2 w-full text-body-sm text-text-sub-light dark:text-text-sub-dark"
             >
-                <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                <AppIcon name="menu_book" className="text-[16px]" />
                 <span className="flex-1 text-left truncate font-medium text-text-main-light dark:text-text-main-dark">
                     {toc.find(i => i.id === activeSection)?.text ?? 'Contents'}
                 </span>
-                <span className="material-symbols-outlined text-[16px]">
-                    {mobileOpen ? 'expand_less' : 'expand_more'}
-                </span>
+                <AppIcon name={mobileOpen ? 'expand_less' : 'expand_more'} className="text-[16px]" />
             </button>
             {mobileOpen && (
                 <nav className="mt-2 space-y-0.5 pb-1 max-h-64 overflow-y-auto">
@@ -167,7 +166,7 @@ const TopicSidebar = memo(function TopicSidebar({
                             if (!summaryLine) return null;
                             return (
                                 <li key={summaryLine} className="flex items-start gap-2">
-                                    <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">check</span>
+                                    <AppIcon name="check" className="text-primary text-[14px] mt-0.5 shrink-0" />
                                     <span className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">{summaryLine}</span>
                                 </li>
                             );

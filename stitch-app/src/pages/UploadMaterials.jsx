@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
 
 const typeConfig = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -332,7 +333,7 @@ const UploadMaterials = () => {
                     <div className="mb-space-5 md:mb-space-8">
                         <h1 className="font-display-lg text-display-md md:text-display-lg text-text-primary mb-space-2">Add to your workspace</h1>
                         <p className="font-body-lg text-body-md md:text-body-lg text-text-secondary">
-                            Upload PDFs, slides, Word docs, or recordings to generate study guides, flashcards, and quizzes.
+                            Upload PDFs, slides, Word docs, or recordings to generate lessons, summaries, and quizzes.
                         </p>
                     </div>
 
@@ -363,9 +364,7 @@ const UploadMaterials = () => {
                         <div className="absolute -top-10 -left-10 h-28 w-28 md:w-40 md:h-40 bg-white opacity-40 rounded-full blur-2xl"></div>
                         <div className="absolute -bottom-10 -right-10 h-28 w-28 md:w-40 md:h-40 bg-primary-soft opacity-40 rounded-full blur-2xl"></div>
                         <div className="w-14 h-14 md:w-24 md:h-24 bg-white rounded-full shadow-sm flex items-center justify-center mb-space-4 md:mb-space-6 group-hover:scale-105 transition-transform duration-300 z-10">
-                            <span className={`material-symbols-outlined text-[30px] md:text-[48px] text-primary ${isUploading ? 'animate-spin' : ''}`}>
-                                {isUploading ? 'sync' : 'cloud_upload'}
-                            </span>
+                            <AppIcon name={isUploading ? 'sync' : 'cloud_upload'} />
                         </div>
                         <h3 className="font-headline-md text-display-sm md:text-headline-md text-text-primary mb-space-2 z-10">
                             {isUploading
@@ -385,23 +384,21 @@ const UploadMaterials = () => {
                             disabled={isUploading}
                             className="bg-primary text-on-primary rounded-xl px-space-5 md:px-space-6 py-space-3 font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center gap-2 z-10 disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            <span className="material-symbols-outlined text-[18px]">
-                                {isUploading ? 'sync' : 'add_circle'}
-                            </span>
+                            <AppIcon name={isUploading ? 'sync' : 'add_circle'} className="text-[18px]" />
                             {isUploading ? 'Uploading…' : 'Upload Material'}
                         </button>
                         <div className="mt-space-4 md:mt-space-6 flex items-center gap-space-2 md:gap-space-4 font-label-xs text-label-xs text-text-muted z-10 flex-wrap justify-center">
                             <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <span className="material-symbols-outlined text-[14px]">picture_as_pdf</span> PDF
+                                <AppIcon name="picture_as_pdf" className="text-[14px]" /> PDF
                             </span>
                             <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <span className="material-symbols-outlined text-[14px]">slideshow</span> PPTX
+                                <AppIcon name="slideshow" className="text-[14px]" /> PPTX
                             </span>
                             <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <span className="material-symbols-outlined text-[14px]">description</span> DOCX
+                                <AppIcon name="description" className="text-[14px]" /> DOCX
                             </span>
                             <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <span className="material-symbols-outlined text-[14px]">graphic_eq</span> Audio
+                                <AppIcon name="graphic_eq" className="text-[14px]" /> Audio
                             </span>
                         </div>
                     </div>
@@ -411,7 +408,7 @@ const UploadMaterials = () => {
                             role="alert"
                             className="mt-space-5 flex items-start gap-space-3 rounded-xl border border-error-soft bg-error-soft/40 p-space-4"
                         >
-                            <span className="material-symbols-outlined text-error">error</span>
+                            <AppIcon name="error" className="text-error" />
                             <p className="font-body-sm text-body-sm text-error">{uploadError}</p>
                         </div>
                     )}
@@ -451,12 +448,10 @@ const UploadMaterials = () => {
                                         >
                                             <div className="flex justify-between items-start mb-space-4">
                                                 <div className={`w-10 h-10 rounded-lg ${config.color} flex items-center justify-center`}>
-                                                    <span className="material-symbols-outlined">{config.icon}</span>
+                                                    <AppIcon name={config.icon} />
                                                 </div>
                                                 <span className={`${statusConfig.className} px-2 py-1 rounded-md font-label-xs text-label-xs flex items-center gap-1`}>
-                                                    <span className={`material-symbols-outlined text-[12px] ${statusConfig.isProcessing ? 'animate-spin' : ''}`}>
-                                                        {statusConfig.icon}
-                                                    </span>
+                                                    <AppIcon name={statusConfig.icon} />
                                                     {statusConfig.label}
                                                 </span>
                                             </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import AppIcon from '../AppIcon';
 
 const EmptyState = ({
     icon = 'inbox',
@@ -15,7 +16,7 @@ const EmptyState = ({
     return (
         <div className={`card-flat p-6 md:p-8 text-center ${className}`}>
             <div className="size-12 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center mx-auto mb-3">
-                <span className="material-symbols-outlined text-primary text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                <AppIcon name={icon} className="text-primary text-[22px]" />
             </div>
             <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">{title}</h3>
             {description && <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto">{description}</p>}

@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../components/AppIcon';
 
 const PastQuestionsComingSoon = () => {
     return (
         <div className="w-full max-w-3xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12">
             <div className="card-base p-8 md:p-12 text-center">
                 <div className="size-14 rounded-2xl bg-primary/8 text-primary flex items-center justify-center mx-auto mb-5">
-                    <span className="material-symbols-outlined text-[28px]">auto_stories</span>
+                    <AppIcon name="auto_stories" className="text-[28px]" />
                 </div>
                 <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
                     Practice Past Questions
@@ -22,7 +23,7 @@ const PastQuestionsComingSoon = () => {
                         to="/dashboard"
                         className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm"
                     >
-                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                        <AppIcon name="arrow_back" className="text-[18px]" />
                         Back to Dashboard
                     </Link>
                 </div>

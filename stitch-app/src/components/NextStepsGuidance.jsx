@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from './AppIcon';
 
 const buildObjectiveExamRoute = (examTopicId) =>
     examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=mcq` : null;
@@ -122,8 +123,8 @@ const NextStepsGuidance = ({
             actions.push({
                 key: 'flashcards',
                 icon: 'style',
-                label: 'Study flashcards',
-                description: 'Lock in key terms with the Word Bank.',
+                label: 'Review word bank',
+                description: 'Lock in key terms from this lesson.',
                 to: topicId ? `/dashboard/topic/${topicId}?panel=wordbank` : null,
                 priority: 'low',
             });
@@ -190,7 +191,7 @@ const NextStepsGuidance = ({
     return (
         <div className="w-full">
             <div className="flex items-center gap-2 mb-3">
-                <span className="material-symbols-outlined text-primary text-[18px]">signpost</span>
+                <AppIcon name="signpost" className="text-primary text-[18px]" />
                 <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
                     What should I do next?
                 </h3>
@@ -202,9 +203,7 @@ const NextStepsGuidance = ({
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                                 action.priority === 'high' ? 'bg-primary/15' : 'bg-surface-hover-light dark:bg-surface-hover-dark'
                             }`}>
-                                <span className={`material-symbols-outlined text-[18px] ${
-                                    action.priority === 'high' ? 'text-primary' : 'text-text-sub-light dark:text-text-sub-dark'
-                                }`}>{action.icon}</span>
+                                <AppIcon name={action.icon} />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className={`text-body-sm font-medium leading-tight ${
@@ -216,9 +215,7 @@ const NextStepsGuidance = ({
                                     {action.description}
                                 </p>
                             </div>
-                            <span className="material-symbols-outlined text-[16px] text-text-faint-light dark:text-text-faint-dark shrink-0">
-                                chevron_right
-                            </span>
+                            <AppIcon name="chevron_right" className="text-[16px] text-text-faint-light dark:text-text-faint-dark shrink-0" />
                         </>
                     );
 

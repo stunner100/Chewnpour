@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from './AppIcon';
 
 const SHELL_CLASS = 'cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center';
 
 const IconBadge = ({ icon }) => (
     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">{icon}</span>
+        <AppIcon name={icon} className="text-2xl text-text-faint-light dark:text-text-faint-dark" />
     </div>
 );
 

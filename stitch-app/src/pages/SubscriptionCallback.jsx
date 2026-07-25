@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import AppIcon from '../components/AppIcon';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -109,9 +110,7 @@ const SubscriptionCallback = () => {
                         ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                         : 'bg-primary/8 text-primary'
                 }`}>
-                    <span className="material-symbols-outlined text-[24px]">
-                        {status === 'failed' ? 'error' : 'sync'}
-                    </span>
+                    <AppIcon name={status === 'failed' ? 'error' : 'sync'} className="text-[24px]" />
                 </div>
                 <h1 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
                     {status === 'failed' ? 'Payment Verification Failed' : 'Verifying Payment'}

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import AppIcon from './AppIcon';
 
 const GENERIC_SECTION_PATTERNS = [
     /quick check/i,
@@ -64,7 +65,7 @@ const GuidedStudyPath = ({ topicTitle, blocks, onAskTutor }) => {
     return (
         <section className="card-base p-5 md:p-6">
             <div className="flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-primary text-[20px]">route</span>
+                <AppIcon name="route" className="text-primary text-[20px]" />
                 <div>
                     <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
                         Guided Study Path
@@ -97,7 +98,7 @@ const GuidedStudyPath = ({ topicTitle, blocks, onAskTutor }) => {
                                             href={`#${step.anchorId}`}
                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-light dark:border-border-dark text-caption text-text-sub-light dark:text-text-sub-dark hover:border-primary/20 hover:text-primary transition-colors"
                                         >
-                                            <span className="material-symbols-outlined text-[14px]">vertical_align_center</span>
+                                            <AppIcon name="vertical_align_center" className="text-[14px]" />
                                             Jump to section
                                         </a>
                                     )}
@@ -106,7 +107,7 @@ const GuidedStudyPath = ({ topicTitle, blocks, onAskTutor }) => {
                                         onClick={() => onAskTutor?.(step.askPrompt)}
                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-caption hover:bg-primary/15 transition-colors"
                                     >
-                                        <span className="material-symbols-outlined text-[14px]">smart_toy</span>
+                                        <AppIcon name="smart_toy" className="text-[14px]" />
                                         Ask tutor here
                                     </button>
                                 </div>

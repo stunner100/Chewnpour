@@ -1,4 +1,5 @@
 import React, { memo, useReducer, useEffect, useRef, useCallback } from 'react';
+import AppIcon from './AppIcon';
 
 const SAVE_DEBOUNCE_MS = 1500;
 const EXIT_ANIMATION_MS = 250;
@@ -236,7 +237,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
             <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-amber-500 text-xl">edit_note</span>
+                        <AppIcon name="edit_note" className="text-amber-500 text-xl" />
                         <h3 className="text-base font-semibold text-zinc-900 dark:text-white">My Notes</h3>
                     </div>
                     <button
@@ -244,7 +245,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                         className="size-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-primary flex items-center justify-center"
                         aria-label="Close notes panel"
                     >
-                        <span className="material-symbols-outlined text-[18px]">close</span>
+                        <AppIcon name="close" className="text-[18px]" />
                     </button>
                 </div>
 

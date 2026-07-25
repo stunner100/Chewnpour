@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import PodcastStatusBadge from '../dashboard/PodcastStatusBadge';
+import AppIcon from '../AppIcon';
 
 const WAVEFORM_BARS = [8, 16, 24, 12, 28, 20, 14, 22, 18, 26, 10, 20].map((height, position) => ({
     id: `bar-${position}-${height}`,
@@ -73,18 +74,13 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                                 className="inline-flex items-center justify-center size-12 rounded-full bg-white text-[#2c1c4a] shadow-lg hover:scale-105 transition-transform"
                                 aria-label="Open podcast library"
                             >
-                                <span
-                                    className="material-symbols-outlined text-[26px]"
-                                    style={{ fontVariationSettings: "'FILL' 1" }}
-                                >
-                                    play_arrow
-                                </span>
+                                <AppIcon name="play_arrow" className="text-[26px]" />
                             </Link>
                             <WaveformBars />
                         </div>
                         <div className="flex items-center justify-between text-caption text-white/70">
                             <span className="inline-flex items-center gap-1.5">
-                                <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                <AppIcon name="schedule" className="text-[14px]" />
                                 {formatDuration(podcast.durationSeconds) || '—'}
                             </span>
                             <span>{formatRelative(podcast.createdAt)}</span>
@@ -94,19 +90,14 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                                 to="/dashboard/podcasts"
                                 className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                             >
-                                <span
-                                    className="material-symbols-outlined text-[16px]"
-                                    style={{ fontVariationSettings: "'FILL' 1" }}
-                                >
-                                    headphones
-                                </span>
+                                <AppIcon name="headphones" className="text-[16px]" />
                                 Continue listening
                             </Link>
                             <Link
                                 to={generatePath}
                                 className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-body-sm transition-colors border border-white/20"
                             >
-                                <span className="material-symbols-outlined text-[16px]">graphic_eq</span>
+                                <AppIcon name="graphic_eq" className="text-[16px]" />
                                 Refresh audio
                             </Link>
                         </div>
@@ -114,9 +105,7 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                 ) : isInFlight ? (
                     <div className="space-y-2">
                         <div className="h-14 rounded-xl border border-dashed border-white/30 flex items-center justify-center gap-2 text-white/85">
-                            <span className="material-symbols-outlined text-[20px] animate-pulse">
-                                graphic_eq
-                            </span>
+                            <AppIcon name="graphic_eq" className="text-[20px] animate-pulse" />
                             <span className="text-body-sm">
                                 {status === 'pending'
                                     ? 'Queued — writing the script…'
@@ -127,7 +116,7 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                             to="/dashboard/podcasts"
                             className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                         >
-                            <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                            <AppIcon name="open_in_new" className="text-[16px]" />
                             Open podcast hub
                         </Link>
                     </div>
@@ -140,7 +129,7 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                             to={generatePath}
                             className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                         >
-                            <span className="material-symbols-outlined text-[16px]">refresh</span>
+                            <AppIcon name="refresh" className="text-[16px]" />
                             Prepare podcast
                         </Link>
                     </div>
@@ -153,12 +142,7 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                             to={generatePath}
                             className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                         >
-                            <span
-                                className="material-symbols-outlined text-[18px]"
-                                style={{ fontVariationSettings: "'FILL' 1" }}
-                            >
-                                graphic_eq
-                            </span>
+                            <AppIcon name="graphic_eq" className="text-[18px]" />
                             Generate podcast
                         </Link>
                     </div>

@@ -7,6 +7,7 @@ import { BlurFade } from '../components/magicui/BlurFade';
 import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import AppIcon from '../components/AppIcon';
 
 const ACCENT = 'rgb(13, 148, 136)';
 const PAGE_BG = '#FAFAFB';
@@ -111,7 +112,7 @@ const OnboardingDepartment = () => {
                             className="inline-flex items-center justify-center size-9 rounded-full text-[#687384] hover:text-[#1F2933] hover:bg-[#F3EEE7] transition-colors"
                             aria-label="Back"
                         >
-                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                            <AppIcon name="arrow_back" className="text-[20px]" />
                         </Link>
                         <span className="text-xs font-semibold" style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}>
                             Step 3 of 3
@@ -166,9 +167,7 @@ const OnboardingDepartment = () => {
                 )}
 
                 <BlurFade delay={0.2} yOffset={10} className="relative w-full mb-5">
-                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px]" style={{ color: SUBTEXT }}>
-                        search
-                    </span>
+                    <AppIcon name="search" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px]" style={{ color: SUBTEXT}} />
                     <input
                         aria-label="Search departments"
                         className="h-12 w-full rounded-xl border border-[#D9D2C6] bg-white px-4 pl-10 text-sm text-[#1F2933] placeholder:text-[#8A94A6] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
@@ -198,7 +197,7 @@ const OnboardingDepartment = () => {
                                     fontWeight: isSelected ? 600 : 500,
                                 }}
                             >
-                                <span className="material-symbols-outlined text-[18px] shrink-0">{dept.icon}</span>
+                                <AppIcon name={dept.icon} className="text-[18px] shrink-0" />
                                 <span className="text-sm leading-tight">{dept.label}</span>
                             </button>
                         );
@@ -231,7 +230,7 @@ const OnboardingDepartment = () => {
                         }}
                     >
                         <span>{loading ? 'Saving…' : 'Start Learning'}</span>
-                        <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                        <AppIcon name="arrow_forward" className="text-[20px]" />
                     </button>
                 </div>
             </div>

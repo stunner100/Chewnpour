@@ -21,6 +21,7 @@ import {
 } from '../../../lib/admin/formatters';
 import { PAYMENT_PROVIDER_FALLBACK_OPTIONS } from '../../../lib/admin/constants';
 import { BarChart, SectionCard, StatCard, StatRow } from '../../../components/admin/AdminUi';
+import AppIcon from '../../../components/AppIcon';
 
 export const SettingsPanel = ({
     adminEmails,
@@ -67,15 +68,7 @@ export const SettingsPanel = ({
                                         {option.helpText || (option.requiresKey ? 'Requires payment API key.' : 'No API key required.')}
                                     </p>
                                 </div>
-                                <span
-                                    className={`material-symbols-outlined text-xl ${
-                                        isSelected
-                                            ? 'text-primary'
-                                            : 'text-text-muted'
-                                    }`}
-                                >
-                                    {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
-                                </span>
+                                <AppIcon name={isSelected ? 'radio_button_checked' : 'radio_button_unchecked'} />
                             </div>
                         </button>
                     );

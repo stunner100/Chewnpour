@@ -11,6 +11,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import AppIcon from '../components/AppIcon';
 
 const SESSION_LENGTH_OPTIONS = [
     { value: '25', title: 'Pomodoro', detail: '25m focus sprint', triggerDetail: '25m', icon: 'timer' },
@@ -63,12 +64,6 @@ const normalizeStudyPreferences = (value = {}) => ({
         ? value.preferredPersona
         : DEFAULT_STUDY_PREFERENCES.preferredPersona,
 });
-
-const MaterialIcon = ({ children, className = '', style }) => (
-    <span aria-hidden="true" className={`material-symbols-outlined ${className}`.trim()} style={style}>
-        {children}
-    </span>
-);
 
 const formatPlanLabel = (plan) => {
     const value = String(plan || 'free').trim().toLowerCase();
@@ -240,7 +235,7 @@ const AccountStudySettings = () => {
                         {/* Profile Section */}
                         <section id="profile" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <MaterialIcon className="text-text-muted">person</MaterialIcon>
+                                <AppIcon name="person" className="text-text-muted" />
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Profile</h3>
                             </div>
                             <div className="flex items-center gap-space-6">
@@ -251,7 +246,7 @@ const AccountStudySettings = () => {
                                         ) : initials}
                                     </div>
                                     <button className="absolute bottom-0 right-0 w-8 h-8 bg-surface border border-border-subtle rounded-full flex items-center justify-center text-text-secondary hover:text-primary shadow-sm group-hover:scale-105 transition-transform" type="button">
-                                        <MaterialIcon className="text-[16px]">edit</MaterialIcon>
+                                        <AppIcon name="edit" className="text-[16px]" />
                                     </button>
                                 </div>
                                 <div className="flex-1">
@@ -269,7 +264,7 @@ const AccountStudySettings = () => {
                         <section id="subscription" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary-soft rounded-bl-full opacity-50 pointer-events-none"></div>
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle relative z-10">
-                                <MaterialIcon className="text-text-muted">workspace_premium</MaterialIcon>
+                                <AppIcon name="workspace_premium" className="text-text-muted" />
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Subscription</h3>
                             </div>
                             <div className="relative z-10">
@@ -297,7 +292,7 @@ const AccountStudySettings = () => {
                         {/* Account Access */}
                         <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-5">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <MaterialIcon className="text-text-muted">admin_panel_settings</MaterialIcon>
+                                <AppIcon name="admin_panel_settings" className="text-text-muted" />
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Account Access</h3>
                             </div>
                             <div>
@@ -311,7 +306,7 @@ const AccountStudySettings = () => {
                                 onClick={handleSignOut}
                                 className="flex w-full items-center justify-center gap-space-2 rounded-xl border border-error/30 bg-surface px-space-4 py-space-3 font-label-md text-label-md text-error transition-colors hover:bg-error-soft"
                             >
-                                <MaterialIcon className="text-[18px]">logout</MaterialIcon>
+                                <AppIcon name="logout" className="text-[18px]" />
                                 Sign Out
                             </button>
                         </section>
@@ -322,7 +317,7 @@ const AccountStudySettings = () => {
                         {/* Study Preferences */}
                         <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <MaterialIcon className="text-text-muted">timer</MaterialIcon>
+                                <AppIcon name="timer" className="text-text-muted" />
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Study Preferences</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-space-6">
@@ -342,14 +337,15 @@ const AccountStudySettings = () => {
                                                 aria-label="Preferred session length"
                                                 className="flex w-full items-center gap-space-3 rounded-lg border border-border-default bg-surface-soft px-space-3 py-space-2 text-left font-body-base text-text-primary outline-none transition-all hover:bg-surface-muted focus:border-primary focus:ring-2 focus:ring-primary-soft"
                                             >
-                                                <MaterialIcon className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary">
-                                                    {selectedSessionLength.icon}
-                                                </MaterialIcon>
+                                                <AppIcon
+                                                    name={selectedSessionLength.icon}
+                                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary"
+                                                />
                                                 <span className="flex min-w-0 flex-1 flex-col leading-tight">
                                                     <span className="truncate font-label-md text-label-md text-text-primary">{selectedSessionLength.title}</span>
                                                     <span className="truncate font-body-sm text-body-sm text-text-muted">{selectedSessionLength.triggerDetail}</span>
                                                 </span>
-                                                <MaterialIcon className="text-[20px] text-text-muted">unfold_more</MaterialIcon>
+                                                <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] p-space-2">
@@ -367,9 +363,10 @@ const AccountStudySettings = () => {
                                                             value={option.value}
                                                             className="items-start gap-space-3 rounded-lg px-space-2 py-space-2 pr-space-8"
                                                         >
-                                                            <MaterialIcon className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary">
-                                                                {option.icon}
-                                                            </MaterialIcon>
+                                                            <AppIcon
+                                                                name={option.icon}
+                                                                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary"
+                                                            />
                                                             <span className="flex min-w-0 flex-col gap-1">
                                                                 <span className="font-label-md text-label-md text-text-primary">{option.title}</span>
                                                                 <span className="font-body-sm text-body-sm text-text-muted">{option.detail}</span>
@@ -387,7 +384,7 @@ const AccountStudySettings = () => {
                         {/* AI Tutor Preferences */}
                         <section className="settings-tutor-card bg-ai-subtle dark:!bg-[#161719] rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <MaterialIcon className="text-primary">smart_toy</MaterialIcon>
+                                <AppIcon name="smart_toy" className="text-primary" />
                                 <h3 className="font-headline-sm text-headline-sm text-primary">AI Tutor Personality</h3>
                             </div>
                             <div>
@@ -399,7 +396,7 @@ const AccountStudySettings = () => {
                                             <label key={style.value} className={`relative flex cursor-pointer rounded-xl border p-space-4 transition-colors focus-within:ring-2 focus-within:ring-primary-soft ${selected ? 'border-primary bg-primary-soft dark:!bg-[#2a241c]' : 'border-border-default bg-surface dark:!bg-[#111214] hover:bg-surface-soft dark:hover:!bg-[#212226]'}`}>
                                                 <input className="sr-only" name="ai_tone" type="radio" value={style.value} checked={selected} onChange={() => handleTutorStyleChange(style.value)} />
                                                 <div className="relative z-10 flex flex-col gap-2">
-                                                    <MaterialIcon className={selected ? 'text-primary' : 'text-text-muted'}>{style.icon}</MaterialIcon>
+                                                    <AppIcon name={style.icon} className={selected ? 'text-primary' : 'text-text-muted'} />
                                                     <span className="font-label-md text-label-md text-text-primary">{style.title}</span>
                                                     <span className="font-body-sm text-body-sm text-text-muted text-xs">{style.desc}</span>
                                                 </div>
@@ -413,7 +410,7 @@ const AccountStudySettings = () => {
                         {/* Notifications */}
                         <section id="notifications" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <MaterialIcon className="text-text-muted">notifications</MaterialIcon>
+                                <AppIcon name="notifications" className="text-text-muted" />
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Notifications</h3>
                             </div>
                             <div className="flex flex-col gap-space-4">
@@ -455,7 +452,7 @@ const AccountStudySettings = () => {
                             Cancel
                         </button>
                         <button className="py-space-3 px-space-8 bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-60" type="submit" disabled={saving}>
-                            <MaterialIcon className="text-[18px]">save</MaterialIcon>
+                            <AppIcon name="save" className="text-[18px]" />
                             {saving ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>

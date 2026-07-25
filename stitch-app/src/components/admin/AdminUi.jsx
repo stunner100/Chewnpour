@@ -1,6 +1,7 @@
 import React from 'react';
 import { TABS } from '../../lib/admin/constants';
 import { formatNumber } from '../../lib/admin/formatters';
+import AppIcon from '../AppIcon';
 
 export const TabBar = ({ activeTab, onTabChange }) => (
     <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface p-1 shadow-sm">
@@ -16,7 +17,7 @@ export const TabBar = ({ activeTab, onTabChange }) => (
                             : 'text-text-muted hover:bg-surface-soft hover:text-text-primary'
                     }`}
                 >
-                    <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+                    <AppIcon name={tab.icon} className="text-[18px]" />
                     {tab.label}
                 </button>
             ))}
@@ -47,7 +48,7 @@ export const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) =>
                     ) : null}
                 </div>
                 <div className={`flex size-11 shrink-0 items-center justify-center rounded-lg ${bgMap[color] || bgMap.primary}`}>
-                    <span className="material-symbols-outlined text-[22px]">{icon}</span>
+                    <AppIcon name={icon} className="text-[22px]" />
                 </div>
             </div>
         </div>

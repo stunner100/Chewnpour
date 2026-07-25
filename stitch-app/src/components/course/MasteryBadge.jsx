@@ -1,4 +1,5 @@
 import React from 'react';
+import AppIcon from '../AppIcon';
 
 const VARIANTS = {
     foundational: {
@@ -40,12 +41,7 @@ const MasteryBadge = ({ variant, className = '' }) => {
         <span
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${config.className} ${className}`}
         >
-            <span
-                className="material-symbols-outlined text-[12px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-                {config.icon}
-            </span>
+            <AppIcon name={config.icon} className="text-[12px]" />
             {config.label}
         </span>
     );

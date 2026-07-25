@@ -1,4 +1,5 @@
 import React from 'react';
+import AppIcon from './AppIcon';
 
 const DEFINITION_VARIANT = {
     className:
@@ -22,7 +23,7 @@ const LessonDefinitionBlock = ({
                 className={`my-4 md:my-6 p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 ${DEFINITION_VARIANT.className} ${animationClass}`}
                 style={animationStyle}
             >
-                <span className="material-symbols-outlined shrink-0 text-current opacity-70">{DEFINITION_VARIANT.icon}</span>
+                <AppIcon name={DEFINITION_VARIANT.icon} className="shrink-0 text-current opacity-70" />
                 <div className="flex flex-col gap-1">
                     {term ? (
                         <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{term}</span>
@@ -40,7 +41,7 @@ const LessonDefinitionBlock = ({
             style={animationStyle}
         >
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                <span className="material-symbols-outlined text-6xl">{DEFINITION_VARIANT.icon}</span>
+                <AppIcon name={DEFINITION_VARIANT.icon} className="text-6xl" />
             </div>
             <h4 className="text-sm font-semibold text-primary uppercase tracking-wider mb-2 flex items-center gap-2">
                 <span className="size-2 rounded-full bg-primary" />

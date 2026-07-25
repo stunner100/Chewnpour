@@ -6,6 +6,7 @@ import { formatPlanPrice, normalizeTopUpOptions } from '../lib/pricingCurrency';
 import CanvasCrowd from '../components/blocks/CanvasCrowd';
 import BrandLogo from '../components/BrandLogo';
 import { BlurFade } from '../components/magicui/BlurFade';
+import AppIcon from '../components/AppIcon';
 
 /**
  * Landing page: Space Grotesk + DM Sans, dark surface, teal accent #0D9488, amber CTAs via app tokens.
@@ -53,10 +54,10 @@ const FEATURE_ROWS = [
         mockup: 'collab',
     },
     {
-        title: 'Turn Slides into a Podcast',
-        body: 'Listen to your lecture material on the go. ChewnPour converts your slides and PDFs into a natural-sounding two-speaker podcast so you can revise on the bus, at the gym, or between lectures.',
+        title: 'See what stuck',
+        body: 'Track mastery across courses, spot weak topics early, and jump straight back into the lesson or quiz that needs another pass.',
         side: 'right',
-        mockup: 'podcast',
+        mockup: 'schedule',
     },
 ];
 
@@ -120,20 +121,20 @@ const BLOG_POSTS = [
     {
         date: 'Apr 8, 2026',
         read: '5 min read',
-        title: 'Listen, do not just read, why podcast revision actually works',
-        excerpt: 'The science behind audio learning and how converting your slides into a two-speaker podcast helps concepts stick on the bus, at the gym, or between lectures.',
+        title: 'Ask the tutor before you spiral',
+        excerpt: 'How to use AI tutor chat as a study partner: clarify one stuck concept, get a worked example, then go straight back to a quiz.',
         tone: 'rgb(13, 148, 136)',
         author: 'The ChewnPour Team',
         body: [
-            { type: 'p', text: 'Most students think learning has to happen at a desk with a textbook. That assumption is the single biggest reason revision feels miserable. The truth is that your brain is happy to absorb structured material from your ears, sometimes more so than from your eyes.' },
-            { type: 'h2', text: 'Why audio sticks' },
-            { type: 'p', text: 'When you read a paragraph, your eyes move ahead of your understanding. When you listen, the pace is set for you, and your brain has to follow in real time. That gentle constraint forces deeper processing. It is the same reason a good lecturer can make a hard concept feel obvious, pace, tone, and the rhythm of explanation matter.' },
-            { type: 'h2', text: 'Why two speakers beat one' },
-            { type: 'p', text: 'A monologue is fine. A dialogue is better. When a tutor explains a concept and a student asks a clarifying question right after, you get both the answer and the misunderstanding modelled for you. ChewnPour generates podcasts in this two-speaker format on purpose: you hear the question you would have asked, and the answer lands harder.' },
-            { type: 'h2', text: 'How to actually use it' },
-            { type: 'p', text: 'Generate the podcast the night before. Listen on the bus to campus, while cooking, between lectures, on your evening walk. Aim for two passes per topic, the first is exposure, the second is recall. By the time you sit down to revise properly, the structure is already in your head.' },
-            { type: 'h2', text: 'A note on attention' },
-            { type: 'p', text: 'Audio works when you are doing something low-stakes with your hands. It does not work when you are scrolling, replying to messages, or driving in heavy traffic. Pair it with movement, not multitasking.' },
+            { type: 'p', text: 'Most students treat confusion as a reason to re-read the same paragraph five times. That feels productive. It rarely is. The faster move is to ask a precise question, get a rephrased explanation, then test yourself.' },
+            { type: 'h2', text: 'Name the stuck point' },
+            { type: 'p', text: 'Do not ask "explain this topic." Ask "why does this step follow from the previous one?" or "give me a one-paragraph example using numbers." Narrow questions get usable answers.' },
+            { type: 'h2', text: 'Demand a worked example' },
+            { type: 'p', text: 'Definitions are cheap. Application is the exam. Ask the tutor for a short worked example, then close the chat and recreate the steps from memory.' },
+            { type: 'h2', text: 'Quiz immediately' },
+            { type: 'p', text: 'After the explanation lands, open a quiz on the same topic. The questions you miss become your next tutor prompt. That loop is the product: lesson, tutor, quiz, progress.' },
+            { type: 'h2', text: 'Keep sessions short' },
+            { type: 'p', text: 'Ten focused minutes of tutor chat beat an hour of vague wandering. One concept, one example, one quiz pass.' },
         ],
     },
     {
@@ -141,7 +142,7 @@ const BLOG_POSTS = [
         read: '7 min read',
         title: 'The active recall playbook every Ghanaian student should steal',
         excerpt: 'Why re-reading your notes is the slowest way to learn, and how to design quizzes that mirror the questions actually showing up on UG, KNUST, and UCC exams.',
-        tone: 'rgb(120, 60, 220)',
+        tone: 'rgb(13, 148, 136)',
         author: 'The ChewnPour Team',
         body: [
             { type: 'p', text: 'Walk into any library on a Sunday evening and you will see the same scene: students underlining their notes, copying definitions into fresh notebooks, re-reading chapters they already half-know. It looks like work. It feels like work. It is barely work at all.' },
@@ -176,7 +177,7 @@ const PurpleSwirl = ({ className = '' }) => (
 // Minimal monochrome wordmark for the partner strip (placeholder marks, ChewnPour-friendly)
 const PartnerMark = ({ icon, label }) => (
     <div className="flex items-center gap-2 text-white/85" aria-hidden="true">
-        <span className="material-symbols-outlined text-[26px]">{icon}</span>
+        <AppIcon name={icon} className="text-[26px]" />
         <span style={{ fontFamily: '"Space Grotesk", sans-serif', fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>
             {label}
         </span>
@@ -281,7 +282,7 @@ const CollabMock = () => (
     <div className="rounded-xl bg-white shadow-2xl p-4 w-[80%] text-[#0A0A0A]">
         <div className="flex items-center justify-between text-[11px] font-semibold mb-3" style={{ fontFamily: 'DM Sans, sans-serif' }}>
             <span className="text-[#0A0A0A]/55">Collaborators</span>
-            <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">chevron_right</span>
+            <AppIcon name="chevron_right" className="text-[16px] text-[#0A0A0A]/55" />
         </div>
         <div className="flex items-center gap-2 mb-4">
             {COLLAB_AVATARS.map(({ color, id, initial }) => (
@@ -308,10 +309,10 @@ const ScheduleMock = () => (
     <div className="rounded-xl bg-white shadow-2xl p-4 w-[80%] text-[#0A0A0A]">
         <div className="flex items-center justify-between mb-3 text-xs font-semibold" style={{ fontFamily: 'DM Sans, sans-serif' }}>
             <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px]" style={{ color: ACCENT }}>calendar_today</span>
-                <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">person</span>
-                <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">play_arrow</span>
-                <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">place</span>
+                <AppIcon name="calendar_today" className="text-[16px]" style={{ color: ACCENT}} />
+                <AppIcon name="person" className="text-[16px] text-[#0A0A0A]/55" />
+                <AppIcon name="play_arrow" className="text-[16px] text-[#0A0A0A]/55" />
+                <AppIcon name="place" className="text-[16px] text-[#0A0A0A]/55" />
             </div>
         </div>
         <div className="text-center text-xs font-bold mb-2" style={{ fontFamily: 'DM Sans, sans-serif' }}>April 2026</div>
@@ -340,7 +341,7 @@ const PodcastMock = () => (
     <div className="rounded-xl bg-white shadow-2xl p-4 w-[80%] text-[#0A0A0A]">
         <div className="flex items-center gap-3 mb-3">
             <div className="size-12 rounded-lg flex items-center justify-center" style={{ background: ACCENT }}>
-                <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>headphones</span>
+                <AppIcon name="headphones" className="text-white" style={{ fontSize: 24}} />
             </div>
             <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-bold text-[#0A0A0A] truncate" style={{ fontFamily: 'DM Sans, sans-serif' }}>
@@ -366,14 +367,9 @@ const PodcastMock = () => (
         <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(10,10,10,0.55)', fontFamily: 'DM Sans, sans-serif' }}>
             <span>3:42</span>
             <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-[18px]">replay_10</span>
-                <span
-                    className="material-symbols-outlined inline-flex items-center justify-center size-7 rounded-full text-white"
-                    style={{ background: ACCENT, fontSize: 16 }}
-                >
-                    pause
-                </span>
-                <span className="material-symbols-outlined text-[18px]">forward_10</span>
+                <AppIcon name="replay_10" className="text-[18px]" />
+                <AppIcon name="pause" className="inline-flex items-center justify-center size-7 rounded-full text-white" style={{ background: ACCENT, fontSize: 16}} />
+                <AppIcon name="forward_10" className="text-[18px]" />
             </div>
             <span>11:58</span>
         </div>
@@ -418,7 +414,7 @@ const FaqItem = ({ q, a, open, onToggle }) => (
     <div className="border-b" style={{ borderColor: 'rgba(217,217,217,0.15)' }}>
         <button type="button" onClick={onToggle} className="w-full flex items-center justify-between gap-6 py-5 text-left" aria-expanded={open}>
             <span className="text-[16px] font-semibold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{q}</span>
-            <span className={`material-symbols-outlined text-white/70 text-[22px] transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>expand_more</span>
+            <AppIcon name="expand_more" />
         </button>
         <div className={`grid transition-all duration-300 ease-out ${open ? 'grid-rows-[1fr] opacity-100 pb-5' : 'grid-rows-[0fr] opacity-0'}`}>
             <div className="overflow-hidden">
@@ -659,7 +655,7 @@ const LandingHeader = ({ captureLandingEvent, mobileMenuOpen, onCloseMobileMenu,
                     aria-label="Open menu"
                     aria-expanded={mobileMenuOpen}
                 >
-                    <span className="material-symbols-outlined text-white text-[22px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
+                    <AppIcon name={mobileMenuOpen ? 'close' : 'menu'} className="text-white text-[22px]" />
                 </button>
             </div>
         </div>
@@ -762,7 +758,7 @@ const HowSection = () => (
                 <BlurFade key={card.title} inView delay={idx * 0.1} yOffset={20}>
                     <div className="grain rounded-[16px] p-7 flex flex-col min-h-[260px]" style={{ background: CARD_BG }}>
                         <span className="inline-flex items-center justify-center size-12 rounded-full" style={{ background: ACCENT }}>
-                            <span className="material-symbols-outlined text-white text-[24px]">{card.icon}</span>
+                            <AppIcon name={card.icon} className="text-white text-[24px]" />
                         </span>
                         <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 500, fontSize: 26 }}>
                             {card.title}
@@ -933,7 +929,7 @@ const PricingSection = ({ billing, onBillingChange, planCards, starterCurrency, 
                         <ul className="space-y-3 flex-1">
                             {plan.features.map((f) => (
                                 <li key={f} className="flex items-start gap-2.5 text-white" style={{ fontSize: 14, fontFamily: 'Space Grotesk, sans-serif' }}>
-                                    <span className="material-symbols-outlined text-[18px] mt-[1px] flex-shrink-0" style={{ color: isFeatured ? '#fff' : ACCENT }}>check_circle</span>
+                                    <AppIcon name="check_circle" className="text-[18px] mt-[1px] flex-shrink-0" style={{ color: isFeatured ? '#fff' : ACCENT}} />
                                     <span>{f}</span>
                                 </li>
                             ))}
@@ -979,9 +975,7 @@ const IntegrationSection = () => (
             </div>
             <div className="grid grid-cols-3 gap-y-6 gap-x-6 place-items-center">
                 {PARTNERS.slice(0, 9).map((p) => (
-                    <span key={p.label} className="material-symbols-outlined text-white/85" style={{ fontSize: 44 }}>
-                        {p.icon}
-                    </span>
+                    <AppIcon name={p.icon} className="text-white/85" style={{ fontSize: 44}} />
                 ))}
             </div>
         </div>
@@ -1091,7 +1085,7 @@ const BlogSection = ({ onOpenPost }) => (
                             style={{ color: ACCENT, fontFamily: 'DM Sans, sans-serif' }}
                         >
                             Read article
-                            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                            <AppIcon name="arrow_forward" className="text-[14px]" />
                         </span>
                     </div>
                 </button>
@@ -1181,7 +1175,7 @@ const BlogPostModal = ({ activePost, captureLandingEvent, onClose }) => {
                         style={{ background: 'rgba(0,0,0,0.55)' }}
                         aria-label="Close article"
                     >
-                        <span className="material-symbols-outlined text-[20px]">close</span>
+                        <AppIcon name="close" className="text-[20px]" />
                     </button>
                 </div>
 

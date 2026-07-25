@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { SparklesText } from '../magicui/SparklesText';
 import { Marquee } from '../magicui/Marquee';
 import { Particles } from '../magicui/Particles';
+import AppIcon from '../AppIcon';
 
 const DashboardHero = ({
     uploading,
@@ -34,19 +35,19 @@ const DashboardHero = ({
             <div className="relative grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 items-center">
                 <div className="space-y-5">
                     <span className="badge-primary">
-                        <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                        <AppIcon name="auto_awesome" className="text-[12px]" />
                         <SparklesText sparklesCount={3}>AI Powered</SparklesText>
                     </span>
                     <h1 className="text-display-md md:text-display-lg lg:text-display-xl text-text-main-light dark:text-text-main-dark tracking-tight leading-tight">
                         Turn your materials into a <span className="text-primary">personal study system</span>
                     </h1>
                     <p className="text-body-md md:text-body-lg text-text-sub-light dark:text-text-sub-dark max-w-xl">
-                        Upload PDFs, slides, Word docs, or class recordings. ChewnPour creates lessons, summaries, quizzes, flashcards, podcasts, and weak-concept reviews automatically.
+                        Upload PDFs, slides, Word docs, or class recordings. ChewnPour builds lessons, summaries, quizzes, and tutor-ready context from your material.
                     </p>
 
                     {uploadError && (
                         <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800/40 text-body-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[16px]">error</span>
+                            <AppIcon name="error" className="text-[16px]" />
                             {uploadError}
                         </div>
                     )}
@@ -66,9 +67,7 @@ const DashboardHero = ({
                             disabled={uploading}
                             className="btn-primary h-12 px-6 text-body-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                                {uploading ? 'hourglass_empty' : 'cloud_upload'}
-                            </span>
+                            <AppIcon name={uploading ? 'hourglass_empty' : 'cloud_upload'} className="text-[20px]" />
                             {uploading ? 'Uploading…' : 'Upload Study Material'}
                         </button>
                         <span className="text-caption text-text-faint-light dark:text-text-faint-dark pt-1.5 sm:pt-3">
@@ -109,13 +108,13 @@ const DashboardHero = ({
                     <div className="relative w-full max-w-[280px] aspect-square">
                         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary to-accent-purple shadow-elevated" />
                         <div className="absolute inset-3 rounded-2xl bg-white/95 dark:bg-surface-dark/95 backdrop-blur-sm border border-white/40 dark:border-white/10 flex flex-col items-center justify-center p-6 text-center gap-3">
-                            <span className="material-symbols-outlined text-primary text-[44px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_stories</span>
+                            <AppIcon name="auto_stories" className="text-primary text-[44px]" />
                             <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Drop a file, get a course</p>
-                            <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Lessons · Quizzes · Flashcards · Podcasts</p>
+                            <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Lessons · Quizzes · AI Tutor · Progress</p>
                             <div className="flex gap-1.5 pt-1">
                                 {['picture_as_pdf', 'slideshow', 'description', 'graphic_eq'].map((icon) => (
                                     <span key={icon} className="size-8 rounded-lg bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-primary text-[16px]">{icon}</span>
+                                        <AppIcon name={icon} className="text-primary text-[16px]" />
                                     </span>
                                 ))}
                             </div>
@@ -131,7 +130,7 @@ const DashboardHero = ({
                     className="py-2"
                     duration={25}
                 >
-                    {['Lessons', 'Quizzes', 'Flashcards', 'Podcasts', 'Weak Concepts', 'Exam Prep', 'AI Tutor', 'Summaries'].map((feature) => (
+                    {['Lessons', 'Quizzes', 'AI Tutor', 'Progress', 'Summaries', 'Weak Concepts'].map((feature) => (
                         <span
                             key={feature}
                             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary text-caption font-medium whitespace-nowrap"

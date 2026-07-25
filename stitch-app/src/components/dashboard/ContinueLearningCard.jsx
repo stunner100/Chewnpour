@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const formatRelative = (timestamp) => {
     if (!timestamp) return '';
@@ -25,9 +26,9 @@ const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', on
                     className="relative md:h-full h-32 flex items-center justify-center"
                     style={{ background: course.coverColor || 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)' }}
                 >
-                    <span className="material-symbols-outlined text-white/95 text-[56px]" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
+                    <AppIcon name="menu_book" className="text-white/95 text-[56px]" />
                     <span className="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/30 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider">
-                        <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+                        <AppIcon name="play_circle" className="text-[12px]" />
                         Continue
                     </span>
                 </div>
@@ -46,7 +47,7 @@ const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', on
                         <div className="flex items-center justify-between text-caption">
                             <span className="text-text-sub-light dark:text-text-sub-dark">{progress}% complete</span>
                             <span className="text-text-faint-light dark:text-text-faint-dark inline-flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[13px]">schedule</span>
+                                <AppIcon name="schedule" className="text-[13px]" />
                                 {estimatedTime}
                                 {course.lastStudiedAt && (
                                     <>
@@ -66,11 +67,11 @@ const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', on
 
                     <div className="flex flex-wrap items-center gap-2">
                         <Link to={`/dashboard/course/${course._id}`} className="btn-primary text-body-sm">
-                            <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
+                            <AppIcon name="play_arrow" className="text-[16px]" />
                             Continue
                         </Link>
                         <button type="button" onClick={onGenerateQuiz} className="btn-secondary text-body-sm">
-                            <span className="material-symbols-outlined text-[16px]">quiz</span>
+                            <AppIcon name="quiz" className="text-[16px]" />
                             Generate Quiz
                         </button>
                     </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -26,7 +27,7 @@ const LessonHeader = ({
                             className="inline-flex items-center gap-1 px-2 h-8 rounded-lg hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors shrink-0 font-semibold"
                             aria-label="Back to course"
                         >
-                            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                            <AppIcon name="arrow_back" className="text-[16px]" />
                             <span className="hidden sm:inline">Back</span>
                         </Link>
                         <span className="text-text-faint-light dark:text-text-faint-dark" aria-hidden="true">·</span>
@@ -48,7 +49,7 @@ const LessonHeader = ({
                                 onClick={onOpenReExplain}
                                 className="hidden md:inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-caption font-semibold text-text-sub-light dark:text-text-sub-dark hover:text-primary hover:bg-primary-50/60 dark:hover:bg-primary-900/20 transition-colors"
                             >
-                                <span className="material-symbols-outlined text-[16px]">lightbulb</span>
+                                <AppIcon name="lightbulb" className="text-[16px]" />
                                 Re-explain
                             </button>
                         )}
@@ -59,7 +60,7 @@ const LessonHeader = ({
                                 className="btn-icon size-9"
                                 aria-label="Lesson settings"
                             >
-                                <span className="material-symbols-outlined text-[18px]">settings</span>
+                                <AppIcon name="settings" className="text-[18px]" />
                             </button>
                         )}
                     </div>
@@ -73,14 +74,14 @@ const LessonHeader = ({
                         </h1>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap text-caption text-text-sub-light dark:text-text-sub-dark">
                             <span className="inline-flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                <AppIcon name="schedule" className="text-[14px]" />
                                 {readingMinutes} min read
                             </span>
                             {statusBadge && (
                                 <>
                                     <span aria-hidden="true">·</span>
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${statusBadge.className}`}>
-                                        <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>{statusBadge.icon}</span>
+                                        <AppIcon name={statusBadge.icon} className="text-[12px]" />
                                         {statusBadge.label}
                                     </span>
                                 </>
@@ -89,7 +90,7 @@ const LessonHeader = ({
                                 <>
                                     <span aria-hidden="true">·</span>
                                     <span className="inline-flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">emoji_events</span>
+                                        <AppIcon name="emoji_events" className="text-[14px]" />
                                         Best {bestScore}%
                                     </span>
                                 </>
@@ -109,7 +110,7 @@ const LessonHeader = ({
                                     disabled={action.disabled}
                                     className="btn-secondary text-body-sm"
                                 >
-                                    <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
+                                    <AppIcon name={action.icon} className="text-[16px]" />
                                     {action.label}
                                 </Tag>
                             );
@@ -121,7 +122,7 @@ const LessonHeader = ({
                                     reloadDocument={primaryAction.reloadDocument}
                                     className="btn-primary text-body-sm"
                                 >
-                                    <span className="material-symbols-outlined text-[16px]">{primaryAction.icon}</span>
+                                    <AppIcon name={primaryAction.icon} className="text-[16px]" />
                                     {primaryAction.label}
                                 </Link>
                             ) : (
@@ -131,7 +132,7 @@ const LessonHeader = ({
                                     disabled={primaryAction.disabled}
                                     className="btn-primary text-body-sm"
                                 >
-                                    <span className="material-symbols-outlined text-[16px]">{primaryAction.icon}</span>
+                                    <AppIcon name={primaryAction.icon} className="text-[16px]" />
                                     {primaryAction.label}
                                 </button>
                             ))

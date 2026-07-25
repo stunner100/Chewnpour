@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
+import AppIcon from '../AppIcon';
 
 const ICONS = {
     success: 'check_circle',
@@ -91,9 +92,7 @@ export const WatermelonToaster = ({ position = 'bottom-center', className }) => 
                                 className,
                             )}
                         >
-                            <span className={cn('material-symbols-outlined text-[20px] shrink-0 mt-0.5', ICON_COLORS[toast.type] || ICON_COLORS.info)} style={{ fontVariationSettings: "'FILL' 1" }}>
-                                {ICONS[toast.type] || ICONS.info}
-                            </span>
+                            <AppIcon name={ICONS[toast.type] || ICONS.info} />
                             <div className="flex-1 min-w-0">
                                 {toast.title && (
                                     <p className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">{toast.title}</p>
@@ -120,7 +119,7 @@ export const WatermelonToaster = ({ position = 'bottom-center', className }) => 
                                 className="shrink-0 text-text-faint-light dark:text-text-faint-dark hover:text-text-sub-light dark:hover:text-text-sub-dark transition-colors"
                                 aria-label="Dismiss"
                             >
-                                <span className="material-symbols-outlined text-[18px]">close</span>
+                                <AppIcon name="close" className="text-[18px]" />
                             </button>
                         </Motion.div>
                     ))}

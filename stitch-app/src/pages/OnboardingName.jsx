@@ -7,6 +7,7 @@ import { BlurFade } from '../components/magicui/BlurFade';
 import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import AppIcon from '../components/AppIcon';
 
 const ACCENT = 'rgb(13, 148, 136)';
 const PAGE_BG = '#FAFAFB';
@@ -179,7 +180,7 @@ const OnboardingName = () => {
                             className="inline-flex items-center justify-center size-9 rounded-full text-[#687384] hover:text-[#1F2933] hover:bg-[#F3EEE7] transition-colors"
                             aria-label="Back"
                         >
-                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                            <AppIcon name="arrow_back" className="text-[20px]" />
                         </Link>
                         <span className="text-xs font-semibold ui-text" style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}>
                             Step 1 of 3
@@ -220,7 +221,7 @@ const OnboardingName = () => {
                                 className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
                                 style={{ background: 'rgba(13, 148, 136,0.1)', border: `1px solid ${ACCENT}66`, color: ACCENT, fontFamily: 'DM Sans, sans-serif' }}
                             >
-                                <span className="material-symbols-outlined text-[18px]">redeem</span>
+                                <AppIcon name="redeem" className="text-[18px]" />
                                 You were referred! Sign up and upload to earn a free credit.
                             </div>
                         </BlurFade>
@@ -236,7 +237,7 @@ const OnboardingName = () => {
                             className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
                             style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgb(185,28,28)', fontFamily: 'DM Sans, sans-serif' }}
                         >
-                            <span className="material-symbols-outlined text-[18px]">error</span>
+                            <AppIcon name="error" className="text-[18px]" />
                             {error}
                         </Motion.div>
                     )}

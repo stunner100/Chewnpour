@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -26,7 +27,7 @@ const QuickActionCard = ({ action }) => {
             <div className={`absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${ACTION_GRADIENTS[action.color] || ACTION_GRADIENTS.primary} opacity-10 group-hover:opacity-20 transition-opacity`} aria-hidden="true" />
             <div className="relative flex items-start gap-3">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${ACTION_GRADIENTS[action.color] || ACTION_GRADIENTS.primary} flex items-center justify-center shrink-0 shadow-md`}>
-                    <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{action.icon}</span>
+                    <AppIcon name={action.icon} className="text-white text-[20px]" />
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -35,9 +36,7 @@ const QuickActionCard = ({ action }) => {
                     </div>
                     <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-0.5 line-clamp-2 hidden sm:block">{action.description}</p>
                 </div>
-                <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0">
-                    arrow_forward
-                </span>
+                <AppIcon name="arrow_forward" className="text-[18px] text-text-faint-light dark:text-text-faint-dark group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
             </div>
         </Tag>
     );

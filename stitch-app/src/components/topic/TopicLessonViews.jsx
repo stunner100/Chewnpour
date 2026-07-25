@@ -13,6 +13,7 @@ import TopicReExplainModal from '../TopicReExplainModal';
 import TopicContentPanel from './TopicContentPanel';
 import TopicQuizPanel from './TopicQuizPanel';
 import { buildObjectiveExamRoute } from '../../lib/topicLessonHelpers';
+import AppIcon from '../AppIcon';
 
 export const TopicEmptyState = ({ title, description, action }) => (
     <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
@@ -47,7 +48,7 @@ export const TopicStudyModeView = ({
                     aria-label="Go back"
                     className="btn-icon size-8 shrink-0"
                 >
-                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <AppIcon name="arrow_back" className="text-[18px]" />
                 </Link>
                 <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark truncate max-w-[200px] sm:max-w-sm">
                     {headerTopicTitle}
@@ -238,7 +239,7 @@ export const TopicLessonPanels = ({ controller }) => {
                     className="fixed z-30 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 lg:bottom-6 lg:right-auto lg:left-6 btn-icon size-10 bg-surface-light dark:bg-surface-dark border border-border-subtle dark:border-border-subtle-dark shadow-card"
                     aria-label="Scroll to top"
                 >
-                    <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
+                    <AppIcon name="arrow_upward" className="text-[18px]" />
                 </button>
             )}
 
@@ -317,12 +318,12 @@ export const TopicMetaBadges = ({ sourceLabel, topicProgress }) => {
         <div className="flex flex-wrap items-center gap-space-2">
             {sourceLabel ? (
                 <span className="inline-flex items-center gap-space-2 rounded-full border border-border-subtle bg-surface px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                    <span className="material-symbols-outlined text-[16px] text-text-muted">description</span>
+                    <AppIcon name="description" className="text-[16px] text-text-muted" />
                     <span>Source: {sourceLabel}</span>
                 </span>
             ) : null}
             <span className={`inline-flex items-center gap-space-2 rounded-full border px-space-3 py-space-1 font-label-xs text-label-xs ${masteryClass}`}>
-                <span className="material-symbols-outlined text-[16px]">{masteryIcon}</span>
+                <AppIcon name={masteryIcon} className="text-[16px]" />
                 <span>{masteryLabel}</span>
             </span>
         </div>
@@ -334,7 +335,7 @@ export const TopicSummaryCard = ({ description }) => {
     return (
         <section className="rounded-2xl border border-primary/15 bg-primary-subtle p-space-5">
             <div className="mb-space-2 flex items-center gap-space-2 text-primary">
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>lightbulb</span>
+                <AppIcon name="lightbulb" className="text-[20px]" />
                 <h2 className="font-label-md text-label-md font-semibold">Topic Summary</h2>
             </div>
             <p className="font-body-md text-body-md leading-relaxed text-text-primary">{description}</p>
@@ -354,7 +355,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
                     onClick={goTo(prevTopic.id || prevTopic._id)}
                     className="inline-flex items-center gap-space-2 rounded-xl border border-border-default bg-surface px-space-4 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
                 >
-                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <AppIcon name="arrow_back" className="text-[18px]" />
                     <span className="line-clamp-1 text-left">Previous Lesson</span>
                 </button>
             ) : (
@@ -367,7 +368,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
                     className="inline-flex items-center gap-space-2 rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-label-md text-surface transition-colors hover:bg-primary-hover"
                 >
                     <span className="line-clamp-1">Next Lesson</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <AppIcon name="arrow_forward" className="text-[18px]" />
                 </button>
             ) : examTopicId ? (
                 <Link
@@ -375,7 +376,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
                     className="inline-flex items-center gap-space-2 rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-label-md text-surface transition-colors hover:bg-primary-hover"
                 >
                     <span>Take the quiz</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <AppIcon name="arrow_forward" className="text-[18px]" />
                 </Link>
             ) : (
                 <span aria-hidden="true" />
@@ -491,7 +492,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
             <header className="flex items-center justify-between">
                 <div className="flex items-center gap-space-2">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ai-soft text-ai">
-                        <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+                        <AppIcon name="smart_toy" className="text-[20px]" />
                     </span>
                     <div>
                         <p className="font-label-md text-label-md font-semibold text-text-primary">Study Assistant</p>
@@ -573,7 +574,7 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                     disabled={sending || !draft.trim()}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-surface transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                    <span className="material-symbols-outlined text-[18px]">send</span>
+                    <AppIcon name="send" className="text-[18px]" />
                 </button>
             </form>
         </aside>

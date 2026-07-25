@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PublicShell from '../components/PublicShell';
+import AppIcon from '../components/AppIcon';
 
 const ACCENT = 'rgb(13, 148, 136)';
 const CARD_BG = '#FFFFFF';
@@ -90,7 +91,7 @@ const SignUp = () => {
                                     className="inline-flex items-center justify-center size-9 rounded-full"
                                     style={{ background: ACCENT }}
                                 >
-                                    <span className="material-symbols-outlined text-white" style={{ fontSize: 18 }}>{f.icon}</span>
+                                    <AppIcon name={f.icon} className="text-white" style={{ fontSize: 18}} />
                                 </span>
                                 <span
                                     className="text-[11px] font-semibold uppercase tracking-wider text-[#1F2933]"
@@ -132,7 +133,7 @@ const SignUp = () => {
                                 fontFamily: 'DM Sans, sans-serif',
                             }}
                         >
-                            <span className="material-symbols-outlined text-[18px]">redeem</span>
+                            <AppIcon name="redeem" className="text-[18px]" />
                             You were referred! Sign up and upload to earn a free credit.
                         </div>
                     )}
@@ -147,7 +148,7 @@ const SignUp = () => {
                                 fontFamily: 'DM Sans, sans-serif',
                             }}
                         >
-                            <span className="material-symbols-outlined text-[18px]">error</span>
+                            <AppIcon name="error" className="text-[18px]" />
                             {error}
                         </div>
                     )}
@@ -181,7 +182,7 @@ const SignUp = () => {
                         to={`/onboarding/name${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`}
                         className="cp-btn-primary"
                     >
-                        <span className="material-symbols-outlined text-[20px]">mail</span>
+                        <AppIcon name="mail" className="text-[20px]" />
                         Continue with Email
                     </Link>
 

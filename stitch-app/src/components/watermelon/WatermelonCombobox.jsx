@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -67,16 +68,16 @@ export const WatermelonCombobox = ({
                         : 'border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark hover:border-primary/30',
                 )}
             >
-                <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">{icon}</span>
+                <AppIcon name={icon} className="text-[18px] text-text-faint-light dark:text-text-faint-dark" />
                 <span className={cn('flex-1 text-sm', selectedOption ? 'text-text-main-light dark:text-text-main-dark font-medium' : 'text-text-faint-light dark:text-text-faint-dark')}>
                     {selectedOption?.label || placeholder}
                 </span>
                 <Motion.span
                     animate={{ rotate: open ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
-                    className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark shrink-0"
+                    className="inline-flex shrink-0"
                 >
-                    expand_more
+                    <AppIcon name="expand_more" className="text-[18px] text-text-faint-light dark:text-text-faint-dark" />
                 </Motion.span>
             </button>
 
@@ -116,11 +117,11 @@ export const WatermelonCombobox = ({
                                         )}
                                     >
                                         {option.icon && (
-                                            <span className="material-symbols-outlined text-[18px] shrink-0">{option.icon}</span>
+                                            <AppIcon name={option.icon} className="text-[18px] shrink-0" />
                                         )}
                                         <span className="flex-1 truncate">{option.label}</span>
                                         {option.value === value && (
-                                            <span className="material-symbols-outlined text-[16px] text-primary shrink-0">check</span>
+                                            <AppIcon name="check" className="text-[16px] text-primary shrink-0" />
                                         )}
                                     </button>
                                 ))

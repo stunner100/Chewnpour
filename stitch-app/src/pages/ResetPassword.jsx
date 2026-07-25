@@ -2,6 +2,7 @@ import React, { useMemo, useReducer } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { requestPasswordReset, resetPassword } from '../lib/auth-client';
 import PublicShell, { ArrowBadge } from '../components/PublicShell';
+import AppIcon from '../components/AppIcon';
 
 const initialResetState = {
     email: '',
@@ -170,13 +171,13 @@ const ResetPassword = () => {
 
                     {error && (
                         <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[#B45309] flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[18px]">error</span>
+                            <AppIcon name="error" className="text-[18px]" />
                             {error}
                         </div>
                     )}
                     {success && (
                         <div className="mb-5 rounded-xl border border-[#B39DFF]/40 bg-[#B39DFF]/10 px-4 py-3 text-sm text-[#B39DFF] flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                            <AppIcon name="check_circle" className="text-[18px]" />
                             {success}
                         </div>
                     )}

@@ -10,6 +10,7 @@ import { ShimmerButton } from '../components/magicui/ShimmerButton';
 import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
 import { WatermelonDisclosure } from '../components/watermelon/WatermelonDisclosure';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import AppIcon from '../components/AppIcon';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -225,7 +226,7 @@ const Subscription = () => {
                     to={returnPath}
                     className="inline-flex items-center gap-1 text-caption font-semibold text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors mb-4"
                 >
-                    <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                    <AppIcon name="arrow_back" className="text-[16px]" />
                     Back
                 </Link>
                 <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark">Choose Your Plan</h1>
@@ -241,7 +242,7 @@ const Subscription = () => {
             )}
             {!error && remaining === 0 && (
                 <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-red-500 text-[18px] mt-0.5">warning</span>
+                    <AppIcon name="warning" className="text-red-500 text-[18px] mt-0.5" />
                     <div>
                         <p className="text-body-sm font-semibold text-red-700 dark:text-red-300">No uploads remaining</p>
                         <p className="text-caption text-red-600 dark:text-red-400 mt-0.5">
@@ -324,7 +325,7 @@ const Subscription = () => {
                                             {formatPlanPrice(plan.amountMajor / plan.credits, plan.currency)}/upload
                                         </p>
                                         <p className="text-caption text-accent-emerald flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
+                                            <AppIcon name="all_inclusive" className="text-[14px]" />
                                             Unlimited AI chat
                                         </p>
                                         <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
@@ -341,7 +342,7 @@ const Subscription = () => {
                         Credits are added once per successful payment.
                     </p>
                     <div className="inline-flex items-center gap-1.5 text-caption text-text-faint-light dark:text-text-faint-dark">
-                        <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                        <AppIcon name="verified_user" className="text-[14px]" />
                         Secure checkout
                     </div>
                 </div>
@@ -355,7 +356,7 @@ const Subscription = () => {
             >
                 {loading ? (
                     <>
-                        <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                        <AppIcon name="progress_activity" className="text-[18px] animate-spin" />
                         Redirecting to {providerHint || 'checkout'}...
                     </>
                 ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
@@ -365,7 +366,7 @@ const Subscription = () => {
                 <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Frequently Asked Questions</h3>
                 <WatermelonDisclosure title="What does an upload credit cover?">
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
-                        One upload credit lets you process a single document (PDF, DOCX, PPTX, or image). ChewnPour will turn it into a structured course with lessons, quizzes, podcasts, and a revision plan.
+                        One upload credit lets you process a single document (PDF, DOCX, PPTX, or image). ChewnPour turns it into a structured course with lessons, quizzes, and a revision plan.
                     </p>
                 </WatermelonDisclosure>
                 <WatermelonDisclosure title="Do credits expire?">

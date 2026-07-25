@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { WatermelonScheduler } from '../watermelon/WatermelonScheduler';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -35,14 +36,14 @@ const TodayStudyPlan = ({ items = EMPTY_ARRAY, completedToday = 0 }) => {
                     </p>
                 </div>
                 <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary text-caption font-semibold">
-                    <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>today</span>
+                    <AppIcon name="today" className="text-[14px]" />
                     Today
                 </span>
             </div>
 
             {items.length === 0 ? (
                 <div className="text-center py-8">
-                    <span className="material-symbols-outlined text-[36px] text-text-faint-light dark:text-text-faint-dark">task_alt</span>
+                    <AppIcon name="task_alt" className="text-[36px] text-text-faint-light dark:text-text-faint-dark" />
                     <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">No study items for today yet, upload a doc or finish a quiz to populate your plan.</p>
                 </div>
             ) : (
@@ -57,13 +58,13 @@ const TodayStudyPlan = ({ items = EMPTY_ARRAY, completedToday = 0 }) => {
                                     className="group flex items-center gap-3 rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark hover:border-primary/40 hover:bg-primary-50/40 dark:hover:bg-primary-900/10 transition-all p-3.5"
                                 >
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.medium} border`}>
-                                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
+                                        <AppIcon name={item.icon} className="text-[20px]" />
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">{item.title}</p>
                                         <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-0.5 flex items-center gap-1.5 flex-wrap">
                                             <span className="inline-flex items-center gap-1">
-                                                <span className="material-symbols-outlined text-[13px]">schedule</span>
+                                                <AppIcon name="schedule" className="text-[13px]" />
                                                 {item.estimatedTime}
                                             </span>
                                             {item.subtitle && (
@@ -76,7 +77,7 @@ const TodayStudyPlan = ({ items = EMPTY_ARRAY, completedToday = 0 }) => {
                                     </div>
                                     <span className="inline-flex text-caption font-semibold text-primary group-hover:translate-x-0.5 transition-transform items-center gap-1 shrink-0">
                                         <span className="hidden sm:inline">{item.cta || 'Start'}</span>
-                                        <span className="material-symbols-outlined text-[16px] sm:text-[14px]">arrow_forward</span>
+                                        <AppIcon name="arrow_forward" className="text-[16px] sm:text-[14px]" />
                                     </span>
                                 </Tag>
                             </li>

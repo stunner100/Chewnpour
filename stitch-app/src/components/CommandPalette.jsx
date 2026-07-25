@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { signOut } from '../lib/auth-client';
+import AppIcon from './AppIcon';
 
 const NAV_OPTIONS = [
     { label: 'Dashboard', value: '/dashboard', icon: 'space_dashboard', keywords: ['home', 'main'] },
@@ -156,7 +157,7 @@ export const CommandPalette = () => {
                     >
                         <div className="rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-elevated overflow-hidden">
                             <div className="flex items-center gap-3 px-4 border-b border-border-subtle dark:border-border-subtle-dark">
-                                <span className="material-symbols-outlined text-[20px] text-text-faint-light dark:text-text-faint-dark">search</span>
+                                <AppIcon name="search" className="text-[20px] text-text-faint-light dark:text-text-faint-dark" />
                                 <input
                                     ref={inputRef}
                                     type="text"
@@ -196,9 +197,7 @@ export const CommandPalette = () => {
                                                     : 'text-text-sub-light dark:text-text-sub-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark',
                                             )}
                                         >
-                                            <span className="material-symbols-outlined text-[18px] shrink-0">
-                                                {option.icon}
-                                            </span>
+                                            <AppIcon name={option.icon} className="text-[18px] shrink-0" />
                                             <span className="flex-1 truncate">{option.label}</span>
                                             {index === activeIndex && (
                                                 <kbd className="text-[10px] font-mono text-text-faint-light dark:text-text-faint-dark border border-border-light dark:border-border-dark rounded px-1.5 py-0.5">

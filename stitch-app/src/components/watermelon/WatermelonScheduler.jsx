@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { m as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -47,7 +48,7 @@ export const WatermelonScheduler = ({
         <div className={cn('space-y-4', className)}>
             {items.length === 0 ? (
                 <div className="text-center py-8">
-                    <span className="material-symbols-outlined text-[36px] text-text-faint-light dark:text-text-faint-dark">calendar_month</span>
+                    <AppIcon name="calendar_month" className="text-[36px] text-text-faint-light dark:text-text-faint-dark" />
                     <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">No items scheduled</p>
                 </div>
             ) : (
@@ -55,7 +56,7 @@ export const WatermelonScheduler = ({
                     <div key={time} className="relative">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="size-8 rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-[16px] text-text-faint-light dark:text-text-faint-dark">schedule</span>
+                                <AppIcon name="schedule" className="text-[16px] text-text-faint-light dark:text-text-faint-dark" />
                             </div>
                             <span className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark uppercase tracking-wider">{time}</span>
                         </div>
@@ -74,9 +75,7 @@ export const WatermelonScheduler = ({
                                     )}
                                     onClick={() => onItemClick?.(item)}
                                 >
-                                    <span className={cn('material-symbols-outlined text-[20px] shrink-0', STATUS_COLOR[item.status] || STATUS_COLOR.pending)} style={{ fontVariationSettings: item.status === 'done' ? "'FILL' 1" : undefined }}>
-                                        {STATUS_ICON[item.status] || STATUS_ICON.pending}
-                                    </span>
+                                    <AppIcon name={STATUS_ICON[item.status] || STATUS_ICON.pending} />
                                     <div className="min-w-0 flex-1">
                                         <p className={cn(
                                             'text-body-sm font-semibold truncate',

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PublicShell from '../components/PublicShell';
+import AppIcon from '../components/AppIcon';
 
 const LABELS = {
     all: 'all emails',
@@ -60,7 +61,7 @@ const Unsubscribe = () => {
                         className="mx-auto flex size-16 items-center justify-center rounded-2xl"
                         style={{ background: iconChip.bg, color: iconChip.fg }}
                     >
-                        <span className="material-symbols-outlined text-3xl">{iconChip.icon}</span>
+                        <AppIcon name={iconChip.icon} className="text-3xl" />
                     </div>
                     <h1 className="mt-5 text-2xl font-semibold">
                         {status === 'loading' ? 'Updating preferences…' : 'Preferences update'}

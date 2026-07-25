@@ -17,6 +17,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import AppIcon from './AppIcon';
 
 const SUPPORT_EMAIL = 'info@chewnpour.com';
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=ChewnPour%20Support`;
@@ -75,7 +76,7 @@ class DashboardContentErrorBoundary extends Component {
                         className="max-w-lg rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm"
                     >
                         <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
-                            <span aria-hidden="true" className="material-symbols-outlined">cloud_off</span>
+                            <AppIcon name="cloud_off" aria-hidden="true" />
                         </div>
                         <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
                             Study data unavailable
@@ -182,7 +183,7 @@ const DashboardLayout = ({ children }) => {
                             aria-label="Open command palette to search pages and actions"
                             className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
                         >
-                            <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
+                            <AppIcon name="search" className="absolute left-3 text-text-muted" aria-hidden="true" />
                             <span className="truncate">Search materials, lessons, or topics...</span>
                             <kbd className="ml-auto hidden items-center gap-0.5 rounded-md border border-border-default bg-surface px-2 py-0.5 font-mono text-[10px] text-text-muted sm:inline-flex">
                                 ⌘K
@@ -202,9 +203,7 @@ const DashboardLayout = ({ children }) => {
                                 aria-hidden="true"
                                 className={`inline-flex size-8 items-center justify-center rounded-full bg-surface text-[16px] text-primary shadow-sm transition-transform ${isDarkMode ? 'translate-x-7' : 'translate-x-0'}`}
                             >
-                                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                                    {isDarkMode ? 'light_mode' : 'dark_mode'}
-                                </span>
+                                <AppIcon name={isDarkMode ? 'light_mode' : 'dark_mode'} className="text-[16px]" />
                             </span>
                         </button>
                         <a
@@ -213,7 +212,7 @@ const DashboardLayout = ({ children }) => {
                             title={`Email support at ${SUPPORT_EMAIL}`}
                             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
                         >
-                            <span aria-hidden="true" className="material-symbols-outlined">help_outline</span>
+                            <AppIcon name="help_outline" aria-hidden="true" />
                         </a>
                         <Link
                             to="/dashboard/settings#notifications"
@@ -222,7 +221,7 @@ const DashboardLayout = ({ children }) => {
                             title="Open notification settings"
                             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
                         >
-                            <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
+                            <AppIcon name="notifications" aria-hidden="true" />
                         </Link>
                         <Link
                             to="/dashboard/settings"

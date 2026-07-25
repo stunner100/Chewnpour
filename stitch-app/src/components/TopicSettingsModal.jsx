@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import AppIcon from './AppIcon';
 
 const TopicSettingsModal = memo(function TopicSettingsModal({
     open,
@@ -28,7 +29,7 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
                         className="size-9 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-primary flex items-center justify-center"
                         aria-label="Close lesson settings"
                     >
-                        <span className="material-symbols-outlined text-[20px]">close</span>
+                        <AppIcon name="close" className="text-[20px]" />
                     </button>
                 </div>
 
@@ -72,7 +73,7 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
                                     Voice Engine
                                 </p>
                                 <div className="flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2">
-                                    <span className="material-symbols-outlined text-[16px] text-primary">graphic_eq</span>
+                                    <AppIcon name="graphic_eq" className="text-[16px] text-primary" />
                                     <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">Deepgram AI Voice</span>
                                 </div>
                                 <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -86,7 +87,7 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
                                 }}
                                 className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:border-primary/40 hover:text-primary"
                             >
-                                <span className="material-symbols-outlined text-[16px]">record_voice_over</span>
+                                <AppIcon name="record_voice_over" className="text-[16px]" />
                                 Test Voice
                             </button>
                         </div>

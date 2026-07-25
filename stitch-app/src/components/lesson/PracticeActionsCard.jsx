@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -13,7 +14,7 @@ const ActionButton = ({ action, tone }) => {
             : 'btn-secondary text-body-sm gap-2';
     return (
         <Tag {...tagProps} disabled={action.disabled} className={`${className} disabled:opacity-50 disabled:cursor-not-allowed`}>
-            <span className="material-symbols-outlined text-[18px]" style={tone === 'primary' ? { fontVariationSettings: "'FILL' 1" } : undefined}>{action.icon}</span>
+            <AppIcon name={action.icon} className="text-[18px]" />
             {action.label}
         </Tag>
     );
@@ -31,7 +32,7 @@ const PracticeActionsCard = ({
     <section className="rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-primary-50 via-surface-light to-surface-light dark:from-primary-900/15 dark:via-surface-dark dark:to-surface-dark p-6 md:p-7 shadow-soft">
         <div className="flex items-start gap-3 mb-4">
             <div className="size-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{completed ? 'emoji_events' : 'rocket_launch'}</span>
+                <AppIcon name={completed ? 'emoji_events' : 'rocket_launch'} className="text-primary text-[20px]" />
             </div>
             <div className="flex-1 min-w-0">
                 <h3 className="text-display-sm text-text-main-light dark:text-text-main-dark">{title}</h3>
@@ -40,7 +41,7 @@ const PracticeActionsCard = ({
                 )}
                 {bestScore != null && (
                     <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1.5 inline-flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px]">emoji_events</span>
+                        <AppIcon name="emoji_events" className="text-[14px]" />
                         Best score so far: {bestScore}%
                     </p>
                 )}

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { TutorChatComposer, TutorChatMessages } from '@/components/tutor/TutorChatSurface';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 import { TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
+import AppIcon from './AppIcon';
 
 const EXIT_ANIMATION_MS = 250;
 
@@ -229,7 +230,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                                 title="Clear chat"
                                 aria-label="Clear chat"
                             >
-                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                <AppIcon name="delete" className="text-[16px]" />
                             </button>
                         )}
                         <button
@@ -237,7 +238,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                             className="btn-icon size-8"
                             aria-label="Close chat panel"
                         >
-                            <span className="material-symbols-outlined text-[16px]">close</span>
+                            <AppIcon name="close" className="text-[16px]" />
                         </button>
                     </div>
                 </div>
@@ -253,9 +254,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         >
                             <span className="text-text-faint-light dark:text-text-faint-dark">Tutor:</span>
                             <span className="font-semibold text-text-main-light dark:text-text-main-dark">{activePersona?.label || 'Exam Coach'}</span>
-                            <span className={`material-symbols-outlined text-[16px] transition-transform ${personaMenuOpen ? 'rotate-180' : ''}`}>
-                                expand_more
-                            </span>
+                            <AppIcon name="expand_more" />
                         </button>
                         {personaMenuOpen && (
                             <div
@@ -285,7 +284,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                                                     {persona.label}
                                                 </span>
                                                 {isActive && (
-                                                    <span className="material-symbols-outlined text-primary text-[16px]">check</span>
+                                                    <AppIcon name="check" className="text-primary text-[16px]" />
                                                 )}
                                             </div>
                                             <p className="mt-0.5 text-caption text-text-faint-light dark:text-text-faint-dark">

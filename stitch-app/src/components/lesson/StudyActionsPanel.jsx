@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -17,14 +18,14 @@ const ActionButton = ({ icon, label, description, onClick, href, reloadDocument,
             disabled={disabled}
             className={`group w-full flex items-center gap-3 rounded-xl px-3.5 py-3 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${palette}`}
         >
-            <span className={`material-symbols-outlined text-[20px] ${variant === 'primary' ? 'text-white' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+            <AppIcon name={icon} />
             <span className="flex-1 text-left">
                 <span className="block text-body-sm font-semibold leading-tight">{label}</span>
                 {description && (
                     <span className={`block text-[11px] mt-0.5 ${variant === 'primary' ? 'text-white/80' : 'text-text-faint-light dark:text-text-faint-dark'}`}>{description}</span>
                 )}
             </span>
-            <span className={`material-symbols-outlined text-[16px] opacity-0 group-hover:opacity-100 transition-opacity ${variant === 'primary' ? 'text-white' : 'text-text-faint-light dark:text-text-faint-dark'}`}>arrow_forward</span>
+            <AppIcon name="arrow_forward" />
         </Tag>
     );
 };
@@ -40,7 +41,7 @@ const ProgressRing = ({ progress = 0, completed }) => {
             </svg>
             <div className="absolute inset-0 flex items-center justify-center text-body-sm font-bold text-text-main-light dark:text-text-main-dark">
                 {completed ? (
-                    <span className="material-symbols-outlined text-[22px] text-emerald-600" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
+                    <AppIcon name="check" className="text-[22px] text-emerald-600" />
                 ) : (
                     `${Math.round(progress)}%`
                 )}
@@ -100,7 +101,7 @@ const StudyActionsPanel = ({
                     className="group flex items-center gap-2.5"
                 >
                     <span className="size-9 rounded-lg bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-white text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
+                        <AppIcon name="menu_book" className="text-white text-[18px]" />
                     </span>
                     <span className="min-w-0 flex-1">
                         <span className="block text-body-sm font-semibold text-text-main-light dark:text-text-main-dark line-clamp-1 group-hover:text-primary transition-colors">{relatedCourse.title}</span>

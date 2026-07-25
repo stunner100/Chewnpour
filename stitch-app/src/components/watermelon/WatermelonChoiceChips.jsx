@@ -1,6 +1,7 @@
 import React from 'react';
 import { m as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
+import AppIcon from '../AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -52,14 +53,12 @@ export const WatermelonChoiceChips = ({
                         )}
                     >
                         {option.icon && (
-                            <span className="material-symbols-outlined text-[16px] mr-1 inline-block align-text-bottom" style={{ fontVariationSettings: selected ? "'FILL' 1" : undefined }}>
-                                {option.icon}
-                            </span>
+                            <AppIcon name={option.icon} className="text-[16px] mr-1 inline-block align-text-bottom" />
                         )}
                         {option.label}
                         {selected && multiple && (
                             <span className="ml-1.5 inline-flex items-center justify-center size-4 rounded-full bg-white/20 text-[10px]">
-                                <span className="material-symbols-outlined text-[12px]">close</span>
+                                <AppIcon name="close" className="text-[12px]" />
                             </span>
                         )}
                     </Motion.button>

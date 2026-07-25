@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useEffectEvent } from 'react';
+import AppIcon from './AppIcon';
 
 // Single flipping card
 const FlashCard = ({ term, definition, flipped, onFlip }) => (
@@ -27,7 +28,7 @@ const FlashCard = ({ term, definition, flipped, onFlip }) => (
                     {term}
                 </p>
                 <span className="mt-6 text-caption text-text-faint-light dark:text-text-faint-dark flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">touch_app</span>
+                    <AppIcon name="touch_app" className="text-[14px]" />
                     Click to reveal
                 </span>
             </div>
@@ -114,10 +115,7 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
                                     : 'bg-surface-hover dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                             }`}
                         >
-                            <span
-                                className="material-symbols-outlined text-[14px]"
-                                style={starredOnly ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                            >star</span>
+                            <AppIcon name="star" className="text-[14px]" />
                             {starredCount} starred
                         </button>
                     )}
@@ -151,7 +149,7 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
                     className="btn-icon size-10"
                     aria-label="Previous card"
                 >
-                    <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                    <AppIcon name="arrow_back" className="text-[20px]" />
                 </button>
 
                 <button
@@ -164,10 +162,7 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
                     }`}
                     aria-label={isStarred ? 'Unstar this card' : 'Star this card'}
                 >
-                    <span
-                        className="material-symbols-outlined text-[18px]"
-                        style={isStarred ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                    >star</span>
+                    <AppIcon name="star" className="text-[18px]" />
                     {isStarred ? 'Starred' : 'Star'}
                 </button>
 
@@ -177,7 +172,7 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
                     className="btn-icon size-10"
                     aria-label="Next card"
                 >
-                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                    <AppIcon name="arrow_forward" className="text-[20px]" />
                 </button>
             </div>
         </div>

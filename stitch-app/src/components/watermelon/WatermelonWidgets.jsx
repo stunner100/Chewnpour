@@ -1,6 +1,7 @@
 import React from 'react';
 import { m as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
+import AppIcon from '../AppIcon';
 
 export const WatermelonWidget = ({
     title,
@@ -43,7 +44,7 @@ export const WatermelonWidget = ({
                             <span className="text-2xl font-bold text-text-main-light dark:text-text-main-dark">{value}</span>
                             {trend && trendValue && (
                                 <span className={cn('inline-flex items-center gap-0.5 text-caption font-semibold', trendColor)}>
-                                    <span className="material-symbols-outlined text-[14px]">{trendIcon}</span>
+                                    <AppIcon name={trendIcon} className="text-[14px]" />
                                     {trendValue}
                                 </span>
                             )}
@@ -52,7 +53,7 @@ export const WatermelonWidget = ({
                     </div>
                     {icon && (
                         <div className={cn('w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shrink-0 shadow-sm', accentMap)}>
-                            <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                            <AppIcon name={icon} className="text-white text-[20px]" />
                         </div>
                     )}
                 </div>

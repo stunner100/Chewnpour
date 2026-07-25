@@ -1,4 +1,5 @@
 import React, { memo, useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import AppIcon from './AppIcon';
 
 const STYLES = [
     { key: 'explain', label: 'Explain', icon: 'lightbulb' },
@@ -143,7 +144,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                                 onClick={() => handleExplain(key)}
                                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                             >
-                                <span className="material-symbols-outlined text-[16px]">{icon}</span>
+                                <AppIcon name={icon} className="text-[16px]" />
                                 {label}
                             </button>
                         ))}
@@ -194,7 +195,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                                         onClick={() => onCopyToNotes(explanation)}
                                         className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700"
                                     >
-                                        <span className="material-symbols-outlined text-[14px]">note_add</span>
+                                        <AppIcon name="note_add" className="text-[14px]" />
                                         Copy to notes
                                     </button>
                                 )}
@@ -210,7 +211,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                                     }}
                                     className="flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-zinc-600"
                                 >
-                                    <span className="material-symbols-outlined text-[14px]">refresh</span>
+                                    <AppIcon name="refresh" className="text-[14px]" />
                                     Try another
                                 </button>
                             </div>
@@ -218,7 +219,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                                 onClick={onClose}
                                 className="size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-primary flex items-center justify-center"
                             >
-                                <span className="material-symbols-outlined text-[16px]">close</span>
+                                <AppIcon name="close" className="text-[16px]" />
                             </button>
                         </div>
                     </div>

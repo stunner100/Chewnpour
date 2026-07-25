@@ -8,6 +8,7 @@ import { BlurFade } from '../components/magicui/BlurFade';
 import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import AppIcon from '../components/AppIcon';
 
 const ACCENT = 'rgb(13, 148, 136)';
 const PAGE_BG = '#FAFAFB';
@@ -77,7 +78,7 @@ const OnboardingLevel = () => {
                             className="inline-flex items-center justify-center size-9 rounded-full text-[#687384] hover:text-[#1F2933] hover:bg-[#F3EEE7] transition-colors"
                             aria-label="Back"
                         >
-                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                            <AppIcon name="arrow_back" className="text-[20px]" />
                         </button>
                         <span className="text-xs font-semibold" style={{ color: SUBTEXT, fontFamily: 'DM Sans, sans-serif' }}>
                             Step 2 of 3
@@ -149,12 +150,7 @@ const OnboardingLevel = () => {
                                     }}
                                 >
                                     {isSelected && (
-                                        <span
-                                            className="material-symbols-outlined absolute top-3 right-3"
-                                            style={{ color: ACCENT, fontSize: 22 }}
-                                        >
-                                            check_circle
-                                        </span>
+                                        <AppIcon name="check_circle" className="absolute top-3 right-3" style={{ color: ACCENT, fontSize: 22}} />
                                     )}
                                     <span
                                         style={{
@@ -201,7 +197,7 @@ const OnboardingLevel = () => {
                         }}
                     >
                         <span>{loading ? 'Saving…' : 'Next'}</span>
-                        <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                        <AppIcon name="arrow_forward" className="text-[20px]" />
                     </button>
                 </div>
             </div>

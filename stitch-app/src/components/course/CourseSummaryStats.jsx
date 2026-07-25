@@ -1,4 +1,5 @@
 import React from 'react';
+import AppIcon from '../AppIcon';
 
 const StatCard = ({ icon, label, value, sub, accent = 'primary' }) => {
     const accentClass = {
@@ -12,12 +13,7 @@ const StatCard = ({ icon, label, value, sub, accent = 'primary' }) => {
     return (
         <div className="card-base p-4 flex items-center gap-3 min-w-0">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${accentClass}`}>
-                <span
-                    className="material-symbols-outlined text-[20px]"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                    {icon}
-                </span>
+                <AppIcon name={icon} className="text-[20px]" />
             </div>
             <div className="min-w-0">
                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark uppercase tracking-wide truncate">

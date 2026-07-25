@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TutorChatComposer, TutorChatMessages, TutorWelcomeMessage } from '@/components/tutor/TutorChatSurface';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
+import AppIcon from '../components/AppIcon';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms', prompt: 'Explain this topic in simple terms.' },
@@ -35,7 +36,7 @@ const TutorSkeleton = () => (
 const EmptyTutorState = () => (
     <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
         <main className="flex-1 min-h-0 flex flex-col items-center justify-center p-space-8 max-w-container-max mx-auto w-full text-center">
-            <span className="material-symbols-outlined text-[48px] text-text-muted mb-space-4">smart_toy</span>
+            <AppIcon name="smart_toy" className="text-[48px] text-text-muted mb-space-4" />
             <h2 className="font-headline-md text-headline-md text-text-primary">No lessons yet</h2>
             <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary max-w-md">
                 Upload study material first, then chat with the AI tutor against your generated lessons.
@@ -44,7 +45,7 @@ const EmptyTutorState = () => (
                 to="/dashboard/upload"
                 className="mt-space-8 inline-flex items-center gap-space-2 bg-primary text-on-primary px-space-6 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors"
             >
-                <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                <AppIcon name="cloud_upload" className="text-[18px]" />
                 Upload Material
             </Link>
         </main>
@@ -285,12 +286,12 @@ const AIStudyTutor = () => {
                                     aria-label="AI tutor course"
                                     className="flex w-full min-w-[220px] sm:w-[260px] items-center gap-space-3 rounded-lg border border-border-default bg-surface px-space-3 py-space-2 text-left font-body-base text-text-primary shadow-sm outline-none transition-all hover:bg-surface-soft focus:border-primary focus:ring-2 focus:ring-primary-soft"
                                 >
-                                    <span className="material-symbols-outlined flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary">folder</span>
+                                    <AppIcon name="folder" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary" />
                                     <span className="flex min-w-0 flex-1 flex-col leading-tight">
                                         <span className="truncate font-label-md text-label-md text-text-primary">{selectedCourse?.title}</span>
                                         <span className="truncate font-body-sm text-body-sm text-text-muted">Course</span>
                                     </span>
-                                    <span className="material-symbols-outlined text-[20px] text-text-muted">unfold_more</span>
+                                    <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[260px] p-space-2">
@@ -314,14 +315,12 @@ const AIStudyTutor = () => {
                                 aria-label="AI tutor material"
                                 className="flex w-full min-w-[220px] sm:w-[340px] items-center gap-space-3 rounded-lg border border-border-default bg-surface px-space-3 py-space-2 text-left font-body-base text-text-primary shadow-sm outline-none transition-all hover:bg-surface-soft focus:border-primary focus:ring-2 focus:ring-primary-soft"
                             >
-                                <span className="material-symbols-outlined flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary">
-                                    {selectedTopicOption?.icon || 'auto_stories'}
-                                </span>
+                                <AppIcon name={selectedTopicOption?.icon || 'auto_stories'} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary" />
                                 <span className="flex min-w-0 flex-1 flex-col leading-tight">
                                     <span className="truncate font-label-md text-label-md text-text-primary">{selectedTopicOption?.title}</span>
                                     <span className="truncate font-body-sm text-body-sm text-text-muted">{selectedTopicOption?.courseTitle}</span>
                                 </span>
-                                <span className="material-symbols-outlined text-[20px] text-text-muted">unfold_more</span>
+                                <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[340px] p-space-2">
@@ -339,9 +338,7 @@ const AIStudyTutor = () => {
                                             value={String(topic.topicId)}
                                             className="items-start gap-space-3 rounded-lg px-space-2 py-space-2 pr-space-8"
                                         >
-                                            <span className="material-symbols-outlined mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary">
-                                                {topic.icon || 'auto_stories'}
-                                            </span>
+                                            <AppIcon name={topic.icon || 'auto_stories'} className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary" />
                                             <span className="flex min-w-0 flex-col gap-1">
                                                 <span className="font-label-md text-label-md text-text-primary">{topic.title}</span>
                                                 <span className="font-body-sm text-body-sm text-text-muted">{topic.courseTitle}</span>

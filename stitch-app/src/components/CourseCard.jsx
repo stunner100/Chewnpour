@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import AppIcon from './AppIcon';
 
 const EMPTY_ARRAY = [];
 
@@ -127,9 +128,7 @@ const CourseCard = ({
                             aria-haspopup="menu"
                             aria-expanded={menuOpen}
                         >
-                            <span className="material-symbols-outlined text-[16px]">
-                                {isDeleting || isMoving ? 'hourglass_empty' : 'more_horiz'}
-                            </span>
+                            <AppIcon name={isDeleting || isMoving ? 'hourglass_empty' : 'more_horiz'} className="text-[16px]" />
                         </button>
                         {menuOpen && (
                             <div
@@ -150,10 +149,10 @@ const CourseCard = ({
                                     aria-expanded={moveSubmenuOpen}
                                 >
                                     <span className="flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-[16px]">drive_file_move</span>
+                                        <AppIcon name="drive_file_move" className="text-[16px]" />
                                         Move to folder
                                     </span>
-                                    <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                                    <AppIcon name="chevron_right" className="text-[14px]" />
                                 </button>
                                 {moveSubmenuOpen && (
                                     <div className="max-h-56 overflow-y-auto border-t border-border-subtle dark:border-border-subtle-dark mt-1 pt-1">
@@ -172,10 +171,10 @@ const CourseCard = ({
                                                     onClick={(e) => { stopCardNav(e); handleMove(folder._id); }}
                                                     className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-left text-text-main-light dark:text-text-main-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    <span className="material-symbols-outlined text-[16px]">folder</span>
+                                                    <AppIcon name="folder" className="text-[16px]" />
                                                     <span className="truncate">{folder.name}</span>
                                                     {isCurrent && (
-                                                        <span className="material-symbols-outlined text-[14px] ml-auto text-accent-emerald">check</span>
+                                                        <AppIcon name="check" className="text-[14px] ml-auto text-accent-emerald" />
                                                     )}
                                                 </button>
                                             );
@@ -186,7 +185,7 @@ const CourseCard = ({
                                                 onClick={(e) => { stopCardNav(e); handleMove(null); }}
                                                 className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-left text-text-sub-light dark:text-text-sub-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark border-t border-border-subtle dark:border-border-subtle-dark mt-1"
                                             >
-                                                <span className="material-symbols-outlined text-[16px]">folder_off</span>
+                                                <AppIcon name="folder_off" className="text-[16px]" />
                                                 Remove from folder
                                             </button>
                                         )}
@@ -197,7 +196,7 @@ const CourseCard = ({
                                     onClick={(e) => { stopCardNav(e); closeMenu(); onRequestDelete && onRequestDelete(course); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-border-subtle dark:border-border-subtle-dark"
                                 >
-                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                    <AppIcon name="delete" className="text-[16px]" />
                                     Delete course
                                 </button>
                             </div>
@@ -208,7 +207,7 @@ const CourseCard = ({
                     className="size-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.03]"
                     style={{ background: course.coverColor || gradients[index % gradients.length] }}
                 >
-                    <span className="material-symbols-outlined text-white/90 text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
+                    <AppIcon name="menu_book" className="text-white/90 text-3xl" />
                 </div>
             </div>
             <div className="flex flex-col p-3.5 gap-2.5 flex-1">

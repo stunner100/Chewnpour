@@ -15,6 +15,7 @@ import { capturePostHogEvent, capturePostHogPageView } from './lib/posthog';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import PublicShell, { ArrowBadge } from './components/PublicShell';
+import ParkedFeatureView from './components/ParkedFeatureView';
 import SignUpPage from './pages/SignUp';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
@@ -209,7 +210,7 @@ const NotFound = () => (
         The page you're looking for doesn't exist or has been moved. Let's get you back on track.
       </p>
       <a href="/dashboard" className="cp-btn-primary inline-flex w-auto px-6">
-        <span className="material-symbols-outlined text-[20px]">home</span>
+        <AppIcon name="home" className="text-[20px]" />
         Back to Dashboard
       </a>
     </div>
@@ -259,8 +260,22 @@ const RedirectLegacyQuizRoute = () => {
 };
 
 const RedirectLegacyFlashcardsRoute = () => {
-  return <Navigate to="/dashboard/progress" replace />;
+  return (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <ParkedFeatureView title="Flashcards" />
+      </DashboardLayout>
+    </ProtectedRoute>
+  );
 };
+
+const ParkedDashboardFeature = ({ title }) => (
+  <ProtectedRoute>
+    <DashboardLayout>
+      <ParkedFeatureView title={title} />
+    </DashboardLayout>
+  </ProtectedRoute>
+);
 
 const RedirectCourseToLessonsRoute = () => {
   const { courseId } = useParams();
@@ -310,11 +325,11 @@ function App() {
         <Route path="/unsubscribe" element={withSuspense(<Unsubscribe />)} />
         <Route path="/terms" element={withSuspense(<Terms />)} />
         <Route path="/privacy" element={withSuspense(<Privacy />)} />
-        <Route path="/kids" element={<Navigate to="/" replace />} />
-        <Route path="/kids/parent" element={<Navigate to="/" replace />} />
-        <Route path="/kids/upload" element={<Navigate to="/" replace />} />
-        <Route path="/kids/child" element={<Navigate to="/" replace />} />
-        <Route path="/kids/lesson/:lessonId" element={<Navigate to="/" replace />} />
+        <Route path="/kids" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
+        <Route path="/kids/parent" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
+        <Route path="/kids/upload" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
+        <Route path="/kids/child" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
+        <Route path="/kids/lesson/:lessonId" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
 
         {/* Onboarding Routes — /onboarding/name is sign-up (public), level+department are protected */}
         <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
@@ -328,32 +343,32 @@ function App() {
         <Route path="/dashboard/quiz/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizResults /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/quiz/:topicId" element={withSuspense(<QuizPlayerRoute />)} />
         <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/flashcards" element={<Navigate to="/dashboard/progress" replace />} />
-        <Route path="/dashboard/flashcards/:deckId" element={<Navigate to="/dashboard/progress" replace />} />
+        <Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />
+        <Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/progress" element={withSuspense(<ProtectedRoute><DashboardLayout><StudyProgressMastery /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />
-        <Route path="/dashboard/podcasts" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard/podcasts" element={<ParkedDashboardFeature title="Study podcasts" />} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/course/:courseId" element={<RedirectCourseToLessonsRoute />} />
         <Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />
-        <Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />
+        <Route path="/dashboard/exam" element={<ParkedDashboardFeature title="Exam mode" />} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
         <Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />
-        <Route path="/dashboard/assignment-helper" element={<Navigate to="/dashboard/ai-tutor" replace />} />
-        <Route path="/dashboard/humanizer" element={<Navigate to="/dashboard/ai-tutor" replace />} />
-        <Route path="/dashboard/community" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard/community/:channelId" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard/concept-intro" element={<Navigate to="/dashboard/progress" replace />} />
+        <Route path="/dashboard/assignment-helper" element={<ParkedDashboardFeature title="Assignment helper" />} />
+        <Route path="/dashboard/humanizer" element={<ParkedDashboardFeature title="AI humanizer" />} />
+        <Route path="/dashboard/community" element={<ParkedDashboardFeature title="Community" />} />
+        <Route path="/dashboard/community/:channelId" element={<ParkedDashboardFeature title="Community" />} />
+        <Route path="/dashboard/concept-intro" element={<ParkedDashboardFeature title="Concept intro" />} />
         <Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
-        <Route path="/dashboard/concept" element={<Navigate to="/dashboard/progress" replace />} />
+        <Route path="/dashboard/concept" element={<ParkedDashboardFeature title="Concept builder" />} />
         <Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
 
         {/* Subscription Route */}
@@ -365,7 +380,7 @@ function App() {
         <Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />
 
         {/* Admin Route — parked until Supabase admin cutover */}
-        <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/admin" element={<ParkedDashboardFeature title="Admin dashboard" />} />
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />

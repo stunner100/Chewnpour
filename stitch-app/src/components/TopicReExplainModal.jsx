@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import AppIcon from './AppIcon';
 
 const RE_EXPLAIN_STYLES = [
     'Simple summary',
@@ -30,7 +31,7 @@ const TopicReExplainModal = memo(function TopicReExplainModal({
                         onClick={onClose}
                         className="size-9 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-primary flex items-center justify-center"
                     >
-                        <span className="material-symbols-outlined text-[20px]">close</span>
+                        <AppIcon name="close" className="text-[20px]" />
                     </button>
                 </div>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Choose how you want this explanation to be rewritten.</p>

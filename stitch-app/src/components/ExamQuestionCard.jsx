@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import AppIcon from './AppIcon';
 
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
 
@@ -30,7 +31,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
         <div className="card-base p-5 md:p-8 mb-4">
             <div className="mb-5">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/8 text-primary text-caption font-semibold mb-3">
-                    <span className="material-symbols-outlined text-[14px]">quiz</span>
+                    <AppIcon name="quiz" className="text-[14px]" />
                     <span>Question {questionIndex + 1}</span>
                 </span>
                 <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark leading-relaxed">
@@ -102,7 +103,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                                     {text}
                                 </span>
                                 {isSelected && (
-                                    <span className="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+                                    <AppIcon name="check_circle" className="text-primary text-[20px]" />
                                 )}
                             </button>
                         );
@@ -118,7 +119,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                     className="btn-ghost px-5 py-2.5 flex items-center gap-2 disabled:opacity-30"
                     aria-label="Previous question"
                 >
-                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <AppIcon name="arrow_back" className="text-[18px]" />
                     <span className="text-body-sm">Previous</span>
                 </button>
 
@@ -130,7 +131,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                         aria-label="Submit quiz"
                     >
                         <span>Submit Quiz</span>
-                        <span className="material-symbols-outlined text-[18px]">check</span>
+                        <AppIcon name="check" className="text-[18px]" />
                     </button>
                 ) : (
                     <button
@@ -142,7 +143,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                         aria-label="Next question"
                     >
                         <span>Next</span>
-                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        <AppIcon name="arrow_forward" className="text-[18px]" />
                     </button>
                 )}
             </div>

@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
 
 const EmptyStudyToolState = () => (
     <section className="w-full rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
         <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
-            <span className="material-symbols-outlined">quiz</span>
+            <AppIcon name="quiz" />
         </div>
         <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
             Upload material to generate quizzes
@@ -17,7 +18,7 @@ const EmptyStudyToolState = () => (
             to="/dashboard/upload"
             className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
         >
-            <span className="material-symbols-outlined text-[20px]">cloud_upload</span>
+            <AppIcon name="cloud_upload" className="text-[20px]" />
             Upload Material
         </Link>
     </section>

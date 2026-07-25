@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { NumberTicker } from '../magicui/NumberTicker';
 import { WatermelonWidget, WatermelonWidgetsGrid } from '../watermelon/WatermelonWidgets';
+import AppIcon from '../AppIcon';
 
 const isFiniteNumber = (n) => typeof n === 'number' && Number.isFinite(n);
 
@@ -23,7 +24,7 @@ const StatCard = ({ icon, label, value, hint, accent = 'primary', animateNumeric
         <div className="card-flat p-4">
             <div className="flex items-center gap-2.5">
                 <div className={`size-9 rounded-xl flex items-center justify-center ${accentClasses}`}>
-                    <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+                    <AppIcon name={icon} className="text-[18px]" />
                 </div>
                 <div className="min-w-0">
                     <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{label}</p>
@@ -45,7 +46,7 @@ const StatCard = ({ icon, label, value, hint, accent = 'primary', animateNumeric
     );
 };
 
-const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }) => {
+const ProgressSnapshot = ({ insights, userStats, uploadQuota }) => {
     if (!insights && !userStats) return null;
 
     const overall = Number(insights?.overallPreparedness ?? 0);
@@ -94,7 +95,7 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                             <div className="flex flex-wrap gap-2 mt-3">
                                 <Link to="/dashboard/progress" className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors inline-flex items-center gap-1">
                                     View progress
-                                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                                    <AppIcon name="arrow_forward" className="text-[14px]" />
                                 </Link>
                             </div>
                         </div>
@@ -110,10 +111,10 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                         accent="amber"
                     />
                     <WatermelonWidget
-                        title="Podcasts"
-                        value={podcastCount}
-                        subtitle={podcastCount === 0 ? 'Generate your first' : 'Generated this month'}
-                        icon="podcasts"
+                        title="Needs work"
+                        value={needsWorkCount}
+                        subtitle="Topics to revisit"
+                        icon="target"
                         accent="primary"
                     />
                     <WatermelonWidget
@@ -138,7 +139,7 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                     {insights.mastered?.length > 0 && (
                         <div className="card-flat p-4 bg-emerald-50/40 dark:bg-emerald-900/10 border-emerald-200/40 dark:border-emerald-800/30">
                             <div className="flex items-center gap-2 mb-3">
-                                <span className="material-symbols-outlined text-emerald-600 text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+                                <AppIcon name="workspace_premium" className="text-emerald-600 text-[18px]" />
                                 <span className="text-overline text-emerald-700 dark:text-emerald-300">Strengths</span>
                             </div>
                             <ul className="space-y-2">
@@ -154,7 +155,7 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                     {insights.needsWork?.length > 0 && (
                         <div className="card-flat p-4 bg-amber-50/40 dark:bg-amber-900/10 border-amber-200/40 dark:border-amber-800/30">
                             <div className="flex items-center gap-2 mb-3">
-                                <span className="material-symbols-outlined text-amber-600 text-[18px]">priority_high</span>
+                                <AppIcon name="priority_high" className="text-amber-600 text-[18px]" />
                                 <span className="text-overline text-amber-700 dark:text-amber-300">Needs attention</span>
                             </div>
                             <ul className="space-y-2">

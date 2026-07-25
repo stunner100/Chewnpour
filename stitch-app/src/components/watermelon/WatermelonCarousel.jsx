@@ -1,6 +1,7 @@
 import React, { useReducer, useEffect } from 'react';
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'motion/react';
 import { cn } from '../../lib/utils';
+import AppIcon from '../AppIcon';
 
 const MotionDiv = m.div;
 
@@ -111,7 +112,7 @@ export const WatermelonCarousel = ({
                         className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors backdrop-blur-sm z-10"
                         aria-label="Previous slide"
                     >
-                        <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                        <AppIcon name="chevron_left" className="text-[18px]" />
                     </button>
                     <button
                         type="button"
@@ -119,7 +120,7 @@ export const WatermelonCarousel = ({
                         className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors backdrop-blur-sm z-10"
                         aria-label="Next slide"
                     >
-                        <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                        <AppIcon name="chevron_right" className="text-[18px]" />
                     </button>
                 </>
             )}

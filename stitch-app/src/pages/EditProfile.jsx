@@ -1,6 +1,7 @@
 import React, { useReducer, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
 
 const EDUCATION_LEVELS = {
     'freshman': 'Level 1',
@@ -262,9 +263,7 @@ const EditProfile = () => {
                                 <option key={key} value={key}>{label}</option>
                             ))}
                         </select>
-                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-faint-light dark:text-text-faint-dark text-[18px] pointer-events-none">
-                            expand_more
-                        </span>
+                        <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-faint-light dark:text-text-faint-dark text-[18px] pointer-events-none" />
                     </div>
                 </div>
 
@@ -289,9 +288,7 @@ const EditProfile = () => {
                                 <option key={key} value={key}>{label}</option>
                             ))}
                         </select>
-                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-faint-light dark:text-text-faint-dark text-[18px] pointer-events-none">
-                            expand_more
-                        </span>
+                        <AppIcon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-faint-light dark:text-text-faint-dark text-[18px] pointer-events-none" />
                     </div>
                 </div>
             </div>

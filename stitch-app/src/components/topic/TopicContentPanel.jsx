@@ -3,6 +3,7 @@ import TopicSidebar from '../TopicSidebar';
 import LessonContentRenderer from '../LessonContentRenderer';
 import GuidedStudyPath from '../GuidedStudyPath';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
+import AppIcon from '../AppIcon';
 
 const TopicContentPanel = ({
     cleanInline,
@@ -88,7 +89,7 @@ const TopicContentPanel = ({
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                     <div className="size-14 rounded-2xl bg-primary-soft flex items-center justify-center mb-4 animate-pulse">
-                        <span className="material-symbols-outlined text-primary text-[26px]">auto_stories</span>
+                        <AppIcon name="auto_stories" className="text-primary text-[26px]" />
                     </div>
                     <h3 className="text-body-lg font-semibold text-text-primary">Preparing your lesson</h3>
                     <p className="text-body-sm text-text-secondary mt-1 max-w-xs">
@@ -101,13 +102,13 @@ const TopicContentPanel = ({
         <details className="group bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle px-5 md:px-6">
             <summary className="flex items-center gap-3 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                 <span className="size-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
+                    <AppIcon name="route" className="text-primary text-[18px]" />
                 </span>
                 <span className="flex-1 min-w-0">
                     <span className="block text-body-md font-semibold text-text-primary leading-tight">Guided study path</span>
                     <span className="block text-caption text-text-muted mt-0.5">A section-by-section walkthrough of this lesson.</span>
                 </span>
-                <span className="material-symbols-outlined text-[20px] text-text-muted transition-transform group-open:rotate-180">expand_more</span>
+                <AppIcon name="expand_more" className="text-[20px] text-text-muted transition-transform group-open:rotate-180" />
             </summary>
             <div className="pb-5 pt-1">
                 <GuidedStudyPath

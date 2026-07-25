@@ -4,6 +4,7 @@ import AccessibleProgressBar from '../AccessibleProgressBar';
 import { getScoreTone } from '../../lib/scoreTone';
 import StatusBadge from './StatusBadge';
 import MasteryBadge from './MasteryBadge';
+import AppIcon from '../AppIcon';
 
 // Warm gradient palette for module thumbnails using DESIGN.md semantic colors.
 // Picked deterministically by topic index for visual variety.
@@ -126,12 +127,7 @@ const TopicModuleCard = ({
                     </span>
                     {isRecommended && (
                         <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-primary text-[10px] font-bold uppercase tracking-wider shadow-md">
-                            <span
-                                className="material-symbols-outlined text-[12px]"
-                                style={{ fontVariationSettings: "'FILL' 1" }}
-                            >
-                                star
-                            </span>
+                            <AppIcon name="star" className="text-[12px]" />
                             Next up
                         </span>
                     )}
@@ -160,13 +156,13 @@ const TopicModuleCard = ({
                 <div className="flex flex-wrap items-center gap-2 text-caption text-text-sub-light dark:text-text-sub-dark">
                     {estimatedMinutes && (
                         <span className="inline-flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">schedule</span>
+                            <AppIcon name="schedule" className="text-[14px]" />
                             {estimatedMinutes} min
                         </span>
                     )}
                     {mcqCount > 0 && (
                         <span className="inline-flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">quiz</span>
+                            <AppIcon name="quiz" className="text-[14px]" />
                             {mcqCount}q
                         </span>
                     )}
@@ -174,7 +170,7 @@ const TopicModuleCard = ({
                         <span
                             className={`inline-flex items-center gap-1 font-semibold ${scoreTone.textClass}`}
                         >
-                            <span className="material-symbols-outlined text-[14px]">military_tech</span>
+                            <AppIcon name="military_tech" className="text-[14px]" />
                             {progress.bestScore}%
                         </span>
                     )}
@@ -195,12 +191,7 @@ const TopicModuleCard = ({
                         to={`/dashboard/topic/${topic._id}`}
                         className={`${cta.class} flex-1 min-w-[120px] py-2 text-body-sm justify-center gap-1.5`}
                     >
-                        <span
-                            className="material-symbols-outlined text-[16px]"
-                            style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                            {cta.icon}
-                        </span>
+                        <AppIcon name={cta.icon} className="text-[16px]" />
                         {cta.label}
                     </Link>
                     {quizReady && (
@@ -210,13 +201,13 @@ const TopicModuleCard = ({
                             className="btn-ghost text-body-sm py-2 px-3"
                             aria-label={`Take quiz for ${topic.title}`}
                         >
-                            <span className="material-symbols-outlined text-[16px]">quiz</span>
+                            <AppIcon name="quiz" className="text-[16px]" />
                             Quiz
                         </Link>
                     )}
                     {isFinalExam && (
                         <span className="text-caption text-text-faint-light dark:text-text-faint-dark inline-flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">workspace_premium</span>
+                            <AppIcon name="workspace_premium" className="text-[14px]" />
                             Final exam
                         </span>
                     )}

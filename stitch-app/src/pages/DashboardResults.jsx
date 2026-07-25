@@ -9,6 +9,7 @@ import {
 import NextStepsGuidance from '../components/NextStepsGuidance';
 import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
 import { Confetti } from '../components/magicui/Confetti';
+import AppIcon from '../components/AppIcon';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ const PostExamUpgradeCard = () => {
                             className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2 whitespace-nowrap"
                         >
                             Upload Another Course
-                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                            <AppIcon name="arrow_forward" className="text-[18px]" />
                         </Link>
                     </div>
                 </div>
@@ -85,7 +86,7 @@ const PostExamUpgradeCard = () => {
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-amber text-white text-body-sm font-semibold hover:brightness-110 transition-all whitespace-nowrap"
                     >
                         Upgrade Now
-                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        <AppIcon name="arrow_forward" className="text-[18px]" />
                     </Link>
                 </div>
             </div>
@@ -243,7 +244,7 @@ const StrengthsAndFocus = ({ answers }) => {
             {strengths.length > 0 && (
                 <div className="card-base p-4 border-accent-emerald/20 bg-accent-emerald/5 dark:bg-accent-emerald/10">
                     <div className="flex items-center gap-2 mb-3">
-                        <span className="material-symbols-outlined text-accent-emerald text-[18px]">thumb_up</span>
+                        <AppIcon name="thumb_up" className="text-accent-emerald text-[18px]" />
                         <span className="text-overline text-accent-emerald">Your Strengths</span>
                     </div>
                     <ul className="space-y-2">
@@ -258,7 +259,7 @@ const StrengthsAndFocus = ({ answers }) => {
             {focusAreas.length > 0 && (
                 <div className="card-base p-4 border-accent-amber/20 bg-accent-amber/5 dark:bg-accent-amber/10">
                     <div className="flex items-center gap-2 mb-3">
-                        <span className="material-symbols-outlined text-accent-amber text-[18px]">target</span>
+                        <AppIcon name="target" className="text-accent-amber text-[18px]" />
                         <span className="text-overline text-accent-amber">Focus Areas</span>
                     </div>
                     <ul className="space-y-2">
@@ -400,7 +401,7 @@ const TutorReport = ({ attemptId, storedFeedback, attempt }) => {
         <div className="w-full max-w-2xl card-base overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border-light dark:border-border-dark">
                 <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[20px]">psychology</span>
+                    <AppIcon name="psychology" className="text-primary text-[20px]" />
                     <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Personal Tutor</span>
                 </div>
                 {/* #19 — only show badge when label is actually extracted */}
@@ -504,7 +505,7 @@ const DashboardResults = () => {
             <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
+                        <AppIcon name="quiz" className="text-2xl text-text-faint-light dark:text-text-faint-dark" />
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No quiz selected</h2>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Return to your dashboard and open a completed quiz.</p>
@@ -532,7 +533,7 @@ const DashboardResults = () => {
             <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
+                        <AppIcon name="search_off" className="text-2xl text-text-faint-light dark:text-text-faint-dark" />
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Results not found</h2>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find that quiz attempt.</p>
@@ -586,7 +587,7 @@ const DashboardResults = () => {
                 <div className="max-w-5xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">
                     <div className="flex items-center gap-3">
                         <Link to="/dashboard" className="btn-icon size-9">
-                            <span className="material-symbols-outlined text-lg">arrow_back</span>
+                            <AppIcon name="arrow_back" className="text-lg" />
                         </Link>
                         <div>
                             <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Quiz Results</h1>
@@ -594,7 +595,7 @@ const DashboardResults = () => {
                         </div>
                     </div>
                     <Link to="/dashboard" aria-label="Close" className="btn-icon size-9">
-                        <span className="material-symbols-outlined text-lg">close</span>
+                        <AppIcon name="close" className="text-lg" />
                     </Link>
                 </div>
             </header>
@@ -717,14 +718,14 @@ const DashboardResults = () => {
                             to={`/dashboard/topic/${attempt.topicId}`}
                             className="btn-primary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
                         >
-                            <span className="material-symbols-outlined text-[18px]">menu_book</span>
+                            <AppIcon name="menu_book" className="text-[18px]" />
                             <span>Review weak topics</span>
                         </Link>
                         <Link
                             to={`/dashboard/quiz/${attempt.topicId}?autostart=mcq`}
                             className="btn-secondary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
                         >
-                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                            <AppIcon name="refresh" className="text-[18px]" />
                             <span>Generate another quiz</span>
                         </Link>
                     </div>
@@ -797,7 +798,7 @@ const DashboardResults = () => {
                                                 {Array.isArray(answer.criteriaFeedback) && answer.criteriaFeedback.length > 0 ? (
                                                     <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3">
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <span className="material-symbols-outlined text-primary text-[20px]">rubric</span>
+                                                            <AppIcon name="rubric" className="text-primary text-[20px]" />
                                                             <span className="text-overline text-primary">Rubric Assessment</span>
                                                         </div>
                                                         {answer.criteriaFeedback.map((cf, cfIdx) => (
@@ -821,7 +822,7 @@ const DashboardResults = () => {
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20">
-                                                        <span className="material-symbols-outlined text-primary mt-0.5 text-[20px]">psychology</span>
+                                                        <AppIcon name="psychology" className="text-primary mt-0.5 text-[20px]" />
                                                         <div className="flex-1">
                                                             <span className="text-overline text-primary block mb-1">AI Feedback</span>
                                                             <span className="text-body-sm text-text-main-light dark:text-text-main-dark">{answer.feedback}</span>
@@ -832,7 +833,7 @@ const DashboardResults = () => {
                                                 {/* Model answer for learning */}
                                                 {answer.correctAnswer && (
                                                     <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20">
-                                                        <span className="material-symbols-outlined text-primary mt-0.5 text-[20px]">school</span>
+                                                        <AppIcon name="school" className="text-primary mt-0.5 text-[20px]" />
                                                         <div className="flex-1">
                                                             <span className="text-overline text-primary block mb-1">Model Answer</span>
                                                             <span className="text-body-sm text-text-main-light dark:text-text-main-dark">{answer.correctAnswer}</span>
@@ -850,11 +851,7 @@ const DashboardResults = () => {
                                                             ? 'bg-accent-emerald/5 dark:bg-accent-emerald/10 border-accent-emerald/20'
                                                             : 'bg-red-500/5 dark:bg-red-500/10 border-red-500/20'
                                                     }`}>
-                                                    <span className={`material-symbols-outlined mt-0.5 text-[20px] ${
-                                                        answer.skipped ? 'text-text-faint-light dark:text-text-faint-dark' : isCorrect ? 'text-accent-emerald' : 'text-red-600 dark:text-red-400'
-                                                    }`}>
-                                                        {answer.skipped ? 'remove_circle_outline' : isCorrect ? 'check_circle' : 'cancel'}
-                                                    </span>
+                                                    <AppIcon name={answer.skipped ? 'remove_circle_outline' : isCorrect ? 'check_circle' : 'cancel'} />
                                                     <div className="flex-1">
                                                         <span className={`text-overline block mb-1 ${
                                                             answer.skipped ? 'text-text-faint-light dark:text-text-faint-dark' : isCorrect ? 'text-accent-emerald' : 'text-red-600 dark:text-red-400'
@@ -872,7 +869,7 @@ const DashboardResults = () => {
                                                 </div>
                                                 {!isCorrect && (
                                                     <div className="flex items-start gap-3 p-4 rounded-xl bg-accent-emerald/5 dark:bg-accent-emerald/10 border border-accent-emerald/20">
-                                                        <span className="material-symbols-outlined text-accent-emerald mt-0.5 text-[20px]">check_circle</span>
+                                                        <AppIcon name="check_circle" className="text-accent-emerald mt-0.5 text-[20px]" />
                                                         <div className="flex-1">
                                                             <span className="text-overline text-accent-emerald block mb-1">Correct Answer</span>
                                                             <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
@@ -887,7 +884,7 @@ const DashboardResults = () => {
                                         {answer.explanation && (
                                             <div className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed bg-surface-hover-light dark:bg-surface-hover-dark p-4 rounded-xl border border-border-light dark:border-border-dark">
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <span className="material-symbols-outlined text-primary text-[18px]">lightbulb</span>
+                                                    <AppIcon name="lightbulb" className="text-primary text-[18px]" />
                                                     <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Why?</span>
                                                 </div>
                                                 {answer.explanation}
