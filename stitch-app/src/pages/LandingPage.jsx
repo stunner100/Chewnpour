@@ -429,55 +429,137 @@ const HeroSection = ({ captureLandingEvent }) => (
 );
 
 const IntroBridge = () => (
-  <section className="mx-auto max-w-[820px] px-5 py-20 text-center sm:px-6">
-    <p className="text-lg leading-relaxed text-[#6B6B70] sm:text-xl">
+  <section className="mx-auto max-w-[760px] px-5 py-16 text-center sm:px-6 sm:py-20">
+    <p className="text-[17px] leading-relaxed text-[#6B6B70] sm:text-[18px]">
       Information is everywhere. Notes, files, and lectures live across different tools.
     </p>
-    <p className="mt-4 text-xl font-bold tracking-[-0.02em] text-[#0A0A0A] sm:text-2xl">
+    <p className="mt-3 text-[20px] font-bold tracking-[-0.02em] text-[#0A0A0A] sm:text-[22px]">
       ChewnPour brings everything together into one intelligent study workspace.
     </p>
   </section>
 );
 
+const PreviewSidebar = () => (
+  <div className="mx-auto w-[88%] rounded-t-2xl border border-b-0 border-[#E5E5EA] bg-white shadow-sm">
+    <div className="flex items-center gap-1.5 border-b border-[#E5E5EA] bg-[#F9F9F9] px-3 py-2">
+      <span className="size-1.5 rounded-full bg-[#FF5F57]" />
+      <span className="size-1.5 rounded-full bg-[#FEBC2E]" />
+      <span className="size-1.5 rounded-full bg-[#28C840]" />
+      <span className="ml-1 text-[10px] font-semibold text-[#8E8E93]">Courses</span>
+    </div>
+    <div className="space-y-1.5 px-3 py-3">
+      <div className="flex items-center gap-2 rounded-lg bg-[#E5F0FF] px-2 py-1.5 text-[11px] font-semibold text-[#0A0A0A]">
+        <AppIcon name="star" className="text-[12px] text-[#FF9F0A]" />
+        Pinned
+        <span className="ml-auto text-[#8E8E93]">3</span>
+      </div>
+      {[
+        ['folder', 'Psychology 101', '12'],
+        ['folder', 'Organic Chem', '8'],
+        ['description', 'Exam prep', '5'],
+      ].map(([icon, label, count]) => (
+        <div key={label} className="flex items-center gap-2 px-2 py-1 text-[11px] text-[#6B6B70]">
+          <AppIcon name={icon} className="text-[12px]" style={{ color: BLUE }} />
+          {label}
+          <span className="ml-auto">{count}</span>
+        </div>
+      ))}
+      <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#F2F2F7] px-2 py-1.5 text-[10px] text-[#8E8E93]">
+        <AppIcon name="search" className="text-[12px]" />
+        Search courses…
+      </div>
+    </div>
+  </div>
+);
+
+const PreviewSync = () => (
+  <div className="mx-auto flex w-[78%] flex-col items-center rounded-2xl border border-[#E5E5EA] bg-white px-4 py-5 shadow-sm">
+    <span className="inline-flex size-10 items-center justify-center rounded-full text-white" style={{ background: BLUE }}>
+      <AppIcon name="check" className="text-[20px]" />
+    </span>
+    <p className="mt-3 text-[12px] font-bold text-[#0A0A0A]">ChewnPour Sync</p>
+    <p className="mt-1 text-center text-[10px] leading-snug text-[#6B6B70]">
+      Lessons and quizzes are up to date across your devices.
+    </p>
+    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F2F2F7]">
+      <div className="h-full w-[92%] rounded-full" style={{ background: BLUE }} />
+    </div>
+  </div>
+);
+
+const PreviewEditor = () => (
+  <div className="mx-auto w-[90%] rounded-t-2xl border border-b-0 border-[#E5E5EA] bg-white shadow-sm">
+    <div className="flex flex-wrap items-center gap-1.5 border-b border-[#E5E5EA] px-3 py-2">
+      <span className="rounded-full bg-[#F2F2F7] px-2 py-0.5 text-[10px] font-semibold text-[#0A0A0A]">Save as lesson</span>
+      <span className="rounded-full bg-[#F2F2F7] px-2 py-0.5 text-[10px] font-semibold text-[#0A0A0A]">Copy</span>
+      <span className="ml-auto inline-flex size-5 items-center justify-center rounded-full text-white" style={{ background: BLUE }}>
+        <AppIcon name="auto_awesome" className="text-[11px]" />
+      </span>
+    </div>
+    <div className="space-y-2 px-3 py-3">
+      <p className="text-[11px] font-bold text-[#0A0A0A]">Working memory</p>
+      <p className="text-[10px] leading-relaxed text-[#6B6B70]">
+        Short-term store that holds information while you process it during study.
+      </p>
+      <div className="flex flex-wrap gap-1">
+        <span className="rounded bg-[#E5F0FF] px-1.5 py-0.5 text-[9px] font-semibold" style={{ color: BLUE }}>definition</span>
+        <span className="rounded bg-[#F2F2F7] px-1.5 py-0.5 text-[9px] font-semibold text-[#6B6B70]">example</span>
+      </div>
+    </div>
+  </div>
+);
+
+const FEATURE_PREVIEW_VISUALS = {
+  'Courses & Topics': PreviewSidebar,
+  'Always in Sync': PreviewSync,
+  'Search Your Syllabus': PreviewEditor,
+};
+
 const FeaturesSection = () => (
-  <section id="features" className="mx-auto max-w-[1120px] px-5 py-10 sm:px-6 sm:py-16">
-    <div className="mx-auto max-w-2xl text-center">
-      <h2 className="text-3xl font-bold tracking-[-0.02em] sm:text-4xl">Smart features for everyday study</h2>
-      <p className="mt-4 text-[#6B6B70]">
+  <section id="features" className="mx-auto max-w-[1080px] px-5 py-8 sm:px-6 sm:py-14">
+    <div className="mx-auto max-w-[560px] text-center">
+      <h2 className="text-[clamp(1.75rem,3vw,2.25rem)] font-bold tracking-[-0.02em] text-[#0A0A0A]">
+        Smart features for everyday study
+      </h2>
+      <p className="mt-3 text-[15px] leading-relaxed text-[#6B6B70]">
         Everything you need to capture, organise, and master your materials — beautifully simple.
       </p>
     </div>
 
-    <div className="mt-12 grid gap-4 md:grid-cols-3">
+    <div className="mt-10 grid gap-5 md:grid-cols-3">
       {FEATURE_CARDS.map((card) => (
-        <article key={card.title} className="rounded-[20px] border border-[#E5E5EA] bg-white p-6 shadow-sm">
-          <AppIcon name={card.icon} className="text-[28px]" style={{ color: BLUE }} aria-hidden="true" />
-          <h3 className="mt-4 text-lg font-bold text-[#0A0A0A]">{card.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-[#6B6B70]">{card.body}</p>
+        <article
+          key={card.title}
+          className="rounded-[22px] border border-[#ECECF0] bg-white p-7 shadow-[0_8px_30px_rgba(15,23,42,0.04)]"
+        >
+          <BlueIconTile name={card.icon} />
+          <h3 className="mt-5 text-[17px] font-bold tracking-[-0.01em] text-[#0A0A0A]">{card.title}</h3>
+          <p className="mt-2 text-[14px] leading-relaxed text-[#6B6B70]">{card.body}</p>
         </article>
       ))}
     </div>
 
-    <div className="mt-4 grid gap-4 md:grid-cols-3">
-      {FEATURE_PREVIEWS.map((card) => (
-        <article key={card.title} className="overflow-hidden rounded-[20px] border border-[#E5E5EA] bg-white shadow-sm">
-          <div className="flex h-36 items-end justify-center bg-[#F2F2F7] px-4 pb-4">
-            <div className="w-full rounded-xl border border-[#E5E5EA] bg-white p-3 shadow-sm">
-              <div className="mb-2 h-2 w-1/3 rounded bg-[#E5E5EA]" />
-              <div className="space-y-1.5">
-                <div className="h-2 w-full rounded bg-[#F2F2F7]" />
-                <div className="h-2 w-4/5 rounded bg-[#F2F2F7]" />
-                <div className="h-2 w-2/3 rounded bg-[#F2F2F7]" />
+    <div className="mt-5 grid gap-5 md:grid-cols-3">
+      {FEATURE_PREVIEWS.map((card) => {
+        const Visual = FEATURE_PREVIEW_VISUALS[card.title] || PreviewSidebar;
+        return (
+          <article
+            key={card.title}
+            className="overflow-hidden rounded-[22px] border border-[#ECECF0] bg-white shadow-[0_8px_30px_rgba(15,23,42,0.04)]"
+          >
+            <div className="relative h-[168px] overflow-hidden bg-[#EEF3F8] pt-6">
+              <div className="absolute inset-x-0 bottom-0 translate-y-2">
+                <Visual />
               </div>
             </div>
-          </div>
-          <div className="p-6">
-            <AppIcon name={card.icon} className="text-[24px]" style={{ color: BLUE }} aria-hidden="true" />
-            <h3 className="mt-3 text-base font-bold">{card.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-[#6B6B70]">{card.body}</p>
-          </div>
-        </article>
-      ))}
+            <div className="px-7 pb-7 pt-5">
+              <AppIcon name={card.icon} className="text-[26px]" style={{ color: BLUE }} aria-hidden="true" />
+              <h3 className="mt-3 text-[17px] font-bold tracking-[-0.01em] text-[#0A0A0A]">{card.title}</h3>
+              <p className="mt-2 text-[14px] leading-relaxed text-[#6B6B70]">{card.body}</p>
+            </div>
+          </article>
+        );
+      })}
     </div>
   </section>
 );
