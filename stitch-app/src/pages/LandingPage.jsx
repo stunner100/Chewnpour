@@ -210,6 +210,13 @@ const LandingPageStyles = () => (
         radial-gradient(ellipse 60% 50% at 88% 55%, rgba(191, 219, 254, 0.28), transparent 50%),
         linear-gradient(180deg, #FFFFFF 0%, #F7FAFF 48%, #F3F7FC 100%);
     }
+    .slate-paper {
+      background-image:
+        linear-gradient(90deg, rgba(147, 197, 253, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(147, 197, 253, 0.12) 1px, transparent 1px);
+      background-size: 28px 28px, 100% 22px;
+      background-position: 0 0, 0 12px;
+    }
     .slate-float {
       animation: slateFloat 7s ease-in-out infinite;
     }
@@ -275,6 +282,13 @@ const HeroDecor = () => (
     {/* soft ambient washes */}
     <div className="absolute -left-24 top-24 h-[420px] w-[420px] rounded-full bg-[#DBEAFE]/50 blur-3xl" />
     <div className="absolute -right-16 top-40 h-[380px] w-[380px] rounded-full bg-[#BFDBFE]/45 blur-3xl" />
+    <div className="absolute left-1/2 top-[30%] h-[280px] w-[520px] -translate-x-1/2 rounded-full bg-[#EFF6FF]/70 blur-3xl" />
+
+    {/* translucent geometric slabs like the Slate hero */}
+    <div className="absolute left-[6%] top-[18%] hidden h-28 w-40 -rotate-12 rounded-3xl border border-[#BFDBFE]/70 bg-[#DBEAFE]/35 lg:block" />
+    <div className="absolute right-[10%] top-[20%] hidden h-24 w-36 rotate-[14deg] rounded-3xl border border-[#93C5FD]/50 bg-[#EFF6FF]/55 lg:block" />
+    <div className="absolute left-[20%] top-[62%] hidden h-16 w-24 rotate-6 rounded-2xl border border-[#BFDBFE]/60 bg-white/40 lg:block" />
+    <div className="absolute right-[18%] top-[58%] hidden h-20 w-28 -rotate-8 rounded-2xl border border-[#93C5FD]/45 bg-[#DBEAFE]/30 lg:block" />
 
     {/* faint document silhouette outlines */}
     <svg className="absolute right-[8%] top-16 hidden h-40 w-32 opacity-40 lg:block" viewBox="0 0 120 150" fill="none">
@@ -285,6 +299,10 @@ const HeroDecor = () => (
     <svg className="absolute left-[12%] top-10 hidden h-28 w-24 opacity-30 lg:block" viewBox="0 0 100 120" fill="none">
       <rect x="12" y="16" width="76" height="88" rx="6" stroke="#93C5FD" strokeWidth="2.5" />
       <path d="M28 40h44M28 56h32M28 72h38" stroke="#BFDBFE" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+    <svg className="absolute bottom-[18%] left-[28%] hidden h-20 w-20 opacity-25 lg:block" viewBox="0 0 80 80" fill="none">
+      <rect x="10" y="14" width="60" height="52" rx="8" stroke="#93C5FD" strokeWidth="2" />
+      <path d="M24 30h32M24 42h24" stroke="#BFDBFE" strokeWidth="2" strokeLinecap="round" />
     </svg>
 
     {/* left ruled notebook sheet — peeks behind the mockup */}
@@ -315,6 +333,8 @@ const HeroDecor = () => (
     <span className="slate-float-slow absolute right-[28%] top-[48%] hidden size-2.5 rounded-[2px] bg-[#60A5FA]/50 lg:block" />
     <span className="slate-float absolute left-[48%] top-[18%] hidden size-2 rounded-[2px] bg-[#93C5FD]/60 lg:block" />
     <span className="slate-float-delay absolute right-[42%] top-[78%] hidden size-3 rounded-[3px] bg-[#BFDBFE]/65 blur-[0.5px] lg:block" />
+    <span className="slate-float-slow absolute left-[40%] top-[34%] hidden size-2.5 rounded-[2px] bg-[#93C5FD]/55 lg:block" />
+    <span className="slate-float absolute right-[36%] top-[32%] hidden h-3 w-5 rounded-[3px] bg-[#BFDBFE]/60 lg:block" />
   </div>
 );
 
@@ -380,32 +400,38 @@ const LandingHeader = ({ captureLandingEvent, mobileMenuOpen, onToggleMobileMenu
 );
 
 const HeroSection = ({ captureLandingEvent }) => (
-  <section className="slate-hero-bg relative overflow-hidden px-5 pb-16 pt-14 sm:px-6 sm:pt-20">
+  <section className="slate-hero-bg relative overflow-hidden px-5 pb-20 pt-14 sm:px-6 sm:pt-20">
     <HeroDecor />
 
     <div className="relative z-10 mx-auto max-w-[1120px]">
-      <div className="max-w-2xl">
+      <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:max-w-2xl lg:text-left">
         <span className="inline-flex items-center rounded-full bg-[#F2F2F7] px-3 py-1 text-xs font-semibold text-[#6B6B70]">
-          Built in Academic intelligence
+          New · Built in Academic intelligence
         </span>
         <h1 className="mt-5 text-[clamp(2.4rem,5vw,3.75rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#0A0A0A]">
           AI that studies with you
         </h1>
-        <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-[#6B6B70]">
+        <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#6B6B70] lg:mx-0">
           Upload naturally. Ask anything. ChewnPour turns your lecture slides and PDFs into lessons, quizzes, and a tutor that actually knows your material.
         </p>
-        <PillLink
-          to="/signup"
-          onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_start_free' })}
-          className="mt-8"
-        >
-          Start your free trial
-        </PillLink>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+          <PillLink
+            to="/signup"
+            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_start_free' })}
+          >
+            Start your free trial
+          </PillLink>
+          <a
+            href="#features"
+            className="inline-flex items-center justify-center rounded-full border border-[#E5E5EA] bg-white/80 px-5 py-3 text-sm font-semibold text-[#0A0A0A] shadow-sm backdrop-blur-sm transition hover:bg-white"
+          >
+            See how it works
+          </a>
+        </div>
       </div>
 
-      {/* Sized like the Slate screenshot — ~72% width so notebook papers show on both sides */}
-      <div className="relative z-10 mx-auto mt-14 w-full max-w-[820px] lg:mt-16">
-        <div className="overflow-hidden rounded-[20px] border border-[#E5E5EA] bg-white shadow-[0_30px_80px_rgba(0,0,0,0.10)]">
+      <div className="relative z-10 mx-auto mt-14 w-full max-w-[860px] lg:mt-16">
+        <div className="overflow-hidden rounded-[22px] border border-[#E5E5EA] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.12)] ring-1 ring-[#BFDBFE]/35">
           <div className="flex items-center gap-2 border-b border-[#E5E5EA] bg-[#F9F9F9] px-4 py-2.5">
             <span className="size-2.5 rounded-full bg-[#FF5F57]" />
             <span className="size-2.5 rounded-full bg-[#FEBC2E]" />
@@ -564,6 +590,80 @@ const FeaturesSection = () => (
   </section>
 );
 
+const WorkflowPanel = ({ tabId }) => {
+  if (tabId === 'capture') {
+    return (
+      <div className="rounded-[20px] border border-dashed border-[#C7C7CC] bg-white p-6 text-center">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-[#E5F0FF]" style={{ color: BLUE }}>
+          <AppIcon name="cloud_upload" className="text-[24px]" />
+        </span>
+        <p className="mt-4 text-sm font-bold text-[#0A0A0A]">Drop lecture PDFs or slides</p>
+        <p className="mt-1 text-xs text-[#6B6B70]">PDF · PPTX · DOCX · images · max 50MB</p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {['Week 3 slides.pdf', 'Lab notes.png'].map((file) => (
+            <span key={file} className="rounded-full bg-[#F2F2F7] px-3 py-1 text-xs font-medium text-[#6B6B70]">
+              {file}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (tabId === 'answers') {
+    return (
+      <div className="space-y-3 rounded-[20px] border border-[#E5E5EA] bg-[#F9F9F9] p-5">
+        <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-[#111] px-4 py-3 text-sm text-white">
+          What’s the difference between working and long-term memory?
+        </div>
+        <div className="max-w-[90%] rounded-2xl rounded-bl-md border border-[#E5E5EA] bg-white px-4 py-3 text-sm leading-relaxed text-[#0A0A0A] shadow-sm">
+          Working memory holds what you’re using right now. Long-term memory stores lasting knowledge — your lecture notes become the bridge between them.
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-[#E5E5EA] bg-white px-3 py-2">
+          <span className="flex-1 text-sm text-[#8E8E93]">Ask across your materials…</span>
+          <span className="inline-flex size-8 items-center justify-center rounded-full text-white" style={{ background: BLUE }}>
+            <AppIcon name="arrow_upward" className="text-[18px]" />
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[20px] border border-[#E5E5EA] bg-[#F9F9F9] p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#8E8E93]">Focus mode</p>
+      <div className="mt-3 space-y-2">
+        {[
+          ['menu_book', 'Lesson depth', 'Clear explanations'],
+          ['quiz', 'Quiz intensity', 'Exam-style checks'],
+          ['smart_toy', 'Tutor chat', 'Ask anything'],
+        ].map(([icon, title, detail], index) => (
+          <div
+            key={title}
+            className={`flex items-center gap-3 rounded-2xl border px-3 py-3 ${
+              index === 0 ? 'border-[#007AFF] bg-[#E5F0FF]' : 'border-[#E5E5EA] bg-white'
+            }`}
+          >
+            <span
+              className="inline-flex size-9 items-center justify-center rounded-xl text-white"
+              style={{ background: index === 0 ? BLUE : '#C7C7CC' }}
+            >
+              <AppIcon name={icon} className="text-[18px]" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-[#0A0A0A]">{title}</p>
+              <p className="text-xs text-[#6B6B70]">{detail}</p>
+            </div>
+            {index === 0 ? (
+              <AppIcon name="check" className="text-[18px]" style={{ color: BLUE }} />
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const WorkflowSection = ({ activeTab, onTabChange }) => {
   const active = WORKFLOW_TABS.find((tab) => tab.id === activeTab) || WORKFLOW_TABS[0];
   return (
@@ -599,23 +699,7 @@ const WorkflowSection = ({ activeTab, onTabChange }) => {
           <h3 className="mt-4 text-2xl font-bold tracking-[-0.02em]">{active.title}</h3>
           <p className="mt-3 text-[15px] leading-relaxed text-[#6B6B70]">{active.body}</p>
         </div>
-        <div className="rounded-[20px] border border-[#E5E5EA] bg-[#F9F9F9] p-5">
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="text-sm leading-relaxed text-[#0A0A0A]">
-              Summarise chapter 4 and generate five exam-style questions from my uploaded slides.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-full bg-[#F2F2F7] px-3 py-1 text-xs font-medium text-[#6B6B70]">lecture.pdf</span>
-              <span className="rounded-full bg-[#F2F2F7] px-3 py-1 text-xs font-medium text-[#6B6B70]">notes.png</span>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-2 rounded-full border border-[#E5E5EA] bg-white px-3 py-2">
-            <span className="flex-1 text-sm text-[#8E8E93]">Ask across your materials…</span>
-            <span className="inline-flex size-8 items-center justify-center rounded-full text-white" style={{ background: BLUE }}>
-              <AppIcon name="arrow_upward" className="text-[18px]" />
-            </span>
-          </div>
-        </div>
+        <WorkflowPanel tabId={active.id} />
       </div>
     </section>
   );
@@ -658,6 +742,42 @@ const AiSection = () => (
   </section>
 );
 
+const STEP_VISUALS = {
+  '01': (
+    <div className="rounded-2xl border border-[#E5E5EA] bg-white p-5 shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: BLUE }}>Step 01</p>
+      <p className="mt-3 text-base font-bold">Upload and sign in</p>
+      <div className="mt-4 rounded-xl border border-dashed border-[#C7C7CC] bg-[#F9F9F9] px-4 py-6 text-center">
+        <AppIcon name="cloud_upload" className="mx-auto text-[22px]" style={{ color: BLUE }} />
+        <p className="mt-2 text-xs font-semibold text-[#0A0A0A]">Drop a lecture PDF</p>
+      </div>
+    </div>
+  ),
+  '02': (
+    <div className="rounded-2xl border border-[#E5E5EA] bg-white p-5 shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: BLUE }}>Step 02</p>
+      <p className="mt-3 text-base font-bold">Study generated lessons</p>
+      <div className="mt-4 space-y-2">
+        <div className="rounded-xl bg-[#E5F0FF] px-3 py-2 text-xs font-semibold text-[#0A0A0A]">1. Working memory</div>
+        <div className="rounded-xl bg-[#F2F2F7] px-3 py-2 text-xs font-semibold text-[#6B6B70]">2. Encoding</div>
+        <div className="rounded-xl bg-[#F2F2F7] px-3 py-2 text-xs font-semibold text-[#6B6B70]">3. Retrieval</div>
+      </div>
+    </div>
+  ),
+  '03': (
+    <div className="rounded-2xl border border-[#E5E5EA] bg-white p-5 shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: BLUE }}>Step 03</p>
+      <p className="mt-3 text-base font-bold">Ask the AI anything</p>
+      <div className="mt-4 space-y-2">
+        <div className="rounded-xl bg-[#111] px-3 py-2 text-xs text-white">Explain this like I’m revising tonight</div>
+        <div className="rounded-xl border border-[#E5E5EA] bg-[#F9F9F9] px-3 py-2 text-xs text-[#0A0A0A]">
+          Here’s a 3-point summary grounded in your slides…
+        </div>
+      </div>
+    </div>
+  ),
+};
+
 const HowSection = ({ captureLandingEvent }) => (
   <section id="how" className="mx-auto max-w-[1120px] px-5 py-16 sm:px-6 sm:py-24">
     <div className="mx-auto max-w-2xl text-center">
@@ -677,17 +797,7 @@ const HowSection = ({ captureLandingEvent }) => (
             <span className="block h-0.5 w-6" style={{ background: BLUE }} />
           </div>
           <div className="rounded-[24px] bg-[#F2F2F7] p-6 sm:p-8">
-            <div className="rounded-2xl border border-[#E5E5EA] bg-white p-5 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: BLUE }}>
-                Step {step.step}
-              </p>
-              <p className="mt-3 text-base font-bold">{step.title}</p>
-              <div className="mt-4 space-y-2">
-                <div className="h-2 w-full rounded bg-[#F2F2F7]" />
-                <div className="h-2 w-5/6 rounded bg-[#F2F2F7]" />
-                <div className="h-2 w-2/3 rounded bg-[#F2F2F7]" />
-              </div>
-            </div>
+            {STEP_VISUALS[step.step]}
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-wide md:hidden" style={{ color: BLUE }}>
@@ -898,7 +1008,13 @@ const FaqSection = ({ openFaq, onToggleFaq }) => (
 const CtaSection = ({ captureLandingEvent }) => (
   <section className="px-5 pb-16 sm:px-6 sm:pb-24">
     <div className="relative mx-auto max-w-[1120px] overflow-hidden rounded-[28px] border border-[#E5E5EA] bg-white px-6 py-16 text-center shadow-sm sm:px-12 sm:py-20">
-      <div className="pointer-events-none absolute inset-0 slate-paper opacity-50" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 slate-paper opacity-40" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-6 top-8 hidden h-40 w-28 -rotate-12 opacity-70 sm:block" aria-hidden="true">
+        <LinedNotebookPaper holes="left" className="h-full w-full" />
+      </div>
+      <div className="pointer-events-none absolute -right-4 bottom-6 hidden h-36 w-24 rotate-[10deg] opacity-70 sm:block" aria-hidden="true">
+        <LinedNotebookPaper holes="right" tape className="h-full w-full" />
+      </div>
       <div className="slate-float pointer-events-none absolute left-10 top-10 hidden size-12 items-center justify-center rounded-2xl bg-[#E5F0FF] sm:flex" aria-hidden="true">
         <AppIcon name="edit" style={{ color: BLUE }} />
       </div>

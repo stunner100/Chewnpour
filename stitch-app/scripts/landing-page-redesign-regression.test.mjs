@@ -31,7 +31,11 @@ assert(landingPage.includes('normalizeTopUpOptions'), 'Uses static top-up catalo
 assert(landingPage.includes("amountMajor: 20"), 'Starter plan pricing stays GHS 20');
 assert(landingPage.includes('capturePostHogEvent'), 'Imports PostHog helper');
 assert(landingPage.includes("landing_cta_clicked"), 'Tracks CTA analytics event');
-assert(landingPage.includes('<HeroSection captureLandingEvent={captureLandingEvent} />'), 'Hero section receives CTA tracking');
+assert(landingPage.includes('New · Built in Academic intelligence'), 'Hero badge matches Slate “New” treatment');
+assert(landingPage.includes('slate-paper'), 'Bottom CTA uses paper décor class');
+assert(landingPage.includes('WorkflowPanel'), 'Workflow section has tab-specific preview panels');
+assert(landingPage.includes('STEP_VISUALS'), 'How-it-works uses richer step visuals');
+assert(landingPage.includes('See how it works'), 'Hero includes secondary how-it-works link');
 assert(landingPage.includes('<PricingSection'), 'Pricing section is rendered');
 assert(landingPage.includes('<CtaSection captureLandingEvent={captureLandingEvent} />'), 'Final CTA section receives CTA tracking');
 assert(landingPage.includes('Start free'), 'Bottom CTA uses Start free');
