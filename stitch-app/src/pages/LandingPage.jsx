@@ -309,6 +309,9 @@ const HeroSection = ({ captureLandingEvent }) => (
 
     <div className="relative mx-auto max-w-[1120px]">
       <div className="max-w-2xl">
+        <span className="inline-flex items-center rounded-full bg-[#F2F2F7] px-3 py-1 text-xs font-semibold text-[#6B6B70]">
+          Built in Academic intelligence
+        </span>
         <h1 className="mt-5 text-[clamp(2.4rem,5vw,3.75rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#0A0A0A]">
           AI that studies with you
         </h1>
