@@ -22,12 +22,14 @@ const buildCourseProgressItems = (courses) => {
 };
 
 const ProgressSkeleton = () => (
-    <div className="flex-1 pt-[88px] md:ml-0 p-space-4 md:p-space-8 max-w-container-max mx-auto flex flex-col gap-space-10 pb-20 animate-pulse">
-        <div className="h-24 rounded-2xl bg-surface-soft" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-space-6">
-            {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="h-44 rounded-xl bg-surface-soft" />
-            ))}
+    <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto max-w-6xl space-y-6">
+            <div className="h-20 rounded-[20px] bg-surface-soft" />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                    <div key={index} className="h-44 rounded-[24px] bg-surface-soft" />
+                ))}
+            </div>
         </div>
     </div>
 );
@@ -107,156 +109,200 @@ const StudyProgressMastery = () => {
     if (loading) return <ProgressSkeleton />;
 
     return (
-        <div className="flex-1 pt-[88px] md:ml-0 p-space-4 md:p-space-8 max-w-container-max mx-auto flex flex-col gap-space-10 pb-20">
-            <header className="flex flex-col gap-space-2">
-                <h2 className="font-display-lg text-display-lg text-text-primary">Progress</h2>
-                <p className="font-body-lg text-body-lg text-text-secondary max-w-2xl">
-                    A quick view of your lessons, quizzes, and study activity.
-                </p>
-                {error ? (
-                    <p className="font-body-sm text-body-sm text-error">{error}</p>
-                ) : null}
-            </header>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-space-6">
-                <section className="bg-surface shadow-sm rounded-xl p-space-6 flex flex-col gap-space-4 border border-border-subtle">
-                    <div className="flex items-center justify-between">
-                        <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Study Streak</span>
-                        <div className="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center text-primary">
-                            <AppIcon name="local_fire_department" />
-                        </div>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className="font-display-xl text-display-xl text-text-primary">{userStats?.streakDays || 0}</span>
-                        <span className="font-body-base text-body-base text-text-muted">days</span>
-                    </div>
-                </section>
-
-                <section className="bg-surface shadow-sm rounded-xl p-space-6 flex flex-col gap-space-4 border border-border-subtle">
-                    <div className="flex items-center justify-between">
-                        <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Topics Practiced</span>
-                        <div className="w-10 h-10 rounded-full bg-info-soft flex items-center justify-center text-info">
-                            <AppIcon name="menu_book" />
-                        </div>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className="font-display-xl text-display-xl text-text-primary">{userStats?.topics || 0}</span>
-                        <span className="font-body-base text-body-base text-text-muted">topics</span>
-                    </div>
-                </section>
-
-                <section className="bg-surface shadow-sm rounded-xl p-space-6 flex flex-col gap-space-4 border border-border-subtle">
-                    <div className="flex items-center justify-between">
-                        <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Quiz Average</span>
-                        <div className="w-10 h-10 rounded-full bg-success-soft flex items-center justify-center text-success">
-                            <AppIcon name="analytics" />
-                        </div>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className="font-display-xl text-display-xl text-text-primary">{averageAccuracy}%</span>
-                        <span className="font-body-base text-body-base text-text-muted text-sm">average</span>
-                    </div>
-                </section>
-
-                <section className="bg-surface shadow-sm rounded-xl p-space-8 border border-border-subtle md:col-span-2 flex flex-col justify-center relative overflow-hidden">
-                    <div className="absolute right-0 top-0 w-64 h-64 bg-mastery-soft rounded-full blur-3xl opacity-30 -mr-20 -mt-20 pointer-events-none" />
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 relative z-10 gap-4">
-                        <div>
-                            <h3 className="font-headline-md text-headline-md text-text-primary mb-1">Quiz Performance</h3>
-                            <p className="font-body-sm text-body-sm text-text-secondary">Your average score across completed practice.</p>
-                        </div>
-                    </div>
-                    <div className="relative w-full h-8 bg-surface-muted rounded-full overflow-hidden z-10">
-                        <div className="absolute top-0 left-0 h-full bg-mastery rounded-full transition-all" style={{ width: `${averageAccuracy}%` }} />
-                        <div className="absolute top-0 left-1/4 h-full w-[2px] bg-surface opacity-30" />
-                        <div className="absolute top-0 left-2/4 h-full w-[2px] bg-surface opacity-30" />
-                        <div className="absolute top-0 left-3/4 h-full w-[2px] bg-surface opacity-30" />
-                    </div>
-                    <div className="flex justify-between mt-2 font-label-xs text-label-xs text-text-muted z-10">
-                        <span>0%</span>
-                        <span>25%</span>
-                        <span>50%</span>
-                        <span>75%</span>
-                        <span>100%</span>
-                    </div>
-                </section>
-
-                <section className="progress-next-card bg-ai-subtle dark:!bg-[#161719] shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col justify-between self-start">
-                    <div>
-                        <div className="flex items-center gap-2 mb-4">
-                            <AppIcon name="lightbulb" className="text-primary" />
-                            <h3 className="font-headline-sm text-headline-sm text-text-primary">Next up</h3>
-                        </div>
-                        <p className="font-body-base text-body-base text-text-secondary mb-6">
-                            {resumeTarget
-                                ? <>Continue <strong>{resumeTarget.topicTitle}</strong> from your latest course.</>
-                                : 'Upload a material to start building your progress history.'}
+        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+            <div className="mx-auto max-w-6xl">
+                <header>
+                    <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+                        Progress
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
+                        A quick view of your lessons, quizzes, and study activity.
+                    </p>
+                    {error ? (
+                        <p className="mt-3 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
+                            {error}
                         </p>
-                    </div>
-                    <Link
-                        to={recommendedHref}
-                        className="w-full bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl shadow-md hover:bg-primary-hover transition-colors flex justify-center items-center gap-2"
+                    ) : null}
+                </header>
+
+                <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <section className="flex flex-col gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                        <div className="flex items-center justify-between">
+                            <span className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                Study Streak
+                            </span>
+                            <div className="flex size-10 items-center justify-center rounded-full bg-warning-soft text-warning">
+                                <AppIcon name="local_fire_department" />
+                            </div>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="font-display text-display-lg font-bold text-text-primary">
+                                {userStats?.streakDays || 0}
+                            </span>
+                            <span className="text-body-sm text-text-muted">days</span>
+                        </div>
+                    </section>
+
+                    <section className="flex flex-col gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                        <div className="flex items-center justify-between">
+                            <span className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                Topics Practiced
+                            </span>
+                            <div className="flex size-10 items-center justify-center rounded-full bg-info-soft text-info">
+                                <AppIcon name="menu_book" />
+                            </div>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="font-display text-display-lg font-bold text-text-primary">
+                                {userStats?.topics || 0}
+                            </span>
+                            <span className="text-body-sm text-text-muted">topics</span>
+                        </div>
+                    </section>
+
+                    <section className="flex flex-col gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                        <div className="flex items-center justify-between">
+                            <span className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                Quiz Average
+                            </span>
+                            <div className="flex size-10 items-center justify-center rounded-full bg-success-soft text-success">
+                                <AppIcon name="analytics" />
+                            </div>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="font-display text-display-lg font-bold text-text-primary">
+                                {averageAccuracy}%
+                            </span>
+                            <span className="text-body-sm text-text-muted">average</span>
+                        </div>
+                    </section>
+
+                    <section className="relative overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:col-span-2 md:p-7">
+                        <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-primary-subtle opacity-70 blur-3xl" />
+                        <div className="relative z-10 mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                            <div>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">
+                                    Quiz Performance
+                                </h2>
+                                <p className="mt-1 text-body-sm text-text-secondary">
+                                    Your average score across completed practice.
+                                </p>
+                            </div>
+                            <span className="inline-flex self-start rounded-full bg-primary-subtle px-3 py-1.5 text-caption font-semibold text-primary">
+                                Readiness {averageAccuracy}%
+                            </span>
+                        </div>
+                        <div className="relative z-10 h-3 overflow-hidden rounded-full bg-surface-soft">
+                            <div
+                                className="h-full rounded-full bg-cta transition-all"
+                                style={{ width: `${Math.max(0, Math.min(100, averageAccuracy))}%` }}
+                            />
+                        </div>
+                        <div className="relative z-10 mt-2 flex justify-between text-caption font-semibold text-text-muted">
+                            <span>0%</span>
+                            <span>25%</span>
+                            <span>50%</span>
+                            <span>75%</span>
+                            <span>100%</span>
+                        </div>
+                    </section>
+
+                    <section className="flex flex-col justify-between rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                        <div>
+                            <div className="mb-3 flex items-center gap-2">
+                                <AppIcon name="lightbulb" className="text-primary" />
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Next up</h2>
+                            </div>
+                            <p className="text-body-sm text-text-secondary">
+                                {resumeTarget
+                                    ? <>Continue <strong className="text-text-primary">{resumeTarget.topicTitle}</strong> from your latest course.</>
+                                    : 'Upload a material to start building your progress history.'}
+                            </p>
+                        </div>
+                        <Link
+                            to={recommendedHref}
+                            className="btn-primary mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 text-body-sm"
+                        >
+                            {resumeTarget ? 'Continue Studying' : 'Upload Material'}
+                            <AppIcon name="arrow_forward" className="text-[18px]" />
+                        </Link>
+                    </section>
+
+                    <section className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:col-span-2 md:p-6">
+                        <h2 className="font-display text-display-sm font-bold text-text-primary">Course Progress</h2>
+                        {activityData.length > 0 ? (
+                            <div className="mt-5 grid grid-cols-1 gap-3">
+                                {activityData.map((course) => (
+                                    <div
+                                        key={course.id}
+                                        className="rounded-[18px] border border-border-subtle bg-surface-soft/70 p-4"
+                                    >
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="min-w-0">
+                                                <p className="line-clamp-1 font-semibold text-text-primary">{course.title}</p>
+                                                <p className="mt-1 text-caption text-text-muted">
+                                                    {course.topicCount} {course.topicCount === 1 ? 'topic' : 'topics'}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-body-sm font-semibold text-primary">
+                                                {course.progress}%
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
+                                            <div
+                                                className="h-full rounded-full bg-primary transition-all"
+                                                style={{ width: `${course.progress}%` }}
+                                                role="progressbar"
+                                                aria-label={`${course.title} progress`}
+                                                aria-valuemin={0}
+                                                aria-valuemax={100}
+                                                aria-valuenow={course.progress}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="mt-4 text-body-sm text-text-muted">
+                                Course progress will appear after your first generated lesson.
+                            </p>
+                        )}
+                    </section>
+
+                    <section
+                        id="topic-breakdown"
+                        className="scroll-mt-20 flex flex-col rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6"
                     >
-                        {resumeTarget ? 'Continue Studying' : 'Upload Material'}
-                        <AppIcon name="arrow_forward" className="text-[18px]" />
-                    </Link>
-                </section>
-
-                <section className="bg-surface shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-2 self-start">
-                    <h3 className="font-headline-sm text-headline-sm text-text-primary mb-6">Course Progress</h3>
-                    {activityData.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-space-4">
-                            {activityData.map((course) => (
-                                <div key={course.id} className="progress-course-row rounded-xl border border-border-subtle bg-surface-soft/60 dark:!bg-[#212226] p-space-4">
-                                    <div className="flex items-start justify-between gap-space-4">
-                                        <div className="min-w-0">
-                                            <p className="font-label-md text-label-md text-text-primary line-clamp-1">{course.title}</p>
-                                            <p className="font-label-xs text-label-xs text-text-muted mt-1">
-                                                {course.topicCount} {course.topicCount === 1 ? 'topic' : 'topics'}
-                                            </p>
-                                        </div>
-                                        <span className="font-label-md text-label-md text-primary shrink-0">{course.progress}%</span>
-                                    </div>
-                                    <div className="mt-space-3 h-2 rounded-full bg-surface-muted overflow-hidden">
+                        <h2 className="font-display text-display-sm font-bold text-text-primary">Topic Breakdown</h2>
+                        {topicBreakdown.length > 0 ? (
+                            <div className="mt-5 flex flex-1 flex-col gap-3">
+                                {topicBreakdown.map((topic) => {
+                                    const style = scoreStyle(topic.score);
+                                    return (
                                         <div
-                                            className="h-full rounded-full bg-primary transition-all"
-                                            style={{ width: `${course.progress}%` }}
-                                            role="progressbar"
-                                            aria-label={`${course.title} progress`}
-                                            aria-valuemin={0}
-                                            aria-valuemax={100}
-                                            aria-valuenow={course.progress}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="font-body-sm text-body-sm text-text-muted">Course progress will appear after your first generated lesson.</p>
-                    )}
-                </section>
-
-                <section id="topic-breakdown" className="scroll-mt-20 bg-surface shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col self-start">
-                    <h3 className="font-headline-sm text-headline-sm text-text-primary mb-6">Topic Breakdown</h3>
-                    {topicBreakdown.length > 0 ? (
-                        <div className="flex flex-col gap-space-4 flex-1">
-                            {topicBreakdown.map((topic) => {
-                                const style = scoreStyle(topic.score);
-                                return (
-                                    <div key={topic.name} className="flex items-center justify-between p-3 rounded-lg border border-border-subtle hover:bg-surface-soft transition-colors">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-2 h-8 ${style.color} rounded-full shrink-0`} />
-                                            <span className="font-body-sm text-body-sm font-medium text-text-primary truncate">{topic.name}</span>
+                                            key={topic.name}
+                                            className="flex items-center justify-between gap-3 rounded-[16px] border border-border-subtle px-3 py-2.5 transition-colors hover:bg-surface-soft"
+                                        >
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <div className={`h-8 w-2 shrink-0 rounded-full ${style.color}`} />
+                                                <span className="truncate text-body-sm font-medium text-text-primary">
+                                                    {topic.name}
+                                                </span>
+                                            </div>
+                                            <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${style.softColor} ${style.textColor}`}>
+                                                {topic.score}%
+                                            </span>
                                         </div>
-                                        <span className={`px-2 py-1 rounded ${style.softColor} ${style.textColor} font-label-xs text-label-xs`}>{topic.score}%</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <p className="font-body-sm text-body-sm text-text-muted">Topic scores will appear after your first quiz.</p>
-                    )}
-                </section>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <p className="mt-4 text-body-sm text-text-muted">
+                                Topic scores will appear after your first quiz.
+                            </p>
+                        )}
+                    </section>
+                </div>
             </div>
         </div>
     );

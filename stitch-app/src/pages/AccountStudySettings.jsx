@@ -274,28 +274,27 @@ const AccountStudySettings = () => {
     };
 
     return (
-        <form className="ml-0 md:ml-0 min-h-[calc(100vh-64px)]" onSubmit={handleSave}>
-            <div className="max-w-[1000px] mx-auto p-space-6 md:p-space-10 lg:p-space-12 pb-32">
-                <div className="flex items-center justify-between mb-space-8">
-                    <div>
-                        <h2 className="font-display-lg text-display-lg text-text-primary">Settings</h2>
-                        <p className="font-body-base text-body-base text-text-muted mt-space-1">Manage your workspace preferences and profile.</p>
-                    </div>
+        <form className="min-h-[calc(100vh-4rem)] bg-background-light" onSubmit={handleSave}>
+            <div className="mx-auto max-w-5xl px-4 py-8 pb-28 md:px-8 md:py-10">
+                <div className="mb-8">
+                    <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+                        Settings
+                    </h1>
+                    <p className="mt-2 text-body-md text-text-secondary">
+                        Manage your workspace preferences and profile.
+                    </p>
                 </div>
 
-                {/* Settings Bento Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-6">
-                    {/* Left Column (Profile & Account) */}
-                    <div className="lg:col-span-5 flex flex-col gap-space-6">
-                        {/* Profile Section */}
-                        <section id="profile" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
-                            <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+                    <div className="flex flex-col gap-5 lg:col-span-5">
+                        <section id="profile" className="scroll-mt-20 flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="person" className="text-text-muted" />
-                                <h3 className="font-headline-sm text-headline-sm text-text-primary">Profile</h3>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Profile</h2>
                             </div>
-                            <div className="flex items-center gap-space-6">
+                            <div className="flex items-center gap-5">
                                 <div
-                                    className="w-20 h-20 shrink-0 rounded-full bg-surface-muted overflow-hidden border-2 border-surface shadow-sm flex items-center justify-center text-2xl font-bold text-text-muted"
+                                    className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-surface bg-surface-soft text-2xl font-bold text-text-muted shadow-sm"
                                     aria-hidden={profile?.avatarUrl ? undefined : true}
                                 >
                                     {profile?.avatarUrl ? (
@@ -303,21 +302,39 @@ const AccountStudySettings = () => {
                                     ) : initials}
                                 </div>
                                 <div className="flex-1">
-                                    <label htmlFor="settings-full-name" className="block font-label-md text-label-md text-text-secondary mb-space-2">Full Name</label>
-                                    <input id="settings-full-name" className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="text" value={fullName} onChange={(event) => setDraftFullName(event.target.value)} />
+                                    <label htmlFor="settings-full-name" className="mb-2 block text-body-sm font-semibold text-text-secondary">
+                                        Full Name
+                                    </label>
+                                    <input
+                                        id="settings-full-name"
+                                        className="w-full rounded-full border border-border-default bg-surface-soft px-4 py-3 text-body-sm text-text-primary outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                                        type="text"
+                                        value={fullName}
+                                        onChange={(event) => setDraftFullName(event.target.value)}
+                                    />
                                 </div>
                             </div>
                             <div>
-                                <label htmlFor="settings-email-address" className="block font-label-md text-label-md text-text-secondary mb-space-2">Email Address</label>
-                                <input id="settings-email-address" className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="email" value={emailAddress} readOnly />
+                                <label htmlFor="settings-email-address" className="mb-2 block text-body-sm font-semibold text-text-secondary">
+                                    Email Address
+                                </label>
+                                <input
+                                    id="settings-email-address"
+                                    className="w-full rounded-full border border-border-default bg-surface-soft px-4 py-3 text-body-sm text-text-primary outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                                    type="email"
+                                    value={emailAddress}
+                                    readOnly
+                                />
                             </div>
-                            <div className="grid grid-cols-1 gap-space-4 sm:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label htmlFor="settings-education-level" className="block font-label-md text-label-md text-text-secondary mb-space-2">Education Level</label>
+                                    <label htmlFor="settings-education-level" className="mb-2 block text-body-sm font-semibold text-text-secondary">
+                                        Education Level
+                                    </label>
                                     <div className="relative">
                                         <select
                                             id="settings-education-level"
-                                            className="w-full appearance-none bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 pr-10 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all cursor-pointer"
+                                            className="w-full cursor-pointer appearance-none rounded-full border border-border-default bg-surface-soft px-4 py-3 pr-10 text-body-sm text-text-primary outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary-soft"
                                             value={educationLevel}
                                             onChange={(event) => {
                                                 setDraftEducationLevel(event.target.value);
@@ -333,11 +350,13 @@ const AccountStudySettings = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label htmlFor="settings-department" className="block font-label-md text-label-md text-text-secondary mb-space-2">Department</label>
+                                    <label htmlFor="settings-department" className="mb-2 block text-body-sm font-semibold text-text-secondary">
+                                        Department
+                                    </label>
                                     <div className="relative">
                                         <select
                                             id="settings-department"
-                                            className="w-full appearance-none bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 pr-10 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all cursor-pointer"
+                                            className="w-full cursor-pointer appearance-none rounded-full border border-border-default bg-surface-soft px-4 py-3 pr-10 text-body-sm text-text-primary outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary-soft"
                                             value={department}
                                             onChange={(event) => {
                                                 setDraftDepartment(event.target.value);
@@ -353,56 +372,57 @@ const AccountStudySettings = () => {
                                     </div>
                                 </div>
                             </div>
-                            <p className="font-body-sm text-body-sm text-text-muted">
+                            <p className="text-body-sm text-text-muted">
                                 Education details help keep study recommendations relevant. Saving settings finishes profile setup.
                             </p>
                         </section>
 
-                        {/* Account/Subscription */}
-                        <section id="subscription" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-soft rounded-bl-full opacity-50 pointer-events-none"></div>
-                            <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle relative z-10">
+                        <section id="subscription" className="scroll-mt-20 relative flex flex-col gap-5 overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="pointer-events-none absolute right-0 top-0 size-32 rounded-bl-full bg-primary-subtle opacity-70" />
+                            <div className="relative z-10 flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="workspace_premium" className="text-text-muted" />
-                                <h3 className="font-headline-sm text-headline-sm text-text-primary">Subscription</h3>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Subscription</h2>
                             </div>
                             <div className="relative z-10">
-                                <div className="flex items-center justify-between mb-space-2">
-                                    <span className="font-body-base text-body-base text-text-secondary">Current Plan</span>
-                                    <span className="px-3 py-1 bg-success-soft text-success rounded-full font-label-xs text-label-xs font-bold uppercase tracking-wider">
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                    <span className="text-body-sm text-text-secondary">Current Plan</span>
+                                    <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-bold uppercase tracking-wider text-success">
                                         {subscriptionPlanLabel}
                                     </span>
                                 </div>
-                                <p className="font-body-sm text-body-sm text-text-muted mb-space-6">{subscriptionSummary}</p>
-                                <div className="flex flex-col gap-space-3">
+                                <p className="mb-5 text-body-sm text-text-muted">{subscriptionSummary}</p>
+                                <div className="flex flex-col gap-3">
                                     <Link
                                         to="/subscription?from=%2Fdashboard%2Fsettings%23subscription"
-                                        className="flex w-full items-center justify-center py-space-3 px-space-4 bg-primary text-white rounded-xl font-label-md text-label-md hover:opacity-95 transition-opacity shadow-sm"
+                                        className="btn-primary inline-flex min-h-11 w-full items-center justify-center text-body-sm"
                                     >
                                         Buy upload credits
                                     </Link>
-                                    <a href={BILLING_SUPPORT_MAILTO} className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
+                                    <a
+                                        href={BILLING_SUPPORT_MAILTO}
+                                        className="btn-secondary inline-flex min-h-11 w-full items-center justify-center text-body-sm"
+                                    >
                                         Contact Billing Support
                                     </a>
                                 </div>
                             </div>
                         </section>
 
-                        {/* Account Access */}
-                        <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-5">
-                            <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+                        <section className="flex flex-col gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="admin_panel_settings" className="text-text-muted" />
-                                <h3 className="font-headline-sm text-headline-sm text-text-primary">Account Access</h3>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Account Access</h2>
                             </div>
                             <div>
-                                <h4 className="font-label-md text-label-md text-text-primary">Sign out of this device</h4>
-                                <p className="mt-space-1 font-body-sm text-body-sm text-text-muted">
+                                <h3 className="text-body-sm font-semibold text-text-primary">Sign out of this device</h3>
+                                <p className="mt-1 text-body-sm text-text-muted">
                                     End your current ChewnPour session and return to the login page.
                                 </p>
                             </div>
                             <button
                                 type="button"
                                 onClick={handleSignOut}
-                                className="flex w-full items-center justify-center gap-space-2 rounded-xl border border-error/30 bg-surface px-space-4 py-space-3 font-label-md text-label-md text-error transition-colors hover:bg-error-soft"
+                                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-error/30 bg-surface px-4 text-body-sm font-semibold text-error transition-colors hover:bg-error-soft"
                             >
                                 <AppIcon name="logout" className="text-[18px]" />
                                 Sign Out
@@ -410,46 +430,55 @@ const AccountStudySettings = () => {
                         </section>
                     </div>
 
-                    {/* Right Column (Preferences) */}
-                    <div className="lg:col-span-7 flex flex-col gap-space-6">
-                        {/* Study Preferences */}
-                        <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
-                            <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+                    <div className="flex flex-col gap-5 lg:col-span-7">
+                        <section className="flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="timer" className="text-text-muted" />
-                                <h3 className="font-headline-sm text-headline-sm text-text-primary">Study Preferences</h3>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Study Preferences</h2>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-space-6">
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                                 <div>
-                                    <label htmlFor="settings-daily-goal-minutes" className="block font-label-md text-label-md text-text-secondary mb-space-2">Daily Goal (Minutes)</label>
+                                    <label htmlFor="settings-daily-goal-minutes" className="mb-2 block text-body-sm font-semibold text-text-secondary">
+                                        Daily Goal (Minutes)
+                                    </label>
                                     <div className="relative">
-                                        <input id="settings-daily-goal-minutes" className="w-full bg-surface-soft border border-border-default rounded-lg pl-space-4 pr-10 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="number" min="1" value={dailyGoal} onChange={(e) => setDraftDailyGoal(e.target.value)} />
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">min</span>
+                                        <input
+                                            id="settings-daily-goal-minutes"
+                                            className="w-full rounded-full border border-border-default bg-surface-soft py-3 pl-4 pr-12 text-body-sm text-text-primary outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                                            type="number"
+                                            min="1"
+                                            value={dailyGoal}
+                                            onChange={(e) => setDraftDailyGoal(e.target.value)}
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-body-sm text-text-muted">min</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Preferred Session Length</label>
+                                    <label className="mb-2 block text-body-sm font-semibold text-text-secondary">
+                                        Preferred Session Length
+                                    </label>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <button
                                                 type="button"
                                                 aria-label="Preferred session length"
-                                                className="flex w-full items-center gap-space-3 rounded-lg border border-border-default bg-surface-soft px-space-3 py-space-2 text-left font-body-base text-text-primary outline-none transition-all hover:bg-surface-muted focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                                                className="flex w-full items-center gap-3 rounded-full border border-border-default bg-surface-soft px-3 py-2 text-left outline-none transition-all hover:bg-surface-muted focus:border-primary focus:ring-2 focus:ring-primary-soft"
                                             >
                                                 <AppIcon
                                                     name={selectedSessionLength.icon}
-                                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary"
+                                                    className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-[18px] text-primary"
                                                 />
                                                 <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                                                    <span className="truncate font-label-md text-label-md text-text-primary">{selectedSessionLength.title}</span>
-                                                    <span className="truncate font-body-sm text-body-sm text-text-muted">{selectedSessionLength.triggerDetail}</span>
+                                                    <span className="truncate text-body-sm font-semibold text-text-primary">{selectedSessionLength.title}</span>
+                                                    <span className="truncate text-caption text-text-muted">{selectedSessionLength.triggerDetail}</span>
                                                 </span>
                                                 <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
                                             </button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] p-space-2">
-                                            <div className="px-space-2 py-space-2">
-                                                <p className="font-label-md text-label-md text-text-primary">Session length</p>
-                                                <p className="mt-1 font-body-sm text-body-sm text-text-muted">Choose your default study block.</p>
+                                        <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] rounded-[16px] p-2">
+                                            <div className="px-2 py-2">
+                                                <p className="text-body-sm font-semibold text-text-primary">Session length</p>
+                                                <p className="mt-1 text-caption text-text-muted">Choose your default study block.</p>
                                             </div>
                                             <DropdownMenuSeparator />
                                             <DropdownMenuGroup>
@@ -459,15 +488,15 @@ const AccountStudySettings = () => {
                                                         <DropdownMenuRadioItem
                                                             key={option.value}
                                                             value={option.value}
-                                                            className="items-start gap-space-3 rounded-lg px-space-2 py-space-2 pr-space-8"
+                                                            className="items-start gap-3 rounded-xl px-2 py-2 pr-8"
                                                         >
                                                             <AppIcon
                                                                 name={option.icon}
-                                                                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary"
+                                                                className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-[18px] text-primary"
                                                             />
                                                             <span className="flex min-w-0 flex-col gap-1">
-                                                                <span className="font-label-md text-label-md text-text-primary">{option.title}</span>
-                                                                <span className="font-body-sm text-body-sm text-text-muted">{option.detail}</span>
+                                                                <span className="text-body-sm font-semibold text-text-primary">{option.title}</span>
+                                                                <span className="text-caption text-text-muted">{option.detail}</span>
                                                             </span>
                                                         </DropdownMenuRadioItem>
                                                     ))}
@@ -479,24 +508,37 @@ const AccountStudySettings = () => {
                             </div>
                         </section>
 
-                        {/* AI Tutor Preferences */}
-                        <section className="settings-tutor-card bg-ai-subtle dark:!bg-[#161719] rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
-                            <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+                        <section className="flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="smart_toy" className="text-primary" />
-                                <h3 className="font-headline-sm text-headline-sm text-primary">AI Tutor Personality</h3>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">AI Tutor Personality</h2>
                             </div>
                             <div>
-                                <label className="block font-label-md text-label-md text-text-secondary mb-space-4">Teaching Style</label>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-space-4">
+                                <label className="mb-4 block text-body-sm font-semibold text-text-secondary">Teaching Style</label>
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                     {TUTOR_STYLE_OPTIONS.map((style) => {
                                         const selected = aiTone === style.value;
                                         return (
-                                            <label key={style.value} className={`relative flex cursor-pointer rounded-xl border p-space-4 transition-colors focus-within:ring-2 focus-within:ring-primary-soft ${selected ? 'border-primary bg-primary-soft dark:!bg-[#2a241c]' : 'border-border-default bg-surface dark:!bg-[#111214] hover:bg-surface-soft dark:hover:!bg-[#212226]'}`}>
-                                                <input className="sr-only" name="ai_tone" type="radio" value={style.value} checked={selected} onChange={() => handleTutorStyleChange(style.value)} />
+                                            <label
+                                                key={style.value}
+                                                className={`relative flex cursor-pointer rounded-[18px] border p-4 transition-colors focus-within:ring-2 focus-within:ring-primary-soft ${
+                                                    selected
+                                                        ? 'border-primary bg-primary-subtle'
+                                                        : 'border-border-default bg-surface hover:bg-surface-soft'
+                                                }`}
+                                            >
+                                                <input
+                                                    className="sr-only"
+                                                    name="ai_tone"
+                                                    type="radio"
+                                                    value={style.value}
+                                                    checked={selected}
+                                                    onChange={() => handleTutorStyleChange(style.value)}
+                                                />
                                                 <div className="relative z-10 flex flex-col gap-2">
                                                     <AppIcon name={style.icon} className={selected ? 'text-primary' : 'text-text-muted'} />
-                                                    <span className="font-label-md text-label-md text-text-primary">{style.title}</span>
-                                                    <span className="font-body-sm text-body-sm text-text-muted text-xs">{style.desc}</span>
+                                                    <span className="text-body-sm font-semibold text-text-primary">{style.title}</span>
+                                                    <span className="text-caption text-text-muted">{style.desc}</span>
                                                 </div>
                                             </label>
                                         );
@@ -505,18 +547,17 @@ const AccountStudySettings = () => {
                             </div>
                         </section>
 
-                        {/* Notifications */}
-                        <section id="notifications" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
-                            <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+                        <section id="notifications" className="scroll-mt-20 flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="notifications" className="text-text-muted" />
-                                <h3 className="font-headline-sm text-headline-sm text-text-primary">Notifications</h3>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Notifications</h2>
                             </div>
-                            <div className="flex flex-col gap-space-4">
+                            <div className="flex flex-col gap-4">
                                 {NOTIFICATION_OPTIONS.map((toggle) => (
-                                    <div key={toggle.key} className="flex items-center justify-between gap-space-4 py-space-2">
+                                    <div key={toggle.key} className="flex items-center justify-between gap-4 py-1">
                                         <div>
-                                            <h4 className="font-label-md text-label-md text-text-primary">{toggle.title}</h4>
-                                            <p className="font-body-sm text-body-sm text-text-muted mt-1">{toggle.desc}</p>
+                                            <h3 className="text-body-sm font-semibold text-text-primary">{toggle.title}</h3>
+                                            <p className="mt-1 text-body-sm text-text-muted">{toggle.desc}</p>
                                         </div>
                                         <button
                                             type="button"
@@ -531,9 +572,12 @@ const AccountStudySettings = () => {
                                                 notifications[toggle.key] ? 'bg-primary' : 'bg-border-default'
                                             }`}
                                         >
-                                            <span aria-hidden="true" className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                notifications[toggle.key] ? 'translate-x-6' : 'translate-x-1'
-                                            }`} />
+                                            <span
+                                                aria-hidden="true"
+                                                className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
+                                                    notifications[toggle.key] ? 'translate-x-6' : 'translate-x-1'
+                                                }`}
+                                            />
                                         </button>
                                     </div>
                                 ))}
@@ -541,15 +585,24 @@ const AccountStudySettings = () => {
                         </section>
                     </div>
 
-                    {/* Form Action Bar */}
-                    <div className="lg:col-span-12 mt-space-6 flex items-center justify-end gap-space-4 pt-space-6 border-t border-border-subtle">
+                    <div className="mt-2 flex items-center justify-end gap-3 border-t border-border-subtle pt-6 lg:col-span-12">
                         {saveMessage && (
-                            <p className={`mr-auto font-body-sm text-body-sm ${saveMessage.includes('saved') ? 'text-success' : 'text-error'}`}>{saveMessage}</p>
+                            <p className={`mr-auto text-body-sm ${saveMessage.includes('saved') ? 'text-success' : 'text-error'}`}>
+                                {saveMessage}
+                            </p>
                         )}
-                        <button className="py-space-3 px-space-6 bg-transparent text-text-secondary font-label-md text-label-md rounded-xl hover:bg-surface-soft transition-colors" type="button" onClick={handleCancel}>
+                        <button
+                            className="btn-secondary inline-flex min-h-11 text-body-sm"
+                            type="button"
+                            onClick={handleCancel}
+                        >
                             Cancel
                         </button>
-                        <button className="py-space-3 px-space-8 bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-60" type="submit" disabled={saving}>
+                        <button
+                            className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm disabled:opacity-60"
+                            type="submit"
+                            disabled={saving}
+                        >
                             <AppIcon name="save" className="text-[18px]" />
                             {saving ? 'Saving...' : 'Save Changes'}
                         </button>
