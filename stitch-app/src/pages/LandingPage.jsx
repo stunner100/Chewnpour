@@ -287,8 +287,8 @@ const HeroDecor = () => (
       <path d="M28 40h44M28 56h32M28 72h38" stroke="#BFDBFE" strokeWidth="2" strokeLinecap="round" />
     </svg>
 
-    {/* left ruled notebook sheet */}
-    <div className="slate-float absolute left-[-2%] top-[34%] hidden h-[340px] w-[210px] lg:block xl:left-[1%]">
+    {/* left ruled notebook sheet — peeks behind the mockup */}
+    <div className="slate-float absolute left-[2%] top-[48%] z-0 hidden h-[380px] w-[230px] lg:block xl:left-[6%]">
       <LinedNotebookPaper
         holes="left"
         className="relative inset-auto h-full w-full"
@@ -297,7 +297,7 @@ const HeroDecor = () => (
     </div>
 
     {/* right ruled notebook sheet with tape */}
-    <div className="slate-float-delay absolute right-[-1%] top-[42%] hidden h-[300px] w-[190px] lg:block xl:right-[2%]">
+    <div className="slate-float-delay absolute right-[2%] top-[52%] z-0 hidden h-[340px] w-[210px] lg:block xl:right-[6%]">
       <LinedNotebookPaper
         holes="right"
         tape
