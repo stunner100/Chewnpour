@@ -23,43 +23,45 @@ const suggestedPrompts = [
 const EMPTY_LIST = [];
 
 const TutorSkeleton = () => (
-    <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
-        <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full animate-pulse" role="status" aria-live="polite">
-            <div className="h-20 rounded-2xl bg-surface-soft mb-space-8" />
-            <div className="flex-1 rounded-2xl bg-surface-soft flex items-center justify-center">
-                <p className="font-body-sm text-body-sm text-text-muted">Loading AI Tutor...</p>
+    <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-5xl flex-col">
+            <div className="mb-6 h-16 rounded-[20px] bg-surface-soft" />
+            <div className="flex flex-1 items-center justify-center rounded-[28px] bg-surface-soft">
+                <p className="text-body-sm text-text-muted" role="status" aria-live="polite">Loading AI Tutor...</p>
             </div>
-        </main>
+        </div>
     </div>
 );
 
 const EmptyTutorState = () => (
-    <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
-        <main className="flex-1 min-h-0 flex flex-col items-center justify-center p-space-8 max-w-container-max mx-auto w-full text-center">
-            <AppIcon name="smart_toy" className="text-[48px] text-text-muted mb-space-4" />
-            <h2 className="font-headline-md text-headline-md text-text-primary">No lessons yet</h2>
-            <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary max-w-md">
+    <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto flex max-w-xl flex-col items-center rounded-[28px] border border-dashed border-border-default bg-surface px-6 py-12 text-center shadow-sm">
+            <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary-subtle text-primary">
+                <AppIcon name="smart_toy" className="text-[28px]" />
+            </div>
+            <h2 className="font-display text-display-sm font-bold text-text-primary">No lessons yet</h2>
+            <p className="mt-2 max-w-md text-body-sm text-text-secondary">
                 Upload study material first, then chat with the AI tutor against your generated lessons.
             </p>
             <Link
                 to="/dashboard/upload"
-                className="mt-space-8 inline-flex items-center gap-space-2 bg-primary text-on-primary px-space-6 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors"
+                className="btn-primary mt-6 inline-flex min-h-11 items-center gap-2 text-body-sm"
             >
                 <AppIcon name="cloud_upload" className="text-[18px]" />
                 Upload Material
             </Link>
-        </main>
+        </div>
     </div>
 );
 
 const TutorContextLoading = ({ topicTitle }) => (
-    <div className="flex justify-start gap-4" role="status" aria-live="polite">
-        <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim overflow-hidden">
+    <div className="flex justify-start gap-3" role="status" aria-live="polite">
+        <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-soft bg-primary-subtle">
             <TutorAvatarMark size={36} className="size-9" />
         </div>
-        <div className="max-w-[85%] md:max-w-[75%] rounded-2xl bg-muted px-4 py-3 shadow-sm">
-            <p className="font-label-md text-label-md text-text-primary">Loading tutor context...</p>
-            <p className="font-body-sm text-body-sm text-text-secondary mt-1">
+        <div className="max-w-[85%] rounded-[20px] bg-surface-soft px-4 py-3 shadow-sm md:max-w-[75%]">
+            <p className="text-body-sm font-semibold text-text-primary">Loading tutor context...</p>
+            <p className="mt-1 text-body-sm text-text-secondary">
                 Getting the latest chat for {topicTitle || 'this lesson'}.
             </p>
         </div>
@@ -269,89 +271,93 @@ const AIStudyTutor = () => {
     if (topicOptions.length === 0) return <EmptyTutorState />;
 
     return (
-        <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
-            <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-6 max-w-container-max mx-auto w-full">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-space-6 gap-4">
+        <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-background-light px-4 py-6 md:px-8 md:py-8">
+            <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
+                <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <h2 className="font-display-md text-display-md text-text-primary">AI Tutor</h2>
-                        <p className="font-body-sm text-body-sm text-text-secondary mt-1 max-w-xl">
+                        <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+                            AI Tutor
+                        </h1>
+                        <p className="mt-2 max-w-xl text-body-md text-text-secondary">
                             Ask questions grounded in your generated lessons and source material.
                         </p>
                     </div>
-                    {safeCourses.length > 1 && (
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        {safeCourses.length > 1 && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        aria-label="AI tutor course"
+                                        className="flex w-full min-w-[220px] items-center gap-3 rounded-full border border-border-default bg-surface px-3 py-2 text-left shadow-sm outline-none transition-all hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-primary-soft sm:w-[240px]"
+                                    >
+                                        <AppIcon name="folder" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-[18px] text-primary" />
+                                        <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                                            <span className="truncate text-body-sm font-semibold text-text-primary">{selectedCourse?.title}</span>
+                                            <span className="truncate text-caption text-text-muted">Course</span>
+                                        </span>
+                                        <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[260px] rounded-[16px] p-2">
+                                    <DropdownMenuGroup>
+                                        <DropdownMenuLabel>Courses</DropdownMenuLabel>
+                                        <DropdownMenuRadioGroup value={effectiveCourseId} onValueChange={setSelectedCourseId}>
+                                            {safeCourses.map((course) => (
+                                                <DropdownMenuRadioItem key={course.id} value={String(course.id)} className="rounded-xl px-2 py-2 pr-8">
+                                                    <span className="text-body-sm font-semibold text-text-primary">{course.title}</span>
+                                                </DropdownMenuRadioItem>
+                                            ))}
+                                        </DropdownMenuRadioGroup>
+                                    </DropdownMenuGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button
                                     type="button"
-                                    aria-label="AI tutor course"
-                                    className="flex w-full min-w-[220px] sm:w-[260px] items-center gap-space-3 rounded-lg border border-border-default bg-surface px-space-3 py-space-2 text-left font-body-base text-text-primary shadow-sm outline-none transition-all hover:bg-surface-soft focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                                    aria-label="AI tutor material"
+                                    className="flex w-full min-w-[220px] items-center gap-3 rounded-full border border-border-default bg-surface px-3 py-2 text-left shadow-sm outline-none transition-all hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-primary-soft sm:w-[320px]"
                                 >
-                                    <AppIcon name="folder" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary" />
+                                    <AppIcon name={selectedTopicOption?.icon || 'auto_stories'} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-[18px] text-primary" />
                                     <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                                        <span className="truncate font-label-md text-label-md text-text-primary">{selectedCourse?.title}</span>
-                                        <span className="truncate font-body-sm text-body-sm text-text-muted">Course</span>
+                                        <span className="truncate text-body-sm font-semibold text-text-primary">{selectedTopicOption?.title}</span>
+                                        <span className="truncate text-caption text-text-muted">{selectedTopicOption?.courseTitle}</span>
                                     </span>
                                     <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
                                 </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[260px] p-space-2">
+                            <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[320px] rounded-[16px] p-2">
+                                <div className="px-2 py-2">
+                                    <p className="text-body-sm font-semibold text-text-primary">Tutor context</p>
+                                    <p className="mt-1 text-caption text-text-muted">Choose the lesson this chat should use.</p>
+                                </div>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuGroup>
-                                    <DropdownMenuLabel>Courses</DropdownMenuLabel>
-                                    <DropdownMenuRadioGroup value={effectiveCourseId} onValueChange={setSelectedCourseId}>
-                                        {safeCourses.map((course) => (
-                                            <DropdownMenuRadioItem key={course.id} value={String(course.id)} className="rounded-lg px-space-2 py-space-2 pr-space-8">
-                                                <span className="font-label-md text-label-md text-text-primary">{course.title}</span>
+                                    <DropdownMenuLabel>Generated lessons</DropdownMenuLabel>
+                                    <DropdownMenuRadioGroup value={effectiveSelectedTopicId} onValueChange={setSelectedTopicId}>
+                                        {topicOptions.map((topic) => (
+                                            <DropdownMenuRadioItem
+                                                key={topic.topicId}
+                                                value={String(topic.topicId)}
+                                                className="items-start gap-3 rounded-xl px-2 py-2 pr-8"
+                                            >
+                                                <AppIcon name={topic.icon || 'auto_stories'} className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-[18px] text-primary" />
+                                                <span className="flex min-w-0 flex-col gap-1">
+                                                    <span className="text-body-sm font-semibold text-text-primary">{topic.title}</span>
+                                                    <span className="text-caption text-text-muted">{topic.courseTitle}</span>
+                                                </span>
                                             </DropdownMenuRadioItem>
                                         ))}
                                     </DropdownMenuRadioGroup>
                                 </DropdownMenuGroup>
                             </DropdownMenuContent>
                         </DropdownMenu>
-                    )}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                type="button"
-                                aria-label="AI tutor material"
-                                className="flex w-full min-w-[220px] sm:w-[340px] items-center gap-space-3 rounded-lg border border-border-default bg-surface px-space-3 py-space-2 text-left font-body-base text-text-primary shadow-sm outline-none transition-all hover:bg-surface-soft focus:border-primary focus:ring-2 focus:ring-primary-soft"
-                            >
-                                <AppIcon name={selectedTopicOption?.icon || 'auto_stories'} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary" />
-                                <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                                    <span className="truncate font-label-md text-label-md text-text-primary">{selectedTopicOption?.title}</span>
-                                    <span className="truncate font-body-sm text-body-sm text-text-muted">{selectedTopicOption?.courseTitle}</span>
-                                </span>
-                                <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[340px] p-space-2">
-                            <div className="px-space-2 py-space-2">
-                                <p className="font-label-md text-label-md text-text-primary">Tutor context</p>
-                                <p className="mt-1 font-body-sm text-body-sm text-text-muted">Choose the lesson this chat should use.</p>
-                            </div>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup>
-                                <DropdownMenuLabel>Generated lessons</DropdownMenuLabel>
-                                <DropdownMenuRadioGroup value={effectiveSelectedTopicId} onValueChange={setSelectedTopicId}>
-                                    {topicOptions.map((topic) => (
-                                        <DropdownMenuRadioItem
-                                            key={topic.topicId}
-                                            value={String(topic.topicId)}
-                                            className="items-start gap-space-3 rounded-lg px-space-2 py-space-2 pr-space-8"
-                                        >
-                                            <AppIcon name={topic.icon || 'auto_stories'} className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary" />
-                                            <span className="flex min-w-0 flex-col gap-1">
-                                                <span className="font-label-md text-label-md text-text-primary">{topic.title}</span>
-                                                <span className="font-body-sm text-body-sm text-text-muted">{topic.courseTitle}</span>
-                                            </span>
-                                        </DropdownMenuRadioItem>
-                                    ))}
-                                </DropdownMenuRadioGroup>
-                            </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    </div>
                 </div>
 
-                <div className="flex-1 min-h-0 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-border-subtle bg-surface shadow-sm">
                     <TutorChatMessages
                         scrollerKey={effectiveSelectedTopicId}
                         messages={messages === null || displayMessages.length === 0 ? [] : displayMessages}
@@ -366,7 +372,7 @@ const AIStudyTutor = () => {
                             />
                         ) : null}
                         courseBadge={(
-                            <span className="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">
+                            <span className="rounded-full bg-surface-soft px-3 py-1 text-caption font-semibold text-text-muted">
                                 {selectedTopicOption?.courseTitle}
                             </span>
                         )}

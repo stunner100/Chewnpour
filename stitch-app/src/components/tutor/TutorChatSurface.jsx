@@ -48,7 +48,7 @@ export function TutorChatMessages({
       >
         <MessageScrollerViewport>
           <MessageScrollerContent
-            className={cn(compact ? 'gap-3 px-3 py-4' : 'gap-space-6 p-space-5', contentClassName)}
+            className={cn(compact ? 'gap-3 px-3 py-4' : 'gap-5 p-5 md:p-6', contentClassName)}
             aria-busy={isTyping || undefined}
           >
             {courseBadge ? (
@@ -121,7 +121,7 @@ export function TutorChatComposer({
   };
 
   const composer = (
-    <div className={cn('flex flex-col gap-space-3 border-t border-border-subtle bg-surface p-space-4', className)}>
+    <div className={cn('flex flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)}>
       {suggestedPrompts.length > 0 ? (
         <Suggestions>
           {suggestedPrompts.map((prompt) => (
@@ -129,7 +129,7 @@ export function TutorChatComposer({
               key={prompt.text || prompt.label}
               suggestion={prompt.prompt}
               disabled={sending || disabled}
-              className="border-border-default bg-surface-soft font-label-xs text-label-xs text-text-secondary hover:bg-surface-muted hover:text-text-primary"
+              className="rounded-full border-border-default bg-surface-soft text-caption font-semibold text-text-secondary hover:bg-surface-muted hover:text-text-primary"
               onClick={(value) => onSuggestedPrompt?.(value)}
             >
               {prompt.text || prompt.label}
@@ -139,12 +139,12 @@ export function TutorChatComposer({
       ) : null}
 
       {error ? (
-        <p className="rounded-lg border border-error/20 bg-error-soft px-space-3 py-space-2 font-body-sm text-body-sm text-error">
+        <p className="rounded-[16px] border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error">
           {error}
         </p>
       ) : null}
 
-      <PromptInput className="shadow-sm" onSubmit={handleSubmit}>
+      <PromptInput className="rounded-[20px] shadow-sm" onSubmit={handleSubmit}>
         <PromptInputBody>
           <PromptInputTextarea
             aria-label={inputAriaLabel}
@@ -156,7 +156,7 @@ export function TutorChatComposer({
           <PromptInputSubmit
             disabled={sending || disabled}
             status={sending ? 'submitted' : undefined}
-            className="bg-primary text-on-primary hover:bg-primary-hover"
+            className="rounded-full bg-cta text-cta-foreground hover:bg-cta-hover"
             aria-label="Send message to AI Tutor"
           />
         </PromptInputFooter>
@@ -164,7 +164,7 @@ export function TutorChatComposer({
 
       {disclaimer ? (
         <div className="text-center">
-          <p className="font-label-xs text-label-xs text-text-muted">{disclaimer}</p>
+          <p className="text-caption text-text-muted">{disclaimer}</p>
         </div>
       ) : null}
     </div>
