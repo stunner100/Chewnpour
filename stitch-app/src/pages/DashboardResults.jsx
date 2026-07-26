@@ -532,12 +532,12 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <AppIcon name="search_off" className="text-2xl text-text-faint-light dark:text-text-faint-dark" />
+                    <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl border border-border-subtle bg-surface">
+                        <AppIcon name="search_off" className="text-2xl text-text-muted" />
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Results not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find that quiz attempt.</p>
-                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
+                    <h2 className="mb-2 font-display text-display-sm font-bold text-text-primary">Results not found</h2>
+                    <p className="mb-6 text-body-sm text-text-secondary">We couldn't find that quiz attempt.</p>
+                    <Link to="/dashboard" className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm">
                         Back to Dashboard
                     </Link>
                 </div>
