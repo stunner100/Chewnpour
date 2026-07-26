@@ -46,19 +46,19 @@ const PostExamUpgradeCard = () => {
     if (hasRemaining) {
         return (
             <section className="w-full max-w-2xl mx-auto">
-                <div className="card-base p-5 border-primary/20 dark:border-primary/30 bg-primary/5 dark:bg-primary/10">
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="rounded-[24px] border border-primary/20 bg-primary-subtle p-5 shadow-sm">
+                    <div className="flex flex-col items-center gap-4 sm:flex-row">
                         <div className="flex-1 text-center sm:text-left">
-                            <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                            <h3 className="mb-1 font-display text-display-sm font-bold text-text-primary">
                                 Ready for your next course?
                             </h3>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                            <p className="text-body-sm text-text-secondary">
                                 Keep the momentum going and upload another course to study.
                             </p>
                         </div>
                         <Link
                             to="/dashboard"
-                            className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2 whitespace-nowrap"
+                            className="btn-primary inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-body-sm"
                         >
                             Upload Another Course
                             <AppIcon name="arrow_forward" className="text-[18px]" />
@@ -71,19 +71,19 @@ const PostExamUpgradeCard = () => {
 
     return (
         <section className="w-full max-w-2xl mx-auto">
-            <div className="card-base p-5 border-accent-amber/20 dark:border-accent-amber/30 bg-accent-amber/5 dark:bg-accent-amber/10">
-                <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="rounded-[24px] border border-warning/30 bg-warning-soft p-5 shadow-sm">
+                <div className="flex flex-col items-center gap-4 sm:flex-row">
                     <div className="flex-1 text-center sm:text-left">
-                        <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                        <h3 className="mb-1 font-display text-display-sm font-bold text-text-primary">
                             Want to study more courses?
                         </h3>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                        <p className="text-body-sm text-text-secondary">
                             Get 5 more uploads starting at GHS 20
                         </p>
                     </div>
                     <Link
                         to="/subscription?reason=post_exam"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-amber text-white text-body-sm font-semibold hover:brightness-110 transition-all whitespace-nowrap"
+                        className="btn-primary inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-body-sm"
                     >
                         Upgrade Now
                         <AppIcon name="arrow_forward" className="text-[18px]" />
@@ -502,14 +502,14 @@ const DashboardResults = () => {
 
     if (!attemptId) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
+            <div className="bg-background-light min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <AppIcon name="quiz" className="text-2xl text-text-faint-light dark:text-text-faint-dark" />
+                    <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl border border-border-subtle bg-surface">
+                        <AppIcon name="quiz" className="text-2xl text-text-muted" />
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No quiz selected</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Return to your dashboard and open a completed quiz.</p>
-                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
+                    <h2 className="mb-2 font-display text-display-sm font-bold text-text-primary">No quiz selected</h2>
+                    <p className="mb-6 text-body-sm text-text-secondary">Return to your dashboard and open a completed quiz.</p>
+                    <Link to="/dashboard" className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -519,7 +519,7 @@ const DashboardResults = () => {
 
     if (attempt === undefined) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
+            <div className="bg-background-light min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading quiz results…</p>
@@ -530,7 +530,7 @@ const DashboardResults = () => {
 
     if (attempt === null) {
         return (
-            <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex items-center justify-center">
+            <div className="bg-background-light min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <AppIcon name="search_off" className="text-2xl text-text-faint-light dark:text-text-faint-dark" />
@@ -581,17 +581,17 @@ const DashboardResults = () => {
     };
 
     return (
-        <div className="cp-theme bg-[#FAF8F3] dark:!bg-[#0c0d10] min-h-screen flex flex-col">
+        <div className="bg-background-light min-h-screen flex flex-col">
             <Confetti active={showConfetti} />
-            <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark sticky top-0 z-30">
-                <div className="max-w-5xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">
+            <header className="sticky top-0 z-30 w-full border-b border-border-subtle bg-surface/95 backdrop-blur-xl">
+                <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 md:px-8">
                     <div className="flex items-center gap-3">
                         <Link to="/dashboard" className="btn-icon size-9">
                             <AppIcon name="arrow_back" className="text-lg" />
                         </Link>
                         <div>
-                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Quiz Results</h1>
-                            <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{attempt.topicTitle || 'ChewnPour Mode'}</span>
+                            <h1 className="font-display text-body-md font-bold leading-tight text-text-primary">Quiz Results</h1>
+                            <span className="text-caption text-text-muted">{attempt.topicTitle || 'ChewnPour Mode'}</span>
                         </div>
                     </div>
                     <Link to="/dashboard" aria-label="Close" className="btn-icon size-9">
@@ -600,31 +600,31 @@ const DashboardResults = () => {
                 </div>
             </header>
 
-            <main className="flex-1 w-full max-w-5xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12 flex flex-col items-center gap-6">
+            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-6 px-4 py-8 pb-24 md:px-8 md:pb-12">
                 {/* Score card */}
                 <section className="w-full max-w-2xl">
-                    <div className="card-base p-8 flex flex-col items-center text-center">
-                        <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-4">Overall Score</h2>
-                        <div className="flex items-baseline justify-center gap-1 mb-2">
-                            <span className="text-display-xl text-text-main-light dark:text-text-main-dark">{percentage}</span>
-                            <span className="text-display-sm text-text-faint-light dark:text-text-faint-dark">/100</span>
+                    <div className="flex flex-col items-center rounded-[28px] border border-border-subtle bg-surface p-8 text-center shadow-sm">
+                        <h2 className="mb-4 text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">Overall Score</h2>
+                        <div className="mb-2 flex items-baseline justify-center gap-1">
+                            <span className="font-display text-display-xl font-bold text-text-primary">{percentage}</span>
+                            <span className="font-display text-display-sm text-text-muted">/100</span>
                         </div>
-                        <div className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                        <div className="text-body-sm text-text-secondary">
                             {isEssay
                                 ? `${totalQuestions} essay question${totalQuestions !== 1 ? 's' : ''} — quality score`
                                 : `${attempt.score} correct out of ${totalQuestions}`}
                         </div>
-                        <div className="mt-4 flex items-center gap-3">
-                            <span className="text-caption font-semibold px-3 py-1 rounded-full bg-accent-emerald/10 text-accent-emerald">
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                            <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-semibold text-success">
                                 {attempt.score} {isEssay ? 'Pass' : 'Correct'}
                             </span>
                             {incorrectCount > 0 && (
-                                <span className="text-caption font-semibold px-3 py-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400">
+                                <span className="rounded-full bg-error-soft px-3 py-1 text-caption font-semibold text-error">
                                     {incorrectCount} {isEssay ? 'Needs Work' : 'Incorrect'}
                                 </span>
                             )}
                             {skippedCount > 0 && (
-                                <span className="text-caption font-semibold px-3 py-1 rounded-full bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark">
+                                <span className="rounded-full bg-surface-soft px-3 py-1 text-caption font-semibold text-text-muted">
                                     {skippedCount} Skipped
                                 </span>
                             )}
@@ -697,7 +697,7 @@ const DashboardResults = () => {
 
                 {/* Next Steps Guidance */}
                 <section className="w-full max-w-2xl">
-                    <div className="card-base p-5">
+                    <div className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm">
                         <NextStepsGuidance
                             topicId={attempt.topicId}
                             topicTitle={attempt.topicTitle}
@@ -713,17 +713,17 @@ const DashboardResults = () => {
 
                 {/* Post-quiz action buttons */}
                 <section className="w-full max-w-2xl">
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                         <Link
                             to={`/dashboard/topic/${attempt.topicId}`}
-                            className="btn-primary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
+                            className="btn-primary inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm"
                         >
                             <AppIcon name="menu_book" className="text-[18px]" />
                             <span>Review weak topics</span>
                         </Link>
                         <Link
                             to={`/dashboard/quiz/${attempt.topicId}?autostart=mcq`}
-                            className="btn-secondary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
+                            className="btn-secondary inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm"
                         >
                             <AppIcon name="refresh" className="text-[18px]" />
                             <span>Generate another quiz</span>
@@ -733,14 +733,14 @@ const DashboardResults = () => {
 
                 {/* Question Review */}
                 <section className="w-full max-w-4xl">
-                    <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Question Review</h3>
+                    <h3 className="mb-3 text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">Question Review</h3>
 
                     {answers.length === 0 ? (
-                        <div className="card-base p-6">
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">No answers recorded for this attempt.</p>
+                        <div className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
+                            <p className="text-body-sm text-text-secondary">No answers recorded for this attempt.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                             {answers.map((answer, index) => {
                                 const questionText = answer.questionText || `Question ${index + 1}`;
                                 const questionType = normalizeQuestionType(answer.questionType);
@@ -750,7 +750,7 @@ const DashboardResults = () => {
                                 const isCorrect = Boolean(answer.isCorrect);
                                 const hasEssayFeedback = isEssay && Boolean(answer.feedback);
                                 return (
-                                    <div key={answer.questionId || answer.questionText} className="card-base p-5">
+                                    <div key={answer.questionId || answer.questionText} className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm">
                                         <div className="flex justify-between items-center mb-3">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="text-overline text-text-faint-light dark:text-text-faint-dark">Question {index + 1}</span>
