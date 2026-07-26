@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
+
+const LessonsSkeleton = () => (
+    <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto max-w-4xl space-y-5">
+            <div className="h-16 rounded-[20px] bg-surface-soft" />
+            {[0, 1, 2].map((item) => (
+                <div key={item} className="h-28 rounded-[24px] bg-surface-soft" />
+            ))}
+        </div>
+    </div>
+);
 
 const LessonMemoryNeuralBasis = () => {
     const { user } = useAuth();
@@ -58,31 +70,24 @@ const LessonMemoryNeuralBasis = () => {
     );
 
     if (loading) {
-        return (
-            <div className="md:ml-0 pt-16 min-h-screen p-space-6 md:p-space-8 animate-pulse">
-                <div className="h-10 w-64 rounded-lg bg-surface-soft mb-6" />
-                <div className="space-y-4">
-                    {[0, 1, 2].map((item) => (
-                        <div key={item} className="h-24 rounded-xl bg-surface-soft" />
-                    ))}
-                </div>
-            </div>
-        );
+        return <LessonsSkeleton />;
     }
 
     return (
-        <div className="md:ml-0 pt-16 min-h-screen p-space-6 md:p-space-8 pb-24">
-            <div className="max-w-3xl mx-auto">
-                <p className="text-body-sm font-medium text-text-secondary">Lessons</p>
-                <h1 className="mt-2 font-headline-lg text-headline-lg font-bold text-text-primary">
+        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+            <div className="mx-auto max-w-4xl">
+                <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
+                    Lessons
+                </p>
+                <h1 className="mt-2 font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
                     {selectedCourse?.title || 'Your courses'}
                 </h1>
-                <p className="mt-3 text-body text-text-secondary">
-                    Topics are generated from your uploads. Full AI lesson polish comes in later milestones.
+                <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
+                    Topics are generated from your uploads. Open a lesson to study, or jump into a quiz when questions are ready.
                 </p>
 
                 {error && (
-                    <div role="alert" className="mt-6 rounded-xl border border-error-soft bg-error-soft/40 p-4 text-body-sm text-error">
+                    <div role="alert" className="mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
                         {error}
                     </div>
                 )}
@@ -90,21 +95,40 @@ const LessonMemoryNeuralBasis = () => {
                 {!courseId && (
                     <div className="mt-8 space-y-4">
                         {courses.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-border-strong bg-surface-soft p-8 text-center">
-                                <p className="text-body-sm text-text-secondary">No courses yet. Upload material to generate topics.</p>
-                                <Link to="/dashboard/upload" className="btn-primary mt-4 inline-flex">Upload Material</Link>
+                            <div className="flex flex-col items-center rounded-[28px] border border-dashed border-border-default bg-surface px-6 py-12 text-center shadow-sm">
+                                <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary-subtle text-primary">
+                                    <AppIcon name="menu_book" className="text-[28px]" />
+                                </div>
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">No courses yet</h2>
+                                <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
+                                    Upload material to generate topics and lessons.
+                                </p>
+                                <Link to="/dashboard/upload" className="btn-primary mt-6 inline-flex min-h-11 items-center gap-2 text-body-sm">
+                                    <AppIcon name="cloud_upload" className="text-[18px]" />
+                                    Upload Material
+                                </Link>
                             </div>
                         ) : (
                             courses.map((course) => (
                                 <Link
                                     key={course.id}
                                     to={`/dashboard/lessons?courseId=${encodeURIComponent(course.id)}`}
-                                    className="block rounded-2xl border border-border-subtle bg-surface p-5 hover:shadow-md transition-shadow"
+                                    className="flex items-center justify-between gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm transition-shadow hover:shadow-md"
                                 >
-                                    <h2 className="font-headline-sm text-headline-sm text-text-primary">{course.title}</h2>
-                                    <p className="mt-2 text-body-sm text-text-secondary">
-                                        {course.topicCount} topics · {course.quizzesReady} quizzes ready
-                                    </p>
+                                    <div className="min-w-0">
+                                        <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+                                            <AppIcon name="menu_book" className="text-[22px]" />
+                                        </div>
+                                        <h2 className="font-display text-display-sm font-bold text-text-primary">
+                                            {course.title}
+                                        </h2>
+                                        <p className="mt-1 text-body-sm text-text-secondary">
+                                            {course.topicCount} topics · {course.quizzesReady} quizzes ready
+                                        </p>
+                                    </div>
+                                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-soft text-text-secondary">
+                                        <AppIcon name="arrow_forward" className="text-[18px]" />
+                                    </span>
                                 </Link>
                             ))
                         )}
@@ -113,31 +137,62 @@ const LessonMemoryNeuralBasis = () => {
 
                 {courseId && (
                     <div className="mt-8 space-y-4">
-                        <Link to="/dashboard/lessons" className="text-body-sm text-primary hover:text-primary-hover">
-                            ← All courses
+                        <Link
+                            to="/dashboard/lessons"
+                            className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary-hover"
+                        >
+                            <AppIcon name="arrow_back" className="text-[16px]" />
+                            All courses
                         </Link>
+
                         {topics.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-border-strong bg-surface-soft p-8 text-center text-body-sm text-text-secondary">
+                            <div className="rounded-[24px] border border-dashed border-border-default bg-surface px-6 py-10 text-center text-body-sm text-text-secondary">
                                 This course has no topics yet.
                             </div>
                         ) : (
-                            topics.map((topic) => (
-                                <article key={topic.id} className="rounded-2xl border border-border-subtle bg-surface p-5">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
-                                            <h2 className="font-headline-sm text-headline-sm text-text-primary">{topic.title}</h2>
-                                            <p className="mt-2 text-body-sm text-text-secondary line-clamp-3">
+                            topics.map((topic, index) => (
+                                <article
+                                    key={topic.id}
+                                    className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm"
+                                >
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                                                <span className="inline-flex items-center rounded-full bg-surface-soft px-2.5 py-1 text-caption font-semibold text-text-muted">
+                                                    Topic {index + 1}
+                                                </span>
+                                                {Number(topic.questionCount || 0) > 0 && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-caption font-semibold text-success">
+                                                        <span className="size-1.5 rounded-full bg-success" />
+                                                        Quiz ready
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h2 className="font-display text-display-sm font-bold text-text-primary">
+                                                {topic.title}
+                                            </h2>
+                                            <p className="mt-2 line-clamp-3 text-body-sm text-text-secondary">
                                                 {topic.description || topic.content}
                                             </p>
                                         </div>
-                                        {topic.questionCount > 0 && (
+                                        <div className="flex shrink-0 flex-wrap gap-2">
                                             <Link
-                                                to={`/dashboard/quiz/${encodeURIComponent(topic.id)}`}
-                                                className="shrink-0 rounded-lg bg-primary px-3 py-2 text-label-sm text-on-primary hover:bg-primary-hover"
+                                                to={`/dashboard/topic/${encodeURIComponent(topic.id)}`}
+                                                className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm"
                                             >
-                                                Quiz
+                                                Open lesson
+                                                <AppIcon name="arrow_forward" className="text-[16px]" />
                                             </Link>
-                                        )}
+                                            {Number(topic.questionCount || 0) > 0 && (
+                                                <Link
+                                                    to={`/dashboard/quiz/${encodeURIComponent(topic.id)}`}
+                                                    className="btn-secondary inline-flex min-h-10 items-center gap-1.5 text-body-sm"
+                                                >
+                                                    <AppIcon name="quiz" className="text-[16px]" />
+                                                    Quiz
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
                                 </article>
                             ))
