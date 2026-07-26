@@ -40,6 +40,7 @@ import {
   CrosshairIcon,
   ExternalLinkIcon,
   EyeIcon,
+  EyeOffIcon,
   FilePlus2Icon,
   FileTextIcon,
   FlameIcon,
@@ -267,6 +268,7 @@ const MATERIAL_TO_LUCIDE = {
   verified_user: ShieldCheckIcon,
   vertical_align_center: Maximize2Icon,
   visibility: EyeIcon,
+  visibility_off: EyeOffIcon,
   warning: AlertTriangleIcon,
   workspace_premium: TrophyIcon,
 };
