@@ -327,171 +327,164 @@ const UploadMaterials = () => {
     }, [openFilePicker]);
 
     return (
-        <div className="flex-1 flex flex-col md:ml-0 h-full overflow-hidden">
-            <main className="flex-1 overflow-y-auto px-space-4 py-space-5 md:p-space-10 pb-28 md:pb-space-10 pt-16">
-                <div className="max-w-[1000px] mx-auto">
-                    <div className="mb-space-5 md:mb-space-8">
-                        <h1 className="font-display-lg text-display-md md:text-display-lg text-text-primary mb-space-2">Add to your workspace</h1>
-                        <p className="font-body-lg text-body-md md:text-body-lg text-text-secondary">
-                            Upload PDFs, slides, Word docs, or recordings to generate lessons, summaries, and quizzes.
-                        </p>
-                    </div>
+        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+            <div className="mx-auto max-w-5xl">
+                <div className="mb-8">
+                    <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+                        Add to your workspace
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
+                        Drop your PDFs, slides, or notes here. ChewnPour will extract text and prepare lessons, summaries, and quizzes.
+                    </p>
+                </div>
 
-                    <div
-                        role="button"
-                        tabIndex={0}
-                        aria-disabled={isUploading}
-                        onClick={openFilePicker}
-                        onKeyDown={handleKeyDown}
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onDragEnter={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        className={`border-2 border-dashed rounded-[24px] px-space-5 py-space-6 md:p-space-12 flex flex-col items-center justify-center text-center cursor-pointer group relative overflow-hidden transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                            isDragging
-                                ? 'border-primary bg-primary-soft'
-                                : 'border-border-strong bg-surface-soft hover:bg-surface-muted'
-                        } ${isUploading ? 'cursor-wait opacity-90' : ''}`}
+                <div
+                    role="button"
+                    tabIndex={0}
+                    aria-disabled={isUploading}
+                    onClick={openFilePicker}
+                    onKeyDown={handleKeyDown}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragEnter={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    className={`relative flex flex-col items-center justify-center overflow-hidden rounded-[28px] border-2 border-dashed px-6 py-12 text-center outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:px-12 md:py-16 ${
+                        isDragging
+                            ? 'border-primary bg-primary-subtle'
+                            : 'border-border-default bg-surface hover:bg-surface-soft'
+                    } ${isUploading ? 'cursor-wait opacity-90' : 'cursor-pointer'}`}
+                >
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={ACCEPTED_FILE_TYPES}
+                        onChange={handleInputChange}
+                        className="hidden"
+                        disabled={isUploading}
+                    />
+                    <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-primary-subtle text-primary md:size-20">
+                        <AppIcon name={isUploading ? 'sync' : 'folder'} className={`text-[32px] md:text-[40px] ${isUploading ? 'animate-spin' : ''}`} />
+                    </div>
+                    <h3 className="font-display text-display-sm font-bold text-text-primary md:text-display-md">
+                        {isUploading
+                            ? 'Uploading your material...'
+                            : isDragging
+                                ? 'Drop to upload'
+                                : 'Drop your PDFs, slides, or notes here'}
+                    </h3>
+                    <p className="mt-2 max-w-md text-body-sm text-text-secondary md:text-body-md">
+                        {isUploading
+                            ? 'Hold tight while we prepare your material for processing.'
+                            : `Supported formats: ${ACCEPTED_FILE_TYPE_COPY}. Max 50MB.`}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); openFilePicker(); }}
+                        disabled={isUploading}
+                        className="btn-primary z-10 mt-8 inline-flex min-h-11 items-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept={ACCEPTED_FILE_TYPES}
-                            onChange={handleInputChange}
-                            className="hidden"
-                            disabled={isUploading}
-                        />
-                        <div className="absolute -top-10 -left-10 h-28 w-28 md:w-40 md:h-40 bg-white opacity-40 rounded-full blur-2xl"></div>
-                        <div className="absolute -bottom-10 -right-10 h-28 w-28 md:w-40 md:h-40 bg-primary-soft opacity-40 rounded-full blur-2xl"></div>
-                        <div className="w-14 h-14 md:w-24 md:h-24 bg-white rounded-full shadow-sm flex items-center justify-center mb-space-4 md:mb-space-6 group-hover:scale-105 transition-transform duration-300 z-10">
-                            <AppIcon name={isUploading ? 'sync' : 'cloud_upload'} />
-                        </div>
-                        <h3 className="font-headline-md text-display-sm md:text-headline-md text-text-primary mb-space-2 z-10">
-                            {isUploading
-                                ? 'Uploading your material...'
-                                : isDragging
-                                    ? 'Drop to upload'
-                                    : 'Drop PDFs, slides, docs, or audio here'}
-                        </h3>
-                        <p className="font-body-base text-body-sm md:text-body-base text-text-secondary mb-space-5 md:mb-space-8 z-10 max-w-md">
-                            {isUploading
-                                ? 'Hold tight while we prepare your material for processing.'
-                                : `Supported formats: ${ACCEPTED_FILE_TYPE_COPY}. Max 50MB.`}
-                        </p>
-                        <button
-                            type="button"
-                            onClick={(event) => { event.stopPropagation(); openFilePicker(); }}
-                            disabled={isUploading}
-                            className="bg-primary text-on-primary rounded-xl px-space-5 md:px-space-6 py-space-3 font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center gap-2 z-10 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                            <AppIcon name={isUploading ? 'sync' : 'add_circle'} className="text-[18px]" />
-                            {isUploading ? 'Uploading…' : 'Upload Material'}
-                        </button>
-                        <div className="mt-space-4 md:mt-space-6 flex items-center gap-space-2 md:gap-space-4 font-label-xs text-label-xs text-text-muted z-10 flex-wrap justify-center">
-                            <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <AppIcon name="picture_as_pdf" className="text-[14px]" /> PDF
+                        <AppIcon name={isUploading ? 'sync' : 'add'} className="text-[18px]" />
+                        {isUploading ? 'Uploading…' : 'Upload Material'}
+                    </button>
+                    <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                        {[
+                            ['picture_as_pdf', 'PDF'],
+                            ['slideshow', 'PPTX'],
+                            ['description', 'DOCX'],
+                            ['graphic_eq', 'Audio'],
+                        ].map(([icon, label]) => (
+                            <span
+                                key={label}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-soft px-3 py-1.5 text-caption font-semibold text-text-secondary"
+                            >
+                                <AppIcon name={icon} className="text-[14px] text-primary" />
+                                {label}
                             </span>
-                            <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <AppIcon name="slideshow" className="text-[14px]" /> PPTX
-                            </span>
-                            <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <AppIcon name="description" className="text-[14px]" /> DOCX
-                            </span>
-                            <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
-                                <AppIcon name="graphic_eq" className="text-[14px]" /> Audio
-                            </span>
-                        </div>
-                    </div>
-
-                    {uploadError && (
-                        <div
-                            role="alert"
-                            className="mt-space-5 flex items-start gap-space-3 rounded-xl border border-error-soft bg-error-soft/40 p-space-4"
-                        >
-                            <AppIcon name="error" className="text-error" />
-                            <p className="font-body-sm text-body-sm text-error">{uploadError}</p>
-                        </div>
-                    )}
-
-                    <div className="mt-space-8 md:mt-space-16">
-                        <div className="flex justify-between items-end mb-space-6">
-                            <h4 className="font-headline-sm text-headline-sm text-text-primary">Recent Uploads</h4>
-                            <Link className="font-label-md text-label-md text-primary hover:text-primary-hover transition-colors" to="/dashboard/library">
-                                View all
-                            </Link>
-                        </div>
-                        {isLoading ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-5">
-                                {[0, 1, 2].map((item) => (
-                                    <div
-                                        key={item}
-                                        className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-5 h-52 animate-pulse"
-                                    >
-                                        <div className="flex justify-between items-start mb-space-8">
-                                            <div className="w-10 h-10 rounded-lg bg-surface-soft" />
-                                            <div className="h-7 w-20 rounded-md bg-surface-soft" />
-                                        </div>
-                                        <div className="h-5 w-4/5 rounded bg-surface-soft mb-3" />
-                                        <div className="h-4 w-2/3 rounded bg-surface-soft" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : recentUploads.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-5">
-                                {recentUploads.map((upload) => {
-                                    const config = typeConfig[resolveFileKind(upload.fileType, upload.fileName)] || typeConfig.docx;
-                                    const statusConfig = getStatusConfig(upload.status, upload.extractionStatus);
-                                    return (
-                                        <div
-                                            key={upload.id}
-                                            className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-5 group flex flex-col h-full"
-                                        >
-                                            <div className="flex justify-between items-start mb-space-4">
-                                                <div className={`w-10 h-10 rounded-lg ${config.color} flex items-center justify-center`}>
-                                                    <AppIcon name={config.icon} />
-                                                </div>
-                                                <span className={`${statusConfig.className} px-2 py-1 rounded-md font-label-xs text-label-xs flex items-center gap-1`}>
-                                                    <AppIcon name={statusConfig.icon} />
-                                                    {statusConfig.label}
-                                                </span>
-                                            </div>
-                                            <h5 className="font-label-md text-label-md text-text-primary mb-1 line-clamp-1">
-                                                {upload.fileName || 'Untitled material'}
-                                            </h5>
-                                            <p className="font-body-sm text-body-sm text-text-secondary mb-space-4">
-                                                Uploaded {formatRelativeTime(upload.createdAt)} &bull; {formatFileSize(upload.fileSize)}
-                                            </p>
-                                            {!statusConfig.isProcessing ? (
-                                                <div className="mt-auto pt-space-4 border-t border-border-subtle">
-                                                    <p className="font-body-sm text-body-sm text-text-secondary line-clamp-3">
-                                                        {upload.extractedTextPreview
-                                                            || (upload.extractionStatus === 'deferred'
-                                                                ? 'Stored. Text extraction is not available for this file type yet.'
-                                                                : upload.errorMessage || 'Ready for the next study milestone.')}
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <div className="mt-auto pt-space-4 border-t border-border-subtle">
-                                                    <div className="w-full bg-surface-muted rounded-full h-1.5 mb-1">
-                                                        <div className="bg-info h-1.5 rounded-full" style={{ width: '55%' }}></div>
-                                                    </div>
-                                                    <p className="font-label-xs text-label-xs text-text-muted text-right">{getProcessingText(upload)}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="rounded-xl border border-dashed border-border-strong bg-surface-soft p-space-8 text-center">
-                                <p className="font-body-sm text-body-sm text-text-secondary">
-                                    Your recent uploads will appear here after you add material.
-                                </p>
-                            </div>
-                        )}
+                        ))}
                     </div>
                 </div>
-            </main>
+
+                {uploadError && (
+                    <div
+                        role="alert"
+                        className="mt-5 flex items-start gap-3 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3"
+                    >
+                        <AppIcon name="error" className="text-error" />
+                        <p className="text-body-sm text-error">{uploadError}</p>
+                    </div>
+                )}
+
+                <div className="mt-12">
+                    <div className="mb-5 flex items-end justify-between gap-3">
+                        <h2 className="font-display text-display-sm font-bold text-text-primary">Recent Uploads</h2>
+                        <Link className="text-body-sm font-semibold text-primary hover:text-primary-hover" to="/dashboard/library">
+                            View all
+                        </Link>
+                    </div>
+                    {isLoading ? (
+                        <div className="space-y-3">
+                            {[0, 1, 2].map((item) => (
+                                <div key={item} className="h-24 animate-pulse rounded-[20px] border border-border-subtle bg-surface" />
+                            ))}
+                        </div>
+                    ) : recentUploads.length > 0 ? (
+                        <div className="space-y-3">
+                            {recentUploads.map((upload) => {
+                                const config = typeConfig[resolveFileKind(upload.fileType, upload.fileName)] || typeConfig.docx;
+                                const statusConfig = getStatusConfig(upload.status, upload.extractionStatus);
+                                return (
+                                    <div
+                                        key={upload.id}
+                                        className="flex flex-col gap-4 rounded-[20px] border border-border-subtle bg-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                                    >
+                                        <div className="flex min-w-0 items-start gap-3 sm:items-center">
+                                            <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${config.color}`}>
+                                                <AppIcon name={config.icon} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h3 className="truncate font-semibold text-text-primary">
+                                                        {upload.fileName || 'Untitled material'}
+                                                    </h3>
+                                                    <span className={`${statusConfig.className} inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-caption font-semibold`}>
+                                                        <AppIcon name={statusConfig.icon} className={`text-[14px] ${statusConfig.isProcessing ? 'animate-spin' : ''}`} />
+                                                        {statusConfig.label}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 text-body-sm text-text-secondary">
+                                                    Uploaded {formatRelativeTime(upload.createdAt)} · {formatFileSize(upload.fileSize)}
+                                                </p>
+                                                {statusConfig.isProcessing && (
+                                                    <div className="mt-3 max-w-xs">
+                                                        <div className="h-1.5 overflow-hidden rounded-full bg-surface-soft">
+                                                            <div className="h-full w-[55%] rounded-full bg-info" />
+                                                        </div>
+                                                        <p className="mt-1 text-caption text-text-muted">{getProcessingText(upload)}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {!statusConfig.isProcessing && (
+                                            <Link
+                                                to="/dashboard/library"
+                                                className="btn-secondary inline-flex min-h-10 shrink-0 self-start text-body-sm sm:self-center"
+                                            >
+                                                Open
+                                            </Link>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="rounded-[20px] border border-dashed border-border-default bg-surface px-5 py-10 text-center">
+                            <p className="text-body-sm text-text-secondary">
+                                Your recent uploads will appear here after you add material.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

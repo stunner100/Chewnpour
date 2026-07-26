@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 
 const filterTabs = [
-    { label: 'All Files', value: 'all' },
+    { label: 'All', value: 'all' },
     { label: 'PDFs', value: 'pdf' },
     { label: 'Notes', value: 'notes' },
     { label: 'Processing', value: 'processing' },
@@ -43,13 +43,15 @@ const formatUploadedAt = (timestamp) => {
 };
 
 const MaterialsSkeleton = () => (
-    <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-6 p-space-6 md:p-space-8 pb-24 md:pb-space-8 animate-pulse">
-        <div className="h-20 rounded-2xl bg-surface-soft" />
-        <div className="h-12 rounded-xl bg-surface-soft max-w-xl" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-space-6">
-            {Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="h-64 rounded-xl bg-surface-soft" />
-            ))}
+    <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto max-w-6xl space-y-6">
+            <div className="h-16 rounded-[20px] bg-surface-soft" />
+            <div className="h-11 max-w-xl rounded-full bg-surface-soft" />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="h-64 rounded-[24px] bg-surface-soft" />
+                ))}
+            </div>
         </div>
     </div>
 );
@@ -134,17 +136,21 @@ const MyMaterialsLibrary = () => {
     if (loading) return <MaterialsSkeleton />;
 
     return (
-        <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-6 p-space-6 md:p-space-8 pb-24 md:pb-space-8">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-4">
-                <div>
-                    <h2 className="font-display-md text-display-md text-text-primary mb-1">My Materials</h2>
-                    <p className="font-body-sm text-body-sm text-text-secondary">Manage and study your uploaded files and generated content.</p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-space-3 items-center">
-                    <div className="flex items-center gap-2 bg-surface px-4 py-2.5 rounded-xl border border-border-default shadow-sm w-full sm:w-64 focus-within:ring-2 focus-within:ring-primary-soft transition-all">
+        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+            <div className="mx-auto max-w-6xl">
+                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                        <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+                            My Materials
+                        </h1>
+                        <p className="mt-2 text-body-md text-text-secondary">
+                            Manage and study your uploaded files and generated content.
+                        </p>
+                    </div>
+                    <div className="flex w-full items-center gap-2 rounded-full border border-border-subtle bg-surface px-4 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-primary-soft md:w-72">
                         <AppIcon name="search" className="text-[18px] text-text-muted" />
                         <input
-                            className="bg-transparent border-none outline-none text-body-sm font-body-sm w-full placeholder:text-text-muted focus:ring-0 p-0"
+                            className="w-full border-none bg-transparent p-0 text-body-sm outline-none placeholder:text-text-muted focus:ring-0"
                             placeholder="Search materials..."
                             type="text"
                             value={searchTerm}
@@ -152,126 +158,151 @@ const MyMaterialsLibrary = () => {
                         />
                     </div>
                 </div>
-            </div>
 
-            {error && (
-                <div role="alert" className="rounded-xl border border-error-soft bg-error-soft/40 p-space-4 text-body-sm text-error">
-                    {error}
-                </div>
-            )}
+                {error && (
+                    <div role="alert" className="mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
+                        {error}
+                    </div>
+                )}
 
-            <div className="flex overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 hide-scrollbar gap-2">
-                {filterTabs.map((tab) => (
-                    <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => setActiveFilter(tab.value)}
-                        className={`whitespace-nowrap px-3.5 py-2 rounded-lg font-label-sm text-label-sm shadow-sm transition-all ${
-                            activeFilter === tab.value
-                                ? 'bg-text-primary text-on-primary'
-                                : 'bg-surface border border-border-default text-text-secondary hover:bg-surface-soft'
-                        }`}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-space-6">
-                {filteredMaterials.map((material) => {
-                    const typeConfig = typeIcons[material.kind] || typeIcons.notes;
-                    const isProcessing = material.status !== 'ready' && material.status !== 'error';
-                    const hasGeneratedContent = material.status === 'ready' && material.courseId && material.topicCount > 0;
-                    const studyHref = hasGeneratedContent ? `/dashboard/lessons?courseId=${material.courseId}` : '';
-                    return (
-                        <article
-                            key={material.uploadId}
-                            className={`bg-surface border border-border-subtle rounded-xl p-space-4 shadow-sm flex flex-col h-full group relative overflow-hidden ${
-                                hasGeneratedContent ? 'hover:shadow-md transition-shadow duration-300' : 'opacity-90'
+                <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
+                    {filterTabs.map((tab) => (
+                        <button
+                            key={tab.value}
+                            type="button"
+                            onClick={() => setActiveFilter(tab.value)}
+                            className={`whitespace-nowrap rounded-full px-4 py-2 text-body-sm font-semibold transition-all ${
+                                activeFilter === tab.value
+                                    ? 'bg-cta text-cta-foreground shadow-sm'
+                                    : 'border border-border-subtle bg-surface text-text-secondary hover:bg-surface-soft'
                             }`}
                         >
-                            <div className="flex justify-between items-start mb-3">
-                                <div className={`w-9 h-9 rounded-lg ${typeConfig.color} flex items-center justify-center`}>
-                                    <AppIcon name={typeConfig.icon} className="text-[20px]" />
-                                </div>
-                                {hasGeneratedContent ? (
-                                    <span className="bg-success-soft text-success px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-success" />
-                                        Ready
-                                    </span>
-                                ) : isProcessing ? (
-                                    <span className="bg-warning-soft text-warning px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                                        <AppIcon name="sync" className="text-[14px] animate-spin" />
-                                        Processing
-                                    </span>
-                                ) : (
-                                    <span className="bg-surface-soft text-text-muted px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                                        <AppIcon name="schedule" className="text-[14px]" />
-                                        Not ready
-                                    </span>
-                                )}
-                            </div>
-                            <h3 className="font-body-base text-body-base font-bold text-text-primary mb-1 line-clamp-2">{material.title}</h3>
-                            <p className="text-caption font-medium text-text-muted mb-5">Uploaded {formatUploadedAt(material.createdAt)}</p>
-                            <div className="mt-auto">
-                                <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
-                                    <div className="flex flex-col">
-                                        <span className="font-label-md text-label-md text-text-primary">{material.topicCount}</span>
-                                        <span className="font-label-xs text-label-xs text-text-muted">Topics</span>
-                                    </div>
-                                    <div className="w-px h-full bg-border-subtle" />
-                                    <div className="flex flex-col">
-                                        <span className="font-label-md text-label-md text-text-primary">{material.quizzes}</span>
-                                        <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
-                                    </div>
-                                </div>
-                                {hasGeneratedContent ? (
-                                    <Link
-                                        to={studyHref}
-                                        className="w-full bg-primary text-on-primary py-2.5 rounded-lg font-label-sm text-label-sm hover:bg-primary-hover transition-colors shadow-sm flex items-center justify-center gap-2"
-                                    >
-                                        Continue Study
-                                        <AppIcon name="arrow_forward" className="text-[16px]" />
-                                    </Link>
-                                ) : (
-                                    <>
-                                        <div className="w-full bg-surface-muted rounded-full h-1.5 mb-5">
-                                            <div
-                                                className={`bg-warning h-1.5 rounded-full ${isProcessing ? 'animate-pulse' : ''}`}
-                                                style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
-                                            />
-                                        </div>
-                                        <button
-                                            className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-sm text-label-sm cursor-not-allowed flex items-center justify-center"
-                                            disabled
-                                            type="button"
-                                        >
-                                            Open when ready
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        </article>
-                    );
-                })}
-            </div>
-
-            {filteredMaterials.length === 0 && (
-                <div className="mt-space-8 bg-surface border-2 border-dashed border-border-strong rounded-2xl p-space-12 flex flex-col items-center justify-center text-center max-w-2xl mx-auto w-full shadow-sm">
-                    <AppIcon name="folder_open" className="text-[40px] text-text-muted mb-4" />
-                    <h3 className="font-headline-sm text-headline-sm text-text-primary mb-2">No materials yet</h3>
-                    <p className="font-body-sm text-body-sm text-text-secondary mb-6">
-                        Upload a PDF, slide deck, or document to generate topics and quizzes.
-                    </p>
-                    <Link
-                        to="/dashboard/upload"
-                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-label-md text-label-md text-on-primary hover:bg-primary-hover"
-                    >
-                        <AppIcon name="cloud_upload" className="text-[18px]" />
-                        Upload Material
-                    </Link>
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
-            )}
+
+                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredMaterials.map((material) => {
+                        const typeConfig = typeIcons[material.kind] || typeIcons.notes;
+                        const isProcessing = material.status !== 'ready' && material.status !== 'error';
+                        const hasGeneratedContent = material.status === 'ready' && material.courseId && material.topicCount > 0;
+                        const studyHref = hasGeneratedContent ? `/dashboard/lessons?courseId=${material.courseId}` : '';
+                        return (
+                            <article
+                                key={material.uploadId}
+                                className={`flex h-full flex-col overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm ${
+                                    hasGeneratedContent ? 'transition-shadow hover:shadow-md' : ''
+                                }`}
+                            >
+                                <div className="mb-4 flex items-start justify-between gap-3">
+                                    <div className={`flex size-11 items-center justify-center rounded-xl ${typeConfig.color}`}>
+                                        <AppIcon name={typeConfig.icon} className="text-[22px]" />
+                                    </div>
+                                    {hasGeneratedContent ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-caption font-semibold text-success">
+                                            <span className="size-1.5 rounded-full bg-success" />
+                                            Ready
+                                        </span>
+                                    ) : isProcessing ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-caption font-semibold text-warning">
+                                            <AppIcon name="sync" className="animate-spin text-[14px]" />
+                                            Processing
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-soft px-2.5 py-1 text-caption font-semibold text-text-muted">
+                                            <AppIcon name="schedule" className="text-[14px]" />
+                                            Not ready
+                                        </span>
+                                    )}
+                                </div>
+                                <h3 className="line-clamp-2 font-display text-display-sm font-bold text-text-primary">
+                                    {material.title}
+                                </h3>
+                                <p className="mt-1 text-caption font-medium text-text-muted">
+                                    Uploaded {formatUploadedAt(material.createdAt)}
+                                </p>
+
+                                <div className="mt-auto pt-5">
+                                    <div className="mb-4 flex gap-4 border-t border-border-subtle pt-4">
+                                        <div>
+                                            <p className="font-semibold text-text-primary">{material.topicCount}</p>
+                                            <p className="text-caption text-text-muted">Topics</p>
+                                        </div>
+                                        <div className="w-px bg-border-subtle" />
+                                        <div>
+                                            <p className="font-semibold text-text-primary">{material.quizzes}</p>
+                                            <p className="text-caption text-text-muted">Quizzes</p>
+                                        </div>
+                                    </div>
+                                    {hasGeneratedContent ? (
+                                        <Link
+                                            to={studyHref}
+                                            className="btn-primary inline-flex w-full min-h-11 items-center justify-center gap-2 text-body-sm"
+                                        >
+                                            Continue Study
+                                            <AppIcon name="arrow_forward" className="text-[16px]" />
+                                        </Link>
+                                    ) : (
+                                        <>
+                                            <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-surface-soft">
+                                                <div
+                                                    className={`h-full rounded-full bg-warning ${isProcessing ? 'animate-pulse' : ''}`}
+                                                    style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
+                                                />
+                                            </div>
+                                            <button
+                                                className="inline-flex w-full min-h-11 cursor-not-allowed items-center justify-center rounded-full border border-border-subtle bg-surface-soft text-body-sm font-semibold text-text-muted"
+                                                disabled
+                                                type="button"
+                                            >
+                                                Study Unavailable
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
+
+                {filteredMaterials.length === 0 && (
+                    <div className="mx-auto mt-10 flex w-full max-w-xl flex-col items-center rounded-[28px] border border-dashed border-border-default bg-surface px-6 py-12 text-center shadow-sm">
+                        <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-surface-soft text-text-muted">
+                            <AppIcon name="search_off" className="text-[28px]" />
+                        </div>
+                        <h3 className="font-display text-display-sm font-bold text-text-primary">
+                            {materials.length === 0 ? 'No materials yet' : 'No matching materials'}
+                        </h3>
+                        <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
+                            {materials.length === 0
+                                ? 'Upload a PDF, slide deck, or document to generate topics and quizzes.'
+                                : 'Try a different search or clear your filters to see more files.'}
+                        </p>
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                            {(searchTerm || activeFilter !== 'all') && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setActiveFilter('all');
+                                    }}
+                                    className="btn-secondary inline-flex min-h-11 text-body-sm"
+                                >
+                                    Clear Filters
+                                </button>
+                            )}
+                            <Link
+                                to="/dashboard/upload"
+                                className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm"
+                            >
+                                <AppIcon name="cloud_upload" className="text-[18px]" />
+                                Upload New
+                            </Link>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
