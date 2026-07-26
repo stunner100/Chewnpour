@@ -170,7 +170,7 @@ const DashboardLayout = ({ children }) => {
         <SidebarProvider className="dashboard-shell cp-theme text-text-primary">
             <AppSidebar />
             <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">
+                <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-white transition-[width,height] ease-linear">
                     <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:px-4">
                         <SidebarTrigger className="-ml-1 min-h-11 min-w-11" />
                         <Separator
@@ -181,11 +181,11 @@ const DashboardLayout = ({ children }) => {
                             type="button"
                             onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
                             aria-label="Open command palette to search pages and actions"
-                            className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
+                            className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
                         >
                             <AppIcon name="search" className="absolute left-3 text-text-muted" aria-hidden="true" />
                             <span className="truncate">Search materials, lessons, or topics...</span>
-                            <kbd className="ml-auto hidden items-center gap-0.5 rounded-md border border-border-default bg-surface px-2 py-0.5 font-mono text-[10px] text-text-muted sm:inline-flex">
+                            <kbd className="ml-auto hidden items-center gap-0.5 rounded-md border border-border-default bg-white px-2 py-0.5 font-mono text-[10px] text-text-muted sm:inline-flex">
                                 ⌘K
                             </kbd>
                         </button>
@@ -227,7 +227,7 @@ const DashboardLayout = ({ children }) => {
                             to="/dashboard/settings"
                             aria-label="Open settings"
                             title="Open settings"
-                            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary-soft text-xs font-bold text-primary transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:ml-1"
+                            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary-subtle text-xs font-bold text-primary transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:ml-1"
                         >
                             {profile?.avatarUrl ? (
                                 <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />

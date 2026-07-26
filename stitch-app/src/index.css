@@ -2,25 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── shadcn-compatible CSS variables (used by hero section components) ── */
+/* ── shadcn-compatible CSS variables (Slate redesign) ── */
 :root {
-    --background: 240 253 250;       /* #F0FDFA */
-    --foreground: 19 78 74;          /* #134E4A */
-    --muted-foreground: 63 75 85;    /* #3F4B55 AA on mint/white */
-    --accent-foreground: 19 78 74;
-    --border: 94 234 212;            /* #5EEAD4 */
-    --input: 204 251 241;            /* #CCFBF1 */
-    --ring: 13 148 136;              /* #0D9488 */
-    --sidebar: 255 255 255;
-    --sidebar-foreground: 19 78 74;
-    --sidebar-primary: 217 119 6;    /* #D97706 CTA */
+    --background: 249 249 249;       /* #F9F9F9 */
+    --foreground: 10 10 10;          /* #0A0A0A */
+    --muted-foreground: 107 107 112; /* #6B6B70 */
+    --accent-foreground: 10 10 10;
+    --border: 229 229 234;           /* #E5E5EA */
+    --input: 242 242 247;            /* #F2F2F7 */
+    --ring: 0 122 255;               /* #007AFF */
+    --sidebar: 242 242 247;
+    --sidebar-foreground: 10 10 10;
+    --sidebar-primary: 17 17 17;     /* #111111 CTA */
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 232 241 244;   /* #E8F1F4 */
-    --sidebar-accent-foreground: 19 78 74;
-    --sidebar-border: 153 246 228;   /* #99F6E4 */
-    --sidebar-ring: 13 148 136;
+    --sidebar-accent: 229 229 234;
+    --sidebar-accent-foreground: 10 10 10;
+    --sidebar-border: 229 229 234;
+    --sidebar-ring: 0 122 255;
     --popover: 255 255 255;
-    --popover-foreground: 19 78 74;
+    --popover-foreground: 10 10 10;
 }
 
 .dark {
@@ -80,13 +80,13 @@ html.is-safari .safari-backdrop {
 
     /* ── Buttons ── */
     .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-cta text-cta-foreground font-semibold text-sm
-               shadow-button hover:shadow-button-hover hover:bg-cta-hover
+        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-cta text-cta-foreground font-semibold text-sm
+               shadow-sm hover:bg-cta-hover
                active:scale-[0.98] transition-all duration-150 ease-spring;
     }
 
     .btn-secondary {
-        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
+        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full
                bg-surface-light dark:bg-surface-dark
                border border-border-light dark:border-border-dark
                text-text-main-light dark:text-text-main-dark font-semibold text-sm
@@ -630,15 +630,15 @@ html.is-safari .safari-backdrop {
 }
 
 .cp-theme {
-    --background: 250 248 243;
-    --cp-primary: #D97706;
-    --cp-primary-hover: #B45309;
+    --background: 249 249 249;
+    --cp-primary: #007AFF;
+    --cp-primary-hover: #0066D6;
 }
 
 .dark .cp-theme {
     --background: 12 13 16;
-    --cp-primary: #f59e0b;
-    --cp-primary-hover: #fbbf24;
+    --cp-primary: #5AC8FA;
+    --cp-primary-hover: #94C2FF;
 }
 
 .cp-theme.dashboard-shell {
@@ -677,23 +677,23 @@ html.is-safari .safari-backdrop {
 }
 
 .cp-theme .focus\:ring-primary-soft:focus {
-    --tw-ring-color: #FEF3C7 !important;
+    --tw-ring-color: #E5F0FF !important;
 }
 
 .cp-theme .focus-within\:ring-primary-soft:focus-within {
-    --tw-ring-color: #FEF3C7 !important;
+    --tw-ring-color: #E5F0FF !important;
 }
 
 .cp-theme .ring-primary-soft {
-    --tw-ring-color: #FEF3C7 !important;
+    --tw-ring-color: #E5F0FF !important;
 }
 
 .cp-theme .selection\:bg-primary-soft::selection {
-    background-color: #FEF3C7 !important;
+    background-color: #E5F0FF !important;
 }
 
 .cp-theme .selection\:text-primary::selection {
-    color: #D97706 !important;
+    color: #007AFF !important;
 }
 
 .cp-theme .bg-gradient-to-r.from-surface {
@@ -727,7 +727,7 @@ html.is-safari .safari-backdrop {
 
 .dark .cp-theme .bg-primary-soft,
 .dark .cp-theme .bg-primary-subtle {
-    background-color: rgba(245, 158, 11, 0.16) !important;
+    background-color: rgba(0, 122, 255, 0.16) !important;
 }
 
 .dark .cp-theme .text-text-primary,

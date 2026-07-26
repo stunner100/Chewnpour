@@ -67,7 +67,7 @@ export function AppSidebar({ ...props }) {
       <SidebarHeader>
         <TeamSwitcher />
         <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
-          <Button asChild className="w-full justify-center gap-2">
+          <Button asChild className="w-full justify-center gap-2 rounded-full bg-[#111111] text-white hover:bg-black">
             <Link to="/dashboard/upload">
               <SparklesIcon className="size-4" />
               Generate Material
