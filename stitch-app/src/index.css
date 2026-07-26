@@ -24,23 +24,23 @@
 }
 
 .dark {
-    --background: 4 47 46;           /* #042F2E */
-    --foreground: 204 251 241;       /* #CCFBF1 */
-    --muted-foreground: 94 234 212;  /* #5EEAD4 */
-    --accent-foreground: 204 251 241;
-    --border: 17 94 89;              /* #115E59 */
-    --input: 17 94 89;
-    --ring: 45 212 191;              /* #2DD4BF */
-    --sidebar: 6 54 52;
-    --sidebar-foreground: 204 251 241;
-    --sidebar-primary: 245 158 11;
-    --sidebar-primary-foreground: 15 15 18;
-    --sidebar-accent: 17 94 89;
-    --sidebar-accent-foreground: 204 251 241;
-    --sidebar-border: 17 94 89;
-    --sidebar-ring: 45 212 191;
-    --popover: 6 54 52;
-    --popover-foreground: 204 251 241;
+    --background: 12 13 16;          /* #0C0D10 */
+    --foreground: 233 233 238;       /* #E9E9EE */
+    --muted-foreground: 161 161 170; /* #A1A1AA */
+    --accent-foreground: 233 233 238;
+    --border: 42 43 48;              /* #2A2B30 */
+    --input: 33 34 38;               /* #212226 */
+    --ring: 90 200 250;              /* #5AC8FA */
+    --sidebar: 17 18 20;             /* #111214 — match dark shell */
+    --sidebar-foreground: 233 233 238;
+    --sidebar-primary: 255 255 255;  /* light CTA on dark */
+    --sidebar-primary-foreground: 10 10 10;
+    --sidebar-accent: 33 34 38;      /* #212226 active/hover */
+    --sidebar-accent-foreground: 233 233 238;
+    --sidebar-border: 42 43 48;
+    --sidebar-ring: 90 200 250;
+    --popover: 22 23 25;             /* #161719 */
+    --popover-foreground: 233 233 238;
 }
 
 @layer base {
