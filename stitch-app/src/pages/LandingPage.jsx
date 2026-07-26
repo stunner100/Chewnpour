@@ -383,7 +383,7 @@ const HeroSection = ({ captureLandingEvent }) => (
   <section className="slate-hero-bg relative overflow-hidden px-5 pb-16 pt-14 sm:px-6 sm:pt-20">
     <HeroDecor />
 
-    <div className="relative mx-auto max-w-[1120px]">
+    <div className="relative z-10 mx-auto max-w-[1120px]">
       <div className="max-w-2xl">
         <span className="inline-flex items-center rounded-full bg-[#F2F2F7] px-3 py-1 text-xs font-semibold text-[#6B6B70]">
           Built in Academic intelligence
@@ -403,23 +403,26 @@ const HeroSection = ({ captureLandingEvent }) => (
         </PillLink>
       </div>
 
-      <div className="relative mt-14 overflow-hidden rounded-[24px] border border-[#E5E5EA] bg-white shadow-[0_30px_80px_rgba(0,0,0,0.08)]">
-        <div className="flex items-center gap-2 border-b border-[#E5E5EA] bg-[#F9F9F9] px-4 py-3">
-          <span className="size-3 rounded-full bg-[#FF5F57]" />
-          <span className="size-3 rounded-full bg-[#FEBC2E]" />
-          <span className="size-3 rounded-full bg-[#28C840]" />
-          <span className="ml-3 text-xs font-medium text-[#8E8E93]">ChewnPour Study Workspace</span>
+      {/* Sized like the Slate screenshot — ~72% width so notebook papers show on both sides */}
+      <div className="relative z-10 mx-auto mt-14 w-full max-w-[820px] lg:mt-16">
+        <div className="overflow-hidden rounded-[20px] border border-[#E5E5EA] bg-white shadow-[0_30px_80px_rgba(0,0,0,0.10)]">
+          <div className="flex items-center gap-2 border-b border-[#E5E5EA] bg-[#F9F9F9] px-4 py-2.5">
+            <span className="size-2.5 rounded-full bg-[#FF5F57]" />
+            <span className="size-2.5 rounded-full bg-[#FEBC2E]" />
+            <span className="size-2.5 rounded-full bg-[#28C840]" />
+            <span className="ml-3 text-xs font-medium text-[#8E8E93]">ChewnPour Study Workspace</span>
+          </div>
+          <picture>
+            <source srcSet="/redesign/product-mockup.avif" type="image/avif" />
+            <img
+              src="/redesign/product-mockup.jpg"
+              alt="ChewnPour study workspace with courses, notes, and lesson detail"
+              className="block w-full"
+              width={1600}
+              height={1000}
+            />
+          </picture>
         </div>
-        <picture>
-          <source srcSet="/redesign/product-mockup.avif" type="image/avif" />
-          <img
-            src="/redesign/product-mockup.jpg"
-            alt="ChewnPour study workspace with courses, notes, and lesson detail"
-            className="block w-full"
-            width={1600}
-            height={1000}
-          />
-        </picture>
       </div>
     </div>
   </section>
