@@ -28,7 +28,7 @@ const TopicQuizPanel = ({
         />
 
         {topicProgress?.completedAt ? (
-            <div className="bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle p-5 md:p-6">
+            <div className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
                 <NextStepsGuidance
                     topicId={topicId}
                     examTopicId={examTopicId}

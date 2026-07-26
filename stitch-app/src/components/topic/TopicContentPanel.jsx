@@ -48,12 +48,12 @@ const TopicContentPanel = ({
         />
 
         {topicIllustrationUrl ? (
-            <div className="overflow-hidden rounded-2xl border border-border-subtle dark:border-border-subtle-dark">
+            <div className="overflow-hidden rounded-[24px] border border-border-subtle shadow-sm">
                 <img
                     src={topicIllustrationUrl}
                     alt={`${heroTopicTitle} illustration`}
                     loading="lazy"
-                    className="h-44 md:h-56 w-full object-cover"
+                    className="h-44 w-full object-cover md:h-56"
                 />
             </div>
         ) : null}
@@ -72,7 +72,7 @@ const TopicContentPanel = ({
             />
         ) : null}
 
-        <article className="bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
+        <article className="rounded-[28px] border border-border-subtle bg-surface px-5 py-6 shadow-sm md:p-8" ref={contentRef}>
             {normalizedContent ? (
                 <LessonContentRenderer
                     blocks={displayBlocks}
@@ -88,25 +88,25 @@ const TopicContentPanel = ({
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="size-14 rounded-2xl bg-primary-soft flex items-center justify-center mb-4 animate-pulse">
-                        <AppIcon name="auto_stories" className="text-primary text-[26px]" />
+                    <div className="mb-4 flex size-14 animate-pulse items-center justify-center rounded-2xl bg-primary-subtle">
+                        <AppIcon name="auto_stories" className="text-[26px] text-primary" />
                     </div>
-                    <h3 className="text-body-lg font-semibold text-text-primary">Preparing your lesson</h3>
-                    <p className="text-body-sm text-text-secondary mt-1 max-w-xs">
+                    <h3 className="font-display text-display-sm font-bold text-text-primary">Preparing your lesson</h3>
+                    <p className="mt-1 max-w-xs text-body-sm text-text-secondary">
                         ChewnPour is organizing this topic into key ideas, examples, checks, and study tools.
                     </p>
                 </div>
             )}
         </article>
 
-        <details className="group bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle px-5 md:px-6">
-            <summary className="flex items-center gap-3 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                <span className="size-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
-                    <AppIcon name="route" className="text-primary text-[18px]" />
+        <details className="group rounded-[24px] border border-border-subtle bg-surface px-5 shadow-sm md:px-6">
+            <summary className="flex cursor-pointer list-none items-center gap-3 py-4 [&::-webkit-details-marker]:hidden">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-subtle">
+                    <AppIcon name="route" className="text-[18px] text-primary" />
                 </span>
-                <span className="flex-1 min-w-0">
-                    <span className="block text-body-md font-semibold text-text-primary leading-tight">Guided study path</span>
-                    <span className="block text-caption text-text-muted mt-0.5">A section-by-section walkthrough of this lesson.</span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-body-md font-semibold leading-tight text-text-primary">Guided study path</span>
+                    <span className="mt-0.5 block text-caption text-text-muted">A section-by-section walkthrough of this lesson.</span>
                 </span>
                 <AppIcon name="expand_more" className="text-[20px] text-text-muted transition-transform group-open:rotate-180" />
             </summary>

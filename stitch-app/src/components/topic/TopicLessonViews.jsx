@@ -236,7 +236,7 @@ export const TopicLessonPanels = ({ controller }) => {
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="fixed z-30 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 lg:bottom-6 lg:right-auto lg:left-6 btn-icon size-10 bg-surface-light dark:bg-surface-dark border border-border-subtle dark:border-border-subtle-dark shadow-card"
+                    className="btn-icon fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 z-30 size-10 border border-border-subtle bg-surface shadow-sm lg:bottom-6 lg:left-6 lg:right-auto"
                     aria-label="Scroll to top"
                 >
                     <AppIcon name="arrow_upward" className="text-[18px]" />
@@ -282,19 +282,19 @@ export const TopicLessonPanels = ({ controller }) => {
 };
 
 export const TopicLessonBreadcrumbs = ({ courseTitle, courseHref, topicTitle }) => (
-    <nav aria-label="Breadcrumb" className="font-body-sm text-body-sm text-text-secondary">
+    <nav aria-label="Breadcrumb" className="text-body-sm text-text-secondary">
         <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <li>
-                <Link to="/dashboard/lessons" className="hover:text-text-primary transition-colors">Lessons</Link>
+                <Link to="/dashboard/lessons" className="transition-colors hover:text-primary">Lessons</Link>
             </li>
             <li aria-hidden="true" className="text-text-muted">/</li>
             <li>
-                <Link to={courseHref || '/dashboard/lessons'} className="hover:text-text-primary transition-colors">
+                <Link to={courseHref || '/dashboard/lessons'} className="transition-colors hover:text-primary">
                     {courseTitle || 'Course'}
                 </Link>
             </li>
             <li aria-hidden="true" className="text-text-muted">/</li>
-            <li className="font-medium text-text-primary line-clamp-1">{topicTitle}</li>
+            <li className="line-clamp-1 font-semibold text-text-primary">{topicTitle}</li>
         </ol>
     </nav>
 );
@@ -315,15 +315,15 @@ export const TopicMetaBadges = ({ sourceLabel, topicProgress }) => {
         masteryIcon = 'event_repeat';
     }
     return (
-        <div className="flex flex-wrap items-center gap-space-2">
+        <div className="flex flex-wrap items-center gap-2">
             {sourceLabel ? (
-                <span className="inline-flex items-center gap-space-2 rounded-full border border-border-subtle bg-surface px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                    <AppIcon name="description" className="text-[16px] text-text-muted" />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3 py-1 text-caption font-semibold text-text-secondary">
+                    <AppIcon name="description" className="text-[14px] text-text-muted" />
                     <span>Source: {sourceLabel}</span>
                 </span>
             ) : null}
-            <span className={`inline-flex items-center gap-space-2 rounded-full border px-space-3 py-space-1 font-label-xs text-label-xs ${masteryClass}`}>
-                <AppIcon name={masteryIcon} className="text-[16px]" />
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-caption font-semibold ${masteryClass}`}>
+                <AppIcon name={masteryIcon} className="text-[14px]" />
                 <span>{masteryLabel}</span>
             </span>
         </div>
@@ -333,12 +333,12 @@ export const TopicMetaBadges = ({ sourceLabel, topicProgress }) => {
 export const TopicSummaryCard = ({ description }) => {
     if (!description) return null;
     return (
-        <section className="rounded-2xl border border-primary/15 bg-primary-subtle p-space-5">
-            <div className="mb-space-2 flex items-center gap-space-2 text-primary">
+        <section className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+            <div className="mb-3 flex items-center gap-2 text-primary">
                 <AppIcon name="lightbulb" className="text-[20px]" />
-                <h2 className="font-label-md text-label-md font-semibold">Topic Summary</h2>
+                <h2 className="font-display text-body-md font-bold">Topic Summary</h2>
             </div>
-            <p className="font-body-md text-body-md leading-relaxed text-text-primary">{description}</p>
+            <p className="text-body-md leading-relaxed text-text-secondary">{description}</p>
         </section>
     );
 };
@@ -348,12 +348,12 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
     if (!prevTopic && !nextTopic && !examTopicId) return null;
     const goTo = (topicId) => () => navigate(`/dashboard/topic/${topicId}`);
     return (
-        <div className="flex items-center justify-between gap-space-4 border-t border-border-subtle pt-space-6">
+        <div className="flex items-center justify-between gap-4 border-t border-border-subtle pt-6">
             {prevTopic ? (
                 <button
                     type="button"
                     onClick={goTo(prevTopic.id || prevTopic._id)}
-                    className="inline-flex items-center gap-space-2 rounded-xl border border-border-default bg-surface px-space-4 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
+                    className="btn-secondary inline-flex min-h-11 items-center gap-2 text-body-sm"
                 >
                     <AppIcon name="arrow_back" className="text-[18px]" />
                     <span className="line-clamp-1 text-left">Previous Lesson</span>
@@ -365,7 +365,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
                 <button
                     type="button"
                     onClick={goTo(nextTopic.id || nextTopic._id)}
-                    className="inline-flex items-center gap-space-2 rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-label-md text-surface transition-colors hover:bg-primary-hover"
+                    className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm"
                 >
                     <span className="line-clamp-1">Next Lesson</span>
                     <AppIcon name="arrow_forward" className="text-[18px]" />
@@ -373,7 +373,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
             ) : examTopicId ? (
                 <Link
                     to={buildObjectiveExamRoute(examTopicId)}
-                    className="inline-flex items-center gap-space-2 rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-label-md text-surface transition-colors hover:bg-primary-hover"
+                    className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm"
                 >
                     <span>Take the quiz</span>
                     <AppIcon name="arrow_forward" className="text-[18px]" />
@@ -488,30 +488,30 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
     };
 
     return (
-        <aside className="sticky top-space-6 flex max-h-[calc(100vh-8rem)] min-h-0 flex-col gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm">
+        <aside className="sticky top-6 flex max-h-[calc(100vh-8rem)] min-h-0 flex-col gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm">
             <header className="flex items-center justify-between">
-                <div className="flex items-center gap-space-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ai-soft text-ai">
+                <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center rounded-full bg-primary-subtle text-primary">
                         <AppIcon name="smart_toy" className="text-[20px]" />
                     </span>
                     <div>
-                        <p className="font-label-md text-label-md font-semibold text-text-primary">Study Assistant</p>
-                        <p className="flex items-center gap-space-1 font-label-xs text-label-xs text-success">
-                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" /> Online
+                        <p className="text-body-sm font-bold text-text-primary">Study Assistant</p>
+                        <p className="flex items-center gap-1.5 text-caption font-semibold text-success">
+                            <span className="inline-block size-1.5 rounded-full bg-success" /> Online
                         </p>
                     </div>
                 </div>
             </header>
-            <div className="rounded-xl bg-ai-subtle p-space-4 font-body-sm text-body-sm leading-relaxed text-text-primary dark:!bg-[#212226] dark:text-text-primary">
+            <div className="rounded-[18px] border border-border-subtle bg-surface-soft px-4 py-3 text-body-sm leading-relaxed text-text-primary">
                 {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
             </div>
             {hasTranscript && (
-                <div ref={transcriptRef} className="min-h-0 flex-1 space-y-space-3 overflow-y-auto rounded-xl border border-border-subtle bg-surface-soft/60 p-space-3 dark:!bg-[#111214]">
+                <div ref={transcriptRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-[18px] border border-border-subtle bg-surface-soft/60 p-3">
                     {visibleMessages.map((message) => {
                         const isUser = message.role === 'user';
                         return (
                             <div key={message.id || message._id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                <p className={`max-w-[92%] rounded-xl px-space-3 py-space-2 font-body-sm text-body-sm leading-relaxed ${
+                                <p className={`max-w-[92%] rounded-[16px] px-3 py-2 text-body-sm leading-relaxed ${
                                     isUser
                                         ? 'bg-primary text-on-primary'
                                         : 'border border-border-subtle bg-surface text-text-primary'
@@ -525,54 +525,54 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                         <>
                             {shouldShowPendingQuestion && (
                                 <div className="flex justify-end">
-                                    <p className="max-w-[92%] rounded-xl bg-primary px-space-3 py-space-2 font-body-sm text-body-sm leading-relaxed text-on-primary">
+                                    <p className="max-w-[92%] rounded-[16px] bg-primary px-3 py-2 text-body-sm leading-relaxed text-on-primary">
                                         {pendingQuestion}
                                     </p>
                                 </div>
                             )}
                             <div className="flex justify-start">
-                                <p className="max-w-[92%] rounded-xl border border-border-subtle bg-surface px-space-3 py-space-2 font-label-xs text-label-xs text-text-secondary">
+                                <p className="max-w-[92%] rounded-[16px] border border-border-subtle bg-surface px-3 py-2 text-caption text-text-secondary">
                                     Preparing an answer...
                                 </p>
                             </div>
                         </>
                     )}
                     {error && (
-                        <p className="rounded-lg border border-error/20 bg-error-soft px-space-3 py-space-2 font-body-sm text-body-sm text-error">
+                        <p className="rounded-[16px] border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error">
                             {error}
                         </p>
                     )}
                 </div>
             )}
             {!hasTranscript && (
-                <div className="flex flex-col gap-space-2">
+                <div className="flex flex-col gap-2">
                     {STUDY_ASSISTANT_PROMPTS.map((prompt) => (
                         <button
                             key={prompt}
                             type="button"
                             onClick={() => sendQuestion(prompt)}
                             disabled={sending}
-                            className="rounded-full border border-border-subtle bg-surface px-space-3 py-space-2 text-left font-label-sm text-label-sm text-text-primary transition-colors hover:border-ai/40 hover:bg-ai-subtle disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-full border border-border-subtle bg-surface px-3 py-2 text-left text-caption font-semibold text-text-primary transition-colors hover:border-primary/30 hover:bg-primary-subtle disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {prompt}
                         </button>
                     ))}
                 </div>
             )}
-            <form onSubmit={handleSubmit} className="flex items-center gap-space-2 rounded-full border border-border-subtle bg-surface-soft px-space-3 py-space-2 focus-within:border-primary">
+            <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-border-subtle bg-surface-soft px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary-soft">
                 <input
                     type="text"
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     placeholder="Ask a question..."
                     disabled={sending}
-                    className="flex-1 bg-transparent font-body-sm text-body-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+                    className="flex-1 bg-transparent text-body-sm text-text-primary placeholder:text-text-muted focus:outline-none"
                 />
                 <button
                     type="submit"
                     aria-label="Send"
                     disabled={sending || !draft.trim()}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-surface transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex size-8 items-center justify-center rounded-full bg-cta text-cta-foreground transition-colors hover:bg-cta-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     <AppIcon name="send" className="text-[18px]" />
                 </button>
@@ -629,17 +629,17 @@ export const TopicLessonShell = ({ controller }) => {
     const sourceLabel = courseTitle;
 
     return (
-        <div className="cp-theme min-h-screen bg-[#FAF8F3] font-body text-[#1F2933] dark:bg-[#0c0d10] dark:text-text-primary">
-            <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-space-6 px-space-4 py-space-6 md:px-space-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-space-8 lg:px-space-8 lg:py-space-8">
-                <div className="min-w-0 space-y-space-6">
+        <div className="min-h-[calc(100vh-4rem)] bg-background-light text-text-primary">
+            <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:px-8 lg:py-8">
+                <div className="min-w-0 space-y-6">
                     <TopicLessonBreadcrumbs
                         courseTitle={courseTitle}
                         courseHref={courseHref}
                         topicTitle={resolvedTopicTitle}
                     />
-                    <header className="space-y-space-3">
+                    <header className="space-y-3">
                         <TopicMetaBadges sourceLabel={sourceLabel} topicProgress={topicProgress} />
-                        <h1 className="font-display-md text-display-md font-bold tracking-tight text-text-primary md:text-display-lg">
+                        <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
                             {resolvedTopicTitle}
                         </h1>
                     </header>
