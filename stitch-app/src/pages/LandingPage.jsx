@@ -313,7 +313,7 @@ const HeroSection = ({ captureLandingEvent }) => (
           New — AI that studies with you
         </span>
         <h1 className="mt-5 text-[clamp(2.4rem,5vw,3.75rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#0A0A0A]">
-          Notes that think with you
+          AI that studies with you
         </h1>
         <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-[#6B6B70]">
           Upload naturally. Ask anything. ChewnPour turns your lecture slides and PDFs into lessons, quizzes, and a tutor that actually knows your material.
