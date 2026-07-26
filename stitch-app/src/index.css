@@ -376,19 +376,19 @@ html.is-safari .safari-backdrop {
     width: 100%;
     height: 3rem;
     padding: 0 1rem;
-    border-radius: 0.75rem;
+    border-radius: 9999px;
     background: #fff;
-    border: 1px solid #d9d2c6;
-    color: #1f2933;
+    border: 1px solid #E5E5EA;
+    color: #0A0A0A;
     font-family: inherit;
     font-size: 0.9rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.cp-input::placeholder { color: rgba(104,115,132,0.7); }
+.cp-input::placeholder { color: rgba(107,107,112,0.7); }
 .cp-input:focus {
     outline: none;
-    border-color: rgb(13, 148, 136);
-    box-shadow: 0 0 0 3px rgba(13,148,136,0.18);
+    border-color: #007AFF;
+    box-shadow: 0 0 0 3px rgba(0,122,255,0.18);
 }
 .cp-input:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -398,11 +398,11 @@ html.is-safari .safari-backdrop {
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: rgba(31,41,51,0.72);
+    color: #6B6B70;
     margin-bottom: 0.4rem;
 }
 
-/* Public surfaces: Space Grotesk / DM Sans, white cards, teal accent, amber CTA. */
+/* Public surfaces: Plus Jakarta Sans, white cards, blue accent, black CTA. */
 .cp-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -410,15 +410,15 @@ html.is-safari .safari-backdrop {
     gap: 0.5rem;
     width: 100%;
     height: 2.75rem;
-    border-radius: 0.5rem;
-    background: #D97706;
+    border-radius: 9999px;
+    background: #111111;
     color: #fff;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 700;
     font-size: 0.875rem;
     transition: background 0.15s ease, transform 0.1s ease;
 }
-.cp-btn-primary:hover:not(:disabled) { background: #B45309; }
+.cp-btn-primary:hover:not(:disabled) { background: #000000; }
 .cp-btn-primary:active:not(:disabled) { transform: scale(0.98); }
 .cp-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -429,49 +429,38 @@ html.is-safari .safari-backdrop {
     gap: 0.5rem;
     width: 100%;
     height: 2.75rem;
-    border-radius: 0.5rem;
+    border-radius: 9999px;
     background: #fff;
-    border: 2px solid #0D9488;
-    color: #0D9488;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    border: 1px solid #E5E5EA;
+    color: #0A0A0A;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 600;
     font-size: 0.875rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     transition: background 0.15s ease, border-color 0.15s ease;
 }
-.cp-btn-secondary:hover:not(:disabled) { background: #F0FDFA; border-color: #0F766E; }
+.cp-btn-secondary:hover:not(:disabled) { background: #F9F9F9; border-color: #C7C7CC; }
 .cp-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .cp-card {
     background: #fff;
-    border: 1px solid #e7e0d4;
-    border-radius: 20px;
+    border: 1px solid #E5E5EA;
+    border-radius: 24px;
     padding: 2rem;
-    box-shadow: 0 18px 40px rgba(31,41,51,0.08);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
     position: relative;
     isolation: isolate;
 }
-/* Grain overlay so cards match the landing-page card texture */
-.cp-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border-radius: inherit;
-    opacity: 0.18;
-    mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-    background-size: 180px 180px;
-    z-index: 0;
-}
+.cp-card::before { display: none; }
 .cp-card > * { position: relative; z-index: 1; }
 
 .cp-prose {
-    color: #4b5563;
+    color: #6B6B70;
     font-family: inherit;
     line-height: 1.65;
 }
 .cp-prose h1, .cp-prose h2, .cp-prose h3 {
-    color: #1f2933;
+    color: #0A0A0A;
     font-weight: 700;
     letter-spacing: -0.01em;
     margin-top: 2.25rem;
@@ -481,11 +470,11 @@ html.is-safari .safari-backdrop {
 .cp-prose h2 { font-size: 1.35rem; }
 .cp-prose h3 { font-size: 1.1rem; }
 .cp-prose p { margin-bottom: 1rem; }
-.cp-prose a { color: #0D9488; text-decoration: underline; text-underline-offset: 3px; }
-.cp-prose a:hover { color: #0F766E; }
+.cp-prose a { color: #007AFF; text-decoration: underline; text-underline-offset: 3px; }
+.cp-prose a:hover { color: #0066D6; }
 .cp-prose ul, .cp-prose ol { margin: 0.75rem 0 1rem 1.25rem; }
 .cp-prose li { margin-bottom: 0.35rem; }
-.cp-prose strong { color: #1f2933; }
+.cp-prose strong { color: #0A0A0A; }
 
 /* ── Lesson reader scope ─────────────────────────────────────────────── */
 .lesson-prose { font-feature-settings: "ss01", "ss02"; }

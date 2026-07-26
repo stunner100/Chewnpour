@@ -125,14 +125,14 @@ const ResetPassword = () => {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
                 {/* Left — pitch */}
                 <div className="hidden lg:flex flex-col gap-8">
-                    <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#E8651B]">
-                        <span className="inline-block w-8 h-[2px] bg-[#E8651B]" /> Account recovery
+                    <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#007AFF]">
+                        <span className="inline-block w-8 h-[2px] bg-[#007AFF]" /> Account recovery
                     </div>
                     <h1 className="text-5xl xl:text-6xl font-semibold leading-[1.05] tracking-tight">
                         {token ? (
                             <>
                                 Set a<br />
-                                <span className="text-[#E8651B]">new</span>
+                                <span className="text-[#007AFF]">new</span>
                                 <br />
                                 <span className="inline-flex items-center gap-3">
                                     <ArrowBadge size={44} /> password
@@ -149,7 +149,7 @@ const ResetPassword = () => {
                             </>
                         )}
                     </h1>
-                    <p className="text-[#687384] text-base leading-relaxed max-w-md">
+                    <p className="text-[#6B6B70] text-base leading-relaxed max-w-md">
                         {token
                             ? 'Choose a strong password you haven\u2019t used before. Eight characters minimum — no previously leaked passwords please.'
                             : 'Enter the email tied to your account and we\u2019ll send a reset link. No spam, ever.'}
@@ -162,7 +162,7 @@ const ResetPassword = () => {
                         <h2 className="text-2xl font-semibold mb-1">
                             {token ? 'Set a new password' : 'Reset your password'}
                         </h2>
-                        <p className="text-sm text-[#687384]">
+                        <p className="text-sm text-[#6B6B70]">
                             {token
                                 ? 'Choose a strong password you haven\u2019t used before.'
                                 : 'Enter your email and we\u2019ll send a reset link.'}
@@ -170,7 +170,7 @@ const ResetPassword = () => {
                     </div>
 
                     {error && (
-                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[#B45309] flex items-center gap-2">
+                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#007AFF]/10 px-4 py-3 text-sm text-[#B45309] flex items-center gap-2">
                             <AppIcon name="error" className="text-[18px]" />
                             {error}
                         </div>
@@ -258,9 +258,9 @@ const ResetPassword = () => {
                         </form>
                     )}
 
-                    <p className="mt-6 text-center text-sm text-[#687384]">
+                    <p className="mt-6 text-center text-sm text-[#6B6B70]">
                         Remembered it?{' '}
-                        <Link to="/login" className="font-semibold text-[rgb(13, 148, 136)] hover:underline">
+                        <Link to="/login" className="font-semibold text-[#007AFF] hover:underline">
                             Back to sign in
                         </Link>
                     </p>
