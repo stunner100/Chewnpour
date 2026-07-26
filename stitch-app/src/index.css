@@ -633,12 +633,18 @@ html.is-safari .safari-backdrop {
     --background: 249 249 249;
     --cp-primary: #007AFF;
     --cp-primary-hover: #0066D6;
+    --cp-cta: #111111;
+    --cp-cta-hover: #000000;
+    --cp-cta-foreground: #FFFFFF;
 }
 
 .dark .cp-theme {
     --background: 12 13 16;
     --cp-primary: #5AC8FA;
     --cp-primary-hover: #94C2FF;
+    --cp-cta: #FFFFFF;
+    --cp-cta-hover: #E5E5EA;
+    --cp-cta-foreground: #0A0A0A;
 }
 
 .cp-theme.dashboard-shell {
@@ -705,12 +711,28 @@ html.is-safari .safari-backdrop {
   background-color: #FFFFFF !important;
 }
 
+.cp-theme .bg-cta,
+.cp-theme .btn-primary {
+    background-color: var(--cp-cta) !important;
+    color: var(--cp-cta-foreground) !important;
+}
+
+.cp-theme .hover\:bg-cta-hover:hover,
+.cp-theme .btn-primary:hover:not(:disabled) {
+    background-color: var(--cp-cta-hover) !important;
+}
+
+.cp-theme .text-cta-foreground {
+    color: var(--cp-cta-foreground) !important;
+}
+
 .dark .cp-theme.dashboard-shell {
     color: #e9e9ee;
 }
 
 .dark .cp-theme .bg-background-light,
-.dark .cp-theme .bg-surface {
+.dark .cp-theme .bg-surface,
+.dark .cp-theme .bg-white {
     background-color: #161719 !important;
 }
 
@@ -752,8 +774,11 @@ html.is-safari .safari-backdrop {
     border-color: #2a2b30 !important;
 }
 
+.dark .cp-theme .focus\:ring-primary-soft:focus,
+.dark .cp-theme .focus-within\:ring-primary-soft:focus-within,
+.dark .cp-theme .ring-primary-soft,
 .dark .cp-theme .focus-visible\:ring-primary-soft:focus-visible {
-    --tw-ring-color: rgba(245, 158, 11, 0.35) !important;
+    --tw-ring-color: rgba(90, 200, 250, 0.35) !important;
 }
 
 .dark .cp-theme .focus-visible\:ring-offset-2:focus-visible {
@@ -770,4 +795,8 @@ html.is-safari .safari-backdrop {
 
 .dark .cp-theme .settings-tutor-card {
     background-color: #161719 !important;
+}
+
+.dark .cp-theme .bg-error-soft {
+    background-color: rgba(255, 59, 48, 0.16) !important;
 }

@@ -170,7 +170,7 @@ const DashboardLayout = ({ children }) => {
         <SidebarProvider className="dashboard-shell cp-theme text-text-primary">
             <AppSidebar />
             <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-white transition-[width,height] ease-linear">
+                <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">
                     <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:px-4">
                         <SidebarTrigger className="-ml-1 min-h-11 min-w-11" />
                         <Separator
@@ -185,7 +185,7 @@ const DashboardLayout = ({ children }) => {
                         >
                             <AppIcon name="search" className="absolute left-3 text-text-muted" aria-hidden="true" />
                             <span className="truncate">Search materials, lessons, or topics...</span>
-                            <kbd className="ml-auto hidden items-center gap-0.5 rounded-md border border-border-default bg-white px-2 py-0.5 font-mono text-[10px] text-text-muted sm:inline-flex">
+                            <kbd className="ml-auto hidden items-center gap-0.5 rounded-md border border-border-default bg-surface px-2 py-0.5 font-mono text-[10px] text-text-muted sm:inline-flex">
                                 ⌘K
                             </kbd>
                         </button>

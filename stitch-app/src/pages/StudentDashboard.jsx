@@ -21,7 +21,7 @@ const greetingForHour = (hour) => {
 };
 
 const StatCard = ({ label, value, icon }) => (
-  <div className="rounded-[20px] border border-border-subtle bg-white px-5 py-4 shadow-sm">
+  <div className="rounded-[20px] border border-border-subtle bg-surface px-5 py-4 shadow-sm">
     <div className="flex items-center justify-between gap-3">
       <p className="text-body-sm font-medium text-text-secondary">{label}</p>
       <span className="inline-flex size-9 items-center justify-center rounded-xl bg-primary-subtle text-primary">
@@ -145,7 +145,7 @@ const StudentDashboard = () => {
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-          <section className="rounded-[24px] border border-border-subtle bg-white p-6 shadow-sm md:p-7">
+          <section className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm md:p-7">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">Continue learning</p>
@@ -204,7 +204,7 @@ const StudentDashboard = () => {
             )}
           </section>
 
-          <section className="flex flex-col rounded-[24px] border border-dashed border-border-default bg-white p-6 shadow-sm md:p-7">
+          <section className="flex flex-col rounded-[24px] border border-dashed border-border-default bg-surface p-6 shadow-sm md:p-7">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-subtle text-primary">
               <AppIcon name="cloud_upload" className="text-[28px]" aria-hidden="true" />
             </div>
@@ -219,7 +219,7 @@ const StudentDashboard = () => {
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <section className="rounded-[24px] border border-border-subtle bg-white p-6 shadow-sm">
+          <section className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display text-display-sm font-bold text-text-primary">Recent materials</h2>
               <Link to="/dashboard/library" className="text-body-sm font-semibold text-primary hover:text-primary-hover">
@@ -237,7 +237,7 @@ const StudentDashboard = () => {
                 {recentUploads.map((upload) => (
                   <li key={upload.id} className="flex min-h-14 items-center justify-between gap-3 py-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#FFE5E5] text-[#FF3B30]">
+                      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-error-soft text-error">
                         <AppIcon name="description" className="text-[20px]" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
@@ -257,7 +257,7 @@ const StudentDashboard = () => {
             )}
           </section>
 
-          <section className="rounded-[24px] border border-border-subtle bg-white p-6 shadow-sm">
+          <section className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
             <h2 className="font-display text-display-sm font-bold text-text-primary">Quick actions</h2>
             <div className="mt-4 grid grid-cols-2 gap-2">
               {[
