@@ -206,14 +206,9 @@ const LandingPageStyles = () => (
     }
     .slate-hero-bg {
       background:
-        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,122,255,0.08), transparent 60%),
-        linear-gradient(180deg, #FFFFFF 0%, #F9F9F9 100%);
-    }
-    .slate-paper {
-      background-image:
-        linear-gradient(rgba(0,122,255,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,122,255,0.04) 1px, transparent 1px);
-      background-size: 28px 28px;
+        radial-gradient(ellipse 70% 55% at 15% 40%, rgba(147, 197, 253, 0.22), transparent 55%),
+        radial-gradient(ellipse 60% 50% at 88% 55%, rgba(191, 219, 254, 0.28), transparent 50%),
+        linear-gradient(180deg, #FFFFFF 0%, #F7FAFF 48%, #F3F7FC 100%);
     }
     .slate-float {
       animation: slateFloat 7s ease-in-out infinite;
@@ -222,14 +217,105 @@ const LandingPageStyles = () => (
       animation: slateFloat 8.5s ease-in-out infinite;
       animation-delay: -2s;
     }
+    .slate-float-slow {
+      animation: slateFloat 11s ease-in-out infinite;
+      animation-delay: -4s;
+    }
     @keyframes slateFloat {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-10px); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .slate-float, .slate-float-delay { animation: none; }
+      .slate-float, .slate-float-delay, .slate-float-slow { animation: none; }
     }
   `}</style>
+);
+
+const LinedNotebookPaper = ({ className = '', style, holes = 'left', tape = false }) => (
+  <div
+    className={`pointer-events-none ${className}`}
+    style={style}
+    aria-hidden="true"
+  >
+    <div className="relative h-full w-full overflow-hidden rounded-sm bg-white/90 shadow-[0_18px_40px_rgba(59,130,246,0.12)]">
+      {/* horizontal ruled lines */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(to bottom, transparent 0, transparent 21px, rgba(147,197,253,0.45) 21px, rgba(147,197,253,0.45) 22px)',
+          backgroundPosition: '0 28px',
+        }}
+      />
+      {/* red margin line */}
+      <div
+        className="absolute top-0 bottom-0 w-px"
+        style={{ left: holes === 'left' ? 28 : undefined, right: holes === 'right' ? 28 : undefined, background: 'rgba(248,113,113,0.35)' }}
+      />
+      {/* spiral binder holes */}
+      <div className={`absolute top-3 bottom-3 flex flex-col justify-between ${holes === 'left' ? 'left-2' : 'right-2'}`}>
+        {Array.from({ length: 9 }).map((_, i) => (
+          <span
+            key={`hole-${i}`}
+            className="size-2.5 rounded-full border border-[#BFDBFE] bg-[#EFF6FF]/90 shadow-[inset_0_0_0_1px_rgba(147,197,253,0.35)]"
+          />
+        ))}
+      </div>
+      {tape && (
+        <span
+          className="absolute -top-2 right-5 h-5 w-12 rotate-6 rounded-[2px]"
+          style={{ background: 'rgba(147,197,253,0.45)', boxShadow: '0 1px 2px rgba(59,130,246,0.15)' }}
+        />
+      )}
+    </div>
+  </div>
+);
+
+const HeroDecor = () => (
+  <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+    {/* soft ambient washes */}
+    <div className="absolute -left-24 top-24 h-[420px] w-[420px] rounded-full bg-[#DBEAFE]/50 blur-3xl" />
+    <div className="absolute -right-16 top-40 h-[380px] w-[380px] rounded-full bg-[#BFDBFE]/45 blur-3xl" />
+
+    {/* faint document silhouette outlines */}
+    <svg className="absolute right-[8%] top-16 hidden h-40 w-32 opacity-40 lg:block" viewBox="0 0 120 150" fill="none">
+      <path d="M18 18h58l26 26v88H18V18z" stroke="#93C5FD" strokeWidth="2.5" />
+      <path d="M76 18v26h26" stroke="#93C5FD" strokeWidth="2.5" />
+      <path d="M34 70h52M34 88h40M34 106h46" stroke="#BFDBFE" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+    <svg className="absolute left-[12%] top-10 hidden h-28 w-24 opacity-30 lg:block" viewBox="0 0 100 120" fill="none">
+      <rect x="12" y="16" width="76" height="88" rx="6" stroke="#93C5FD" strokeWidth="2.5" />
+      <path d="M28 40h44M28 56h32M28 72h38" stroke="#BFDBFE" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+
+    {/* left ruled notebook sheet */}
+    <div className="slate-float absolute left-[-2%] top-[34%] hidden h-[340px] w-[210px] lg:block xl:left-[1%]">
+      <LinedNotebookPaper
+        holes="left"
+        className="relative inset-auto h-full w-full"
+        style={{ transform: 'rotate(-11deg)' }}
+      />
+    </div>
+
+    {/* right ruled notebook sheet with tape */}
+    <div className="slate-float-delay absolute right-[-1%] top-[42%] hidden h-[300px] w-[190px] lg:block xl:right-[2%]">
+      <LinedNotebookPaper
+        holes="right"
+        tape
+        className="relative inset-auto h-full w-full"
+        style={{ transform: 'rotate(8deg)' }}
+      />
+    </div>
+
+    {/* floating blue confetti / post-it rectangles */}
+    <span className="slate-float absolute left-[18%] top-[22%] hidden size-3 rounded-[3px] bg-[#93C5FD]/70 lg:block" />
+    <span className="slate-float-delay absolute left-[8%] top-[58%] hidden size-4 rounded-[4px] bg-[#BFDBFE]/80 lg:block" />
+    <span className="slate-float-slow absolute left-[22%] top-[72%] hidden h-5 w-3 rounded-[3px] bg-[#93C5FD]/55 blur-[1px] lg:block" />
+    <span className="slate-float absolute right-[20%] top-[24%] hidden size-3.5 rounded-[3px] bg-[#93C5FD]/75 lg:block" />
+    <span className="slate-float-delay absolute right-[12%] top-[66%] hidden h-4 w-6 rounded-[4px] bg-[#BFDBFE]/70 lg:block" />
+    <span className="slate-float-slow absolute right-[28%] top-[48%] hidden size-2.5 rounded-[2px] bg-[#60A5FA]/50 lg:block" />
+    <span className="slate-float absolute left-[48%] top-[18%] hidden size-2 rounded-[2px] bg-[#93C5FD]/60 lg:block" />
+    <span className="slate-float-delay absolute right-[42%] top-[78%] hidden size-3 rounded-[3px] bg-[#BFDBFE]/65 blur-[0.5px] lg:block" />
+  </div>
 );
 
 const LandingHeader = ({ captureLandingEvent, mobileMenuOpen, onToggleMobileMenu, onCloseMobileMenu }) => (
@@ -295,17 +381,7 @@ const LandingHeader = ({ captureLandingEvent, mobileMenuOpen, onToggleMobileMenu
 
 const HeroSection = ({ captureLandingEvent }) => (
   <section className="slate-hero-bg relative overflow-hidden px-5 pb-16 pt-14 sm:px-6 sm:pt-20">
-    <div className="pointer-events-none absolute inset-0 slate-paper opacity-60" aria-hidden="true" />
-    <div
-      className="slate-float pointer-events-none absolute left-[6%] top-28 hidden h-40 w-28 rounded-lg border border-white/70 bg-white/50 shadow-sm lg:block"
-      aria-hidden="true"
-      style={{ transform: 'rotate(-8deg)' }}
-    />
-    <div
-      className="slate-float-delay pointer-events-none absolute right-[8%] top-40 hidden h-36 w-24 rounded-lg border border-white/70 bg-white/40 shadow-sm lg:block"
-      aria-hidden="true"
-      style={{ transform: 'rotate(6deg)' }}
-    />
+    <HeroDecor />
 
     <div className="relative mx-auto max-w-[1120px]">
       <div className="max-w-2xl">
