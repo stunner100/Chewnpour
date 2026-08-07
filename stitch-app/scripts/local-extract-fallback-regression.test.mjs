@@ -78,12 +78,23 @@ assert.match(docxResult.text, /Docx local extract works/);
 assert.equal(docxResult.parser, 'docx_local');
 
 assert.match(uploadsSource, /from "\.\/localExtract\.js"/);
+assert.match(uploadsSource, /from "\.\/anydocClient\.js"/);
 assert.match(uploadsSource, /callLocalExtract/);
 assert.match(uploadsSource, /isLocalExtractable/);
+assert.match(uploadsSource, /callAnydocExtract/);
+assert.match(
+  uploadsSource,
+  /Anydoc unavailable .* Used local text extraction/,
+);
 assert.doesNotMatch(
   uploadsSource,
   /Configure Docling extraction to replace this bootstrap outline/,
   'Bootstrap Docling placeholder text must be removed.',
+);
+assert.doesNotMatch(
+  uploadsSource,
+  /callDoclingExtract|isDoclingEnabled|doclingClient/,
+  'Docling client must be removed from uploads finalize.',
 );
 assert.doesNotMatch(
   uploadsSource,

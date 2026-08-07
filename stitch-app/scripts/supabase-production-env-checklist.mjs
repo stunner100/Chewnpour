@@ -47,8 +47,6 @@ const RECOMMENDED = [
     { name: "FRONTEND_URLS", note: "https://chewnpour.com,https://www.chewnpour.com" },
     { name: "VITE_POSTHOG_KEY", note: "build-time analytics" },
     { name: "VITE_POSTHOG_HOST", note: "/ingest" },
-    { name: "DOCLING_EXTRACT_URL", note: "if PDF extraction service is live" },
-    { name: "DOCLING_SHARED_SECRET", note: "if Docling enabled" },
 ];
 
 const MUST_NOT_SET_FOR_CUTOVER = [

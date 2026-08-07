@@ -32,9 +32,15 @@ if (!/handleUploadsRequest/.test(apiRoute) || !/\/api\/uploads/.test(apiRoute)) 
   throw new Error('Expected api/router.js to route /api/uploads to the uploads HTTP handler.');
 }
 
-const doclingClient = await fs.readFile(path.join(root, 'server', 'doclingClient.js'), 'utf8');
-if (!/callDoclingExtract/.test(doclingClient) || !/isDoclingEnabled/.test(doclingClient)) {
-  throw new Error('Expected server/doclingClient.js to expose Docling extract helpers.');
+const anydocClient = await fs.readFile(path.join(root, 'server', 'anydocClient.js'), 'utf8');
+if (!/callAnydocExtract/.test(anydocClient) || !/isAnydocExtractable/.test(anydocClient)) {
+  throw new Error('Expected server/anydocClient.js to expose anydoc extract helpers.');
+}
+if (!uploadsSource.includes('callAnydocExtract') || !uploadsSource.includes('isAnydocExtractable')) {
+  throw new Error('Expected finalizeUploadForUser to use anydoc extraction.');
+}
+if (/doclingClient|callDoclingExtract|isDoclingEnabled/.test(uploadsSource)) {
+  throw new Error('Expected finalizeUploadForUser to stop depending on Docling.');
 }
 
 const localExtract = await fs.readFile(path.join(root, 'server', 'localExtract.js'), 'utf8');

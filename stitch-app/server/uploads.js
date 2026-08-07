@@ -1,11 +1,10 @@
 import { nanoid } from "nanoid";
 import { getPool } from "./db.js";
 import {
-    callDoclingExtract,
-    isDoclingEnabled,
-    isDoclingExtractable,
-    resolveDoclingParser,
-} from "./doclingClient.js";
+    callAnydocExtract,
+    isAnydocExtractable,
+    isAnydocUnsupportedError,
+} from "./anydocClient.js";
 import {
     callLocalExtract,
     isLocalExtractable,
@@ -20,6 +19,9 @@ import {
     assertUploadCreditsAvailable,
     chargeUploadIfNeeded,
 } from "./billing.js";
+
+const OCR_DEFERRED_WARNING =
+    "Scanned or image-only document; OCR is not enabled. Upload a text-based PDF, DOCX, or PPTX.";
 
 const MAX_EXTRACT_TEXT_CHARS = 500_000;
 
@@ -264,10 +266,10 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         contentType: row.content_type,
         fileName: row.file_name,
     };
-    const doclingCapable = isDoclingExtractable(meta);
+    const anydocCapable = isAnydocExtractable(meta);
     const localCapable = isLocalExtractable(meta);
 
-    if (!doclingCapable && !localCapable) {
+    if (!anydocCapable && !localCapable) {
         const deferred = await updateUploadRow(uploadId, {
             status: "ready",
             processing_step: "ready",
@@ -291,26 +293,56 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
 
     const extractionErrors = [];
 
-    if (isDoclingEnabled() && doclingCapable) {
+    const persistDeferredOcr = async (warnings = []) => {
+        const deferred = await updateUploadRow(uploadId, {
+            status: "ready",
+            processing_step: "ready",
+            extraction_status: "deferred",
+            extraction_warnings: JSON.stringify(
+                warnings.length > 0 ? warnings : [OCR_DEFERRED_WARNING],
+            ),
+            extracted_text: null,
+            char_count: 0,
+            page_count: null,
+            extraction_backend: null,
+            extraction_parser: null,
+        });
+        return finishReady(deferred);
+    };
+
+    if (anydocCapable) {
         try {
-            const parser = resolveDoclingParser(meta);
-            const payload = await callDoclingExtract({
+            const payload = await callAnydocExtract({
                 fileName: row.file_name,
                 contentType: row.content_type || "application/octet-stream",
+                fileType: row.file_type,
                 fileBuffer,
-                parser,
             });
+            const text = String(payload?.text || "").trim();
+            if (!text) {
+                return persistDeferredOcr([
+                    OCR_DEFERRED_WARNING,
+                    ...(payload?.warnings || []),
+                ]);
+            }
             const ready = await persistExtractedUpload(uploadId, {
-                text: payload?.text,
+                text,
                 pageCount: payload?.pageCount,
-                backend: payload?.backend || "docling",
-                parser: payload?.parser || parser,
+                backend: payload?.backend || "anydoc",
+                parser: payload?.parser || "anydoc",
                 warnings: payload?.warnings || [],
             });
             return finishReady(ready);
         } catch (error) {
-            extractionErrors.push(error.message || "Docling extraction failed");
-            console.warn("[uploads] Docling extract failed; trying local fallback", {
+            if (isAnydocUnsupportedError(error)) {
+                console.warn("[uploads] Anydoc unsupported (likely scanned); deferring", {
+                    uploadId,
+                    message: error?.message || String(error),
+                });
+                return persistDeferredOcr([OCR_DEFERRED_WARNING]);
+            }
+            extractionErrors.push(error.message || "Anydoc extraction failed");
+            console.warn("[uploads] Anydoc extract failed; trying local fallback", {
                 uploadId,
                 message: error?.message || String(error),
             });
@@ -321,10 +353,17 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         try {
             const payload = await tryLocalExtract({ row, fileBuffer });
             if (payload) {
+                const text = String(payload?.text || "").trim();
+                if (!text && anydocCapable) {
+                    return persistDeferredOcr([
+                        OCR_DEFERRED_WARNING,
+                        ...(payload?.warnings || []),
+                    ]);
+                }
                 const warnings = [...(payload.warnings || [])];
                 if (extractionErrors.length > 0) {
                     warnings.unshift(
-                        `Docling unavailable (${extractionErrors[0]}). Used local text extraction.`,
+                        `Anydoc unavailable (${extractionErrors[0]}). Used local text extraction.`,
                     );
                 }
                 const ready = await persistExtractedUpload(uploadId, {
@@ -338,22 +377,8 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         }
     }
 
-    // Images (and similar) that Docling could OCR, but we have no OCR host.
-    if (doclingCapable && !localCapable) {
-        const deferred = await updateUploadRow(uploadId, {
-            status: "ready",
-            processing_step: "ready",
-            extraction_status: "deferred",
-            extraction_warnings: JSON.stringify([
-                "This file needs OCR. Local text extraction cannot read it; connect a cloud OCR service later.",
-            ]),
-            extracted_text: null,
-            char_count: 0,
-            page_count: null,
-            extraction_backend: null,
-            extraction_parser: null,
-        });
-        return finishReady(deferred);
+    if (anydocCapable && !localCapable) {
+        return persistDeferredOcr();
     }
 
     const failed = await updateUploadRow(uploadId, {
