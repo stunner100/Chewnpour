@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/router.js": {
+      "includeFiles": "node_modules/@firecrawl/anydoc*/**"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

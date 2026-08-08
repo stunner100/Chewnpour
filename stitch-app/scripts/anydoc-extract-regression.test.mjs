@@ -126,6 +126,34 @@ assert.match(uploadsSource, /Scanned or image-only document; OCR is not enabled/
 assert.match(uploadsSource, /extraction_status: "deferred"/);
 assert.doesNotMatch(uploadsSource, /callDoclingExtract|doclingClient|isDoclingEnabled/);
 
+const anydocClientSource = await fs.readFile(
+  path.join(rootDir, "server/anydocClient.js"),
+  "utf8",
+);
+assert.match(
+  anydocClientSource,
+  /import\("@firecrawl\/anydoc"\)/,
+  "Anydoc must be lazy-loaded so API cold starts do not require the native binary",
+);
+assert.doesNotMatch(
+  anydocClientSource,
+  /^import \{[^}]*\} from "@firecrawl\/anydoc";/m,
+  "Top-level anydoc import must not crash the shared API router",
+);
+
+const routerSource = await fs.readFile(path.join(rootDir, "api/router.js"), "utf8");
+assert.match(
+  routerSource,
+  /@firecrawl\/anydoc-linux-x64-gnu/,
+  "Router must include Linux anydoc NAPI binaries for Vercel",
+);
+const vercelConfig = JSON.parse(
+  await fs.readFile(path.join(rootDir, "vercel.json"), "utf8"),
+);
+assert.match(
+  String(vercelConfig.functions?.["api/router.js"]?.includeFiles || ""),
+  /@firecrawl\/anydoc/,
+);
 const unsupported = new AnydocExtractError("image-only", { code: "unsupported" });
 unsupported.isUnsupported = true;
 assert.equal(isAnydocUnsupportedError(unsupported), true);

@@ -1,10 +1,16 @@
-import {
-    formatFromBytes,
-    formatFromExtension,
-    toMarkdownBytes,
-} from "@firecrawl/anydoc";
-
 const ANYDOC_FORMATS = new Set(["pdf", "docx", "pptx"]);
+
+let anydocModulePromise = null;
+
+const loadAnydoc = async () => {
+    if (!anydocModulePromise) {
+        anydocModulePromise = import("@firecrawl/anydoc").catch((error) => {
+            anydocModulePromise = null;
+            throw error;
+        });
+    }
+    return anydocModulePromise;
+};
 
 const sourceFingerprint = ({ fileType = "", contentType = "", fileName = "" } = {}) =>
     `${fileType} ${contentType} ${fileName}`.toLowerCase();
@@ -42,18 +48,15 @@ export const isAnydocExtractable = ({
     );
 };
 
-export const resolveAnydocFormat = ({
-    fileType = "",
-    contentType = "",
-    fileName = "",
-    fileBuffer,
-} = {}) => {
+const resolveFormatFromMeta = ({ fileType = "", contentType = "", fileName = "" } = {}) => {
     const extensionMatch = String(fileName || "").toLowerCase().match(/\.([a-z0-9]+)$/);
     if (extensionMatch) {
-        const fromExtension = formatFromExtension(extensionMatch[1]);
-        if (fromExtension && ANYDOC_FORMATS.has(fromExtension)) {
-            return fromExtension;
+        const ext = extensionMatch[1];
+        if (ext === "pdf" || ext === "docx" || ext === "pptx") {
+            return ext;
         }
+        if (ext === "docm") return "docx";
+        if (ext === "pptm" || ext === "ppsx" || ext === "ppsm") return "pptx";
     }
 
     const source = sourceFingerprint({ fileType, contentType, fileName });
@@ -66,19 +69,14 @@ export const resolveAnydocFormat = ({
     if (source.includes("pdf")) {
         return "pdf";
     }
-
-    if (fileBuffer) {
-        const bytes = Buffer.isBuffer(fileBuffer)
-            ? fileBuffer
-            : Buffer.from(fileBuffer);
-        const detected = formatFromBytes(bytes);
-        if (detected && ANYDOC_FORMATS.has(detected)) {
-            return detected;
-        }
-    }
-
     return null;
 };
+
+export const resolveAnydocFormat = ({
+    fileType = "",
+    contentType = "",
+    fileName = "",
+} = {}) => resolveFormatFromMeta({ fileType, contentType, fileName });
 
 export const callAnydocExtract = async ({
     fileName,
@@ -95,12 +93,25 @@ export const callAnydocExtract = async ({
     const bytes = Buffer.isBuffer(fileBuffer)
         ? fileBuffer
         : Buffer.from(fileBuffer);
-    const format = resolveAnydocFormat({
-        fileName,
-        contentType,
-        fileType,
-        fileBuffer: bytes,
-    });
+
+    let anydoc;
+    try {
+        anydoc = await loadAnydoc();
+    } catch (error) {
+        throw new AnydocExtractError(
+            `Anydoc extract error (load): ${error?.message || String(error)}`,
+            { code: "io" },
+        );
+    }
+
+    const { formatFromBytes, toMarkdownBytes } = anydoc;
+    let format = resolveFormatFromMeta({ fileName, contentType, fileType });
+    if (!format) {
+        const detected = formatFromBytes(bytes);
+        if (detected && ANYDOC_FORMATS.has(detected)) {
+            format = detected;
+        }
+    }
 
     try {
         const markdown = format

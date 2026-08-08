@@ -11,10 +11,18 @@ import { handleProgressRequest } from "../server/progressHttp.js";
 import { handleUploadsRequest } from "../server/uploadHttp.js";
 
 // Better Auth must parse the raw body itself.
+// Include anydoc NAPI binaries — file tracing often skips optionalDependencies.
 export const config = {
     api: {
         bodyParser: false,
     },
+    includeFiles: [
+        "node_modules/@firecrawl/anydoc/**",
+        "node_modules/@firecrawl/anydoc-linux-x64-gnu/**",
+        "node_modules/@firecrawl/anydoc-linux-arm64-gnu/**",
+        "node_modules/@firecrawl/anydoc-linux-x64-musl/**",
+        "node_modules/@firecrawl/anydoc-linux-arm64-musl/**",
+    ],
 };
 
 const authHandler = toNodeHandler(auth);
