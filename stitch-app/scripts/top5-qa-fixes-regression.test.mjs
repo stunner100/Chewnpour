@@ -46,10 +46,10 @@ assert.doesNotMatch(playableBlock, /explanation/, 'playable quiz DTO must omit e
 assert.match(migration, /courses_upload_id_unique/, 'courses upload_id uniqueness');
 assert.match(migration, /credit_ledger_spend_upload_unique/, 'one spend per upload');
 
-assert.match(resetSource, /Password reset unavailable/, 'reset page must be honest stub');
-assert.doesNotMatch(loginSource, /Forgot password\?/, 'login must hide broken forgot-password link');
-assert.match(examSource, /Exam practice/, 'exam hub uses practice labelling');
-assert.match(examSource, /same question bank as Quizzes/, 'exam hub discloses shared quiz bank');
+assert.match(resetSource, /requestPasswordReset/, 'reset page must request email');
+assert.match(loginSource, /Forgot password\?/, 'login must show forgot-password link');
+assert.match(examSource, /Timed exams/, 'exam hub uses timed exam labelling');
+assert.match(examSource, /\/api\/exams/, 'exam hub starts course exams via API');
 
 const ocrText = extractTextFromOcrSpaceResult({
   ParsedResults: [

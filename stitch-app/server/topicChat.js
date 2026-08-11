@@ -3,6 +3,7 @@ import { getPool } from "./db.js";
 import { getTopicForUser } from "./courses.js";
 import { callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
 import { getProfileForUser } from "./profiles.js";
+import { retrievePassagesForTopic } from "./topicPassages.js";
 import {
     DEFAULT_TUTOR_PERSONA,
     getTutorPersonaPrompt,
@@ -148,10 +149,35 @@ export const askTopicTutor = async ({
         content: message.content,
     }));
 
+    let evidenceBlock = "";
+    try {
+        const retrieved = await retrievePassagesForTopic({
+            topicId,
+            userId,
+            query: cleanedQuestion,
+            k: 6,
+        });
+        if (Array.isArray(retrieved?.passages) && retrieved.passages.length > 0) {
+            evidenceBlock = retrieved.passages
+                .map((passage, index) =>
+                    `[Passage ${index + 1}]\n${String(passage.content || "").trim()}`,
+                )
+                .join("\n\n");
+        }
+    } catch (error) {
+        console.warn("[topicChat] passage retrieval failed", {
+            topicId,
+            message: error?.message || String(error),
+        });
+    }
+
+    const lessonBody = evidenceBlock
+        || String(topic.content || "").slice(0, 12000);
+
     const topicContext =
         `LESSON TITLE: ${topic.title || ""}\n` +
         `LESSON DESCRIPTION: ${topic.description || ""}\n` +
-        `LESSON CONTENT:\n"""\n${String(topic.content || "").slice(0, 12000)}\n"""`;
+        `${evidenceBlock ? "RETRIEVED LESSON PASSAGES" : "LESSON CONTENT"}:\n"""\n${lessonBody}\n"""`;
 
     let assistantAnswer = "";
     let backend = "fallback";

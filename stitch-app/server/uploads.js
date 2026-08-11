@@ -14,6 +14,11 @@ import {
     isOcrSpaceEnabled,
 } from "./ocrSpaceClient.js";
 import {
+    callDeepgramTranscribe,
+    isAudioUploadType,
+    isDeepgramTranscribeEnabled,
+} from "./deepgramTranscribe.js";
+import {
     createSignedUpload,
     deleteUploadObject,
     downloadUploadObject,
@@ -26,17 +31,28 @@ import {
 } from "./billing.js";
 
 const EXTRACTION_FAILED_MESSAGE =
-    "Could not extract text from this file. Upload a text-based PDF, DOCX, or PPTX. Scanned PDFs require OCR to be configured.";
+    "Could not extract text from this file. Upload a text-based PDF, DOCX, or PPTX, a scanned PDF with OCR configured, or an audio lecture for transcription.";
 
 const UNSUPPORTED_TYPE_MESSAGE =
-    "Only PDF, DOCX, and PPTX files are supported right now.";
+    "Only PDF, DOCX, PPTX, and audio (MP3, M4A, WAV, WEBM, OGG, AAC, FLAC) files are supported right now.";
 
 const OCR_UNSUPPORTED_HINT =
     "Anydoc reported an unsupported or image-only document.";
 
 const MAX_EXTRACT_TEXT_CHARS = 500_000;
 
-const ALLOWED_STUDY_FILE_TYPES = new Set(["pdf", "docx", "pptx"]);
+const ALLOWED_STUDY_FILE_TYPES = new Set([
+    "pdf",
+    "docx",
+    "pptx",
+    "mp3",
+    "m4a",
+    "wav",
+    "webm",
+    "ogg",
+    "aac",
+    "flac",
+]);
 
 export const isAllowedStudyUploadType = ({
     fileType = "",
@@ -44,11 +60,11 @@ export const isAllowedStudyUploadType = ({
     fileName = "",
 } = {}) => {
     const source = `${fileType} ${contentType} ${fileName}`.toLowerCase();
-    if (/\b(mp3|m4a|mp4|wav|webm|ogg|aac|flac|audio)\b/.test(source)) {
-        return false;
-    }
     if (source.includes("image") || /\.(png|jpe?g|webp|gif)\b/.test(source)) {
         return false;
+    }
+    if (isAudioUploadType({ fileType, contentType, fileName })) {
+        return true;
     }
     const normalizedType = String(fileType || "").trim().toLowerCase();
     if (ALLOWED_STUDY_FILE_TYPES.has(normalizedType)) return true;
@@ -293,6 +309,64 @@ const tryLocalExtract = async ({ row, fileBuffer }) => {
     });
 };
 
+const tryDeepgramTranscribe = async ({ row, fileBuffer }) => {
+    await updateUploadRow(row.id, {
+        processing_step: "transcribing",
+        extraction_status: "running",
+    });
+
+    if (!isDeepgramTranscribeEnabled()) {
+        return persistExtractionFailure(
+            row.id,
+            "Audio upload received, but transcription is not configured (DEEPGRAM_API_KEY).",
+            ["Deepgram listen is not configured."],
+        );
+    }
+
+    try {
+        const payload = await callDeepgramTranscribe({
+            fileBuffer,
+            contentType: row.content_type || "audio/mpeg",
+            fileName: row.file_name,
+        });
+        if (payload?.skipped) {
+            return persistExtractionFailure(
+                row.id,
+                EXTRACTION_FAILED_MESSAGE,
+                [payload.reason || "deepgram_skipped"],
+            );
+        }
+        const text = String(payload?.text || "").trim();
+        if (!text) {
+            return persistExtractionFailure(
+                row.id,
+                "Transcription finished but no speech was detected in this audio file.",
+                payload?.warnings || [],
+            );
+        }
+        return persistExtractedUpload(row.id, {
+            text,
+            pageCount: null,
+            backend: payload?.backend || "deepgram",
+            parser: payload?.parser || "listen",
+            warnings: [
+                ...(payload?.warnings || []),
+                "Transcribed with Deepgram.",
+            ],
+        });
+    } catch (error) {
+        console.warn("[uploads] Deepgram transcription failed", {
+            uploadId: row.id,
+            message: error?.message || String(error),
+        });
+        return persistExtractionFailure(
+            row.id,
+            `Transcription failed: ${error?.message || "unknown error"}`,
+            [],
+        );
+    }
+};
+
 const tryOcrSpaceFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
     await updateUploadRow(row.id, {
         processing_step: "ocr",
@@ -432,6 +506,16 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         contentType: row.content_type,
         fileName: row.file_name,
     };
+    const audioUpload = isAudioUploadType(meta);
+    if (audioUpload) {
+        const readyOrFailed = await tryDeepgramTranscribe({ row, fileBuffer });
+        return finishReadyIfComplete({
+            userId,
+            uploadId,
+            readyRow: readyOrFailed,
+        });
+    }
+
     const anydocCapable = isAnydocExtractable(meta);
     const localCapable = isLocalExtractable(meta);
 

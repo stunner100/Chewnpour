@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { getPool } from "./db.js";
 import { ensureProfile } from "./profiles.js";
 import { ensureBillingAccount } from "./billing.js";
+import { isResendConfigured, sendPasswordResetEmail } from "./email.js";
 
 const LOCAL_ORIGINS = [
     "http://localhost:5173",
@@ -126,6 +127,24 @@ export const auth = betterAuth({
     emailAndPassword: {
         enabled: true,
         autoSignIn: true,
+        resetPasswordTokenExpiresIn: 3600,
+        sendResetPassword: async ({ user, url }) => {
+            if (!isResendConfigured()) {
+                console.warn("[auth] password reset requested but Resend is not configured");
+                return;
+            }
+            // Do not await — avoids timing attacks and keeps auth response snappy.
+            void sendPasswordResetEmail({
+                to: user.email,
+                url,
+                userName: user.name,
+            }).catch((error) => {
+                console.warn("[auth] failed to send reset password email", {
+                    email: user?.email,
+                    message: error?.message || String(error),
+                });
+            });
+        },
     },
     socialProviders: googleConfigured
         ? {

@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { getPool } from "./db.js";
 import { generateCourseCurriculumWithAi } from "./aiCourseGeneration.js";
 import { stripCourseTitle } from "./courseGeneration.js";
+import { indexTopicPassages } from "./topicPassages.js";
 
 const toClientCourse = (row, extras = {}) => {
     if (!row) return null;
@@ -170,6 +171,21 @@ export const ensureCourseFromUpload = async ({
                     question.sortOrder ?? 0,
                 ],
             );
+        }
+
+        try {
+            await indexTopicPassages({
+                topicId,
+                courseId,
+                uploadId,
+                userId,
+                content: String(spec.content || ""),
+            });
+        } catch (error) {
+            console.warn("[courses] topic passage indexing failed", {
+                topicId,
+                message: error?.message || String(error),
+            });
         }
     }
 

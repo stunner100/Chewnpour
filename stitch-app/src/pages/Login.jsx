@@ -272,6 +272,14 @@ const Login = () => {
                                     <AppIcon name={showPassword ? 'visibility' : 'visibility_off'} className="text-[18px]" />
                                 </button>
                             </div>
+                            <div className="mt-2 flex justify-end">
+                                <Link
+                                    to="/reset-password"
+                                    className="text-sm font-semibold text-[#007AFF] hover:underline"
+                                >
+                                    Forgot password?
+                                </Link>
+                            </div>
                         </div>
 
                         <button type="submit" disabled={loading} className="cp-btn-primary mt-2">

@@ -14,7 +14,7 @@ const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-
 const moreItems = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, or PPTX files' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'All uploaded files and progress' },
-    { label: 'Exam practice', icon: 'school', path: '/dashboard/exam', description: 'Focused topic MCQ practice from your courses' },
+    { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
     { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', description: 'Ask follow-up questions' },
     { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
 ];

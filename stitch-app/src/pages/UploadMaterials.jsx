@@ -16,16 +16,33 @@ const SUPPORTED_STUDY_MIME_TYPES = new Map([
     ['application/pdf', 'pdf'],
     ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx'],
     ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx'],
+    ['audio/mpeg', 'mp3'],
+    ['audio/mp3', 'mp3'],
+    ['audio/mp4', 'm4a'],
+    ['audio/x-m4a', 'm4a'],
+    ['audio/wav', 'wav'],
+    ['audio/x-wav', 'wav'],
+    ['audio/webm', 'webm'],
+    ['audio/ogg', 'ogg'],
+    ['audio/aac', 'aac'],
+    ['audio/flac', 'flac'],
 ]);
 
 const SUPPORTED_STUDY_EXTENSIONS = new Set([
     'pdf',
     'pptx',
     'docx',
+    'mp3',
+    'm4a',
+    'wav',
+    'webm',
+    'ogg',
+    'aac',
+    'flac',
 ]);
 
-const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx';
-const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX';
+const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.wav,.webm,.ogg,.aac,.flac';
+const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, MP3, M4A, WAV, WEBM, OGG, AAC, FLAC';
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const resolveStudyUploadFileType = (file) => {
