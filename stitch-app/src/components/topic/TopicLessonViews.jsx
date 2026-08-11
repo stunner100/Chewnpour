@@ -12,7 +12,7 @@ import TopicSettingsModal from '../TopicSettingsModal';
 import TopicReExplainModal from '../TopicReExplainModal';
 import TopicContentPanel from './TopicContentPanel';
 import TopicQuizPanel from './TopicQuizPanel';
-import { buildObjectiveExamRoute } from '../../lib/topicLessonHelpers';
+import { buildTopicQuizRoute } from '../../lib/topicLessonHelpers';
 import AppIcon from '../AppIcon';
 
 export const TopicEmptyState = ({ title, description, action }) => (
@@ -39,6 +39,8 @@ export const TopicStudyModeView = ({
     headerTopicTitle,
     onSelect,
     onSkip,
+    onStartExam,
+    timedExamAvailable = false,
 }) => (
     <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden">
         <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
@@ -61,6 +63,7 @@ export const TopicStudyModeView = ({
                 topicTitle={headerTopicTitle}
                 onSelect={onSelect}
                 onSkip={onSkip}
+                onStartExam={timedExamAvailable ? onStartExam : undefined}
             />
         </main>
     </div>
@@ -372,7 +375,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
                 </button>
             ) : examTopicId ? (
                 <Link
-                    to={buildObjectiveExamRoute(examTopicId)}
+                    to={buildTopicQuizRoute(examTopicId)}
                     className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm"
                 >
                     <span>Take the quiz</span>

@@ -42,6 +42,8 @@ const TopicDetail = () => {
                 headerTopicTitle={controller.headerTopicTitle}
                 onSelect={controller.handleStudyModeSelect}
                 onSkip={controller.handleStudyModeSkip}
+                onStartExam={controller.handleStartExam}
+                timedExamAvailable={controller.timedExamAvailable}
             />
         );
     }

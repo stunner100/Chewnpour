@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
+import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const filterTabs = [
     { label: 'All', value: 'all' },
@@ -58,6 +60,7 @@ const MaterialsSkeleton = () => (
 
 const MyMaterialsLibrary = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [activeFilter, setActiveFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [uploads, setUploads] = useState([]);
@@ -65,15 +68,17 @@ const MyMaterialsLibrary = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    const loadLibrary = useCallback(async () => {
+    const loadLibrary = useCallback(async ({ silent = false } = {}) => {
         if (!user?.id) {
             setUploads([]);
             setCourses([]);
-            setLoading(false);
-            return;
+            if (!silent) setLoading(false);
+            return { uploads: [], courses: [] };
         }
-        setLoading(true);
-        setError('');
+        if (!silent) {
+            setLoading(true);
+            setError('');
+        }
         try {
             const [uploadsRes, coursesRes] = await Promise.all([
                 fetch('/api/uploads', { credentials: 'include', headers: { Accept: 'application/json' } }),
@@ -83,18 +88,41 @@ const MyMaterialsLibrary = () => {
             const coursesPayload = await coursesRes.json().catch(() => ({}));
             if (!uploadsRes.ok) throw new Error(uploadsPayload.error || 'Failed to load uploads');
             if (!coursesRes.ok) throw new Error(coursesPayload.error || 'Failed to load courses');
-            setUploads(Array.isArray(uploadsPayload.uploads) ? uploadsPayload.uploads : []);
-            setCourses(Array.isArray(coursesPayload.courses) ? coursesPayload.courses : []);
+            const nextUploads = Array.isArray(uploadsPayload.uploads) ? uploadsPayload.uploads : [];
+            const nextCourses = Array.isArray(coursesPayload.courses) ? coursesPayload.courses : [];
+            setUploads(nextUploads);
+            setCourses(nextCourses);
+            return { uploads: nextUploads, courses: nextCourses };
         } catch (err) {
-            setError(err.message || 'Could not load library');
+            if (!silent) setError(err.message || 'Could not load library');
+            return { uploads: [], courses: [] };
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [user?.id]);
 
     useEffect(() => {
         loadLibrary();
     }, [loadLibrary]);
+
+    useUploadReadinessPoll({
+        enabled: Boolean(user?.id),
+        refresh: loadLibrary,
+        uploads,
+        courses,
+        onNewlyReady: (readyItems) => {
+            const first = readyItems[0];
+            if (!first) return;
+            watermelonToast(`${first.title} is ready to study`, {
+                type: 'success',
+                duration: 8000,
+                action: {
+                    label: 'Open lessons',
+                    onClick: () => navigate(first.lessonsHref),
+                },
+            });
+        },
+    });
 
     const materials = useMemo(() => {
         return uploads.map((upload) => {
@@ -107,6 +135,7 @@ const MyMaterialsLibrary = () => {
             return {
                 uploadId: upload.id,
                 courseId: course?.id || upload.courseId || null,
+                firstQuizTopicId: course?.firstQuizTopicId || upload.firstQuizTopicId || null,
                 title: course?.title || upload.fileName,
                 fileName: upload.fileName,
                 kind: resolveFileKind(upload.fileType, upload.fileName),
@@ -274,6 +303,28 @@ const MyMaterialsLibrary = () => {
                                                 Continue Study
                                                 <AppIcon name="arrow_forward" className="text-[16px]" />
                                             </Link>
+                                            {Number(material.quizzes || 0) > 0 ? (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <Link
+                                                        to={
+                                                            material.firstQuizTopicId
+                                                                ? `/dashboard/quiz/${encodeURIComponent(material.firstQuizTopicId)}`
+                                                                : '/dashboard/quiz'
+                                                        }
+                                                        className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
+                                                    >
+                                                        <AppIcon name="quiz" className="text-[16px]" />
+                                                        Practice quiz
+                                                    </Link>
+                                                    <Link
+                                                        to={`/dashboard/exam?courseId=${encodeURIComponent(material.courseId)}`}
+                                                        className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
+                                                    >
+                                                        <AppIcon name="school" className="text-[16px]" />
+                                                        Timed exam
+                                                    </Link>
+                                                </div>
+                                            ) : null}
                                             <button
                                                 type="button"
                                                 onClick={() => handleDelete(material.uploadId)}

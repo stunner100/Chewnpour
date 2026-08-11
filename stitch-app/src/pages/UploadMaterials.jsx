@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
+import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
+import { isUploadStudyReady } from '../lib/uploadReadiness';
 
 const typeConfig = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -204,27 +207,47 @@ const UploadMaterials = () => {
 
     const userId = user?.id || '';
 
-    const refreshUploads = useCallback(async () => {
+    const refreshUploads = useCallback(async ({ silent = false } = {}) => {
         if (!userId) {
             setUploads([]);
-            setIsLoading(false);
-            return;
+            if (!silent) setIsLoading(false);
+            return { uploads: [] };
         }
-        setIsLoading(true);
+        if (!silent) setIsLoading(true);
         try {
             const nextUploads = await fetchUploads();
             setUploads(nextUploads);
+            return { uploads: nextUploads };
         } catch (error) {
             console.error('Failed to load uploads:', error);
-            setUploadError(error.message || 'Could not load uploads.');
+            if (!silent) setUploadError(error.message || 'Could not load uploads.');
+            return { uploads: [] };
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }, [userId]);
 
     useEffect(() => {
         refreshUploads();
     }, [refreshUploads]);
+
+    useUploadReadinessPoll({
+        enabled: Boolean(userId),
+        refresh: refreshUploads,
+        uploads,
+        onNewlyReady: (readyItems) => {
+            const first = readyItems[0];
+            if (!first) return;
+            watermelonToast(`${first.title} is ready to study`, {
+                type: 'success',
+                duration: 8000,
+                action: {
+                    label: 'Open lessons',
+                    onClick: () => navigate(first.lessonsHref),
+                },
+            });
+        },
+    });
 
     const recentUploads = useMemo(
         () => (uploads || []).filter((upload) => !isInternalQaUpload(upload)).slice(0, 3),
@@ -275,6 +298,20 @@ const UploadMaterials = () => {
                 const without = (current || []).filter((item) => item.id !== finalized.id);
                 return [finalized, ...without];
             });
+            if (isUploadStudyReady(finalized)) {
+                watermelonToast(`${finalized.fileName || 'Your material'} is ready to study`, {
+                    type: 'success',
+                    duration: 8000,
+                    action: {
+                        label: 'Open lessons',
+                        onClick: () => navigate(
+                            finalized.courseId
+                                ? `/dashboard/lessons?courseId=${encodeURIComponent(finalized.courseId)}`
+                                : '/dashboard/library',
+                        ),
+                    },
+                });
+            }
         } catch (err) {
             console.error('Upload failed:', err);
             if (err?.status === 402 || err?.code === 'UPLOAD_CREDITS_EXHAUSTED') {

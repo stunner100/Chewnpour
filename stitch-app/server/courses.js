@@ -6,6 +6,18 @@ import { indexTopicPassages } from "./topicPassages.js";
 
 const toClientCourse = (row, extras = {}) => {
     if (!row) return null;
+    let quizTopics = extras.quizTopics;
+    if (quizTopics == null && row.quiz_topics != null) {
+        quizTopics = row.quiz_topics;
+        if (typeof quizTopics === "string") {
+            try {
+                quizTopics = JSON.parse(quizTopics);
+            } catch {
+                quizTopics = [];
+            }
+        }
+    }
+    if (!Array.isArray(quizTopics)) quizTopics = [];
     return {
         id: row.id,
         userId: row.user_id,
@@ -18,6 +30,7 @@ const toClientCourse = (row, extras = {}) => {
         quizzesReady: Number(extras.quizzesReady ?? row.quizzes_ready ?? 0),
         firstTopicId: extras.firstTopicId ?? row.first_topic_id ?? null,
         firstQuizTopicId: extras.firstQuizTopicId ?? row.first_quiz_topic_id ?? null,
+        quizTopics,
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
     };
@@ -200,7 +213,8 @@ export const listCoursesForUser = async (userId) => {
             COALESCE(t.topic_count, 0) AS topic_count,
             COALESCE(q.quiz_topic_count, 0) AS quizzes_ready,
             first_topic.first_topic_id,
-            first_quiz.first_quiz_topic_id
+            first_quiz.first_quiz_topic_id,
+            COALESCE(quiz_topics.quiz_topics, '[]'::json) AS quiz_topics
          FROM courses c
          LEFT JOIN (
             SELECT course_id, COUNT(*)::int AS topic_count
@@ -227,6 +241,24 @@ export const listCoursesForUser = async (userId) => {
             ORDER BY t2.sort_order ASC, t2.created_at ASC
             LIMIT 1
          ) first_quiz ON TRUE
+         LEFT JOIN LATERAL (
+            SELECT json_agg(
+                json_build_object(
+                    'topicId', t3.id,
+                    'title', t3.title,
+                    'questionCount', qq3.question_count
+                )
+                ORDER BY t3.sort_order ASC, t3.created_at ASC
+            ) AS quiz_topics
+            FROM topics t3
+            INNER JOIN (
+                SELECT topic_id, COUNT(*)::int AS question_count
+                FROM questions
+                GROUP BY topic_id
+            ) qq3 ON qq3.topic_id = t3.id
+            WHERE t3.course_id = c.id
+              AND qq3.question_count > 0
+         ) quiz_topics ON TRUE
          WHERE c.user_id = $1
          ORDER BY c.created_at DESC`,
         [userId],
@@ -259,14 +291,21 @@ export const getCourseForUser = async (userId, courseId) => {
     );
 
     const topics = topicsResult.rows.map((row) => toClientTopic(row));
-    const quizTopics = topics.filter((topic) => topic.questionCount > 0);
+    const quizTopics = topics
+        .filter((topic) => topic.questionCount > 0)
+        .map((topic) => ({
+            topicId: topic.id,
+            title: topic.title,
+            questionCount: topic.questionCount,
+        }));
 
     return {
         ...toClientCourse(course, {
             topicCount: topics.length,
             quizzesReady: quizTopics.length,
             firstTopicId: topics[0]?.id || null,
-            firstQuizTopicId: quizTopics[0]?.id || null,
+            firstQuizTopicId: quizTopics[0]?.topicId || null,
+            quizTopics,
         }),
         topics,
     };

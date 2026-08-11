@@ -2,10 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import AppIcon from './AppIcon';
 
-const buildObjectiveExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=mcq` : null;
-const buildEssayExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=essay` : null;
+const buildTopicQuizRoute = (topicId) =>
+    topicId ? `/dashboard/quiz/${topicId}?autostart=mcq` : null;
+const buildEssayQuizRoute = (topicId) =>
+    topicId ? `/dashboard/quiz/${topicId}?autostart=essay` : null;
 
 /**
  * Ranked "What should I do next?" guidance shown after lessons or exams.
@@ -30,7 +30,7 @@ const NextStepsGuidance = ({
     bestScore,
     hasWordBank,
     onOpenChat,
-    examLabel = 'Start the exam',
+    examLabel = 'Start the quiz',
     examDescription = 'Test your understanding with practice questions.',
 }) => {
     const score = percentage ?? bestScore;
@@ -38,8 +38,8 @@ const NextStepsGuidance = ({
     const isWeak = hasExamScore && score < 60;
     const isMid = hasExamScore && score >= 60 && score < 80;
     const isStrong = hasExamScore && score >= 80;
-    const objectiveExamRoute = buildObjectiveExamRoute(examTopicId);
-    const essayExamRoute = buildEssayExamRoute(examTopicId);
+    const objectiveExamRoute = buildTopicQuizRoute(examTopicId);
+    const essayExamRoute = buildEssayQuizRoute(examTopicId);
 
     // Build ranked actions based on performance
     const actions = [];

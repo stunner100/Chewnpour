@@ -26,8 +26,9 @@ import {
     ANALOGY_SECTION_PATTERN,
     COMMON_MISTAKE_SECTION_PATTERN,
     STEP_TERM_PATTERN,
-    buildObjectiveExamRoute,
-    buildEssayExamRoute,
+    buildTopicQuizRoute,
+    buildEssayQuizRoute,
+    buildTimedExamRoute,
     getCurrentHashTargetId,
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
@@ -856,8 +857,13 @@ export const useTopicDetail = () => {
     const examTopicId = isTopicQuizRoute
         ? topicId
         : (finalAssessmentTopic?._id || null);
-    const objectiveExamRoute = buildObjectiveExamRoute(examTopicId);
-    const essayExamRoute = buildEssayExamRoute(examTopicId);
+    const objectiveExamRoute = buildTopicQuizRoute(examTopicId);
+    const essayExamRoute = buildEssayQuizRoute(examTopicId);
+    const timedExamRoute = buildTimedExamRoute(courseId);
+    const timedExamAvailable = Number(topic?.questionCount || 0) > 0;
+    const handleStartExam = useCallback(() => {
+        navigate(timedExamRoute);
+    }, [navigate, timedExamRoute]);
     const objectiveExamActionLabel = isTopicQuizRoute
         ? (topicProgress?.bestScore != null ? 'Retry Objective Quiz' : 'Start Objective Quiz')
         : (examTopicId ? 'Take Final Objective Quiz' : 'Final Objective Quiz Preparing');
@@ -866,10 +872,10 @@ export const useTopicDetail = () => {
         : (examTopicId ? 'Take Final Essay' : 'Final Essay Preparing');
     const practiceDescription = isTopicQuizRoute
         ? 'Choose the format that fits how you want to test this lesson.'
-        : 'This topic is assessed in the final exam for better question quality.';
+        : 'This topic is assessed in the course quiz for better question quality.';
     const postLessonPrompt = isTopicQuizRoute
         ? 'Pick the next practice format for this topic.'
-        : 'This topic will be assessed in the final exam.';
+        : 'This topic will be assessed in the course quiz.';
 
     const { progress: readingProgress, activeId: activeSectionId } = useReadingProgress({
         toc: parsed.toc,
@@ -1054,6 +1060,7 @@ export const useTopicDetail = () => {
         filteredBlocks,
         handleAskTutor,
         handleReExplain,
+        handleStartExam,
         handleStudyModeSelect,
         handleStudyModeSkip,
         handleTermsStarred,
@@ -1110,6 +1117,7 @@ export const useTopicDetail = () => {
         studyMode,
         studyToolActions,
         studyToolSecondary,
+        timedExamAvailable,
         topic,
         topicId,
         topicIllustrationUrl,

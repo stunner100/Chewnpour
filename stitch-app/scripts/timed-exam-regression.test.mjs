@@ -15,19 +15,27 @@ const migration = await read('supabase/migrations/20260811211000_exam_attempts.s
 assert.match(examsSource, /startExamForCourse/, 'exams must support start');
 assert.match(examsSource, /submitExamAttempt/, 'exams must support submit');
 assert.match(examsSource, /toPlayableQuestion/, 'GET path must strip answers');
+assert.match(examsSource, /toReviewItems/, 'submitted exams must build review');
 assert.match(examsSource, /EXAM_EXPIRED/, 'late submit must reject');
 assert.doesNotMatch(
   examsSource.slice(
     examsSource.indexOf('const toPlayableQuestion'),
-    examsSource.indexOf('const shuffle'),
+    examsSource.indexOf('const parseOptions'),
   ),
   /correctIndex|correct_index|explanation/,
   'playable exam questions must omit answer key fields',
+);
+assert.match(
+  examsSource.slice(examsSource.indexOf('const toReviewItems')),
+  /correctIndex/,
+  'review items must include correctIndex after submit',
 );
 assert.match(examHttp, /handleExamsRequest/, 'exam HTTP handler required');
 assert.match(router, /handleExamsRequest/, 'router must mount /api/exams');
 assert.match(examUi, /useExamTimer/, 'exam UI must use countdown timer');
 assert.match(examUi, /\/api\/exams/, 'exam UI must call exam APIs');
+assert.match(examUi, /ExamReviewPanel|result\.review/, 'exam UI must show review after submit');
+assert.match(examUi, /courseId/, 'exam UI must support courseId preselect');
 assert.doesNotMatch(examUi, /Exam practice/, 'practice-only copy must be removed');
 assert.match(migration, /exam_attempts/, 'exam_attempts migration required');
 

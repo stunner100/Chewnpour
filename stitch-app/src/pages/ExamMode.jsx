@@ -1,34 +1,126 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import {
+  classifyStudyToolAvailability,
+  studyToolEmptyCopy,
+} from '../lib/uploadReadiness';
 
-const EmptyExamState = () => (
-  <section className="w-full rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
-    <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
-      <AppIcon name="school" />
-    </div>
-    <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
-      Upload material to unlock timed exams
-    </h2>
-    <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
-      Exams pull multiple-choice questions across every quiz-ready topic in a course and run on a countdown timer.
-    </p>
-    <Link
-      to="/dashboard/upload"
-      className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
-    >
-      <AppIcon name="cloud_upload" className="text-[20px]" />
-      Upload Material
-    </Link>
-  </section>
-);
+const EmptyExamState = ({ availability }) => {
+  const copy = studyToolEmptyCopy(availability);
+  return (
+    <section className="w-full rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
+      <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
+        <AppIcon name="school" />
+      </div>
+      <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
+        {copy.title.replace('get started', 'unlock timed exams')}
+      </h2>
+      <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
+        {availability === 'none'
+          ? 'Exams pull multiple-choice questions across every quiz-ready topic in a course and run on a countdown timer.'
+          : copy.description}
+      </p>
+      <Link
+        to={copy.ctaHref}
+        className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+      >
+        <AppIcon name="cloud_upload" className="text-[20px]" />
+        {copy.ctaLabel}
+      </Link>
+    </section>
+  );
+};
+
+const ExamReviewPanel = ({ result, onRetry, onBack }) => {
+  const review = Array.isArray(result?.review) ? result.review : [];
+  return (
+    <section className="rounded-2xl border border-border-subtle bg-surface p-space-6">
+      <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
+        Exam results
+      </h2>
+      <p className="mt-space-2 text-body-base text-text-secondary">
+        Score {result.score ?? 0}% · {result.correctCount ?? 0}/
+        {result.totalQuestions ?? 0} correct
+      </p>
+
+      {review.length > 0 ? (
+        <ul className="mt-space-5 space-y-space-3">
+          {review.map((item, index) => (
+            <li
+              key={item.questionId}
+              className={`rounded-xl border px-space-4 py-space-3 ${
+                item.isCorrect
+                  ? 'border-success/30 bg-success-soft/40'
+                  : 'border-error/30 bg-error-soft/40'
+              }`}
+            >
+              <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+                Question {index + 1} · {item.isCorrect ? 'Correct' : 'Incorrect'}
+              </p>
+              <p className="mt-1 font-body-base text-body-base font-medium text-text-primary">
+                {item.prompt}
+              </p>
+              <div className="mt-2 space-y-1 text-body-sm text-text-secondary">
+                <p>
+                  Your answer:{' '}
+                  {item.selectedIndex == null
+                    ? 'Skipped'
+                    : item.options?.[item.selectedIndex] || `Option ${item.selectedIndex + 1}`}
+                </p>
+                {!item.isCorrect ? (
+                  <p>
+                    Correct answer:{' '}
+                    {item.correctIndex == null
+                      ? 'Unavailable'
+                      : item.options?.[item.correctIndex] || `Option ${item.correctIndex + 1}`}
+                  </p>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="mt-space-5 flex flex-wrap gap-space-3">
+        {result.courseId ? (
+          <button
+            type="button"
+            className="rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-on-primary"
+            onClick={() => onRetry(result.courseId)}
+          >
+            Retry timed exam
+          </button>
+        ) : null}
+        {result.courseId ? (
+          <Link
+            to={`/dashboard/lessons?courseId=${encodeURIComponent(result.courseId)}`}
+            className="rounded-xl border border-border-subtle px-space-4 py-space-3 font-label-md"
+          >
+            Back to lessons
+          </Link>
+        ) : null}
+        <button
+          type="button"
+          className="rounded-xl border border-border-subtle px-space-4 py-space-3 font-label-md"
+          onClick={onBack}
+        >
+          Back to courses
+        </button>
+      </div>
+    </section>
+  );
+};
 
 const ExamMode = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const preferredCourseId = String(searchParams.get('courseId') || '').trim();
   const [courses, setCourses] = useState([]);
+  const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [startingCourseId, setStartingCourseId] = useState('');
@@ -41,19 +133,28 @@ const ExamMode = () => {
   const load = useCallback(async () => {
     if (!user?.id) {
       setCourses([]);
+      setUploads([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/courses', {
-        credentials: 'include',
-        headers: { Accept: 'application/json' },
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || 'Failed to load exam courses');
-      setCourses(Array.isArray(payload.courses) ? payload.courses : []);
+      const [coursesRes, uploadsRes] = await Promise.all([
+        fetch('/api/courses', {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        }),
+        fetch('/api/uploads', {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        }),
+      ]);
+      const coursesPayload = await coursesRes.json().catch(() => ({}));
+      const uploadsPayload = await uploadsRes.json().catch(() => ({}));
+      if (!coursesRes.ok) throw new Error(coursesPayload.error || 'Failed to load exam courses');
+      setCourses(Array.isArray(coursesPayload.courses) ? coursesPayload.courses : []);
+      setUploads(Array.isArray(uploadsPayload.uploads) ? uploadsPayload.uploads : []);
     } catch (err) {
       setError(err.message || 'Could not load exam courses');
     } finally {
@@ -65,12 +166,21 @@ const ExamMode = () => {
     load();
   }, [load]);
 
-  const examReadyCourses = useMemo(
-    () =>
-      courses.filter(
-        (course) => Number(course.quizzesReady || course.quizTopicCount || 0) > 0,
-      ),
-    [courses],
+  const examReadyCourses = useMemo(() => {
+    const ready = courses.filter(
+      (course) => Number(course.quizzesReady || course.quizTopicCount || 0) > 0,
+    );
+    if (!preferredCourseId) return ready;
+    return [...ready].sort((a, b) => {
+      if (a.id === preferredCourseId) return -1;
+      if (b.id === preferredCourseId) return 1;
+      return 0;
+    });
+  }, [courses, preferredCourseId]);
+
+  const emptyAvailability = useMemo(
+    () => classifyStudyToolAvailability({ uploads, courses }),
+    [uploads, courses],
   );
 
   const submitExam = useCallback(async (nextAnswers = answers) => {
@@ -235,27 +345,16 @@ const ExamMode = () => {
           Timed exams
         </h1>
         <p className="max-w-2xl font-body-base text-body-base text-text-secondary">
-          Start a countdown exam drawn from every quiz-ready topic in a course. Topic Quizzes stay available for untimed practice.
+          Start a countdown exam drawn from every quiz-ready topic in a course. Topic quizzes stay available for untimed practice.
         </p>
       </header>
 
       {result ? (
-        <section className="rounded-2xl border border-border-subtle bg-surface p-space-6">
-          <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
-            Exam results
-          </h2>
-          <p className="mt-space-2 text-body-base text-text-secondary">
-            Score {result.score ?? 0}% · {result.correctCount ?? 0}/
-            {result.totalQuestions ?? 0} correct
-          </p>
-          <button
-            type="button"
-            className="mt-space-4 rounded-xl border border-border-subtle px-space-4 py-space-3 font-label-md"
-            onClick={() => setResult(null)}
-          >
-            Back to courses
-          </button>
-        </section>
+        <ExamReviewPanel
+          result={result}
+          onRetry={(courseId) => startExam(courseId)}
+          onBack={() => setResult(null)}
+        />
       ) : null}
 
       {loading ? (
@@ -266,32 +365,40 @@ const ExamMode = () => {
           {error}
         </p>
       ) : null}
-      {!loading && examReadyCourses.length === 0 ? <EmptyExamState /> : null}
+      {!loading && examReadyCourses.length === 0 ? (
+        <EmptyExamState availability={emptyAvailability} />
+      ) : null}
 
       <div className="grid gap-space-4">
-        {examReadyCourses.map((course) => (
-          <article
-            key={course.id}
-            className="flex flex-col gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div>
-              <h2 className="font-body-lg text-body-lg font-semibold text-text-primary">
-                {course.title}
-              </h2>
-              <p className="mt-space-1 text-caption text-text-secondary">
-                {course.topicCount || 0} topics · {course.quizzesReady || 0} quiz-ready
-              </p>
-            </div>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-on-primary disabled:opacity-60"
-              disabled={Boolean(startingCourseId)}
-              onClick={() => startExam(course.id)}
+        {examReadyCourses.map((course) => {
+          const preferred = preferredCourseId && course.id === preferredCourseId;
+          return (
+            <article
+              key={course.id}
+              className={`flex flex-col gap-space-4 rounded-2xl border bg-surface p-space-5 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
+                preferred ? 'border-primary ring-1 ring-primary/30' : 'border-border-subtle'
+              }`}
             >
-              {startingCourseId === course.id ? 'Starting…' : 'Start timed exam'}
-            </button>
-          </article>
-        ))}
+              <div>
+                <h2 className="font-body-lg text-body-lg font-semibold text-text-primary">
+                  {course.title}
+                </h2>
+                <p className="mt-space-1 text-caption text-text-secondary">
+                  {course.topicCount || 0} topics · {course.quizzesReady || 0} quiz-ready
+                  {preferred ? ' · Selected from lessons' : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-on-primary disabled:opacity-60"
+                disabled={Boolean(startingCourseId)}
+                onClick={() => startExam(course.id)}
+              >
+                {startingCourseId === course.id ? 'Starting…' : 'Start timed exam'}
+              </button>
+            </article>
+          );
+        })}
       </div>
     </div>
   );

@@ -27,6 +27,40 @@ const toPlayableQuestion = (row) => {
     };
 };
 
+const parseOptions = (raw) => {
+    let options = raw;
+    if (typeof options === "string") {
+        try {
+            options = JSON.parse(options);
+        } catch {
+            options = [];
+        }
+    }
+    return Array.isArray(options) ? options : [];
+};
+
+const toReviewItems = (orderedQuestions, answers = {}) =>
+    orderedQuestions.map((row) => {
+        const options = parseOptions(row.options);
+        const selectedRaw = answers?.[row.id];
+        const selectedIndex =
+            selectedRaw == null || selectedRaw === ""
+                ? null
+                : Number(selectedRaw);
+        const correctIndex = Number(row.correct_index);
+        const isCorrect =
+            Number.isFinite(selectedIndex) && selectedIndex === correctIndex;
+        return {
+            questionId: row.id,
+            prompt: row.prompt,
+            options,
+            selectedIndex: Number.isFinite(selectedIndex) ? selectedIndex : null,
+            correctIndex: Number.isFinite(correctIndex) ? correctIndex : null,
+            isCorrect,
+        };
+    });
+
+
 const shuffle = (items) => {
     const copy = [...items];
     for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -186,6 +220,7 @@ export const getExamAttemptForUser = async (userId, examId) => {
             typeof attempt.answers === "object" && attempt.answers
                 ? attempt.answers
                 : {};
+        payload.review = toReviewItems(ordered, payload.answers);
     }
 
     return payload;
