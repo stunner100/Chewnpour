@@ -9,7 +9,6 @@ import {
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
 import {
   MessageScroller,
-  MessageScrollerButton,
   MessageScrollerContent,
   MessageScrollerItem,
   MessageScrollerProvider,
@@ -95,7 +94,6 @@ export function TutorChatMessages({
             ) : null}
           </MessageScrollerContent>
         </MessageScrollerViewport>
-        <MessageScrollerButton />
       </MessageScroller>
     </MessageScrollerProvider>
   );
