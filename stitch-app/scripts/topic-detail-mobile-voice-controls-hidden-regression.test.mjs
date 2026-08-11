@@ -1,33 +1,37 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 const root = process.cwd();
 
 const dashboardLayoutSource = await fs.readFile(
-  path.join(root, "src/components/DashboardLayout.jsx"),
-  "utf8",
+  path.join(root, 'src/components/DashboardLayout.jsx'),
+  'utf8',
 );
-const topicDetailSource = await fs.readFile(
-  path.join(root, "src/pages/TopicDetail.jsx"),
-  "utf8",
+const viewsSource = await fs.readFile(
+  path.join(root, 'src/components/topic/TopicLessonViews.jsx'),
+  'utf8',
+);
+const contentPanelSource = await fs.readFile(
+  path.join(root, 'src/components/topic/TopicContentPanel.jsx'),
+  'utf8',
 );
 
-for (const pattern of [
-  "const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');",
-]) {
-  if (!dashboardLayoutSource.includes(pattern)) {
-    throw new Error(`Expected DashboardLayout to include \"${pattern}\".`);
-  }
+if (!dashboardLayoutSource.includes('(?:quiz\\/(?!results\\/)|topic\\/)')) {
+  throw new Error('Expected DashboardLayout to hide the app bottom nav on topic lesson routes.');
 }
 
 for (const pattern of [
-  "className=\"hidden md:flex items-center gap-2 overflow-x-auto pb-1 -mb-1\"",
-  "className=\"mb-4 hidden md:block\"",
-  "Voice playback is temporarily unavailable on mobile.",
+  'MobileLessonActions',
+  'FloatingStudyTools',
+  'TopicStudyAssistantCard',
 ]) {
-  if (!topicDetailSource.includes(pattern)) {
-    throw new Error(`Expected TopicDetail mobile voice lockout to include \"${pattern}\".`);
+  if (!viewsSource.includes(pattern)) {
+    throw new Error(`Expected topic lesson chrome to include "${pattern}".`);
   }
 }
 
-console.log("topic-detail-mobile-voice-controls-hidden-regression.test.mjs passed");
+if (!contentPanelSource.includes('TopicVoiceToolbar')) {
+  throw new Error('Expected topic content panel to keep voice controls available.');
+}
+
+console.log('topic-detail-mobile-voice-controls-hidden-regression.test.mjs passed');

@@ -48,7 +48,7 @@ const TopicContentPanel = ({
         />
 
         {topicIllustrationUrl ? (
-            <div className="overflow-hidden rounded-[24px] border border-border-subtle shadow-sm">
+            <div className="overflow-hidden rounded-2xl">
                 <img
                     src={topicIllustrationUrl}
                     alt={`${heroTopicTitle} illustration`}
@@ -72,7 +72,7 @@ const TopicContentPanel = ({
             />
         ) : null}
 
-        <article className="rounded-[28px] border border-border-subtle bg-surface px-5 py-6 shadow-sm md:p-8" ref={contentRef}>
+        <article className="max-w-[68ch] py-2" ref={contentRef}>
             {normalizedContent ? (
                 <LessonContentRenderer
                     blocks={displayBlocks}
@@ -99,11 +99,8 @@ const TopicContentPanel = ({
             )}
         </article>
 
-        <details className="group rounded-[24px] border border-border-subtle bg-surface px-5 shadow-sm md:px-6">
+        <details className="group border-t border-border-subtle">
             <summary className="flex cursor-pointer list-none items-center gap-3 py-4 [&::-webkit-details-marker]:hidden">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-subtle">
-                    <AppIcon name="route" className="text-[18px] text-primary" />
-                </span>
                 <span className="min-w-0 flex-1">
                     <span className="block text-body-md font-semibold leading-tight text-text-primary">Guided study path</span>
                     <span className="mt-0.5 block text-caption text-text-muted">A section-by-section walkthrough of this lesson.</span>

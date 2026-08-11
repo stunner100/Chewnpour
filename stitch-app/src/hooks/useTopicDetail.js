@@ -982,6 +982,7 @@ export const useTopicDetail = () => {
         },
     ].filter(Boolean);
 
+    // Mobile FAB only — Notes/Tutor live in MobileLessonActions; desktop uses header + rail.
     const studyToolSecondary = [
         {
             id: 'reexplain',
@@ -990,16 +991,16 @@ export const useTopicDetail = () => {
             onClick: () => setReExplainOpen(true),
         },
         {
-            id: 'notes',
-            icon: 'edit_note',
-            label: 'Open notes',
-            onClick: openNotes,
-        },
-        {
             id: 'source',
             icon: 'menu_book',
             label: 'View source passages',
             onClick: openSource,
+        },
+        {
+            id: 'settings',
+            icon: 'settings',
+            label: 'Voice settings',
+            onClick: () => setSettingsOpen(true),
         },
     ];
 
@@ -1009,11 +1010,6 @@ export const useTopicDetail = () => {
 
     const practiceSecondary = [
         examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
-        { id: 'p-tutor', icon: 'smart_toy', label: 'Ask AI Tutor', onClick: openChat },
-        podcastEnabled && { id: 'p-podcast', icon: 'podcasts', label: 'Generate Podcast', onClick: () => {
-            const node = document.getElementById('topic-podcast');
-            if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } },
     ].filter(Boolean);
 
     const practiceTertiary = topicProgress?.completedAt ? [] : [{
@@ -1032,11 +1028,13 @@ export const useTopicDetail = () => {
         { id: 'm-tutor', icon: 'smart_toy', label: 'Tutor', onClick: openChat },
         { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
         topicProgress?.completedAt
-            ? podcastEnabled && { id: 'm-podcast', icon: 'podcasts', label: 'Podcast', onClick: () => {
-                const node = document.getElementById('topic-podcast');
-                if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } }
-            : { id: 'm-done', icon: 'check_circle', label: 'Done', primary: true, onClick: () => upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {}) },
+            ? { id: 'm-settings', icon: 'settings', label: 'Voice', onClick: () => setSettingsOpen(true) }
+            : {
+                id: 'm-done',
+                icon: 'check_circle',
+                label: 'Done',
+                onClick: () => upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {}),
+            },
     ].filter(Boolean);
 
     return {
@@ -1080,6 +1078,7 @@ export const useTopicDetail = () => {
         normalizedContent,
         notesAppendText,
         notesOpen,
+        objectiveExamRoute,
         openChat,
         openNotes,
         openSource,

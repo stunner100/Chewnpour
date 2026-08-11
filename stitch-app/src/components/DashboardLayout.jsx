@@ -106,7 +106,7 @@ const DashboardLayout = ({ children }) => {
     const { profile, user } = useAuth();
     const { mode: themeMode, toggle: toggleTheme } = useThemeMode();
     const isDarkMode = themeMode === DARK_THEME;
-    const hideMobileBottomNav = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
+    const hideMobileBottomNav = /^\/dashboard\/(?:quiz\/(?!results\/)|topic\/)[^/]+/.test(routerLocation.pathname);
 
     useEffect(() => {
         const incomingToast = routerLocation.state?.watermelonToast;

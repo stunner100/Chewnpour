@@ -26,35 +26,29 @@ const PracticeActionsCard = ({
     primaryActions = EMPTY_ARRAY,
     secondaryActions = EMPTY_ARRAY,
     tertiaryActions = EMPTY_ARRAY,
-    completed,
+    completed: _completed,
     bestScore,
 }) => (
-    <section className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm md:p-7">
-        <div className="mb-4 flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle">
-                <AppIcon name={completed ? 'emoji_events' : 'rocket_launch'} className="text-[20px] text-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-                <h3 className="font-display text-display-sm font-bold text-text-primary">{title}</h3>
-                {description && (
-                    <p className="mt-1 text-body-sm text-text-secondary">{description}</p>
-                )}
-                {bestScore != null && (
-                    <p className="mt-1.5 inline-flex items-center gap-1 text-caption text-text-muted">
-                        <AppIcon name="emoji_events" className="text-[14px]" />
-                        Best score so far: {bestScore}%
-                    </p>
-                )}
-            </div>
+    <section className="border-t border-border-subtle pt-6">
+        <div className="mb-4 min-w-0">
+            <h3 className="font-display text-display-sm font-bold text-text-primary">{title}</h3>
+            {description && (
+                <p className="mt-1 text-body-sm text-text-secondary">{description}</p>
+            )}
+            {bestScore != null && (
+                <p className="mt-1.5 text-caption text-text-muted">
+                    Best score so far: {bestScore}%
+                </p>
+            )}
         </div>
 
         {primaryActions.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
+            <div className="mb-2 flex flex-wrap gap-2">
                 {primaryActions.map((a) => <ActionButton key={a.id} action={a} tone="primary" />)}
             </div>
         )}
         {secondaryActions.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
+            <div className="mb-2 flex flex-wrap gap-2">
                 {secondaryActions.map((a) => <ActionButton key={a.id} action={a} tone="secondary" />)}
             </div>
         )}

@@ -789,3 +789,11 @@ html.is-safari .safari-backdrop {
 .dark .cp-theme .bg-error-soft {
     background-color: rgba(255, 59, 48, 0.16) !important;
 }
+
+.dark .cp-theme .bg-success-soft {
+    background-color: rgba(52, 199, 89, 0.16) !important;
+}
+
+.dark .cp-theme .bg-warning-soft {
+    background-color: rgba(255, 159, 10, 0.16) !important;
+}

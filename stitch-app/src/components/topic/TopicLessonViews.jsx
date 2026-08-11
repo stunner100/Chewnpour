@@ -240,7 +240,7 @@ export const TopicLessonPanels = ({ controller }) => {
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="btn-icon fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 z-30 size-10 border border-border-subtle bg-surface shadow-sm lg:bottom-6 lg:left-6 lg:right-auto"
+                    className="btn-icon fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-4 z-30 size-10 border border-border-subtle bg-surface shadow-sm md:bottom-6"
                     aria-label="Scroll to top"
                 >
                     <AppIcon name="arrow_upward" className="text-[18px]" />
@@ -307,43 +307,25 @@ export const TopicMetaBadges = ({ sourceLabel, topicProgress }) => {
     const completed = Boolean(topicProgress?.completedAt);
     const bestScore = Number(topicProgress?.bestScore ?? 0);
     let masteryLabel = 'In progress';
-    let masteryClass = 'bg-surface-soft text-text-secondary border-border-subtle';
-    let masteryIcon = 'auto_stories';
-    if (completed && bestScore >= 80) {
-        masteryLabel = 'Mastered';
-        masteryClass = 'bg-success-soft text-success border-success/30';
-        masteryIcon = 'check_circle';
-    } else if (completed) {
-        masteryLabel = 'Reviewing';
-        masteryClass = 'bg-warning-soft text-warning border-warning/30';
-        masteryIcon = 'event_repeat';
-    }
+    if (completed && bestScore >= 80) masteryLabel = 'Mastered';
+    else if (completed) masteryLabel = 'Reviewing';
+
+    const parts = [sourceLabel || null, masteryLabel].filter(Boolean);
+    if (parts.length === 0) return null;
+
     return (
-        <div className="flex flex-wrap items-center gap-2">
-            {sourceLabel ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3 py-1 text-caption font-semibold text-text-secondary">
-                    <AppIcon name="description" className="text-[14px] text-text-muted" />
-                    <span>Source: {sourceLabel}</span>
-                </span>
-            ) : null}
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-caption font-semibold ${masteryClass}`}>
-                <AppIcon name={masteryIcon} className="text-[14px]" />
-                <span>{masteryLabel}</span>
-            </span>
-        </div>
+        <p className="text-caption font-medium text-text-muted">
+            {parts.join(' · ')}
+        </p>
     );
 };
 
 export const TopicSummaryCard = ({ description }) => {
     if (!description) return null;
     return (
-        <section className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
-            <div className="mb-3 flex items-center gap-2 text-primary">
-                <AppIcon name="lightbulb" className="text-[20px]" />
-                <h2 className="font-display text-body-md font-bold">Topic Summary</h2>
-            </div>
-            <p className="text-body-md leading-relaxed text-text-secondary">{description}</p>
-        </section>
+        <p className="max-w-[68ch] text-body-md leading-relaxed text-text-secondary">
+            {description}
+        </p>
     );
 };
 
@@ -351,16 +333,18 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
     const navigate = useNavigate();
     if (!prevTopic && !nextTopic && !examTopicId) return null;
     const goTo = (topicId) => () => navigate(`/dashboard/topic/${topicId}`);
+    const prevTitle = prevTopic?.title || 'Previous lesson';
+    const nextTitle = nextTopic?.title || 'Next lesson';
     return (
         <div className="flex items-center justify-between gap-4 border-t border-border-subtle pt-6">
             {prevTopic ? (
                 <button
                     type="button"
                     onClick={goTo(prevTopic.id || prevTopic._id)}
-                    className="btn-secondary inline-flex min-h-11 items-center gap-2 text-body-sm"
+                    className="btn-secondary inline-flex min-h-11 max-w-[46%] items-center gap-2 text-body-sm"
                 >
-                    <AppIcon name="arrow_back" className="text-[18px]" />
-                    <span className="line-clamp-1 text-left">Previous Lesson</span>
+                    <AppIcon name="arrow_back" className="shrink-0 text-[18px]" />
+                    <span className="line-clamp-1 text-left">{prevTitle}</span>
                 </button>
             ) : (
                 <span aria-hidden="true" />
@@ -369,10 +353,10 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
                 <button
                     type="button"
                     onClick={goTo(nextTopic.id || nextTopic._id)}
-                    className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm"
+                    className="btn-primary inline-flex min-h-11 max-w-[46%] items-center gap-2 text-body-sm"
                 >
-                    <span className="line-clamp-1">Next Lesson</span>
-                    <AppIcon name="arrow_forward" className="text-[18px]" />
+                    <span className="line-clamp-1">{nextTitle}</span>
+                    <AppIcon name="arrow_forward" className="shrink-0 text-[18px]" />
                 </button>
             ) : examTopicId ? (
                 <Link
@@ -492,33 +476,31 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
     };
 
     return (
-        <aside className="sticky top-6 flex max-h-[calc(100vh-8rem)] min-h-0 flex-col gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm">
-            <header className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <span className="flex size-9 items-center justify-center rounded-full bg-primary-subtle text-primary">
-                        <AppIcon name="smart_toy" className="text-[20px]" />
-                    </span>
-                    <div>
-                        <p className="text-body-sm font-bold text-text-primary">Study Assistant</p>
-                        <p className="flex items-center gap-1.5 text-caption font-semibold text-success">
-                            <span className="inline-block size-1.5 rounded-full bg-success" /> Online
-                        </p>
-                    </div>
+        <aside className="sticky top-6 flex max-h-[calc(100vh-8rem)] min-h-0 flex-col gap-4 rounded-2xl border border-border-subtle bg-surface-soft/60 p-4">
+            <header className="flex items-center gap-3">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-primary-subtle text-primary">
+                    <AppIcon name="smart_toy" className="text-[18px]" />
+                </span>
+                <div>
+                    <p className="text-body-sm font-semibold text-text-primary">Study Assistant</p>
+                    <p className="text-caption text-text-muted">Ask about this lesson</p>
                 </div>
             </header>
-            <div className="rounded-[18px] border border-border-subtle bg-surface-soft px-4 py-3 text-body-sm leading-relaxed text-text-primary">
-                {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
-            </div>
+            {!hasTranscript && (
+                <p className="text-body-sm leading-relaxed text-text-secondary">
+                    {`Ask anything about ${topicTitle || 'this lesson'} — answers stay grounded in your material.`}
+                </p>
+            )}
             {hasTranscript && (
-                <div ref={transcriptRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-[18px] border border-border-subtle bg-surface-soft/60 p-3">
+                <div ref={transcriptRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto py-1">
                     {visibleMessages.map((message) => {
                         const isUser = message.role === 'user';
                         return (
                             <div key={message.id || message._id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                <p className={`max-w-[92%] rounded-[16px] px-3 py-2 text-body-sm leading-relaxed ${
+                                <p className={`max-w-[92%] rounded-2xl px-3 py-2 text-body-sm leading-relaxed ${
                                     isUser
                                         ? 'bg-primary text-on-primary'
-                                        : 'border border-border-subtle bg-surface text-text-primary'
+                                        : 'bg-surface text-text-primary'
                                 }`}>
                                     {message.content}
                                 </p>
@@ -529,41 +511,41 @@ export const TopicStudyAssistantCard = ({ topicId, topicTitle }) => {
                         <>
                             {shouldShowPendingQuestion && (
                                 <div className="flex justify-end">
-                                    <p className="max-w-[92%] rounded-[16px] bg-primary px-3 py-2 text-body-sm leading-relaxed text-on-primary">
+                                    <p className="max-w-[92%] rounded-2xl bg-primary px-3 py-2 text-body-sm leading-relaxed text-on-primary">
                                         {pendingQuestion}
                                     </p>
                                 </div>
                             )}
                             <div className="flex justify-start">
-                                <p className="max-w-[92%] rounded-[16px] border border-border-subtle bg-surface px-3 py-2 text-caption text-text-secondary">
+                                <p className="max-w-[92%] rounded-2xl bg-surface px-3 py-2 text-caption text-text-secondary">
                                     Preparing an answer...
                                 </p>
                             </div>
                         </>
                     )}
                     {error && (
-                        <p className="rounded-[16px] border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error">
+                        <p className="rounded-2xl border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error">
                             {error}
                         </p>
                     )}
                 </div>
             )}
             {!hasTranscript && (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
                     {STUDY_ASSISTANT_PROMPTS.map((prompt) => (
                         <button
                             key={prompt}
                             type="button"
                             onClick={() => sendQuestion(prompt)}
                             disabled={sending}
-                            className="rounded-full border border-border-subtle bg-surface px-3 py-2 text-left text-caption font-semibold text-text-primary transition-colors hover:border-primary/30 hover:bg-primary-subtle disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-lg px-2 py-2 text-left text-caption font-medium text-text-secondary transition-colors hover:bg-surface hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {prompt}
                         </button>
                     ))}
                 </div>
             )}
-            <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-full border border-border-subtle bg-surface-soft px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary-soft">
+            <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-2xl border border-border-subtle bg-surface px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary-soft">
                 <input
                     type="text"
                     value={draft}
@@ -590,7 +572,11 @@ export const TopicLessonShell = ({ controller }) => {
         cleanedDescription,
         courseHref,
         examTopicId,
+        headerPrimaryAction,
+        objectiveExamRoute,
         resolvedTopicTitle,
+        setReExplainOpen,
+        setSettingsOpen,
         topic,
         topicId,
         topicProgress,
@@ -631,23 +617,57 @@ export const TopicLessonShell = ({ controller }) => {
         ? courseTopics[currentIndex + 1]
         : null;
     const sourceLabel = courseTitle;
+    const quizHref = headerPrimaryAction?.href || objectiveExamRoute;
+    const quizLabel = headerPrimaryAction?.label || 'Start Quiz';
+    const quizDisabled = Boolean(headerPrimaryAction?.disabled) || !quizHref;
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-background-light text-text-primary">
-            <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:px-8 lg:py-8">
-                <div className="min-w-0 space-y-6">
+        <div className="min-h-[calc(100vh-4rem)] bg-background-light pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-text-primary lg:pb-0">
+            <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 lg:px-8 lg:py-8">
+                <div className="min-w-0 space-y-5">
                     <TopicLessonBreadcrumbs
                         courseTitle={courseTitle}
                         courseHref={courseHref}
                         topicTitle={resolvedTopicTitle}
                     />
-                    <header className="space-y-3">
-                        <TopicMetaBadges sourceLabel={sourceLabel} topicProgress={topicProgress} />
-                        <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
-                            {resolvedTopicTitle}
-                        </h1>
+                    <header className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 space-y-2">
+                            <TopicMetaBadges sourceLabel={sourceLabel} topicProgress={topicProgress} />
+                            <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+                                {resolvedTopicTitle}
+                            </h1>
+                            <TopicSummaryCard description={cleanedDescription} />
+                        </div>
+                        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                            <button
+                                type="button"
+                                onClick={() => setSettingsOpen(true)}
+                                className="btn-icon size-10 border border-border-subtle bg-surface"
+                                aria-label="Voice settings"
+                            >
+                                <AppIcon name="settings" className="text-[18px]" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setReExplainOpen(true)}
+                                className="btn-secondary inline-flex min-h-10 items-center gap-1.5 text-body-sm"
+                            >
+                                <AppIcon name="lightbulb" className="text-[16px]" />
+                                Re-explain
+                            </button>
+                            {quizDisabled ? (
+                                <button type="button" disabled className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm opacity-50">
+                                    <AppIcon name="hourglass_top" className="text-[16px]" />
+                                    {quizLabel}
+                                </button>
+                            ) : (
+                                <Link to={quizHref} className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm">
+                                    <AppIcon name="quiz" className="text-[16px]" />
+                                    {quizLabel}
+                                </Link>
+                            )}
+                        </div>
                     </header>
-                    <TopicSummaryCard description={cleanedDescription} />
                     <TopicLessonMainColumn controller={controller} />
                     <TopicLessonNav
                         prevTopic={prevTopic}
