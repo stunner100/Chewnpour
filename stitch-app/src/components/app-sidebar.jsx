@@ -78,7 +78,7 @@ export function AppSidebar({ ...props }) {
       <SidebarContent>
         <NavMain items={items} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="pb-3">
         <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />

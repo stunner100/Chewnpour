@@ -45,7 +45,7 @@ export function NavUser({ user }) {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="h-auto min-h-12 overflow-visible py-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
@@ -59,7 +59,7 @@ export function NavUser({ user }) {
                   <span className="truncate text-xs text-muted-foreground">{user.email}</span>
                 ) : null}
               </div>
-              <ChevronsUpDownIcon className="ml-auto size-4" />
+              <ChevronsUpDownIcon className="ml-auto size-4 shrink-0 self-center" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
