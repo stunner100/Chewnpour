@@ -6,6 +6,7 @@ import {
   classifyStudyToolAvailability,
   studyToolEmptyCopy,
 } from '../lib/uploadReadiness';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const EmptyStudyToolState = ({ availability }) => {
   const copy = studyToolEmptyCopy(availability);
@@ -171,7 +172,7 @@ const ActiveQuizSession = () => {
                       </span>
                     </div>
                     <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
-                      {course.title}
+                      {formatCourseTitle(course.title) || course.title}
                     </p>
                     <h2 className="mt-2 font-display text-display-sm font-bold text-text-primary">
                       Practice quizzes

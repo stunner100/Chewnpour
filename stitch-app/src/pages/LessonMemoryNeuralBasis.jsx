@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const LessonsSkeleton = () => (
     <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -80,7 +81,9 @@ const LessonMemoryNeuralBasis = () => {
                     Lessons
                 </p>
                 <h1 className="mt-2 font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
-                    {selectedCourse?.title || 'Your courses'}
+                    {selectedCourse
+                        ? (formatCourseTitle(selectedCourse.title) || selectedCourse.title)
+                        : 'Your courses'}
                 </h1>
                 <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
                     Topics are generated from your uploads. Open a lesson to study, or jump into a quiz when questions are ready.
@@ -123,7 +126,7 @@ const LessonMemoryNeuralBasis = () => {
                                                 <AppIcon name="menu_book" className="text-[22px]" />
                                             </div>
                                             <h2 className="font-display text-display-sm font-bold text-text-primary">
-                                                {course.title}
+                                                {formatCourseTitle(course.title) || course.title}
                                             </h2>
                                             <p className="mt-1 text-body-sm text-text-secondary">
                                                 {course.topicCount} topics · {course.quizzesReady} quizzes ready

@@ -8,6 +8,7 @@ import {
   classifyStudyToolAvailability,
   studyToolEmptyCopy,
 } from '../lib/uploadReadiness';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const EmptyExamState = ({ availability }) => {
   const copy = studyToolEmptyCopy(availability);
@@ -335,7 +336,7 @@ const ExamMode = () => {
           <div>
             <p className="text-caption text-text-secondary">Timed course exam</p>
             <h1 className="font-headline-sm text-headline-sm font-bold text-text-primary">
-              {exam.courseTitle || 'Exam'}
+              {formatCourseTitle(exam.courseTitle) || exam.courseTitle || 'Exam'}
             </h1>
             <p className="mt-1 text-caption text-text-secondary">
               {answeredCount}/{questions.length} answered
@@ -505,7 +506,7 @@ const ExamMode = () => {
                 >
                   <div>
                     <h2 className="font-body-lg text-body-lg font-semibold text-text-primary">
-                      {course.title}
+                      {formatCourseTitle(course.title) || course.title}
                     </h2>
                     <p className="mt-space-1 text-caption text-text-secondary">
                       {course.topicCount || 0} topics · {course.quizzesReady || 0} quiz-ready

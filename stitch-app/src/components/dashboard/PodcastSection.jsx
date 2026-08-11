@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PodcastStatusBadge from './PodcastStatusBadge';
 import AppIcon from '../AppIcon';
+import { formatCourseTitle } from '../../lib/courseTitle';
 
 const EMPTY_ARRAY = [];
 
@@ -73,7 +74,7 @@ const PodcastSection = ({ podcasts = EMPTY_ARRAY }) => {
                                     <p className="text-overline text-white/70">Continue listening</p>
                                     <h3 className="text-display-md font-semibold leading-tight mt-1 line-clamp-2">{featured.topicTitle}</h3>
                                     {featured.courseTitle && (
-                                        <p className="text-caption text-white/60 mt-0.5 line-clamp-1">{featured.courseTitle}</p>
+                                        <p className="text-caption text-white/60 mt-0.5 line-clamp-1">{formatCourseTitle(featured.courseTitle) || featured.courseTitle}</p>
                                     )}
                                 </div>
                                 <PodcastStatusBadge status={featured.status} className="shrink-0" />

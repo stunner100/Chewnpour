@@ -13,6 +13,7 @@ import {
 import { TutorChatComposer, TutorChatMessages, TutorWelcomeMessage } from '@/components/tutor/TutorChatSurface';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 import AppIcon from '../components/AppIcon';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms', prompt: 'Explain this topic in simple terms.' },
@@ -134,7 +135,7 @@ const AIStudyTutor = () => {
         courseId: selectedCourse.id,
         title: topic.title,
         description: topic.description || '',
-        courseTitle: selectedCourse.title,
+        courseTitle: formatCourseTitle(selectedCourse.title) || selectedCourse.title,
         icon: 'auto_stories',
     }));
 
@@ -305,7 +306,7 @@ const AIStudyTutor = () => {
                                         <DropdownMenuRadioGroup value={effectiveCourseId} onValueChange={setSelectedCourseId}>
                                             {safeCourses.map((course) => (
                                                 <DropdownMenuRadioItem key={course.id} value={String(course.id)} className="rounded-xl px-2 py-2 pr-8">
-                                                    <span className="text-body-sm font-semibold text-text-primary">{course.title}</span>
+                                                    <span className="text-body-sm font-semibold text-text-primary">{formatCourseTitle(course.title) || course.title}</span>
                                                 </DropdownMenuRadioItem>
                                             ))}
                                         </DropdownMenuRadioGroup>

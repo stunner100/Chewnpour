@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const filterTabs = [
     { label: 'All', value: 'all' },
@@ -136,7 +137,7 @@ const MyMaterialsLibrary = () => {
                 uploadId: upload.id,
                 courseId: course?.id || upload.courseId || null,
                 firstQuizTopicId: course?.firstQuizTopicId || upload.firstQuizTopicId || null,
-                title: course?.title || upload.fileName,
+                title: formatCourseTitle(course?.title || upload.fileName) || course?.title || upload.fileName,
                 fileName: upload.fileName,
                 kind: resolveFileKind(upload.fileType, upload.fileName),
                 status: upload.status,

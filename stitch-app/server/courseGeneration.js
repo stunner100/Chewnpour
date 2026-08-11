@@ -1,3 +1,5 @@
+import { formatCourseTitle } from "../src/lib/courseTitle.js";
+
 const stripExtension = (fileName = "") =>
     String(fileName || "Untitled material").replace(
         /\.(pdf|pptx|docx|mp3|m4a|mp4|wav|webm|ogg|aac|flac)$/i,
@@ -70,7 +72,7 @@ const chunkByParagraphs = (text = "", maxChunks = 5) => {
 };
 
 export const buildTopicsFromExtractedText = ({ fileName, extractedText }) => {
-    const titleBase = stripExtension(fileName) || "Study material";
+    const titleBase = formatCourseTitle(fileName) || "Study material";
     const text = String(extractedText || "").trim();
 
     if (!text) {
@@ -152,4 +154,5 @@ export const buildQuestionsForTopic = ({ topicTitle, topicContent, limit = 3 }) 
     });
 };
 
-export const stripCourseTitle = stripExtension;
+export const stripCourseTitle = (fileName = "") =>
+    formatCourseTitle(fileName) || stripExtension(fileName);

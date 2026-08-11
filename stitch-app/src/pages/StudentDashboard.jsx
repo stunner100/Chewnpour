@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const firstName = (value) => {
   const text = String(value || '').trim();
@@ -85,7 +86,7 @@ const StudentDashboard = () => {
       if (match) return match;
       return {
         id: resumeTarget.courseId,
-        title: resumeTarget.title || resumeTarget.courseTitle || 'Continue learning',
+        title: formatCourseTitle(resumeTarget.title || resumeTarget.courseTitle) || resumeTarget.title || resumeTarget.courseTitle || 'Continue learning',
       };
     }
     return courses[0] || null;

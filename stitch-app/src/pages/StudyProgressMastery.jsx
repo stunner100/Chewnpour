@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const EMPTY_LIST = [];
 
@@ -15,7 +16,7 @@ const buildCourseProgressItems = (courses) => {
     const visible = courses.slice(0, 7);
     return visible.map((course) => ({
         id: String(course.id || course._id || course.title),
-        title: String(course.title || 'Untitled course'),
+        title: formatCourseTitle(course.title) || String(course.title || 'Untitled course'),
         progress: Math.max(0, Math.min(100, Math.round(Number(course.progress || 0)))),
         topicCount: Number(course.topicCount || 0),
     }));
@@ -96,7 +97,7 @@ const StudyProgressMastery = () => {
             }));
         }
         return safeCourses.slice(0, 8).map((course) => ({
-            name: course.title,
+            name: formatCourseTitle(course.title) || course.title,
             score: Math.round(course.progress || 0),
         }));
     }, [performanceInsights, safeCourses]);
@@ -239,7 +240,9 @@ const StudyProgressMastery = () => {
                                     >
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="min-w-0">
-                                                <p className="line-clamp-1 font-semibold text-text-primary">{course.title}</p>
+                                                <p className="line-clamp-1 font-semibold text-text-primary">
+                                                    {course.title}
+                                                </p>
                                                 <p className="mt-1 text-caption text-text-muted">
                                                     {course.topicCount} {course.topicCount === 1 ? 'topic' : 'topics'}
                                                 </p>

@@ -13,6 +13,7 @@ import TopicReExplainModal from '../TopicReExplainModal';
 import TopicContentPanel from './TopicContentPanel';
 import TopicQuizPanel from './TopicQuizPanel';
 import { buildTopicQuizRoute } from '../../lib/topicLessonHelpers';
+import { formatCourseTitle } from '../../lib/courseTitle';
 import AppIcon from '../AppIcon';
 
 export const TopicEmptyState = ({ title, description, action }) => (
@@ -622,7 +623,7 @@ export const TopicLessonShell = ({ controller }) => {
         };
     }, [topic?.courseId]);
 
-    const courseTitle = coursePayload?.title || '';
+    const courseTitle = formatCourseTitle(coursePayload?.title) || coursePayload?.title || '';
     const courseTopics = Array.isArray(coursePayload?.topics) ? coursePayload.topics : [];
     const currentIndex = courseTopics.findIndex((entry) => String(entry.id || entry._id) === String(topicId));
     const prevTopic = currentIndex > 0 ? courseTopics[currentIndex - 1] : null;
