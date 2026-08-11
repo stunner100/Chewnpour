@@ -37,7 +37,7 @@
     --sidebar-primary-foreground: 10 10 10;
     --sidebar-accent: 33 34 38;      /* #212226 active/hover */
     --sidebar-accent-foreground: 233 233 238;
-    --sidebar-border: 42 43 48;
+    --sidebar-border: 28 29 32;      /* #1C1D20 — soft edge vs sidebar/content */
     --sidebar-ring: 90 200 250;
     --popover: 22 23 25;             /* #161719 */
     --popover-foreground: 233 233 238;
