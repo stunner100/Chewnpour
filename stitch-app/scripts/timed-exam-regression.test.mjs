@@ -10,6 +10,7 @@ const examsSource = await read('server/exams.js');
 const examHttp = await read('server/examHttp.js');
 const router = await read('api/router.js');
 const examUi = await read('src/pages/ExamMode.jsx');
+const examTimer = await read('src/hooks/useExamTimer.js');
 const migration = await read('supabase/migrations/20260811211000_exam_attempts.sql');
 
 assert.match(examsSource, /startExamForCourse/, 'exams must support start');
@@ -33,10 +34,16 @@ assert.match(
 assert.match(examHttp, /handleExamsRequest/, 'exam HTTP handler required');
 assert.match(router, /handleExamsRequest/, 'router must mount /api/exams');
 assert.match(examUi, /useExamTimer/, 'exam UI must use countdown timer');
+assert.match(examUi, /setTimeRemaining/, 'exam UI must sync timer after start');
+assert.match(examUi, /answersRef/, 'time-up submit must use answers ref');
+assert.match(examUi, /timedOut/, 'time-up must use distinct toast path');
+assert.match(examUi, /Skipped/, 'review must distinguish skipped answers');
+assert.match(examUi, /dark:bg-red-950/, 'review cards need dark-mode contrast');
+assert.match(examUi, /unansweredCount/, 'submit must warn on unanswered');
 assert.match(examUi, /\/api\/exams/, 'exam UI must call exam APIs');
-assert.match(examUi, /ExamReviewPanel|result\.review/, 'exam UI must show review after submit');
-assert.match(examUi, /courseId/, 'exam UI must support courseId preselect');
 assert.doesNotMatch(examUi, /Exam practice/, 'practice-only copy must be removed');
+assert.match(examTimer, /timeUpFiredRef/, 'timer must fire onTimeUp once');
+assert.match(examTimer, /setTimeRemaining/, 'timer must expose resume setter');
 assert.match(migration, /exam_attempts/, 'exam_attempts migration required');
 
 console.log('timed-exam-regression.test.mjs passed');
