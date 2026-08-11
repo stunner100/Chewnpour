@@ -55,6 +55,19 @@ const toClientQuestion = (row) => {
     };
 };
 
+const toPlayableQuestion = (row) => {
+    const full = toClientQuestion(row);
+    if (!full) return null;
+    return {
+        id: full.id,
+        topicId: full.topicId,
+        courseId: full.courseId,
+        prompt: full.prompt,
+        options: full.options,
+        sortOrder: full.sortOrder,
+    };
+};
+
 export const getCourseByUploadId = async (userId, uploadId) => {
     const db = getPool();
     const result = await db.query(
@@ -75,33 +88,50 @@ export const ensureCourseFromUpload = async ({
         return getCourseForUser(userId, existing.id);
     }
 
+    const text = String(extractedText || "").trim();
+    if (!text) {
+        const error = new Error(
+            "Cannot generate a course without extracted text.",
+        );
+        error.status = 400;
+        error.code = "EXTRACTION_INCOMPLETE";
+        throw error;
+    }
+
     const title = stripCourseTitle(fileName) || "Study material";
     const curriculum = await generateCourseCurriculumWithAi({
         fileName,
-        extractedText,
+        extractedText: text,
     });
     const topicSpecs = Array.isArray(curriculum.topics) ? curriculum.topics : [];
     const courseId = nanoid();
     const db = getPool();
-    const description = extractedText
-        ? String(curriculum.backend || "").includes("heuristic")
-            ? "Generated from your upload"
-            : "AI-generated from your upload"
-        : "Created from a stored upload. Extraction still pending.";
+    const description = String(curriculum.backend || "").includes("heuristic")
+        ? "Generated from your upload"
+        : "AI-generated from your upload";
 
-    await db.query(
-        `INSERT INTO courses (
-            id, user_id, upload_id, title, description, status, generation_backend
-         ) VALUES ($1, $2, $3, $4, $5, 'ready', $6)`,
-        [
-            courseId,
-            userId,
-            uploadId,
-            title.slice(0, 180),
-            description,
-            curriculum.backend || "heuristic",
-        ],
-    );
+    try {
+        await db.query(
+            `INSERT INTO courses (
+                id, user_id, upload_id, title, description, status, generation_backend
+             ) VALUES ($1, $2, $3, $4, $5, 'ready', $6)`,
+            [
+                courseId,
+                userId,
+                uploadId,
+                title.slice(0, 180),
+                description,
+                curriculum.backend || "heuristic",
+            ],
+        );
+    } catch (error) {
+        // Unique upload_id race: another finalize already created the course.
+        if (error?.code === "23505") {
+            const raced = await getCourseByUploadId(userId, uploadId);
+            if (raced) return getCourseForUser(userId, raced.id);
+        }
+        throw error;
+    }
 
     for (let index = 0; index < topicSpecs.length; index += 1) {
         const spec = topicSpecs[index];
@@ -270,12 +300,30 @@ export const getQuizForTopic = async (userId, topicId) => {
 
     return {
         ...payload,
+        questions: questionsResult.rows.map(toPlayableQuestion),
+    };
+};
+
+const getQuizForTopicWithAnswers = async (userId, topicId) => {
+    const payload = await getTopicForUser(userId, topicId);
+    if (!payload?.topic) return null;
+
+    const db = getPool();
+    const questionsResult = await db.query(
+        `SELECT * FROM questions
+         WHERE topic_id = $1 AND user_id = $2
+         ORDER BY sort_order ASC, created_at ASC`,
+        [topicId, userId],
+    );
+
+    return {
+        ...payload,
         questions: questionsResult.rows.map(toClientQuestion),
     };
 };
 
 export const submitQuizAttempt = async ({ userId, topicId, answers }) => {
-    const quiz = await getQuizForTopic(userId, topicId);
+    const quiz = await getQuizForTopicWithAnswers(userId, topicId);
     if (!quiz?.topic) {
         const error = new Error("Topic not found");
         error.status = 404;

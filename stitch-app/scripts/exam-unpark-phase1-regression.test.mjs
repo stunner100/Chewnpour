@@ -40,10 +40,13 @@ assert.match(exam, /Start exam practice/, 'Exam hub must offer exam practice CTA
 assert.doesNotMatch(exam, /ParkedFeatureView/, 'ExamMode must not render the parked stub');
 assert.doesNotMatch(exam, /from ['"]convex\//i, 'ExamMode must stay Convex-free');
 
-assert.match(sidebar, /title: 'Exam'/, 'Sidebar must include Exam');
+assert.match(sidebar, /title: 'Exam practice'/, 'Sidebar must include Exam practice');
 assert.match(sidebar, /url: '\/dashboard\/exam'/, 'Sidebar Exam must point at /dashboard/exam');
 assert.match(dashboard, /to: '\/dashboard\/exam'/, 'Dashboard quick actions must include Exam');
 assert.match(mobileNav, /path: '\/dashboard\/exam'/, 'Mobile more menu must include Exam');
 assert.match(commandPalette, /value: '\/dashboard\/exam'/, 'Command palette must include Exam');
+
+assert.match(exam, /Exam practice/, 'Exam hub must use Exam practice labelling');
+assert.match(exam, /same question bank as Quizzes/, 'Exam hub must disclose shared quiz bank');
 
 console.log('exam-unpark-phase1-regression.test.mjs passed');

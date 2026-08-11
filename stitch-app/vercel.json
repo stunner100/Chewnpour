@@ -1,7 +1,8 @@
 {
   "functions": {
     "api/router.js": {
-      "includeFiles": "node_modules/@firecrawl/anydoc*/**"
+      "includeFiles": "node_modules/@firecrawl/anydoc*/**",
+      "maxDuration": 300
     }
   },
   "headers": [

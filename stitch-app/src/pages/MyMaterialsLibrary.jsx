@@ -102,6 +102,8 @@ const MyMaterialsLibrary = () => {
                 || (upload.courseId ? courses.find((item) => item.id === upload.courseId) : null);
             const topicCount = Number(course?.topicCount || upload.topicCount || 0);
             const quizzesReady = Number(course?.quizzesReady || upload.quizzesReady || 0);
+            const extractionStatus = String(upload.extractionStatus || '').toLowerCase();
+            const isComplete = upload.status === 'ready' && extractionStatus === 'complete';
             return {
                 uploadId: upload.id,
                 courseId: course?.id || upload.courseId || null,
@@ -109,7 +111,9 @@ const MyMaterialsLibrary = () => {
                 fileName: upload.fileName,
                 kind: resolveFileKind(upload.fileType, upload.fileName),
                 status: upload.status,
-                processingProgress: upload.status === 'ready' ? 100 : 35,
+                extractionStatus,
+                errorMessage: upload.errorMessage || '',
+                processingProgress: isComplete ? 100 : (upload.status === 'error' ? 0 : 35),
                 processingStep: upload.processingStep || '',
                 createdAt: upload.createdAt,
                 lessons: topicCount,
@@ -118,6 +122,25 @@ const MyMaterialsLibrary = () => {
             };
         });
     }, [courses, uploads]);
+
+    const handleDelete = useCallback(async (uploadId) => {
+        if (!uploadId) return;
+        const confirmed = window.confirm('Delete this material and its generated lessons? This cannot be undone.');
+        if (!confirmed) return;
+        setError('');
+        try {
+            const response = await fetch(`/api/uploads/${encodeURIComponent(uploadId)}`, {
+                method: 'DELETE',
+                credentials: 'include',
+                headers: { Accept: 'application/json' },
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || 'Failed to delete upload');
+            await loadLibrary();
+        } catch (err) {
+            setError(err.message || 'Could not delete material');
+        }
+    }, [loadLibrary]);
 
     const filteredMaterials = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -186,7 +209,11 @@ const MyMaterialsLibrary = () => {
                     {filteredMaterials.map((material) => {
                         const typeConfig = typeIcons[material.kind] || typeIcons.notes;
                         const isProcessing = material.status !== 'ready' && material.status !== 'error';
-                        const hasGeneratedContent = material.status === 'ready' && material.courseId && material.topicCount > 0;
+                        const hasGeneratedContent =
+                            material.status === 'ready'
+                            && material.extractionStatus === 'complete'
+                            && material.courseId
+                            && material.topicCount > 0;
                         const studyHref = hasGeneratedContent ? `/dashboard/lessons?courseId=${material.courseId}` : '';
                         return (
                             <article
@@ -210,9 +237,9 @@ const MyMaterialsLibrary = () => {
                                             Processing
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-soft px-2.5 py-1 text-caption font-semibold text-text-muted">
-                                            <AppIcon name="schedule" className="text-[14px]" />
-                                            Not ready
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-error-soft px-2.5 py-1 text-caption font-semibold text-error">
+                                            <AppIcon name="error" className="text-[14px]" />
+                                            Failed
                                         </span>
                                     )}
                                 </div>
@@ -222,6 +249,9 @@ const MyMaterialsLibrary = () => {
                                 <p className="mt-1 text-caption font-medium text-text-muted">
                                     Uploaded {formatUploadedAt(material.createdAt)}
                                 </p>
+                                {!hasGeneratedContent && material.errorMessage && (
+                                    <p className="mt-2 text-caption text-error">{material.errorMessage}</p>
+                                )}
 
                                 <div className="mt-auto pt-5">
                                     <div className="mb-4 flex gap-4 border-t border-border-subtle pt-4">
@@ -236,28 +266,50 @@ const MyMaterialsLibrary = () => {
                                         </div>
                                     </div>
                                     {hasGeneratedContent ? (
-                                        <Link
-                                            to={studyHref}
-                                            className="btn-primary inline-flex w-full min-h-11 items-center justify-center gap-2 text-body-sm"
-                                        >
-                                            Continue Study
-                                            <AppIcon name="arrow_forward" className="text-[16px]" />
-                                        </Link>
+                                        <div className="flex flex-col gap-2">
+                                            <Link
+                                                to={studyHref}
+                                                className="btn-primary inline-flex w-full min-h-11 items-center justify-center gap-2 text-body-sm"
+                                            >
+                                                Continue Study
+                                                <AppIcon name="arrow_forward" className="text-[16px]" />
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(material.uploadId)}
+                                                className="inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface text-body-sm font-semibold text-text-secondary hover:bg-surface-soft"
+                                            >
+                                                <AppIcon name="delete" className="text-[16px]" />
+                                                Delete
+                                            </button>
+                                        </div>
                                     ) : (
                                         <>
-                                            <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                                                <div
-                                                    className={`h-full rounded-full bg-warning ${isProcessing ? 'animate-pulse' : ''}`}
-                                                    style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
-                                                />
+                                            {isProcessing && (
+                                                <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-surface-soft">
+                                                    <div
+                                                        className="h-full animate-pulse rounded-full bg-warning"
+                                                        style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="flex flex-col gap-2">
+                                                <button
+                                                    className="inline-flex w-full min-h-11 cursor-not-allowed items-center justify-center rounded-full border border-border-subtle bg-surface-soft text-body-sm font-semibold text-text-muted"
+                                                    disabled
+                                                    type="button"
+                                                >
+                                                    Study Unavailable
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(material.uploadId)}
+                                                    className="inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface text-body-sm font-semibold text-text-secondary hover:bg-surface-soft"
+                                                >
+                                                    <AppIcon name="delete" className="text-[16px]" />
+                                                    Delete
+                                                </button>
                                             </div>
-                                            <button
-                                                className="inline-flex w-full min-h-11 cursor-not-allowed items-center justify-center rounded-full border border-border-subtle bg-surface-soft text-body-sm font-semibold text-text-muted"
-                                                disabled
-                                                type="button"
-                                            >
-                                                Study Unavailable
-                                            </button>
                                         </>
                                     )}
                                 </div>
@@ -276,7 +328,7 @@ const MyMaterialsLibrary = () => {
                         </h3>
                         <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
                             {materials.length === 0
-                                ? 'Upload a PDF, slide deck, or document to generate topics and quizzes.'
+                                ? 'Upload a PDF, DOCX, or PPTX to generate topics and quizzes.'
                                 : 'Try a different search or clear your filters to see more files.'}
                         </p>
                         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

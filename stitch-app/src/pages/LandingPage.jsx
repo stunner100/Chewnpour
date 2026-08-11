@@ -69,21 +69,21 @@ const WORKFLOW_TABS = [
     id: 'capture',
     label: 'Upload Content',
     title: 'Capture Your Syllabus',
-    body: 'Upload PDFs, decks, and scanned notes. We extract the structure, key concepts, and exam-shaped questions automatically.',
+    body: 'Upload PDFs, DOCX, and PPTX lecture decks. We extract the structure, key concepts, and practice questions automatically.',
   },
   {
     id: 'answers',
     label: 'Get Intelligent Answers',
     title: 'Ask Across Everything',
-    body: 'The AI tutor reads your materials and connects the dots — summarise, re-explain, or generate a quiz on the weak spots.',
+    body: 'The AI tutor answers from the lesson you have open — summarise, re-explain, or generate a quiz on the weak spots.',
   },
 ];
 
 const AI_FEATURES = [
-  { icon: 'forum', title: 'Ask', body: 'Ask anything and get answers grounded in your notes, files, and course materials.' },
+  { icon: 'forum', title: 'Ask', body: 'Ask anything and get answers grounded in the lesson you are studying.' },
   { icon: 'link', title: 'Link', body: 'Create a connected study system where every lesson adds context for the next.' },
   { icon: 'style', title: 'Save', body: 'Capture insights the moment they appear — pin weak topics and revisit them.' },
-  { icon: 'upload', title: 'Upload', body: 'Import documents, images, and PDFs from wherever your material already lives.' },
+  { icon: 'upload', title: 'Upload', body: 'Import PDF, DOCX, and PPTX files from wherever your material already lives.' },
 ];
 
 const STEPS = [
@@ -144,12 +144,12 @@ const FAQS = [
   },
   {
     q: 'What file types work?',
-    a: 'ChewnPour works with PDFs, slide decks, scanned notes, and group-chat exports — wherever your study material lives.',
+    a: 'ChewnPour works with text-based PDFs, DOCX, and PPTX lecture decks. Scanned PDFs use OCR when Azure Document Intelligence is configured.',
   },
 ];
 
 const COMPARISON_ROWS = [
-  { feature: 'Uploads', free: '3 / month', basic: 'Starter pack', pro: 'Higher volume' },
+  { feature: 'Uploads', free: '3 starter credits', basic: 'Starter pack', pro: 'Higher volume' },
   { feature: 'AI lessons', free: 'Included', basic: 'Advanced', pro: 'Full suite' },
   { feature: 'AI tutor', free: 'Included', basic: 'Included', pro: 'Priority' },
   { feature: 'Quizzes', free: 'Standard', basic: 'Premium', pro: 'Custom plans' },
@@ -708,9 +708,9 @@ const WorkflowSection = ({ activeTab, onTabChange }) => {
 const AiSection = () => (
   <section className="mx-auto max-w-[1120px] px-5 py-10 sm:px-6 sm:py-16">
     <div className="mx-auto max-w-2xl text-center">
-      <h2 className="text-3xl font-bold tracking-[-0.02em] sm:text-4xl">AI that reads your materials</h2>
+      <h2 className="text-3xl font-bold tracking-[-0.02em] sm:text-4xl">AI that reads your lesson</h2>
       <p className="mt-4 text-[#6B6B70]">
-        Not a generic chatbot. ChewnPour’s AI reads across every upload you’ve made and connects the dots for you.
+        Not a generic chatbot. ChewnPour’s tutor answers from the lesson you have open — grounded in your uploaded material.
       </p>
     </div>
 
@@ -1142,7 +1142,7 @@ const LandingPage = () => {
         'Basic AI-generated lessons',
         'Access to AI tutor',
         'Standard quiz library',
-        '3 uploads per month',
+        '3 starter upload credits',
       ],
       ctaName: 'pricing_free',
       ctaLabel: 'Get Started Free',

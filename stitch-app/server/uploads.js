@@ -10,7 +10,12 @@ import {
     isLocalExtractable,
 } from "./localExtract.js";
 import {
+    callAzureDocIntelLayout,
+    isAzureDocIntelEnabled,
+} from "./azureDocIntelClient.js";
+import {
     createSignedUpload,
+    deleteUploadObject,
     downloadUploadObject,
     getStorageBucket,
 } from "./supabase.js";
@@ -20,10 +25,42 @@ import {
     chargeUploadIfNeeded,
 } from "./billing.js";
 
-const OCR_DEFERRED_WARNING =
-    "Scanned or image-only document; OCR is not enabled. Upload a text-based PDF, DOCX, or PPTX.";
+const EXTRACTION_FAILED_MESSAGE =
+    "Could not extract text from this file. Upload a text-based PDF, DOCX, or PPTX. Scanned PDFs require OCR to be configured.";
+
+const UNSUPPORTED_TYPE_MESSAGE =
+    "Only PDF, DOCX, and PPTX files are supported right now.";
+
+const OCR_UNSUPPORTED_HINT =
+    "Anydoc reported an unsupported or image-only document.";
 
 const MAX_EXTRACT_TEXT_CHARS = 500_000;
+
+const ALLOWED_STUDY_FILE_TYPES = new Set(["pdf", "docx", "pptx"]);
+
+export const isAllowedStudyUploadType = ({
+    fileType = "",
+    contentType = "",
+    fileName = "",
+} = {}) => {
+    const source = `${fileType} ${contentType} ${fileName}`.toLowerCase();
+    if (/\b(mp3|m4a|mp4|wav|webm|ogg|aac|flac|audio)\b/.test(source)) {
+        return false;
+    }
+    if (source.includes("image") || /\.(png|jpe?g|webp|gif)\b/.test(source)) {
+        return false;
+    }
+    const normalizedType = String(fileType || "").trim().toLowerCase();
+    if (ALLOWED_STUDY_FILE_TYPES.has(normalizedType)) return true;
+    return (
+        source.includes("pdf") ||
+        source.includes("docx") ||
+        source.includes("wordprocessingml") ||
+        source.includes("pptx") ||
+        source.includes("presentationml") ||
+        /\.(pdf|docx|pptx)\b/.test(source)
+    );
+};
 
 const toClientUpload = (row) => {
     if (!row) return null;
@@ -51,9 +88,18 @@ const toClientUpload = (row) => {
     };
 };
 
+const hasCompleteExtract = (row) =>
+    Boolean(
+        row &&
+            row.status === "ready" &&
+            row.extraction_status === "complete" &&
+            Number(row.char_count || 0) > 0 &&
+            String(row.extracted_text || "").trim(),
+    );
+
 const toClientUploadWithCourse = async (row) => {
     const upload = toClientUpload(row);
-    if (!upload || row.status !== "ready") {
+    if (!upload || !hasCompleteExtract(row)) {
         return upload;
     }
     try {
@@ -116,6 +162,19 @@ export const initUploadForUser = async ({
     fileSize,
     contentType,
 }) => {
+    if (
+        !isAllowedStudyUploadType({
+            fileType,
+            contentType,
+            fileName,
+        })
+    ) {
+        const error = new Error(UNSUPPORTED_TYPE_MESSAGE);
+        error.status = 400;
+        error.code = "UNSUPPORTED_FILE_TYPE";
+        throw error;
+    }
+
     const id = nanoid();
     const bucket = getStorageBucket();
     const safeName = String(fileName || "upload")
@@ -203,6 +262,21 @@ const persistExtractedUpload = async (uploadId, payload) => {
     });
 };
 
+const persistExtractionFailure = async (uploadId, message, warnings = []) => {
+    return updateUploadRow(uploadId, {
+        status: "error",
+        processing_step: "extract_failed",
+        extraction_status: "failed",
+        extracted_text: null,
+        char_count: 0,
+        page_count: null,
+        extraction_backend: null,
+        extraction_parser: null,
+        extraction_warnings: JSON.stringify(warnings),
+        error_message: message || EXTRACTION_FAILED_MESSAGE,
+    });
+};
+
 const tryLocalExtract = async ({ row, fileBuffer }) => {
     if (!isLocalExtractable({
         fileType: row.file_type,
@@ -219,6 +293,74 @@ const tryLocalExtract = async ({ row, fileBuffer }) => {
     });
 };
 
+const tryAzureOcrFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
+    await updateUploadRow(row.id, {
+        processing_step: "ocr",
+        extraction_status: "running",
+    });
+
+    if (!isAzureDocIntelEnabled()) {
+        return persistExtractionFailure(
+            row.id,
+            "Scanned or image-only document. OCR is not configured. Upload a text-based PDF, DOCX, or PPTX.",
+            [
+                ...priorWarnings,
+                "Azure Document Intelligence is not configured (AZURE_DOCINTEL_ENDPOINT / AZURE_DOCINTEL_KEY).",
+            ],
+        );
+    }
+
+    try {
+        const payload = await callAzureDocIntelLayout({
+            fileBuffer,
+            contentType: row.content_type || "application/pdf",
+        });
+        if (payload?.skipped) {
+            return persistExtractionFailure(
+                row.id,
+                EXTRACTION_FAILED_MESSAGE,
+                [...priorWarnings, payload.reason || "azure_skipped"],
+            );
+        }
+        const text = String(payload?.text || "").trim();
+        if (!text) {
+            return persistExtractionFailure(
+                row.id,
+                "OCR ran but found no readable text in this document.",
+                priorWarnings,
+            );
+        }
+        return persistExtractedUpload(row.id, {
+            text,
+            pageCount: payload?.pageCount,
+            backend: payload?.backend || "azure_docintel",
+            parser: payload?.parser || "prebuilt-layout",
+            warnings: [
+                ...priorWarnings,
+                "Used Azure Document Intelligence OCR because selectable text was unavailable.",
+            ],
+        });
+    } catch (error) {
+        console.warn("[uploads] Azure OCR failed", {
+            uploadId: row.id,
+            message: error?.message || String(error),
+        });
+        return persistExtractionFailure(
+            row.id,
+            `OCR failed: ${error?.message || "unknown error"}`,
+            priorWarnings,
+        );
+    }
+};
+
+const finishReadyIfComplete = async ({ userId, uploadId, readyRow }) => {
+    if (!hasCompleteExtract(readyRow)) {
+        return toClientUpload(readyRow);
+    }
+    await chargeUploadIfNeeded({ userId, uploadId });
+    return toClientUploadWithCourse(readyRow);
+};
+
 export const finalizeUploadForUser = async (userId, uploadId) => {
     const row = await getUploadRowForUser(userId, uploadId);
     if (!row) {
@@ -227,23 +369,44 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         throw error;
     }
 
-    if (row.status === "ready") {
+    if (row.status === "ready" && hasCompleteExtract(row)) {
         return toClientUploadWithCourse(row);
+    }
+
+    if (row.status === "ready" && !hasCompleteExtract(row)) {
+        // Legacy deferred/ready-without-text rows: treat as failed until re-finalized.
+        const failed = await persistExtractionFailure(
+            uploadId,
+            EXTRACTION_FAILED_MESSAGE,
+            Array.isArray(row.extraction_warnings) ? row.extraction_warnings : [],
+        );
+        return toClientUpload(failed);
     }
 
     await assertUploadCreditsAvailable(userId);
 
-    await updateUploadRow(uploadId, {
-        status: "extracting",
-        processing_step: "downloading",
-        extraction_status: "running",
-        error_message: null,
-    });
-
-    const finishReady = async (readyRow) => {
-        await chargeUploadIfNeeded({ userId, uploadId });
-        return toClientUploadWithCourse(readyRow);
-    };
+    const claimed = await getPool().query(
+        `UPDATE uploads
+         SET status = 'extracting',
+             processing_step = 'downloading',
+             extraction_status = 'running',
+             error_message = NULL,
+             updated_at = NOW()
+         WHERE id = $1
+           AND user_id = $2
+           AND status IN ('pending', 'error', 'extracting')
+         RETURNING *`,
+        [uploadId, userId],
+    );
+    if (!claimed.rows[0]) {
+        const latest = await getUploadRowForUser(userId, uploadId);
+        if (latest && hasCompleteExtract(latest)) {
+            return toClientUploadWithCourse(latest);
+        }
+        const error = new Error("Upload is already being processed.");
+        error.status = 409;
+        throw error;
+    }
 
     let fileBuffer;
     try {
@@ -270,20 +433,12 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
     const localCapable = isLocalExtractable(meta);
 
     if (!anydocCapable && !localCapable) {
-        const deferred = await updateUploadRow(uploadId, {
-            status: "ready",
-            processing_step: "ready",
-            extraction_status: "deferred",
-            extraction_warnings: JSON.stringify([
-                "Extraction is not available for this file type yet.",
-            ]),
-            extracted_text: null,
-            char_count: 0,
-            page_count: null,
-            extraction_backend: null,
-            extraction_parser: null,
-        });
-        return finishReady(deferred);
+        const failed = await persistExtractionFailure(
+            uploadId,
+            UNSUPPORTED_TYPE_MESSAGE,
+            ["Extraction is not available for this file type."],
+        );
+        return toClientUpload(failed);
     }
 
     await updateUploadRow(uploadId, {
@@ -292,23 +447,6 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
     });
 
     const extractionErrors = [];
-
-    const persistDeferredOcr = async (warnings = []) => {
-        const deferred = await updateUploadRow(uploadId, {
-            status: "ready",
-            processing_step: "ready",
-            extraction_status: "deferred",
-            extraction_warnings: JSON.stringify(
-                warnings.length > 0 ? warnings : [OCR_DEFERRED_WARNING],
-            ),
-            extracted_text: null,
-            char_count: 0,
-            page_count: null,
-            extraction_backend: null,
-            extraction_parser: null,
-        });
-        return finishReady(deferred);
-    };
 
     if (anydocCapable) {
         try {
@@ -320,10 +458,19 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
             });
             const text = String(payload?.text || "").trim();
             if (!text) {
-                return persistDeferredOcr([
-                    OCR_DEFERRED_WARNING,
-                    ...(payload?.warnings || []),
-                ]);
+                const readyOrFailed = await tryAzureOcrFallback({
+                    row,
+                    fileBuffer,
+                    priorWarnings: [
+                        "Anydoc returned no selectable text.",
+                        ...(payload?.warnings || []),
+                    ],
+                });
+                return finishReadyIfComplete({
+                    userId,
+                    uploadId,
+                    readyRow: readyOrFailed,
+                });
             }
             const ready = await persistExtractedUpload(uploadId, {
                 text,
@@ -332,14 +479,23 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
                 parser: payload?.parser || "anydoc",
                 warnings: payload?.warnings || [],
             });
-            return finishReady(ready);
+            return finishReadyIfComplete({ userId, uploadId, readyRow: ready });
         } catch (error) {
             if (isAnydocUnsupportedError(error)) {
-                console.warn("[uploads] Anydoc unsupported (likely scanned); deferring", {
+                console.warn("[uploads] Anydoc unsupported (likely scanned); trying Azure OCR", {
                     uploadId,
                     message: error?.message || String(error),
                 });
-                return persistDeferredOcr([OCR_DEFERRED_WARNING]);
+                const readyOrFailed = await tryAzureOcrFallback({
+                    row,
+                    fileBuffer,
+                    priorWarnings: [OCR_UNSUPPORTED_HINT],
+                });
+                return finishReadyIfComplete({
+                    userId,
+                    uploadId,
+                    readyRow: readyOrFailed,
+                });
             }
             extractionErrors.push(error.message || "Anydoc extraction failed");
             console.warn("[uploads] Anydoc extract failed; trying local fallback", {
@@ -354,11 +510,20 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
             const payload = await tryLocalExtract({ row, fileBuffer });
             if (payload) {
                 const text = String(payload?.text || "").trim();
-                if (!text && anydocCapable) {
-                    return persistDeferredOcr([
-                        OCR_DEFERRED_WARNING,
-                        ...(payload?.warnings || []),
-                    ]);
+                if (!text) {
+                    const readyOrFailed = await tryAzureOcrFallback({
+                        row,
+                        fileBuffer,
+                        priorWarnings: [
+                            "Local extract found no selectable text.",
+                            ...(payload?.warnings || []),
+                        ],
+                    });
+                    return finishReadyIfComplete({
+                        userId,
+                        uploadId,
+                        readyRow: readyOrFailed,
+                    });
                 }
                 const warnings = [...(payload.warnings || [])];
                 if (extractionErrors.length > 0) {
@@ -370,22 +535,70 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
                     ...payload,
                     warnings,
                 });
-                return finishReady(ready);
+                return finishReadyIfComplete({ userId, uploadId, readyRow: ready });
             }
         } catch (error) {
             extractionErrors.push(error.message || "Local extraction failed");
         }
     }
 
-    if (anydocCapable && !localCapable) {
-        return persistDeferredOcr();
+    if (anydocCapable) {
+        const readyOrFailed = await tryAzureOcrFallback({
+            row,
+            fileBuffer,
+            priorWarnings: extractionErrors,
+        });
+        return finishReadyIfComplete({
+            userId,
+            uploadId,
+            readyRow: readyOrFailed,
+        });
     }
 
-    const failed = await updateUploadRow(uploadId, {
-        status: "error",
-        processing_step: "extract_failed",
-        extraction_status: "failed",
-        error_message: extractionErrors.filter(Boolean).join(" | ") || "Extraction failed",
-    });
+    const failed = await persistExtractionFailure(
+        uploadId,
+        extractionErrors.filter(Boolean).join(" | ") || EXTRACTION_FAILED_MESSAGE,
+        extractionErrors,
+    );
     return toClientUpload(failed);
+};
+
+export const deleteUploadForUser = async (userId, uploadId) => {
+    const row = await getUploadRowForUser(userId, uploadId);
+    if (!row) {
+        const error = new Error("Upload not found");
+        error.status = 404;
+        throw error;
+    }
+
+    const db = getPool();
+    const courses = await db.query(
+        `SELECT id FROM courses WHERE user_id = $1 AND upload_id = $2`,
+        [userId, uploadId],
+    );
+    for (const course of courses.rows) {
+        await db.query(`DELETE FROM courses WHERE id = $1 AND user_id = $2`, [
+            course.id,
+            userId,
+        ]);
+    }
+
+    try {
+        await deleteUploadObject({
+            bucket: row.storage_bucket,
+            path: row.storage_path,
+        });
+    } catch (error) {
+        console.warn("[uploads] storage delete failed; continuing with DB delete", {
+            uploadId,
+            message: error?.message || String(error),
+        });
+    }
+
+    await db.query(`DELETE FROM uploads WHERE id = $1 AND user_id = $2`, [
+        uploadId,
+        userId,
+    ]);
+
+    return { deleted: true, uploadId };
 };

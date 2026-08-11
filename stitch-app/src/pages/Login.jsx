@@ -248,12 +248,7 @@ const Login = () => {
                         </div>
 
                         <div>
-                            <div className="flex items-center justify-between">
-                                <label className="cp-label" htmlFor="password">Password</label>
-                                <Link to="/reset-password" className="text-xs font-semibold text-[#007AFF] hover:underline">
-                                    Forgot password?
-                                </Link>
-                            </div>
+                            <label className="cp-label" htmlFor="password">Password</label>
                             <div className="relative">
                                 <input
                                     className="cp-input pr-11"

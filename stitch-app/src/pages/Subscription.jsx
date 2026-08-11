@@ -373,7 +373,7 @@ const Subscription = () => {
                     </h2>
                     <WatermelonDisclosure title="What does an upload credit cover?">
                         <p className="text-body-sm leading-relaxed text-text-secondary">
-                            One upload credit lets you process a single document (PDF, DOCX, PPTX, or image). ChewnPour turns it into a structured course with lessons, quizzes, and a revision plan.
+                            One upload credit lets you process a single document (PDF, DOCX, or PPTX). Scanned PDFs use OCR when configured. ChewnPour turns it into a structured course with lessons, quizzes, and a revision plan.
                         </p>
                     </WatermelonDisclosure>
                     <WatermelonDisclosure title="Do credits expire?">

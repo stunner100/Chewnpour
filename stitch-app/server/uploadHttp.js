@@ -1,9 +1,11 @@
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
 import {
+    deleteUploadForUser,
     finalizeUploadForUser,
     getUploadForUser,
     initUploadForUser,
+    isAllowedStudyUploadType,
     listUploadsForUser,
 } from "./uploads.js";
 import { assertUploadCreditsAvailable } from "./billing.js";
@@ -78,6 +80,12 @@ export const handleUploadsRequest = async (req, res) => {
             if (fileSize > 50 * 1024 * 1024) {
                 return sendJson(res, 400, { error: "File must be smaller than 50MB" });
             }
+            if (!isAllowedStudyUploadType({ fileType, contentType, fileName })) {
+                return sendJson(res, 400, {
+                    error: "Only PDF, DOCX, and PPTX files are supported right now.",
+                    code: "UNSUPPORTED_FILE_TYPE",
+                });
+            }
 
             await assertUploadCreditsAvailable(user.id);
 
@@ -105,7 +113,12 @@ export const handleUploadsRequest = async (req, res) => {
             return sendJson(res, 200, { upload });
         }
 
-        res.setHeader("Allow", "GET, POST");
+        if (parts.length === 1 && method === "DELETE") {
+            const result = await deleteUploadForUser(user.id, parts[0]);
+            return sendJson(res, 200, result);
+        }
+
+        res.setHeader("Allow", "GET, POST, DELETE");
         return sendJson(res, 405, { error: "Method not allowed" });
     } catch (error) {
         console.error("[api/uploads]", error);

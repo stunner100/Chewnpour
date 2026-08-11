@@ -16,34 +16,16 @@ const SUPPORTED_STUDY_MIME_TYPES = new Map([
     ['application/pdf', 'pdf'],
     ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx'],
     ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx'],
-    ['audio/mpeg', 'mp3'],
-    ['audio/mp3', 'mp3'],
-    ['audio/mp4', 'mp4'],
-    ['audio/x-m4a', 'm4a'],
-    ['audio/wav', 'wav'],
-    ['audio/x-wav', 'wav'],
-    ['audio/webm', 'webm'],
-    ['audio/ogg', 'ogg'],
-    ['audio/aac', 'aac'],
-    ['audio/flac', 'flac'],
 ]);
 
 const SUPPORTED_STUDY_EXTENSIONS = new Set([
     'pdf',
     'pptx',
     'docx',
-    'mp3',
-    'm4a',
-    'mp4',
-    'wav',
-    'webm',
-    'ogg',
-    'aac',
-    'flac',
 ]);
 
-const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.aac,.flac,audio/*';
-const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, MP3, M4A, MP4, WAV, WEBM, OGG, AAC, FLAC';
+const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx';
+const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX';
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const resolveStudyUploadFileType = (file) => {
@@ -91,20 +73,22 @@ const formatRelativeTime = (timestamp) => {
 const getStatusConfig = (status, extractionStatus) => {
     const normalized = String(status || '').toLowerCase();
     const extraction = String(extractionStatus || '').toLowerCase();
-    if (normalized === 'ready' && (extraction === 'complete' || extraction === 'deferred' || extraction === 'not_configured')) {
+    if (normalized === 'ready' && extraction === 'complete') {
         return {
-            label: extraction === 'complete' ? 'Extracted' : 'Stored',
+            label: 'Extracted',
             icon: 'check_circle',
             className: 'bg-success-soft text-success',
             isProcessing: false,
+            isError: false,
         };
     }
-    if (normalized === 'error') {
+    if (normalized === 'error' || extraction === 'failed' || extraction === 'deferred') {
         return {
-            label: 'Not ready',
-            icon: 'schedule',
-            className: 'bg-surface-soft text-text-muted',
+            label: 'Failed',
+            icon: 'error',
+            className: 'bg-error-soft text-error',
             isProcessing: false,
+            isError: true,
         };
     }
     if (normalized === 'extracting' || extraction === 'running') {
@@ -113,6 +97,7 @@ const getStatusConfig = (status, extractionStatus) => {
             icon: 'sync',
             className: 'bg-info-soft text-info',
             isProcessing: true,
+            isError: false,
         };
     }
     return {
@@ -120,6 +105,7 @@ const getStatusConfig = (status, extractionStatus) => {
         icon: 'sync',
         className: 'bg-info-soft text-info',
         isProcessing: true,
+        isError: false,
     };
 };
 
@@ -334,7 +320,7 @@ const UploadMaterials = () => {
                         Add to your workspace
                     </h1>
                     <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
-                        Drop your PDFs, slides, or notes here. ChewnPour will extract text and prepare lessons, summaries, and quizzes.
+                        Upload PDF, DOCX, or PPTX files. ChewnPour extracts text and prepares lessons and quizzes.
                     </p>
                 </div>
 
@@ -370,7 +356,7 @@ const UploadMaterials = () => {
                             ? 'Uploading your material...'
                             : isDragging
                                 ? 'Drop to upload'
-                                : 'Drop your PDFs, slides, or notes here'}
+                                : 'Drop PDF, DOCX, or PPTX files here'}
                     </h3>
                     <p className="mt-2 max-w-md text-body-sm text-text-secondary md:text-body-md">
                         {isUploading
@@ -454,22 +440,33 @@ const UploadMaterials = () => {
                                                 <p className="mt-1 text-body-sm text-text-secondary">
                                                     Uploaded {formatRelativeTime(upload.createdAt)} · {formatFileSize(upload.fileSize)}
                                                 </p>
+                                                {statusConfig.isError && upload.errorMessage && (
+                                                    <p className="mt-2 text-caption text-error">{upload.errorMessage}</p>
+                                                )}
                                                 {statusConfig.isProcessing && (
                                                     <div className="mt-3 max-w-xs">
                                                         <div className="h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                                                            <div className="h-full w-[55%] rounded-full bg-info" />
+                                                            <div className="h-full w-[55%] rounded-full bg-info animate-pulse" />
                                                         </div>
                                                         <p className="mt-1 text-caption text-text-muted">{getProcessingText(upload)}</p>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
-                                        {!statusConfig.isProcessing && (
+                                        {!statusConfig.isProcessing && !statusConfig.isError && (
                                             <Link
                                                 to="/dashboard/library"
                                                 className="btn-secondary inline-flex min-h-10 shrink-0 self-start text-body-sm sm:self-center"
                                             >
                                                 Open
+                                            </Link>
+                                        )}
+                                        {statusConfig.isError && (
+                                            <Link
+                                                to="/dashboard/upload"
+                                                className="btn-secondary inline-flex min-h-10 shrink-0 self-start text-body-sm sm:self-center"
+                                            >
+                                                Try again
                                             </Link>
                                         )}
                                     </div>

@@ -16,6 +16,8 @@ export const config = {
     api: {
         bodyParser: false,
     },
+    // Azure OCR polls can take well over the default serverless limit.
+    maxDuration: 300,
     includeFiles: [
         "node_modules/@firecrawl/anydoc/**",
         "node_modules/@firecrawl/anydoc-linux-x64-gnu/**",

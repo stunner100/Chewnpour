@@ -156,35 +156,82 @@ export const consumeUploadCredit = async ({ userId, uploadId }) => {
     await assertUploadCreditsAvailable(userId);
 
     const db = getPool();
-    const updated = await db.query(
-        `UPDATE billing_accounts
-         SET consumed_upload_credits = consumed_upload_credits + $2,
-             updated_at = NOW()
-         WHERE user_id = $1
-           AND (purchased_upload_credits - consumed_upload_credits) >= $2
-         RETURNING *`,
-        [userId, UPLOAD_CREDIT_COST],
-    );
+    const client = await db.connect();
+    try {
+        await client.query("BEGIN");
 
-    if (!updated.rows[0]) {
-        const error = new Error("No upload credits remaining.");
-        error.status = 402;
-        error.code = "UPLOAD_CREDITS_EXHAUSTED";
-        error.billing = await getBillingForUser(userId);
+        if (uploadId) {
+            const existingSpend = await client.query(
+                `SELECT id
+                 FROM credit_ledger
+                 WHERE upload_id = $1
+                   AND entry_type = 'spend'
+                 LIMIT 1
+                 FOR UPDATE`,
+                [uploadId],
+            );
+            if (existingSpend.rows[0]) {
+                await client.query("COMMIT");
+                return getBillingForUser(userId);
+            }
+        }
+
+        const updated = await client.query(
+            `UPDATE billing_accounts
+             SET consumed_upload_credits = consumed_upload_credits + $2,
+                 updated_at = NOW()
+             WHERE user_id = $1
+               AND (purchased_upload_credits - consumed_upload_credits) >= $2
+             RETURNING *`,
+            [userId, UPLOAD_CREDIT_COST],
+        );
+
+        if (!updated.rows[0]) {
+            await client.query("ROLLBACK");
+            const error = new Error("No upload credits remaining.");
+            error.status = 402;
+            error.code = "UPLOAD_CREDITS_EXHAUSTED";
+            error.billing = await getBillingForUser(userId);
+            throw error;
+        }
+
+        const row = updated.rows[0];
+        const billing = toClientBilling(row);
+        try {
+            await client.query(
+                `INSERT INTO credit_ledger (
+                    id, user_id, entry_type, amount, reason, upload_id, balance_after
+                 ) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [
+                    nanoid(),
+                    userId,
+                    "spend",
+                    -UPLOAD_CREDIT_COST,
+                    "upload_finalize",
+                    uploadId || null,
+                    billing.remainingUploadCredits,
+                ],
+            );
+        } catch (error) {
+            await client.query("ROLLBACK");
+            if (error?.code === "23505") {
+                return getBillingForUser(userId);
+            }
+            throw error;
+        }
+
+        await client.query("COMMIT");
+        return billing;
+    } catch (error) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // ignore rollback errors
+        }
         throw error;
+    } finally {
+        client.release();
     }
-
-    const row = updated.rows[0];
-    const billing = toClientBilling(row);
-    await insertLedgerEntry({
-        userId,
-        entryType: "spend",
-        amount: -UPLOAD_CREDIT_COST,
-        reason: "upload_finalize",
-        uploadId: uploadId || null,
-        balanceAfter: billing.remainingUploadCredits,
-    });
-    return billing;
 };
 
 export const hasUploadCreditSpend = async (uploadId) => {
@@ -205,7 +252,15 @@ export const chargeUploadIfNeeded = async ({ userId, uploadId }) => {
     if (await hasUploadCreditSpend(uploadId)) {
         return getBillingForUser(userId);
     }
-    return consumeUploadCredit({ userId, uploadId });
+    try {
+        return await consumeUploadCredit({ userId, uploadId });
+    } catch (error) {
+        // Unique spend-per-upload race: treat as already charged.
+        if (error?.code === "23505" || /duplicate key/i.test(String(error?.message || ""))) {
+            return getBillingForUser(userId);
+        }
+        throw error;
+    }
 };
 
 export const hasSuccessfulPurchase = async (userId) => {

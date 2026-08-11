@@ -182,7 +182,8 @@ const submit = await api(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
   body: {
     answers: questions.map((question) => ({
       questionId: question.id,
-      selectedIndex: Number(question.correctIndex) || 0,
+      // GET quiz intentionally omits correctIndex; smoke just submits option A.
+      selectedIndex: 0,
     })),
   },
 });
@@ -190,8 +191,12 @@ assert(submit.response.ok, `quiz submit failed: ${submit.payload?.error || submi
 const attemptId = submit.payload?.attempt?.id || submit.payload?.attempt?.attemptId;
 assert(attemptId, 'Expected attempt id after quiz submit');
 assert(
-  Number(submit.payload?.attempt?.score) === questions.length,
-  `Expected perfect score, got ${submit.payload?.attempt?.score}/${submit.payload?.attempt?.total}`,
+  Number.isFinite(Number(submit.payload?.attempt?.score)),
+  `Expected numeric score, got ${submit.payload?.attempt?.score}`,
+);
+assert(
+  !Object.prototype.hasOwnProperty.call(questions[0] || {}, 'correctIndex'),
+  'GET quiz must not leak correctIndex',
 );
 
 const results = await api(`/api/quiz-attempts/${encodeURIComponent(attemptId)}`);

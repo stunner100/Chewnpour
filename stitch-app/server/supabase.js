@@ -73,3 +73,13 @@ export const downloadUploadObject = async ({ bucket, path }) => {
     const arrayBuffer = await data.arrayBuffer();
     return Buffer.from(arrayBuffer);
 };
+
+export const deleteUploadObject = async ({ bucket, path }) => {
+    const supabase = getSupabaseAdmin();
+    const targetBucket = bucket || getStorageBucket();
+    const { error } = await supabase.storage.from(targetBucket).remove([path]);
+    if (error) {
+        throw new Error(`Failed to delete upload object: ${error.message}`);
+    }
+    return { deleted: true, bucket: targetBucket, path };
+};

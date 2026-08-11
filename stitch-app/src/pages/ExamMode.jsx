@@ -12,7 +12,7 @@ const EmptyExamState = () => (
       Upload material to unlock exam practice
     </h2>
     <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
-      Exam mode runs a focused MCQ session from your course topics. Add a PDF or document first so questions can be generated.
+      Exam practice runs a focused MCQ session from one of your course topics — the same question bank as Quizzes. Add a PDF, DOCX, or PPTX first so questions can be generated.
     </p>
     <Link
       to="/dashboard/upload"
@@ -25,8 +25,8 @@ const EmptyExamState = () => (
 );
 
 /**
- * Exam hub — phase 1 hard cutover on the live Supabase quiz APIs.
- * Starts TopicQuizPlayer with MCQ autostart (no legacy exam suite).
+ * Exam practice hub — topic MCQ via the live Supabase quiz APIs.
+ * This is not a separate whole-document exam engine.
  */
 const ExamMode = () => {
   const { user } = useAuth();
@@ -84,9 +84,9 @@ const ExamMode = () => {
       <main className="flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto">
         <div className="w-full max-w-5xl space-y-space-6">
           <div>
-            <h1 className="font-headline-lg text-headline-lg font-bold text-text-primary">Exam</h1>
+            <h1 className="font-headline-lg text-headline-lg font-bold text-text-primary">Exam practice</h1>
             <p className="mt-2 text-body text-text-secondary">
-              Run a focused MCQ practice session from your uploaded materials. This uses the same question bank as Quizzes.
+              Run a focused MCQ practice session from one topic in your uploaded materials. This uses the same question bank as Quizzes — not a separate whole-document exam yet.
             </p>
           </div>
 
@@ -120,7 +120,7 @@ const ExamMode = () => {
                     </h2>
                     <p className="mt-2 text-body-sm text-text-secondary">
                       {course.quizzesReady} quiz-ready topic
-                      {course.quizzesReady === 1 ? '' : 's'}
+                      {course.quizzesReady === 1 ? '' : 's'} · same MCQ bank as Quizzes
                     </p>
                   </Link>
                 );
