@@ -235,7 +235,7 @@ const StudyProgressMastery = () => {
                                 {activityData.map((course) => (
                                     <div
                                         key={course.id}
-                                        className="rounded-[18px] border border-border-subtle bg-surface-soft/70 p-4"
+                                        className="rounded-[18px] border border-border-subtle bg-surface-variant p-4"
                                     >
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="min-w-0">
@@ -248,7 +248,7 @@ const StudyProgressMastery = () => {
                                                 {course.progress}%
                                             </span>
                                         </div>
-                                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
+                                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-soft">
                                             <div
                                                 className="h-full rounded-full bg-primary transition-all"
                                                 style={{ width: `${course.progress}%` }}
