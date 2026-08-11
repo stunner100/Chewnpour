@@ -144,7 +144,7 @@ const FAQS = [
   },
   {
     q: 'What file types work?',
-    a: 'ChewnPour works with text-based PDFs, DOCX, and PPTX lecture decks. Scanned PDFs use OCR when Azure Document Intelligence is configured.',
+    a: 'ChewnPour works with text-based PDFs, DOCX, and PPTX lecture decks. Scanned PDFs use OCR.space when configured (free tier: smaller files / fewer pages).',
   },
 ];
 

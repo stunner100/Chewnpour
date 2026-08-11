@@ -16,7 +16,7 @@ export const config = {
     api: {
         bodyParser: false,
     },
-    // Azure OCR polls can take well over the default serverless limit.
+    // OCR.space + anydoc finalize can exceed the default serverless limit.
     maxDuration: 300,
     includeFiles: [
         "node_modules/@firecrawl/anydoc/**",

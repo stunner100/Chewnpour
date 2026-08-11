@@ -45,8 +45,8 @@ if (!/callAnydocExtract/.test(anydocClient) || !/isAnydocExtractable/.test(anydo
 if (!uploadsSource.includes('callAnydocExtract') || !uploadsSource.includes('isAnydocExtractable')) {
   throw new Error('Expected finalizeUploadForUser to use anydoc extraction.');
 }
-if (!uploadsSource.includes('callAzureDocIntelLayout')) {
-  throw new Error('Expected finalizeUploadForUser to fall back to Azure OCR.');
+if (!uploadsSource.includes('callOcrSpace')) {
+  throw new Error('Expected finalizeUploadForUser to fall back to OCR.space.');
 }
 if (/doclingClient|callDoclingExtract|isDoclingEnabled/.test(uploadsSource)) {
   throw new Error('Expected finalizeUploadForUser to stop depending on Docling.');

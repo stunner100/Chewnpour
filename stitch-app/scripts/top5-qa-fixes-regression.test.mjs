@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildQuestionsForTopic } from '../server/courseGeneration.js';
-import { extractTextFromAzureResult } from '../server/azureDocIntelClient.js';
+import { extractTextFromOcrSpaceResult } from '../server/ocrSpaceClient.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = async (rel) => fs.readFile(path.join(root, rel), 'utf8');
@@ -11,20 +11,21 @@ const read = async (rel) => fs.readFile(path.join(root, rel), 'utf8');
 const uploadsSource = await read('server/uploads.js');
 const uploadHttp = await read('server/uploadHttp.js');
 const coursesSource = await read('server/courses.js');
-const azureSource = await read('server/azureDocIntelClient.js');
+const ocrSource = await read('server/ocrSpaceClient.js');
 const migration = await read('supabase/migrations/20260811140000_upload_idempotency_uniques.sql');
 const resetSource = await read('src/pages/ResetPassword.jsx');
 const loginSource = await read('src/pages/Login.jsx');
 const examSource = await read('src/pages/ExamMode.jsx');
 
-assert.match(azureSource, /callAzureDocIntelLayout/, 'Azure OCR client must export layout caller');
-assert.match(uploadsSource, /callAzureDocIntelLayout/, 'finalize must call Azure OCR fallback');
+assert.match(ocrSource, /callOcrSpace/, 'OCR.space client must export caller');
+assert.match(uploadsSource, /callOcrSpace/, 'finalize must call OCR.space fallback');
 assert.match(uploadsSource, /persistExtractionFailure/, 'empty extracts must fail without charging');
 assert.doesNotMatch(
   uploadsSource,
   /extraction_status: "deferred"/,
   'deferred ready+charge path must be removed',
 );
+assert.doesNotMatch(uploadsSource, /callAzureDocIntelLayout/, 'Azure OCR fallback must be removed');
 assert.match(uploadsSource, /isAllowedStudyUploadType/, 'init must validate allowed study types');
 assert.match(uploadsSource, /deleteUploadForUser/, 'uploads must support delete');
 assert.match(uploadHttp, /method === "DELETE"/, 'upload HTTP must expose DELETE');
@@ -50,14 +51,14 @@ assert.doesNotMatch(loginSource, /Forgot password\?/, 'login must hide broken fo
 assert.match(examSource, /Exam practice/, 'exam hub uses practice labelling');
 assert.match(examSource, /same question bank as Quizzes/, 'exam hub discloses shared quiz bank');
 
-const azureText = extractTextFromAzureResult({
-  analyzeResult: {
-    content: 'Photosynthesis converts light into chemical energy.',
-    pages: [],
-    tables: [],
-  },
+const ocrText = extractTextFromOcrSpaceResult({
+  ParsedResults: [
+    { ParsedText: 'Photosynthesis converts light into chemical energy.' },
+  ],
+  OCRExitCode: 1,
+  IsErroredOnProcessing: false,
 });
-assert.equal(azureText.includes('Photosynthesis'), true);
+assert.equal(ocrText.includes('Photosynthesis'), true);
 
 const questions = buildQuestionsForTopic({
   topicTitle: 'Biology',

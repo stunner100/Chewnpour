@@ -10,9 +10,9 @@ import {
     isLocalExtractable,
 } from "./localExtract.js";
 import {
-    callAzureDocIntelLayout,
-    isAzureDocIntelEnabled,
-} from "./azureDocIntelClient.js";
+    callOcrSpace,
+    isOcrSpaceEnabled,
+} from "./ocrSpaceClient.js";
 import {
     createSignedUpload,
     deleteUploadObject,
@@ -293,33 +293,35 @@ const tryLocalExtract = async ({ row, fileBuffer }) => {
     });
 };
 
-const tryAzureOcrFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
+const tryOcrSpaceFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
     await updateUploadRow(row.id, {
         processing_step: "ocr",
         extraction_status: "running",
     });
 
-    if (!isAzureDocIntelEnabled()) {
+    if (!isOcrSpaceEnabled()) {
         return persistExtractionFailure(
             row.id,
             "Scanned or image-only document. OCR is not configured. Upload a text-based PDF, DOCX, or PPTX.",
             [
                 ...priorWarnings,
-                "Azure Document Intelligence is not configured (AZURE_DOCINTEL_ENDPOINT / AZURE_DOCINTEL_KEY).",
+                "OCR.space is not configured (OCR_SPACE_API_KEY).",
             ],
         );
     }
 
     try {
-        const payload = await callAzureDocIntelLayout({
+        const payload = await callOcrSpace({
             fileBuffer,
             contentType: row.content_type || "application/pdf",
+            fileName: row.file_name,
+            fileType: row.file_type,
         });
         if (payload?.skipped) {
             return persistExtractionFailure(
                 row.id,
                 EXTRACTION_FAILED_MESSAGE,
-                [...priorWarnings, payload.reason || "azure_skipped"],
+                [...priorWarnings, payload.reason || "ocr_space_skipped"],
             );
         }
         const text = String(payload?.text || "").trim();
@@ -327,21 +329,22 @@ const tryAzureOcrFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
             return persistExtractionFailure(
                 row.id,
                 "OCR ran but found no readable text in this document.",
-                priorWarnings,
+                [...priorWarnings, ...(payload?.warnings || [])],
             );
         }
         return persistExtractedUpload(row.id, {
             text,
             pageCount: payload?.pageCount,
-            backend: payload?.backend || "azure_docintel",
-            parser: payload?.parser || "prebuilt-layout",
+            backend: payload?.backend || "ocr_space",
+            parser: payload?.parser || "ocr.space",
             warnings: [
                 ...priorWarnings,
-                "Used Azure Document Intelligence OCR because selectable text was unavailable.",
+                ...(payload?.warnings || []),
+                "Used OCR.space because selectable text was unavailable.",
             ],
         });
     } catch (error) {
-        console.warn("[uploads] Azure OCR failed", {
+        console.warn("[uploads] OCR.space failed", {
             uploadId: row.id,
             message: error?.message || String(error),
         });
@@ -458,7 +461,7 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
             });
             const text = String(payload?.text || "").trim();
             if (!text) {
-                const readyOrFailed = await tryAzureOcrFallback({
+                const readyOrFailed = await tryOcrSpaceFallback({
                     row,
                     fileBuffer,
                     priorWarnings: [
@@ -482,11 +485,11 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
             return finishReadyIfComplete({ userId, uploadId, readyRow: ready });
         } catch (error) {
             if (isAnydocUnsupportedError(error)) {
-                console.warn("[uploads] Anydoc unsupported (likely scanned); trying Azure OCR", {
+                console.warn("[uploads] Anydoc unsupported (likely scanned); trying OCR.space", {
                     uploadId,
                     message: error?.message || String(error),
                 });
-                const readyOrFailed = await tryAzureOcrFallback({
+                const readyOrFailed = await tryOcrSpaceFallback({
                     row,
                     fileBuffer,
                     priorWarnings: [OCR_UNSUPPORTED_HINT],
@@ -511,7 +514,7 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
             if (payload) {
                 const text = String(payload?.text || "").trim();
                 if (!text) {
-                    const readyOrFailed = await tryAzureOcrFallback({
+                    const readyOrFailed = await tryOcrSpaceFallback({
                         row,
                         fileBuffer,
                         priorWarnings: [
@@ -543,7 +546,7 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
     }
 
     if (anydocCapable) {
-        const readyOrFailed = await tryAzureOcrFallback({
+        const readyOrFailed = await tryOcrSpaceFallback({
             row,
             fileBuffer,
             priorWarnings: extractionErrors,
