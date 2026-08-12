@@ -16,7 +16,7 @@ import {
     normalizeLessonContent,
     slugifyText,
 } from '../lib/topicContentFormatting';
-import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
+import { isPlaceholderTopicIllustration, resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import {
     SECTION_SETS,
     EMBEDDED_SECTION_SPLIT_PATTERN,
@@ -484,6 +484,8 @@ export const useTopicDetail = () => {
     const headerTopicTitle = resolvedTopicTitle;
     const heroTopicTitle = resolvedTopicTitle;
     const topicIllustrationUrl = resolveTopicIllustrationUrl(topic?.illustrationUrl);
+    const showTopicIllustration = Boolean(topicIllustrationUrl)
+        && !isPlaceholderTopicIllustration(topic?.illustrationUrl || topicIllustrationUrl);
 
     const toggleVoiceMode = async () => {
         if (!user) return;
@@ -775,8 +777,25 @@ export const useTopicDetail = () => {
         const blocksWithWidgets = [];
         let insertedQuickCheck = false;
         let insertedWordBank = false;
+        let skippedDuplicateTitle = false;
+        const normalizeTitle = (value) => String(value || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+        const pageTitleKey = normalizeTitle(resolvedTopicTitle);
 
         for (const block of filteredBlocks) {
+            if (
+                !skippedDuplicateTitle
+                && block.type === 'header'
+                && block.level === 1
+                && pageTitleKey
+                && normalizeTitle(block.text) === pageTitleKey
+            ) {
+                skippedDuplicateTitle = true;
+                continue;
+            }
+
             blocksWithWidgets.push(block);
 
             if (block.type !== 'header') {
@@ -786,9 +805,9 @@ export const useTopicDetail = () => {
             const normalized = block.text.toLowerCase().replace(SECTION_TEXT_STRIP_PATTERN, '').trim();
 
             if (
-                !insertedQuickCheck &&
-                parsed.quickCheckPairs?.length > 0 &&
-                QUICK_CHECK_SECTION_PATTERN.test(normalized)
+                !insertedQuickCheck
+                && parsed.quickCheckPairs?.length > 0
+                && QUICK_CHECK_SECTION_PATTERN.test(normalized)
             ) {
                 blocksWithWidgets.push({
                     type: 'quickcheck_widget',
@@ -798,9 +817,9 @@ export const useTopicDetail = () => {
             }
 
             if (
-                !insertedWordBank &&
-                wordBankTerms?.length > 0 &&
-                WORD_BANK_SECTION_PATTERN.test(normalized)
+                !insertedWordBank
+                && wordBankTerms?.length > 0
+                && WORD_BANK_SECTION_PATTERN.test(normalized)
             ) {
                 blocksWithWidgets.push({
                     type: 'wordbank_widget',
@@ -825,7 +844,7 @@ export const useTopicDetail = () => {
         }
 
         return blocksWithWidgets;
-    }, [filteredBlocks, parsed.quickCheckPairs, wordBankTerms]);
+    }, [filteredBlocks, parsed.quickCheckPairs, resolvedTopicTitle, wordBankTerms]);
 
     useEffect(() => {
         if (!studyMode) return undefined;
@@ -865,11 +884,11 @@ export const useTopicDetail = () => {
         navigate(timedExamRoute);
     }, [navigate, timedExamRoute]);
     const objectiveExamActionLabel = isTopicQuizRoute
-        ? (topicProgress?.bestScore != null ? 'Retry Objective Quiz' : 'Start Objective Quiz')
-        : (examTopicId ? 'Take Final Objective Quiz' : 'Final Objective Quiz Preparing');
+        ? (topicProgress?.bestScore != null ? 'Retry quiz' : 'Start quiz')
+        : (examTopicId ? 'Start quiz' : 'Quiz preparing');
     const essayExamActionLabel = isTopicQuizRoute
-        ? 'Start Essay'
-        : (examTopicId ? 'Take Final Essay' : 'Final Essay Preparing');
+        ? 'Start essay'
+        : (examTopicId ? 'Start essay' : 'Essay preparing');
     const practiceDescription = isTopicQuizRoute
         ? 'Choose the format that fits how you want to test this lesson.'
         : 'This topic is assessed in the course quiz for better question quality.';
@@ -1004,11 +1023,13 @@ export const useTopicDetail = () => {
         },
     ];
 
-    const practicePrimary = examTopicId
-        ? [{ id: 'p-start-quiz', icon: 'quiz', label: 'Start Quiz', href: objectiveExamRoute }]
-        : [{ id: 'p-quiz-pending', icon: 'hourglass_top', label: 'Quiz preparing', disabled: true }];
+    // End-of-lesson practice: Quiz is secondary here because the sticky header owns the primary.
+    const practicePrimary = [];
 
     const practiceSecondary = [
+        examTopicId
+            ? { id: 'p-start-quiz', icon: 'quiz', label: objectiveExamActionLabel, href: objectiveExamRoute }
+            : { id: 'p-quiz-pending', icon: 'hourglass_top', label: 'Quiz preparing', disabled: true },
         examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
     ].filter(Boolean);
 
@@ -1108,6 +1129,7 @@ export const useTopicDetail = () => {
         setSettingsOpen,
         settingsOpen,
         shouldAnimateBlocks,
+        showTopicIllustration,
         showScrollTop,
         sourceOpen,
         sourcePassages,

@@ -106,6 +106,7 @@ export const TopicLessonMainColumn = ({ controller }) => {
         stopVoice,
         topic,
         topicId,
+        showTopicIllustration,
         topicIllustrationUrl,
         topicProgress,
         voicePlaybackError,
@@ -137,6 +138,7 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 resolvedTopicTitle={resolvedTopicTitle}
                 resumeVoice={resumeVoice}
                 shouldAnimateBlocks={shouldAnimateBlocks}
+                showTopicIllustration={showTopicIllustration}
                 speechText={speechText}
                 stopVoice={stopVoice}
                 topic={topic}
@@ -303,19 +305,16 @@ export const TopicLessonBreadcrumbs = ({ courseTitle, courseHref, topicTitle }) 
     </nav>
 );
 
-export const TopicMetaBadges = ({ sourceLabel, topicProgress }) => {
+export const TopicMetaBadges = ({ sourceLabel: _sourceLabel, topicProgress }) => {
     const completed = Boolean(topicProgress?.completedAt);
     const bestScore = Number(topicProgress?.bestScore ?? 0);
     let masteryLabel = 'In progress';
     if (completed && bestScore >= 80) masteryLabel = 'Mastered';
     else if (completed) masteryLabel = 'Reviewing';
 
-    const parts = [sourceLabel || null, masteryLabel].filter(Boolean);
-    if (parts.length === 0) return null;
-
     return (
         <p className="text-caption font-medium text-text-muted">
-            {parts.join(' · ')}
+            {masteryLabel}
         </p>
     );
 };
@@ -353,7 +352,7 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
                 <button
                     type="button"
                     onClick={goTo(nextTopic.id || nextTopic._id)}
-                    className="btn-primary inline-flex min-h-11 max-w-[46%] items-center gap-2 text-body-sm"
+                    className="btn-secondary inline-flex min-h-11 max-w-[46%] items-center gap-2 text-body-sm"
                 >
                     <span className="line-clamp-1">{nextTitle}</span>
                     <AppIcon name="arrow_forward" className="shrink-0 text-[18px]" />
@@ -361,9 +360,9 @@ export const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
             ) : examTopicId ? (
                 <Link
                     to={buildTopicQuizRoute(examTopicId)}
-                    className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm"
+                    className="btn-secondary inline-flex min-h-11 items-center gap-2 text-body-sm"
                 >
-                    <span>Take the quiz</span>
+                    <span>Start quiz</span>
                     <AppIcon name="arrow_forward" className="text-[18px]" />
                 </Link>
             ) : (
@@ -383,26 +382,24 @@ const STUDY_ASSISTANT_PROMPTS = [
 export const TopicStudyAssistantCard = ({ topicTitle, onOpenChat, onAsk }) => {
     const openTutor = () => onOpenChat?.();
     return (
-        <aside className="sticky top-6 flex flex-col gap-4 rounded-2xl border border-border-subtle bg-surface-soft/60 p-4">
-            <header className="flex items-center gap-3">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary-subtle text-primary">
-                    <AppIcon name="smart_toy" className="text-[18px]" />
-                </span>
+        <aside className="sticky top-6 space-y-3">
+            <div className="flex items-center gap-2">
+                <AppIcon name="smart_toy" className="text-[18px] text-primary" />
                 <div>
                     <p className="text-body-sm font-semibold text-text-primary">Study Assistant</p>
-                    <p className="text-caption text-text-muted">Same tutor chat as mobile</p>
+                    <p className="text-caption text-text-muted">Ask about this lesson</p>
                 </div>
-            </header>
-            <p className="text-body-sm leading-relaxed text-text-secondary">
-                {`Ask about ${topicTitle || 'this lesson'} — answers stay grounded in your material.`}
+            </div>
+            <p className="text-caption leading-relaxed text-text-secondary">
+                {`Grounded answers for ${topicTitle || 'this lesson'}.`}
             </p>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
                 {STUDY_ASSISTANT_PROMPTS.map((prompt) => (
                     <button
                         key={prompt}
                         type="button"
                         onClick={() => (onAsk ? onAsk(prompt) : openTutor())}
-                        className="rounded-lg px-2 py-2 text-left text-caption font-medium text-text-secondary transition-colors hover:bg-surface hover:text-primary"
+                        className="rounded-lg px-2 py-1.5 text-left text-caption text-text-muted transition-colors hover:bg-surface hover:text-primary"
                     >
                         {prompt}
                     </button>
@@ -411,7 +408,7 @@ export const TopicStudyAssistantCard = ({ topicTitle, onOpenChat, onAsk }) => {
             <button
                 type="button"
                 onClick={openTutor}
-                className="btn-secondary inline-flex min-h-10 w-full items-center justify-center gap-2 text-body-sm"
+                className="btn-ghost inline-flex min-h-9 w-full items-center justify-start gap-2 px-2 text-body-sm"
             >
                 <AppIcon name="chat" className="text-[16px]" />
                 Open tutor chat

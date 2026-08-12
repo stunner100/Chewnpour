@@ -31,7 +31,7 @@ for (const required of [
 }
 
 for (const required of [
-    'max-w-[68ch]',
+    'max-w-[65ch]',
     'Preparing your lesson',
     'Guided study path',
 ]) {

@@ -43,9 +43,9 @@ if (!helpersSource.includes('autostart=essay')) {
 }
 
 for (const expectedLabel of [
-  'Start Essay',
-  'Retry Objective Quiz',
-  'Start Objective Quiz',
+  'Start essay',
+  'Retry quiz',
+  'Start quiz',
 ]) {
   if (!hookSource.includes(expectedLabel)) {
     throw new Error(`Expected TopicDetail CTA set to include ${expectedLabel}.`);

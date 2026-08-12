@@ -12,6 +12,7 @@ const mobileActions = read('src/components/lesson/MobileLessonActions.jsx');
 const fab = read('src/components/lesson/FloatingStudyTools.jsx');
 const hook = read('src/hooks/useTopicDetail.js');
 const practice = read('src/components/lesson/PracticeActionsCard.jsx');
+const renderer = read('src/components/LessonContentRenderer.jsx');
 const css = read('src/index.css');
 
 assert.match(
@@ -25,23 +26,34 @@ assert.match(mobileActions, /text-caption/, 'Lesson action labels should use cap
 assert.match(fab, /lg:hidden/, 'Study tools FAB should hide on desktop.');
 assert.match(fab, /aria-expanded/, 'FAB should expose expanded state.');
 
-assert.match(views, /parts\.join\(' · '\)/, 'Meta should be a muted text line, not pill cluster.');
+assert.match(views, /masteryLabel/, 'Meta should be status-only, not a pill cluster.');
+assert.doesNotMatch(views, /parts\.join\(' · '\)/, 'Meta should not restate course + status.');
 assert.match(views, /max-w-\[68ch\] text-body-md/, 'Summary should be plain text under the title.');
-assert.doesNotMatch(views, /Source: \{sourceLabel\}/, 'Meta should not use Source: pill chrome.');
 assert.match(views, /Open tutor chat/, 'Desktop assistant must open the shared TopicChatPanel.');
 assert.match(views, /onAsk=\{handleAskTutor\}/, 'Desktop prompts must reuse the shared tutor entry.');
 assert.match(views, /<LessonTOC/, 'Desktop rail must restore LessonTOC.');
+assert.match(views, /btn-secondary inline-flex min-h-11 max-w-\[46%\]/, 'Next lesson CTA should be quieter than the quiz primary.');
 assert.doesNotMatch(views, /fetch\(`\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/chat`/, 'Desktop assistant must not keep a separate chat transcript fetch.');
+assert.doesNotMatch(views, /rounded-2xl border border-border-subtle bg-surface-soft\/60 p-4/, 'Study Assistant should not be a tall empty card.');
 
-assert.match(content, /max-w-\[68ch\]/, 'Lesson prose should have a readable measure.');
-assert.doesNotMatch(content, /rounded-\[28px\] border border-border-subtle bg-surface/, 'Article should not be a heavy raised card.');
+assert.match(content, /max-w-\[65ch\]/, 'Lesson prose should have a readable measure.');
+assert.match(content, /showTopicIllustration && topicIllustrationUrl/, 'Lesson page must gate illustrations.');
 assert.match(content, /border-t border-border-subtle/, 'Guided path should be a divider section.');
 
 assert.match(practice, /border-t border-border-subtle pt-6/, 'Practice actions should be a section, not a raised card.');
+assert.match(hook, /const practicePrimary = \[\];/, 'Practice block must not own a second solid quiz primary.');
+assert.match(hook, /id: 'p-start-quiz'/, 'Practice secondary should still offer Start quiz.');
+assert.match(hook, /'Start quiz'/, 'Quiz CTA copy should be unified as Start quiz.');
+assert.match(hook, /skippedDuplicateTitle/, 'Duplicate page-title H1 must be stripped from article blocks.');
+assert.match(hook, /showTopicIllustration/, 'Hook must expose illustration gating.');
 assert.doesNotMatch(hook, /id: 'p-tutor'/, 'Practice secondary should not duplicate Ask AI Tutor.');
 assert.match(hook, /id: 'settings'/, 'FAB tools should include voice settings.');
 assert.doesNotMatch(hook, /id: 'm-podcast'/, 'Mobile bar should not advertise dead podcast CTA.');
 assert.match(hook, /id: 'm-settings'/, 'Completed mobile bar should open voice settings.');
+
+assert.match(renderer, /SectionAskMenu/, 'Section tutor chips must collapse into one Ask menu.');
+assert.match(renderer, /Ask about this section/, 'Section ask control must use a single overflow entry.');
+assert.doesNotMatch(renderer, /flex items-center gap-1\.5 flex-wrap mb-3 -mt-1/, 'Section must not show four equal tutor chips.');
 
 assert.match(css, /\.dark \.cp-theme \.bg-success-soft/, 'Dark mode must remap success-soft fills.');
 assert.match(css, /\.dark \.cp-theme \.bg-warning-soft/, 'Dark mode must remap warning-soft fills.');

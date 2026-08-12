@@ -27,6 +27,7 @@ const TopicContentPanel = ({
     resolvedTopicTitle,
     resumeVoice,
     shouldAnimateBlocks,
+    showTopicIllustration = false,
     speechText,
     stopVoice,
     topic,
@@ -47,17 +48,6 @@ const TopicContentPanel = ({
             mobileOnly
         />
 
-        {topicIllustrationUrl ? (
-            <div className="overflow-hidden rounded-2xl">
-                <img
-                    src={topicIllustrationUrl}
-                    alt={`${heroTopicTitle} illustration`}
-                    loading="lazy"
-                    className="h-44 w-full object-cover md:h-56"
-                />
-            </div>
-        ) : null}
-
         {isVoiceSupported && speechText ? (
             <TopicVoiceToolbar
                 isPaused={isPaused}
@@ -72,7 +62,18 @@ const TopicContentPanel = ({
             />
         ) : null}
 
-        <article className="max-w-[68ch] py-2" ref={contentRef}>
+        {showTopicIllustration && topicIllustrationUrl ? (
+            <div className="overflow-hidden rounded-xl">
+                <img
+                    src={topicIllustrationUrl}
+                    alt={`${heroTopicTitle} illustration`}
+                    loading="lazy"
+                    className="h-28 w-full object-cover md:h-32"
+                />
+            </div>
+        ) : null}
+
+        <article className="max-w-[65ch] py-2" ref={contentRef}>
             {normalizedContent ? (
                 <LessonContentRenderer
                     blocks={displayBlocks}

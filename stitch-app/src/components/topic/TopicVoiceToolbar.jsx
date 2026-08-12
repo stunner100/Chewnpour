@@ -22,24 +22,19 @@ const TopicVoiceToolbar = ({
     };
 
     return (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark px-3.5 py-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-                <span className="size-8 rounded-lg bg-primary-50 dark:bg-primary-900/25 flex items-center justify-center shrink-0">
-                    <AppIcon name="graphic_eq" className="text-primary text-[16px]" />
-                </span>
-                <div className="min-w-0">
-                    <p className="text-caption font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Read this lesson aloud</p>
-                    {voicePlaybackError ? (
-                        <p className="text-[11px] text-rose-500 leading-tight mt-0.5 truncate">{voicePlaybackError}</p>
-                    ) : null}
-                </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center justify-between gap-3 py-1">
+            <p className="min-w-0 text-caption text-text-muted">
+                Read this lesson aloud
+                {voicePlaybackError ? (
+                    <span className="mt-0.5 block truncate text-rose-500">{voicePlaybackError}</span>
+                ) : null}
+            </p>
+            <div className="flex shrink-0 items-center gap-1">
                 <button
                     type="button"
                     onClick={handlePlay}
                     disabled={!speechText || voiceStatus === 'loading'}
-                    className="btn-secondary text-caption px-3 py-1.5 gap-1 disabled:opacity-50"
+                    className="btn-ghost inline-flex min-h-9 items-center gap-1 px-2.5 text-caption disabled:opacity-50"
                 >
                     <AppIcon name={voiceStatus === 'loading' ? 'hourglass_top' : isPaused ? 'play_arrow' : 'volume_up'} className="text-[16px]" />
                     {voiceStatus === 'loading' ? 'Loading' : isPaused ? 'Resume' : 'Play'}
