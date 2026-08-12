@@ -101,6 +101,10 @@ if (!topicSettingsModalSource.includes('z-[80]')) {
   throw new Error('TopicSettingsModal must render above lesson headers and side-panel layers.');
 }
 
+if (!topicSettingsModalSource.includes('createPortal') || !topicSettingsModalSource.includes('document.body')) {
+  throw new Error('TopicSettingsModal must portal to document.body so BlurFade/transform ancestors cannot trap it.');
+}
+
 if (!topicSettingsModalSource.includes('role="dialog"') || !topicSettingsModalSource.includes('aria-modal="true"')) {
   throw new Error('TopicSettingsModal must expose dialog semantics when open.');
 }
