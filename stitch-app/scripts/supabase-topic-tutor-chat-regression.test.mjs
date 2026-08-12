@@ -39,8 +39,12 @@ for (const relativePath of [
 }
 
 const lessonViews = await fs.readFile(path.join(root, 'src', 'components', 'topic', 'TopicLessonViews.jsx'), 'utf8');
-if (!/\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/chat/.test(lessonViews)) {
-  throw new Error('Expected TopicStudyAssistantCard to use /api/topics/:id/chat.');
+const topicChatPanel = await fs.readFile(path.join(root, 'src', 'components', 'TopicChatPanel.jsx'), 'utf8');
+if (!/Open tutor chat/.test(lessonViews) || !/onAsk=\{handleAskTutor\}/.test(lessonViews)) {
+  throw new Error('Expected TopicStudyAssistantCard to open the shared TopicChatPanel tutor entry.');
+}
+if (!/\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/chat/.test(topicChatPanel)) {
+  throw new Error('Expected TopicChatPanel to use /api/topics/:id/chat.');
 }
 
 console.log('supabase-topic-tutor-chat-regression.test.mjs passed');

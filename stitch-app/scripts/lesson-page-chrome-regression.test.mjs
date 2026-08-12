@@ -66,6 +66,10 @@ const a11yHook = read('src/hooks/useSidePanelA11y.js');
 
 assert.match(a11yHook, /getFocusable/, 'Side panel a11y hook must trap focus.');
 assert.match(chatPanel, /role="dialog"/, 'Chat panel must be a dialog.');
+assert.match(chatPanel, /bg-black\/40/, 'Tutor chat must dim lesson text behind a real backdrop.');
+assert.doesNotMatch(chatPanel, /md:bg-transparent md:pointer-events-none/, 'Tutor chat backdrop must stay interactive on desktop.');
+assert.match(chatPanel, /shrink-0/, 'Tutor composer must stay pinned and not get pushed off-screen.');
+assert.match(chatPanel, /max-h-dvh/, 'Tutor chat must bound height to the viewport.');
 assert.match(notesPanel, /role="dialog"/, 'Notes panel must be a dialog.');
 assert.match(sourcePanel, /role="dialog"/, 'Source panel must be a dialog.');
 assert.match(sidebar, /aria-expanded=\{mobileOpen\}/, 'Mobile TOC must expose expanded state.');

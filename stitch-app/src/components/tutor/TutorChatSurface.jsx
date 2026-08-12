@@ -42,7 +42,7 @@ export function TutorChatMessages({
       scrollPreviousItemPeek={64}
     >
       <MessageScroller
-        className={cn('min-h-0 flex-1', className)}
+        className={cn('min-h-0 w-full flex-1', className)}
         aria-label={ariaLabel}
       >
         <MessageScrollerViewport>
@@ -119,7 +119,7 @@ export function TutorChatComposer({
   };
 
   const composer = (
-    <div className={cn('flex flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)}>
+    <div className={cn('flex shrink-0 flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)}>
       {suggestedPrompts.length > 0 ? (
         <Suggestions>
           {suggestedPrompts.map((prompt) => (
@@ -142,19 +142,20 @@ export function TutorChatComposer({
         </p>
       ) : null}
 
-      <PromptInput className="rounded-[20px] shadow-sm" onSubmit={handleSubmit}>
+      <PromptInput className="rounded-[20px] border border-border-subtle bg-background-light shadow-sm dark:bg-background-dark" onSubmit={handleSubmit}>
         <PromptInputBody>
           <PromptInputTextarea
             aria-label={inputAriaLabel}
             placeholder={placeholder}
             disabled={sending || disabled}
+            className="min-h-12 text-body-sm text-text-primary placeholder:text-text-muted"
           />
         </PromptInputBody>
         <PromptInputFooter className="justify-end">
           <PromptInputSubmit
             disabled={sending || disabled}
             status={sending ? 'submitted' : undefined}
-            className="rounded-full bg-cta text-cta-foreground hover:bg-cta-hover"
+            className="size-9 shrink-0 rounded-full bg-cta text-cta-foreground hover:bg-cta-hover"
             aria-label="Send message to AI Tutor"
           />
         </PromptInputFooter>

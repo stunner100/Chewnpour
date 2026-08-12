@@ -51,7 +51,7 @@ requireIncludes("const defaultScrollPosition = hasUserScrollAnchor ? 'last-ancho
 requireIncludes('scrollPreviousItemPeek={64}', 'previous turn context peek');
 requireIncludes('MessageScrollerItem', 'transcript row boundaries');
 requireIncludes('scrollAnchor={message.role === \'user\'}', 'user-turn scroll anchors');
-requireIncludes('MessageScrollerButton', 'jump-to-latest control');
+requireExcludes('MessageScrollerButton', 'clipped jump-to-latest control over the composer');
 requireIncludes('scrollerKey={effectiveSelectedTopicId}', 'topic-scoped scroller reset');
 requireIncludes('aria-busy={isTyping || undefined}', 'streaming busy state on transcript');
 
