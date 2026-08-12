@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { TutorChatComposer, TutorChatMessages } from '@/components/tutor/TutorChatSurface';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 import { TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
+import { useSidePanelA11y } from '../hooks/useSidePanelA11y';
 import AppIcon from './AppIcon';
 
 const EXIT_ANIMATION_MS = 250;
@@ -64,6 +65,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
     const closingTimerRef = useRef(null);
     const personaMenuRef = useRef(null);
+    const panelRef = useRef(null);
+    useSidePanelA11y({ open: open || isClosing, containerRef: panelRef });
 
     useEffect(() => {
         const preferred = profile?.studyPreferences?.preferredPersona;
@@ -209,12 +212,18 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                 onClick={handleClose}
             />
 
-            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-surface-light dark:bg-surface-dark border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark shadow-lg ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
+            <div
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="topic-chat-title"
+                className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-surface-light dark:bg-surface-dark border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark shadow-lg ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}
+            >
                 <div className="flex items-center justify-between px-4 h-14 lg:h-16 border-b border-border-light dark:border-border-dark">
                     <div className="flex items-center gap-2.5 min-w-0">
                         <TutorAvatarMark size={24} className="size-6" />
                         <div className="min-w-0">
-                            <h3 className="text-body-sm lg:text-body-base font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
+                            <h3 id="topic-chat-title" className="text-body-sm lg:text-body-base font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
                             {topicTitle && (
                                 <p className="hidden lg:block text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[300px]">
                                     {topicTitle}

@@ -1,5 +1,6 @@
 import React, { memo, useReducer, useEffect, useRef, useCallback } from 'react';
 import AppIcon from './AppIcon';
+import { useSidePanelA11y } from '../hooks/useSidePanelA11y';
 
 const SAVE_DEBOUNCE_MS = 1500;
 const EXIT_ANIMATION_MS = 250;
@@ -121,8 +122,14 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     );
     const saveTimerRef = useRef(null);
     const textareaRef = useRef(null);
+    const panelRef = useRef(null);
     const initializedRef = useRef(false);
     const closingTimerRef = useRef(null);
+    useSidePanelA11y({
+        open: open || isClosing,
+        containerRef: panelRef,
+        initialFocusRef: textareaRef,
+    });
 
     useEffect(() => {
         if (!topicId) return undefined;
@@ -234,11 +241,17 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                 onClick={handleClose}
             />
 
-            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
+            <div
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="topic-notes-title"
+                className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}
+            >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
                         <AppIcon name="edit_note" className="text-amber-500 text-xl" />
-                        <h3 className="text-base font-semibold text-zinc-900 dark:text-white">My Notes</h3>
+                        <h3 id="topic-notes-title" className="text-base font-semibold text-zinc-900 dark:text-white">My Notes</h3>
                     </div>
                     <button
                         onClick={handleClose}

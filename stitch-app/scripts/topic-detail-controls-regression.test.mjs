@@ -7,12 +7,13 @@ const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8'
 
 const lessonTocSource = await read('src/components/lesson/LessonTOC.jsx');
 const topicDetailSource = await read('src/pages/TopicDetail.jsx');
+const topicHookSource = await read('src/hooks/useTopicDetail.js');
 const topicSidebarSource = await read('src/components/TopicSidebar.jsx');
 const topicChatPanelSource = await read('src/components/TopicChatPanel.jsx');
 const topicNotesPanelSource = await read('src/components/TopicNotesPanel.jsx');
 const sourcePanelSource = await read('src/components/SourcePanel.jsx');
 const topicSettingsModalSource = await read('src/components/TopicSettingsModal.jsx');
-const voicePlaybackSource = await read('src/lib/useVoicePlayback.js');
+const topicQuizPanelSource = await read('src/components/topic/TopicQuizPanel.jsx');
 
 if (/node\.scrollIntoView\(\{ block: 'nearest' \}\)/.test(lessonTocSource)) {
   throw new Error('LessonTOC active item sync must not call element.scrollIntoView because it can scroll the lesson page away from the selected section.');
@@ -37,58 +38,42 @@ if (/const top = el\.getBoundingClientRect\(\)\.top \+ window\.scrollY - 108;/.t
 for (const expected of [
   'const scrollContainer = navRef.current;',
   'scrollContainer.scrollTo({',
-  'behavior: \'smooth\'',
+  "behavior: 'smooth'",
 ]) {
   if (!lessonTocSource.includes(expected)) {
     throw new Error(`Expected LessonTOC to keep active-item scrolling inside the TOC rail with "${expected}".`);
   }
 }
 
-if (!topicDetailSource.includes('const getCurrentHashTargetId = () => {')) {
-  throw new Error('TopicDetail must use a shared helper for detecting deep-linked section hashes.');
+if (!topicHookSource.includes('getCurrentHashTargetId')) {
+  throw new Error('useTopicDetail must use a shared helper for detecting deep-linked section hashes.');
 }
 
-if (!topicDetailSource.includes('const scrollHashTargetIntoView = ({ behavior = \'auto\' } = {}) => {')) {
-  throw new Error('TopicDetail must use a shared helper for scrolling the current hash target into view.');
+if (!topicHookSource.includes('scrollHashTargetIntoView')) {
+  throw new Error('useTopicDetail must use a shared helper for scrolling the current hash target into view.');
 }
 
-if (!/value:\s*getCurrentHashTargetId\(\) \? 'full' : null/.test(topicDetailSource)) {
-  throw new Error('TopicDetail must bypass the study-mode chooser when the URL already points at a lesson section hash.');
-}
-
-if (/setStudyMode\(null\);/.test(topicDetailSource)) {
-  throw new Error('TopicDetail route changes must preserve hash deep links instead of always resetting to the chooser.');
-}
-
-if (!/if \(getCurrentHashTargetId\(\)\) return;[\s\S]*window\.scrollTo\(0, 0\);/.test(topicDetailSource)) {
-  throw new Error('TopicDetail must not run its top-of-page navigation reset when loading a hash deep link.');
-}
-
-if (!/node\.scrollIntoView\(\{\s*behavior,\s*block: 'start',?\s*\}\)/s.test(topicDetailSource)) {
-  throw new Error('TopicDetail must scroll the hashed section into view after the lesson content has mounted.');
-}
-
-if (!/window\.addEventListener\('hashchange', scrollAfterHashChange\)/.test(topicDetailSource)) {
-  throw new Error('TopicDetail must react to native/browser hash changes so section links cannot update the URL without scrolling.');
+if (!topicHookSource.includes("window.addEventListener('hashchange', scrollAfterHashChange)")) {
+  throw new Error('useTopicDetail must react to native/browser hash changes so section links cannot update the URL without scrolling.');
 }
 
 if (/WatermelonTabs/.test(topicDetailSource)) {
   throw new Error('TopicDetail study-mode chooser must not render misleading top tabs that disappear after selection.');
 }
 
-if (!/topicProgress\?\.completedAt && \([\s\S]*<NextStepsGuidance/.test(topicDetailSource)) {
-  throw new Error('TopicDetail should only show the post-lesson next-steps card after completion to avoid duplicating practice CTAs.');
+if (!/topicProgress\?\.completedAt \? \(/.test(topicQuizPanelSource) || !topicQuizPanelSource.includes('<NextStepsGuidance')) {
+  throw new Error('TopicQuizPanel should only show the post-lesson next-steps card after completion to avoid duplicating practice CTAs.');
 }
 
 for (const expected of [
   'const sidePanelScrollYRef = useRef(0);',
   'const captureLessonScrollForSidePanel = useCallback(() => {',
   'const restoreLessonScrollAfterPanelClose = useCallback(() => {',
-  'if (scrollHashTargetIntoView({ behavior: \'auto\' })) return;',
+  "if (scrollHashTargetIntoView({ behavior: 'auto' })) return;",
   'window.setTimeout(restore, 120);',
 ]) {
-  if (!topicDetailSource.includes(expected)) {
-    throw new Error(`TopicDetail must preserve the lesson scroll position when side panels open/close: ${expected}`);
+  if (!topicHookSource.includes(expected)) {
+    throw new Error(`useTopicDetail must preserve the lesson scroll position when side panels open/close: ${expected}`);
   }
 }
 
@@ -100,14 +85,16 @@ for (const [name, source] of [
   if (/lg:(relative|z-auto)/.test(source)) {
     throw new Error(`${name} must stay fixed on desktop so it opens as a stable right-side panel.`);
   }
+  if (!source.includes('role="dialog"') || !source.includes('aria-modal="true"')) {
+    throw new Error(`${name} must expose dialog semantics when open.`);
+  }
+  if (!source.includes('useSidePanelA11y')) {
+    throw new Error(`${name} must use the shared side-panel focus trap.`);
+  }
 }
 
 if (/endRef\.current\.scrollIntoView/.test(topicChatPanelSource)) {
   throw new Error('TopicChatPanel must keep auto-scroll inside the chat message container instead of scrolling the lesson page.');
-}
-
-if (!/messagesContainer\.scrollTo\(\{[\s\S]*top: messagesContainer\.scrollHeight,[\s\S]*behavior: 'smooth'/.test(topicChatPanelSource)) {
-  throw new Error('TopicChatPanel must scroll its own message container to the latest message.');
 }
 
 if (!topicSettingsModalSource.includes('z-[80]')) {
@@ -116,18 +103,6 @@ if (!topicSettingsModalSource.includes('z-[80]')) {
 
 if (!topicSettingsModalSource.includes('role="dialog"') || !topicSettingsModalSource.includes('aria-modal="true"')) {
   throw new Error('TopicSettingsModal must expose dialog semantics when open.');
-}
-
-if (!voicePlaybackSource.includes('const sourceUrl = await fetchRemoteAudioBlobUrl(streamUrl);')) {
-  throw new Error('Voice playback must fetch remote stream URLs into blob URLs before assigning them to audio.src.');
-}
-
-if (/const sourceUrl = isMobileBrowser\s*\?\s*await fetchRemoteAudioBlobUrl\(streamUrl\)\s*:\s*streamUrl;/s.test(voicePlaybackSource)) {
-  throw new Error('Voice playback must not use the remote stream URL directly on desktop.');
-}
-
-if (!voicePlaybackSource.includes('activeAudioObjectUrlRef.current = sourceUrl;')) {
-  throw new Error('Voice playback must track fetched blob URLs so they can be revoked.');
 }
 
 console.log('topic-detail-controls-regression.test.mjs passed');

@@ -22,8 +22,8 @@ for (const forbidden of [
 for (const required of [
     'bg-background-light',
     'text-text-primary',
-    'Ask about this lesson',
-    'bg-error-soft',
+    'Open tutor chat',
+    'LessonTOC',
 ]) {
     if (!viewsSource.includes(required)) {
         throw new Error(`Expected topic lesson shell to include "${required}".`);

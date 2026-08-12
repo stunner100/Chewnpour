@@ -53,19 +53,22 @@ const TopicSidebar = memo(function TopicSidebar({
 
     // Mobile-only: render just the sticky dropdown
     const mobileToc = toc?.length > 0 && (
-        <div className="lg:hidden sticky top-[100px] z-20 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm border border-border-subtle dark:border-border-subtle-dark rounded-2xl px-3.5 py-2 shadow-soft mb-2">
+        <div className="sticky top-4 z-20 mb-2 rounded-2xl border border-border-subtle bg-surface/95 px-3.5 py-2 shadow-soft backdrop-blur-sm lg:hidden">
             <button
-                onClick={() => setMobileOpen(v => !v)}
-                className="flex items-center gap-2 w-full text-body-sm text-text-sub-light dark:text-text-sub-dark"
+                type="button"
+                onClick={() => setMobileOpen((v) => !v)}
+                className="flex w-full items-center gap-2 text-body-sm text-text-secondary"
+                aria-expanded={mobileOpen}
+                aria-controls="topic-mobile-toc"
             >
                 <AppIcon name="menu_book" className="text-[16px]" />
-                <span className="flex-1 text-left truncate font-medium text-text-main-light dark:text-text-main-dark">
-                    {toc.find(i => i.id === activeSection)?.text ?? 'Contents'}
+                <span className="flex-1 truncate text-left font-medium text-text-primary">
+                    {toc.find((i) => i.id === activeSection)?.text ?? 'Contents'}
                 </span>
                 <AppIcon name={mobileOpen ? 'expand_less' : 'expand_more'} className="text-[16px]" />
             </button>
             {mobileOpen && (
-                <nav className="mt-2 space-y-0.5 pb-1 max-h-64 overflow-y-auto">
+                <nav id="topic-mobile-toc" className="mt-2 max-h-64 space-y-0.5 overflow-y-auto pb-1">
                     {toc.map((item) => {
                         const isActive = activeSection === item.id;
                         return (
@@ -86,8 +89,8 @@ const TopicSidebar = memo(function TopicSidebar({
                                 }}
                                 className={`block w-full py-1.5 text-left text-body-sm transition-colors ${getIndent(item.level)} ${
                                     isActive
-                                        ? 'text-primary font-semibold'
-                                        : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                                        ? 'font-semibold text-primary'
+                                        : 'text-text-secondary hover:text-text-primary'
                                 }`}
                             >
                                 {item.text}
