@@ -101,8 +101,11 @@ if (!topicChatPanelSource.includes("role={isDesktop ? 'complementary' : 'dialog'
 if (!topicChatPanelSource.includes('trapFocus: !isDesktop')) {
   throw new Error('TopicChatPanel must not trap focus on desktop so the lesson stays interactive.');
 }
-if (!topicChatPanelSource.includes('useSidePanelA11y')) {
-  throw new Error('TopicChatPanel must use the shared side-panel focus trap.');
+if (!topicChatPanelSource.includes('createPortal') || !topicChatPanelSource.includes('document.body')) {
+  throw new Error('TopicChatPanel must portal to document.body so BlurFade/transform ancestors cannot scroll it away.');
+}
+if (!topicChatPanelSource.includes('lg:top-16')) {
+  throw new Error('TopicChatPanel must stay below the dashboard header while remaining viewport-fixed.');
 }
 
 if (/endRef\.current\.scrollIntoView/.test(topicChatPanelSource)) {

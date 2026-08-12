@@ -240,7 +240,7 @@ const DashboardLayout = ({ children }) => {
 
                 <main id="dashboard-main" className="flex flex-1 flex-col overflow-y-auto overflow-x-clip">
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
-                        <BlurFade duration={0.35} yOffset={8}>
+                        <BlurFade duration={0.35} yOffset={0} blur="0px">
                             {children}
                         </BlurFade>
                     </DashboardContentErrorBoundary>

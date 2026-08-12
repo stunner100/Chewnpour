@@ -382,7 +382,7 @@ const STUDY_ASSISTANT_PROMPTS = [
 export const TopicStudyAssistantCard = ({ topicTitle, onOpenChat, onAsk }) => {
     const openTutor = () => onOpenChat?.();
     return (
-        <aside className="sticky top-6 space-y-3">
+        <aside className="space-y-3">
             <div className="flex items-center gap-2">
                 <AppIcon name="smart_toy" className="text-[18px] text-primary" />
                 <div>
@@ -530,13 +530,15 @@ export const TopicLessonShell = ({ controller }) => {
                         examTopicId={examTopicId}
                     />
                 </div>
-                <div className="hidden space-y-6 lg:block">
-                    <LessonTOC toc={toc} activeId={activeSectionId} />
-                    <TopicStudyAssistantCard
-                        topicTitle={resolvedTopicTitle}
-                        onOpenChat={openChat}
-                        onAsk={handleAskTutor}
-                    />
+                <div className="hidden lg:block">
+                    <div className="sticky top-4 max-h-[calc(100dvh-6rem)] space-y-6 overflow-y-auto">
+                        <LessonTOC toc={toc} activeId={activeSectionId} />
+                        <TopicStudyAssistantCard
+                            topicTitle={resolvedTopicTitle}
+                            onOpenChat={openChat}
+                            onAsk={handleAskTutor}
+                        />
+                    </div>
                 </div>
             </div>
 

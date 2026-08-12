@@ -32,6 +32,7 @@ assert.match(views, /max-w-\[68ch\] text-body-md/, 'Summary should be plain text
 assert.match(views, /Open AI Tutor/, 'Desktop assistant must open the shared TopicChatPanel.');
 assert.match(views, /onAsk=\{handleAskTutor\}/, 'Desktop prompts must reuse the shared tutor entry.');
 assert.match(views, /<LessonTOC/, 'Desktop rail must restore LessonTOC.');
+assert.match(views, /sticky top-4 max-h-\[calc\(100dvh-6rem\)\]/, 'Desktop tutor rail must stay on screen while the lesson scrolls.');
 assert.match(views, /btn-secondary inline-flex min-h-11 max-w-\[46%\]/, 'Next lesson CTA should be quieter than the quiz primary.');
 assert.doesNotMatch(views, /fetch\(`\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/chat`/, 'Desktop assistant must not keep a separate chat transcript fetch.');
 assert.doesNotMatch(views, /rounded-2xl border border-border-subtle bg-surface-soft\/60 p-4/, 'Study Assistant should not be a tall empty card.');
