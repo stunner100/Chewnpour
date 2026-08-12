@@ -1046,7 +1046,7 @@ export const useTopicDetail = () => {
         examTopicId
             ? { id: 'm-quiz', icon: 'quiz', label: 'Quiz', href: objectiveExamRoute, primary: true }
             : { id: 'm-quiz', icon: 'hourglass_top', label: 'Quiz', disabled: true },
-        { id: 'm-tutor', icon: 'smart_toy', label: 'Tutor', onClick: openChat },
+        { id: 'm-tutor', icon: 'smart_toy', label: 'AI Tutor', onClick: openChat },
         { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
         topicProgress?.completedAt
             ? { id: 'm-settings', icon: 'settings', label: 'Voice', onClick: () => setSettingsOpen(true) }

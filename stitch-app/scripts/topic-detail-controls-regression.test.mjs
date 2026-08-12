@@ -78,7 +78,6 @@ for (const expected of [
 }
 
 for (const [name, source] of [
-  ['TopicChatPanel', topicChatPanelSource],
   ['TopicNotesPanel', topicNotesPanelSource],
   ['SourcePanel', sourcePanelSource],
 ]) {
@@ -91,6 +90,19 @@ for (const [name, source] of [
   if (!source.includes('useSidePanelA11y')) {
     throw new Error(`${name} must use the shared side-panel focus trap.`);
   }
+}
+
+if (/lg:(relative|z-auto)/.test(topicChatPanelSource)) {
+  throw new Error('TopicChatPanel must stay fixed on desktop so it opens as a stable right-side panel.');
+}
+if (!topicChatPanelSource.includes("role={isDesktop ? 'complementary' : 'dialog'}")) {
+  throw new Error('TopicChatPanel must be a complementary rail on desktop and a dialog on small screens.');
+}
+if (!topicChatPanelSource.includes('trapFocus: !isDesktop')) {
+  throw new Error('TopicChatPanel must not trap focus on desktop so the lesson stays interactive.');
+}
+if (!topicChatPanelSource.includes('useSidePanelA11y')) {
+  throw new Error('TopicChatPanel must use the shared side-panel focus trap.');
 }
 
 if (/endRef\.current\.scrollIntoView/.test(topicChatPanelSource)) {

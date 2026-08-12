@@ -198,8 +198,15 @@ const LessonMemoryNeuralBasis = () => {
                         ) : null}
 
                         {topics.length === 0 ? (
-                            <div className="rounded-[24px] border border-dashed border-border-default bg-surface px-6 py-10 text-center text-body-sm text-text-secondary">
-                                This course has no topics yet.
+                            <div className="flex flex-col items-center rounded-[24px] border border-dashed border-border-default bg-surface px-6 py-10 text-center">
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">No topics yet</h2>
+                                <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
+                                    This course has no topics yet. Upload material or wait for processing to finish.
+                                </p>
+                                <Link to="/dashboard/upload" className="btn-primary mt-5 inline-flex min-h-11 items-center gap-2 text-body-sm">
+                                    <AppIcon name="cloud_upload" className="text-[18px]" />
+                                    Upload material
+                                </Link>
                             </div>
                         ) : (
                             topics.map((topic, index) => (
@@ -221,7 +228,7 @@ const LessonMemoryNeuralBasis = () => {
                                                 )}
                                             </div>
                                             <h2 className="font-display text-display-sm font-bold text-text-primary">
-                                                {topic.title}
+                                                {formatCourseTitle(topic.title) || topic.title}
                                             </h2>
                                             <p className="mt-2 line-clamp-3 text-body-sm text-text-secondary">
                                                 {topic.description || topic.content}

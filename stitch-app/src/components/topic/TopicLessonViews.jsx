@@ -386,7 +386,7 @@ export const TopicStudyAssistantCard = ({ topicTitle, onOpenChat, onAsk }) => {
             <div className="flex items-center gap-2">
                 <AppIcon name="smart_toy" className="text-[18px] text-primary" />
                 <div>
-                    <p className="text-body-sm font-semibold text-text-primary">Study Assistant</p>
+                    <p className="text-body-sm font-semibold text-text-primary">AI Tutor</p>
                     <p className="text-caption text-text-muted">Ask about this lesson</p>
                 </div>
             </div>
@@ -411,7 +411,7 @@ export const TopicStudyAssistantCard = ({ topicTitle, onOpenChat, onAsk }) => {
                 className="btn-ghost inline-flex min-h-9 w-full items-center justify-start gap-2 px-2 text-body-sm"
             >
                 <AppIcon name="chat" className="text-[16px]" />
-                Open tutor chat
+                Open AI Tutor
             </button>
         </aside>
     );

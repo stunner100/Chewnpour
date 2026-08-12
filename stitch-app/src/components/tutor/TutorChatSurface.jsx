@@ -118,19 +118,29 @@ export function TutorChatComposer({
     await onSubmit(question);
   };
 
+  const handleSuggested = async (value) => {
+    const question = String(value || '').trim();
+    if (!question || sending || disabled) return;
+    try {
+      await (onSuggestedPrompt || onSubmit)(question);
+    } catch {
+      // Parent owns error state.
+    }
+  };
+
   const composer = (
     <div className={cn('flex shrink-0 flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)}>
       {suggestedPrompts.length > 0 ? (
         <Suggestions>
           {suggestedPrompts.map((prompt) => (
             <Suggestion
-              key={prompt.text || prompt.label}
+              key={prompt.label || prompt.text || prompt.prompt}
               suggestion={prompt.prompt}
               disabled={sending || disabled}
               className="rounded-full border-border-default bg-surface-soft text-caption font-semibold text-text-secondary hover:bg-surface-muted hover:text-text-primary"
-              onClick={(value) => onSuggestedPrompt?.(value)}
+              onClick={handleSuggested}
             >
-              {prompt.text || prompt.label}
+              {prompt.label || prompt.text || prompt.prompt}
             </Suggestion>
           ))}
         </Suggestions>
@@ -169,15 +179,11 @@ export function TutorChatComposer({
     </div>
   );
 
-  if (initialInput) {
-    return (
-      <PromptInputProvider initialInput={initialInput} key={initialInput}>
-        {composer}
-      </PromptInputProvider>
-    );
-  }
-
-  return composer;
+  return (
+    <PromptInputProvider initialInput={initialInput} key={`${initialInput || 'empty'}`}>
+      {composer}
+    </PromptInputProvider>
+  );
 }
 
 export { TutorWelcomeMessage };

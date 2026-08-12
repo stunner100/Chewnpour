@@ -22,7 +22,7 @@ for (const forbidden of [
 for (const required of [
     'bg-background-light',
     'text-text-primary',
-    'Open tutor chat',
+    'Open AI Tutor',
     'LessonTOC',
 ]) {
     if (!viewsSource.includes(required)) {

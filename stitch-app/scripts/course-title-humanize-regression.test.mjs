@@ -43,6 +43,16 @@ for (const relativePath of wiredSurfaces) {
   );
 }
 
+const lessonsList = readFileSync(resolve(root, 'src/pages/LessonMemoryNeuralBasis.jsx'), 'utf8');
+assert.ok(
+  lessonsList.includes('formatCourseTitle(topic.title)'),
+  'Lessons list topic titles must go through formatCourseTitle.',
+);
+assert.ok(
+  lessonsList.includes('This course has no topics yet') && lessonsList.includes('to="/dashboard/upload"'),
+  'Empty-course lessons state must offer an Upload material CTA.',
+);
+
 assert.ok(
   readFileSync(resolve(root, 'server/courseGeneration.js'), 'utf8').includes(
     'export const stripCourseTitle',

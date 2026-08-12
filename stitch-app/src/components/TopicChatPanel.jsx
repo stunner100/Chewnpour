@@ -66,7 +66,24 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     const closingTimerRef = useRef(null);
     const personaMenuRef = useRef(null);
     const panelRef = useRef(null);
-    useSidePanelA11y({ open: open || isClosing, containerRef: panelRef });
+    const [isDesktop, setIsDesktop] = useState(() => (
+        typeof window !== 'undefined' && Boolean(window.matchMedia?.('(min-width: 1024px)')?.matches)
+    ));
+
+    useEffect(() => {
+        const media = window.matchMedia?.('(min-width: 1024px)');
+        if (!media) return undefined;
+        const sync = () => setIsDesktop(media.matches);
+        sync();
+        media.addEventListener('change', sync);
+        return () => media.removeEventListener('change', sync);
+    }, []);
+
+    useSidePanelA11y({
+        open: open || isClosing,
+        containerRef: panelRef,
+        trapFocus: !isDesktop,
+    });
 
     useEffect(() => {
         const preferred = profile?.studyPreferences?.preferredPersona;
@@ -199,25 +216,28 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     if (!open && !isClosing) return null;
 
     const messageList = Array.isArray(messages) ? messages : [];
+    const showWelcome = messageList.length === 0 && !sending && !messagesLoading;
     const panelAnimClass = isClosing
-        ? 'animate-panel-slide-down md:animate-panel-slide-right'
-        : 'animate-panel-slide-up md:animate-panel-slide-left';
+        ? 'animate-panel-slide-down lg:animate-panel-slide-right'
+        : 'animate-panel-slide-up lg:animate-panel-slide-left';
 
     return (
         <>
-            <button
-                type="button"
-                aria-label="Close AI tutor panel"
-                className={`fixed inset-0 z-[55] border-0 bg-black/40 p-0 transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
-                onClick={handleClose}
-            />
+            {!isDesktop ? (
+                <button
+                    type="button"
+                    aria-label="Close AI tutor panel"
+                    className={`fixed inset-0 z-[55] border-0 bg-black/40 p-0 transition-opacity lg:hidden ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+                    onClick={handleClose}
+                />
+            ) : null}
 
             <div
                 ref={panelRef}
-                role="dialog"
-                aria-modal="true"
+                role={isDesktop ? 'complementary' : 'dialog'}
+                aria-modal={isDesktop ? undefined : 'true'}
                 aria-labelledby="topic-chat-title"
-                className={`fixed inset-x-0 bottom-0 top-0 z-[60] flex h-dvh max-h-dvh w-full flex-col overflow-hidden border-t border-border-light bg-surface-light shadow-lg dark:border-border-dark dark:bg-surface-dark md:inset-y-0 md:left-auto md:right-0 md:w-[min(420px,100vw)] md:border-l md:border-t-0 ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}
+                className={`fixed inset-x-0 bottom-0 top-0 z-[60] flex h-dvh max-h-dvh w-full flex-col overflow-hidden border-t border-border-light bg-surface-light shadow-lg dark:border-border-dark dark:bg-surface-dark lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[min(420px,100vw)] lg:border-l lg:border-t-0 ${panelAnimClass} pb-[env(safe-area-inset-bottom)] lg:pb-0`}
             >
                 <div className="flex items-center justify-between px-4 h-14 lg:h-16 border-b border-border-light dark:border-border-dark">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -260,8 +280,9 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                             className="flex items-center gap-1.5 text-caption text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark transition-colors"
                             aria-haspopup="listbox"
                             aria-expanded={personaMenuOpen}
+                            aria-label="Tutor style"
                         >
-                            <span className="text-text-faint-light dark:text-text-faint-dark">Tutor:</span>
+                            <span className="text-text-faint-light dark:text-text-faint-dark">Tutor style</span>
                             <span className="font-semibold text-text-main-light dark:text-text-main-dark">{activePersona?.label || 'Exam Coach'}</span>
                             <AppIcon name="expand_more" />
                         </button>
@@ -317,15 +338,21 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     messages={messageList}
                     isTyping={sending}
                     emptyState={
-                        messageList.length === 0 && !sending && !messagesLoading ? (
-                            <TutorWelcomeMessage topicTitle={topicTitle} compact />
+                        showWelcome ? (
+                            <TutorWelcomeMessage
+                                topicTitle={topicTitle}
+                                compact
+                                suggestedPrompts={suggestedPrompts}
+                                onSuggestedPrompt={handleSend}
+                                sending={sending}
+                            />
                         ) : null
                     }
                 />
 
                 <TutorChatComposer
                     className="relative z-10 shrink-0 border-border-light bg-surface-light p-3 dark:border-border-dark dark:bg-surface-dark"
-                    suggestedPrompts={messageList.length === 0 && !sending ? suggestedPrompts : []}
+                    suggestedPrompts={[]}
                     onSuggestedPrompt={handleSend}
                     onSubmit={handleSend}
                     sending={sending}

@@ -18,8 +18,9 @@ const getFocusable = (container) => {
 /**
  * Focus trap + restore for lesson side panels / dialogs.
  * Callers still own Escape → onClose and the open/close animation.
+ * Pass trapFocus=false for non-modal desktop rails that must leave the lesson interactive.
  */
-export const useSidePanelA11y = ({ open, containerRef, initialFocusRef }) => {
+export const useSidePanelA11y = ({ open, containerRef, initialFocusRef, trapFocus = true }) => {
     const previousFocusRef = useRef(null);
 
     useEffect(() => {
@@ -42,7 +43,7 @@ export const useSidePanelA11y = ({ open, containerRef, initialFocusRef }) => {
         const frame = window.requestAnimationFrame(focusInitial);
 
         const handleKeyDown = (event) => {
-            if (event.key !== 'Tab') return;
+            if (!trapFocus || event.key !== 'Tab') return;
             const focusable = getFocusable(containerRef.current);
             if (focusable.length === 0) {
                 event.preventDefault();
@@ -69,7 +70,7 @@ export const useSidePanelA11y = ({ open, containerRef, initialFocusRef }) => {
                 previous.focus();
             }
         };
-    }, [open, containerRef, initialFocusRef]);
+    }, [open, containerRef, initialFocusRef, trapFocus]);
 };
 
 export default useSidePanelA11y;

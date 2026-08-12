@@ -101,5 +101,10 @@ requireExcludes('Tutor is preparing an answer', 'legacy spinner typing copy');
 requireExcludes('from \'@/components/ui/spinner\'', 'spinner-based tutor pending state');
 requireIncludes('@/components/ai-elements/prompt-input', 'ai-elements prompt input');
 requireIncludes('@/components/ui/message-scroller', 'shadcn message scroller primitives');
+requireIncludesIn(messageRowSource, 'prompt.label || prompt.text || prompt.prompt', 'welcome chips must show label or text');
+requireIncludesIn(messageRowSource, 'await onSuggestedPrompt?.(question)', 'welcome chips must send through the tutor submit path');
+requireIncludesIn(surfaceSource, 'await (onSuggestedPrompt || onSubmit)(question)', 'composer chips must reuse the submit path');
+requireIncludesIn(source, 'suggestedPrompts={suggestedPrompts}', 'dedicated tutor welcome must show prompt chips');
+requireIncludesIn(source, 'suggestedPrompts={displayMessages.length === 0 ? EMPTY_LIST : suggestedPrompts}', 'dedicated tutor composer chips only after the first turn');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');

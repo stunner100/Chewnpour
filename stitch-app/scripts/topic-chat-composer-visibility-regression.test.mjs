@@ -26,6 +26,7 @@ assert.match(surface, /flex shrink-0 flex-col gap-3/, 'Composer shell must shrin
 assert.match(prompt, /InputGroup className="h-auto overflow-hidden"/, 'Prompt input group must allow textarea height.');
 assert.match(panel, /TutorChatComposer/, 'Topic chat must render the shared composer.');
 assert.match(panel, /bg-black\/40/, 'Topic chat must use a dimming backdrop over lesson text.');
+assert.match(panel, /lg:hidden/, 'Tutor backdrop must not cover the lesson on desktop.');
 assert.match(views, /hidden=\{chatOpen \|\| notesOpen\}/, 'Study tools FAB must hide while tutor chat is open.');
 assert.match(fab, /if \(hidden \|\| tools\.length === 0\) return null/, 'FAB must fully unmount when hidden.');
 console.log('topic-chat-composer-visibility-regression: ok');

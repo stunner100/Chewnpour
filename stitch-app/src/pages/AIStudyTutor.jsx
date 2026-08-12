@@ -370,6 +370,9 @@ const AIStudyTutor = () => {
                             <TutorWelcomeMessage
                                 topicTitle={selectedTopicOption?.title}
                                 description={selectedTopicOption?.description}
+                                suggestedPrompts={suggestedPrompts}
+                                onSuggestedPrompt={handleSend}
+                                sending={sending}
                             />
                         ) : null}
                         courseBadge={(
@@ -380,7 +383,7 @@ const AIStudyTutor = () => {
                     />
 
                     <TutorChatComposer
-                        suggestedPrompts={suggestedPrompts}
+                        suggestedPrompts={displayMessages.length === 0 ? EMPTY_LIST : suggestedPrompts}
                         onSuggestedPrompt={handleSend}
                         onSubmit={handleSend}
                         sending={sending}
