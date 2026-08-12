@@ -39,7 +39,7 @@ const TopicReExplainModal = memo(function TopicReExplainModal({
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4"
+            className="cp-theme fixed inset-0 z-[80] flex items-center justify-center bg-black/60 px-4"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) onClose?.();
             }}
@@ -48,7 +48,7 @@ const TopicReExplainModal = memo(function TopicReExplainModal({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="topic-reexplain-title"
-                className="w-full max-w-lg rounded-3xl border border-border-subtle bg-surface p-6 shadow-xl"
+                className="w-full max-w-lg rounded-3xl border border-border-subtle bg-surface-light p-6 text-text-primary shadow-xl dark:border-border-dark dark:bg-surface-dark dark:text-text-main-dark"
             >
                 <div className="mb-4 flex items-center justify-between">
                     <h3 id="topic-reexplain-title" className="text-lg font-semibold text-text-primary">

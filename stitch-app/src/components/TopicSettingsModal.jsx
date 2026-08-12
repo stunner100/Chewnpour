@@ -31,7 +31,7 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-6"
+            className="cp-theme fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/60 px-4 py-6"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) onClose?.();
             }}
@@ -40,7 +40,7 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="topic-settings-title"
-                className="w-full max-w-md rounded-3xl border border-border-subtle bg-surface p-6 shadow-xl"
+                className="w-full max-w-md rounded-3xl border border-border-subtle bg-surface-light p-6 text-text-primary shadow-xl dark:border-border-dark dark:bg-surface-dark dark:text-text-main-dark"
             >
                 <div className="mb-4 flex items-center justify-between">
                     <h3 id="topic-settings-title" className="text-lg font-semibold text-text-primary">
