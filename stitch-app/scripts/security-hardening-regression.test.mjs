@@ -23,6 +23,12 @@ for (const key of [
 const csp = headers.get("Content-Security-Policy");
 assert.ok(csp.includes("frame-ancestors 'none'"), "CSP must block framing");
 assert.ok(csp.includes("object-src 'none'"), "CSP must block plugin/object content");
+assert.equal(csp.includes("assistia"), false, "CSP must not allow the Assistia support widget");
+assert.equal(
+  read("index.html").includes("assistia"),
+  false,
+  "index.html must not load the Assistia support widget",
+);
 assert.equal(headers.get("X-Frame-Options"), "DENY");
 assert.equal(headers.get("X-Content-Type-Options"), "nosniff");
 
