@@ -33,6 +33,12 @@ requireIncludes(navMainSource, 'SidebarMenuButton', 'compact sidebar menu button
 requireIncludes(navMainSource, 'tooltip={item.title}', 'icon-collapsed tooltips');
 requireIncludes(sidebarUiSource, 'w-[var(--sidebar-width)]', 'tailwind v3 sidebar width classes');
 requireIncludes(sidebarUiSource, 'group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)]', 'collapsed icon sidebar width');
+requireIncludes(sidebarUiSource, 'group-data-[collapsible=icon]:overflow-hidden', 'collapsed header/footer clip');
+requireIncludes(sidebarUiSource, 'group-data-[collapsible=icon]:[&>span]:hidden', 'collapsed nav label hide');
+
+const navUserSource = await fs.readFile(path.join(root, 'src/components/nav-user.jsx'), 'utf8');
+requireIncludes(navUserSource, 'group-data-[collapsible=icon]:hidden', 'collapsed user details hide');
+requireIncludes(navUserSource, 'group-data-[collapsible=icon]:overflow-hidden', 'collapsed user button clip');
 
 if (sidebarUiSource.includes('w-(--sidebar-width)')) {
   throw new Error('Sidebar UI must not use Tailwind v4 width syntax incompatible with Tailwind v3.');

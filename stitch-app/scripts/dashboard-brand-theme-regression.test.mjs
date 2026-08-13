@@ -16,12 +16,22 @@ for (const snippet of [
     }
 }
 
-if (brandSource.includes('variant="mark"')) {
-    throw new Error('Dashboard brand should match login: full BrandLogo wordmark, not mark-only.');
-}
-
 if (brandSource.includes('AI Study Workspace')) {
     throw new Error('Dashboard brand should not duplicate wordmark text beside BrandLogo.');
+}
+
+if (
+    !brandSource.includes("variant={isDarkMode ? 'white' : 'default'}")
+    || !brandSource.includes('group-data-[collapsible=icon]:hidden')
+) {
+    throw new Error('Expanded sidebar must keep the full ChewnPour wordmark.');
+}
+
+if (
+    !brandSource.includes('variant="mark"')
+    || !brandSource.includes('group-data-[collapsible=icon]:block')
+) {
+    throw new Error('Collapsed sidebar must switch to the brand mark so the wordmark does not spill.');
 }
 
 for (const snippet of [
