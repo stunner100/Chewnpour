@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const DEFAULT_CHUNK_CHARS = 800;
+const DEFAULT_CHUNK_CHARS = 400;
 
 const normalizeForSpeech = (text) =>
     String(text || "")

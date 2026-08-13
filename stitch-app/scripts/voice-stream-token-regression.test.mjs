@@ -9,8 +9,8 @@ if (topicDetail.includes('voice/stream?token=') || courseHttp.includes('VOICE_ST
   throw new Error('Lesson voice must use the authenticated topics API instead of Convex stream tokens.');
 }
 
-if (!topicDetail.includes('credentials: \'include\'') || !topicDetail.includes('/voice')) {
-  throw new Error('Expected lesson voice requests to send the session cookie to /api/topics/:id/voice.');
+if (!topicDetail.includes('credentials: \'include\'') || !topicDetail.includes('/api/topic-voice')) {
+  throw new Error('Expected lesson voice requests to send the session cookie to /api/topic-voice.');
 }
 
 console.log('voice-stream-token-regression.test.mjs passed');

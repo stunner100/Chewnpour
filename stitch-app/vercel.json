@@ -3,6 +3,9 @@
     "api/router.js": {
       "includeFiles": "node_modules/@firecrawl/anydoc*/**",
       "maxDuration": 300
+    },
+    "api/topic-voice.js": {
+      "maxDuration": 30
     }
   },
   "headers": [
@@ -79,6 +82,10 @@
     {
       "source": "/api/sentry-tunnel",
       "destination": "/api/sentry-tunnel"
+    },
+    {
+      "source": "/api/topic-voice",
+      "destination": "/api/topic-voice"
     },
     {
       "source": "/api/:path(.*)",

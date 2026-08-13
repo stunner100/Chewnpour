@@ -12,8 +12,8 @@ if (playbackSource.includes('convexSiteUrl') || playbackSource.includes('VITE_CO
   throw new Error('Voice playback must not resolve Convex site URLs after the cutover.');
 }
 
-if (!topicDetailSource.includes('/api/topics/${encodeURIComponent(topicId)}/voice')) {
-  throw new Error('Expected lesson voice to stream from /api/topics/:id/voice.');
+if (!topicDetailSource.includes("fetch('/api/topic-voice'")) {
+  throw new Error('Expected lesson voice to stream from /api/topic-voice.');
 }
 
 console.log('voice-stream-site-url-regression.test.mjs passed');

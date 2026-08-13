@@ -39,7 +39,7 @@ export const callDeepgramSpeak = async (text) => {
     const base = String(process.env.DEEPGRAM_API_BASE_URL || DEFAULT_BASE)
         .trim()
         .replace(/\/+$/, "");
-    const timeoutMs = Number(process.env.DEEPGRAM_TIMEOUT_MS || 120000) || 120000;
+    const timeoutMs = Number(process.env.DEEPGRAM_TIMEOUT_MS || 20000) || 20000;
     const model = String(process.env.DEEPGRAM_VOICE_MODEL || DEFAULT_MODEL).trim()
         || DEFAULT_MODEL;
 
@@ -81,9 +81,15 @@ export const callDeepgramSpeak = async (text) => {
         return { buffer, contentType };
     } catch (error) {
         if (error?.name === "AbortError") {
-            const timeoutError = new Error("Voice synthesis timed out.");
+            const timeoutError = new Error("Voice is taking too long. Tap Play again.");
             timeoutError.status = 504;
             throw timeoutError;
+        }
+        const raw = String(error?.message || error?.cause?.message || "");
+        if (/terminated|fetch failed|econnreset|und_err|network/i.test(raw)) {
+            const wrapped = new Error("Voice is taking too long. Tap Play again.");
+            wrapped.status = 504;
+            throw wrapped;
         }
         throw error;
     } finally {

@@ -37,11 +37,18 @@ for (const snippet of [
   'parts[1] === "progress"',
   'parts[1] === "explain"',
   'parts[1] === "re-explain"',
-  'parts[1] === "voice"',
 ]) {
   if (!courseHttp.includes(snippet)) {
     throw new Error(`Expected courseHttp to handle ${snippet}.`);
   }
+}
+if (courseHttp.includes('parts[1] === "voice"')) {
+  throw new Error('Expected lesson voice to leave the topics router.');
+}
+
+const topicVoice = await read('server/topicVoiceHttp.js');
+if (!topicVoice.includes('callDeepgramSpeak') || !topicVoice.includes('getTopicForUser')) {
+  throw new Error('Expected dedicated topic-voice handler to authenticate and synthesize.');
 }
 
 const profiles = await read('server/profiles.js');
