@@ -6,8 +6,9 @@ const source = await fs.readFile(path.join(root, 'src/lib/useVoicePlayback.js'),
 
 for (const pattern of [
   'data:audio/wav;base64,',
-  'audio.muted = true',
-  'await audio.play()',
+  'unlock.muted = true',
+  'audio.muted = false',
+  'audio.volume = 1',
 ]) {
   if (!source.includes(pattern)) {
     throw new Error(`Expected mobile autoplay retry hardening to include "${pattern}".`);

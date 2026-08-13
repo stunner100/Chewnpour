@@ -31,6 +31,13 @@ assert.match(topicDetail, /Voice is taking too long\. Tap Play again/, 'Voice er
 assert.doesNotMatch(topicDetail, /Voice playback is temporarily unavailable/, 'Lesson voice must not stay parked.');
 assert.match(hook, /playChunk/, 'Playback hook must play returned audio.');
 assert.match(hook, /isPlaying: status === "playing"/, 'Toolbar play state must track HTML audio.');
+assert.match(hook, /unlock\.muted = true/, 'Autoplay unlock must use a throwaway muted element.');
+assert.match(hook, /audio\.volume = 1/, 'Lesson audio must play unmuted.');
+assert.doesNotMatch(
+  topicDetail,
+  /!voiceModeEnabled && \(isPlaying \|\| isPaused\)/,
+  'Play must not stop the clip just because Voice Mode is off.',
+);
 assert.match(toolbar, /playVoice\(speechText\)/, 'Read aloud control must send the lesson text.');
 
 console.log('lesson-voice-playback-regression: ok');

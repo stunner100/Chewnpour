@@ -298,10 +298,11 @@ export const useTopicDetail = () => {
                 const payload = await response.json().catch(() => ({}));
                 throw new Error(payload?.error || `Voice request failed (${response.status})`);
             }
-            const blob = await response.blob();
-            if (!blob || blob.size === 0) {
+            const buffer = await response.arrayBuffer();
+            if (!buffer || buffer.byteLength === 0) {
                 throw new Error('Voice playback did not return audio.');
             }
+            const blob = new Blob([buffer], { type: 'audio/mpeg' });
             return URL.createObjectURL(blob);
         } catch (error) {
             if (error?.name === 'AbortError' || /terminated|fetch failed/i.test(String(error?.message || ''))) {
@@ -416,12 +417,14 @@ export const useTopicDetail = () => {
             .trim();
     }, [normalizedContent]);
     const previousSpeechTextRef = useRef(speechText);
+    const previousVoiceModeRef = useRef(voiceModeEnabled);
 
     useEffect(() => {
-        if (!voiceModeEnabled && (isPlaying || isPaused)) {
+        if (previousVoiceModeRef.current && !voiceModeEnabled) {
             stopVoice();
         }
-    }, [voiceModeEnabled, isPlaying, isPaused, stopVoice]);
+        previousVoiceModeRef.current = voiceModeEnabled;
+    }, [voiceModeEnabled, stopVoice]);
 
     useEffect(() => {
         if (

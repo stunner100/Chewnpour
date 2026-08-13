@@ -143,6 +143,8 @@ export const useVoicePlayback = ({ remoteStream = null } = {}) => {
             setStatus("error");
         };
 
+        audio.muted = false;
+        audio.volume = 1;
         audio.src = resolvedUrl;
         await audio.play();
         if (playbackId !== playbackIdRef.current) return;
@@ -169,19 +171,18 @@ export const useVoicePlayback = ({ remoteStream = null } = {}) => {
         chunkIndexRef.current = 0;
         setError(null);
 
-        const audio = new Audio();
-        audio.playsInline = true;
-        audio.preload = "auto";
-        audioRef.current = audio;
         try {
-            audio.muted = true;
-            audio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
-            await audio.play();
-            audio.pause();
+            const unlock = new Audio();
+            unlock.playsInline = true;
+            unlock.muted = true;
+            unlock.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
+            await unlock.play();
+            unlock.pause();
+            unlock.removeAttribute("src");
+            unlock.load();
         } catch {
             // Unlock is best-effort; the real clip still starts from this click.
         }
-        audio.muted = false;
 
         try {
             await playChunk(playbackId, 0);
