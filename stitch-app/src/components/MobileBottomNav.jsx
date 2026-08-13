@@ -13,7 +13,7 @@ const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-
 
 const moreItems = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, or PPTX files' },
-    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'All uploaded files and progress' },
+    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Download transformed lessons for every upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
     { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
     { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', description: 'Ask follow-up questions' },

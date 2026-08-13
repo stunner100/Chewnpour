@@ -7,7 +7,7 @@ import AppIcon from './AppIcon';
 
 const NAV_OPTIONS = [
     { label: 'Dashboard', value: '/dashboard', icon: 'space_dashboard', keywords: ['home', 'main'] },
-    { label: 'Library', value: '/dashboard/library', icon: 'auto_stories', keywords: ['books', 'materials', 'upload'] },
+    { label: 'Library', value: '/dashboard/library', icon: 'auto_stories', keywords: ['books', 'materials', 'upload', 'download'] },
     { label: 'Upload', value: '/dashboard/upload', icon: 'cloud_upload', keywords: ['file', 'pdf', 'material'] },
     { label: 'Lessons', value: '/dashboard/lessons', icon: 'menu_book', keywords: ['read', 'course', 'topic'] },
     { label: 'Quizzes', value: '/dashboard/quiz', icon: 'quiz', keywords: ['test', 'assessment'] },

@@ -19,12 +19,14 @@ import {
     isDeepgramTranscribeEnabled,
 } from "./deepgramTranscribe.js";
 import {
+    createSignedDownloadUrl,
     createSignedUpload,
     deleteUploadObject,
     downloadUploadObject,
     getStorageBucket,
 } from "./supabase.js";
 import { ensureCourseFromUpload } from "./courses.js";
+import { buildTransformedExportZip } from "./materialExport.js";
 import {
     assertUploadCreditsAvailable,
     chargeUploadIfNeeded,
@@ -99,6 +101,11 @@ const toClientUpload = (row) => {
         extractionParser: row.extraction_parser || null,
         extractionWarnings: row.extraction_warnings || [],
         errorMessage: row.error_message || null,
+        canExport: Boolean(
+            row.status === "ready" &&
+                row.extraction_status === "complete" &&
+                String(row.extracted_text || "").trim(),
+        ),
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
     };
@@ -169,6 +176,99 @@ const getUploadRowForUser = async (userId, uploadId) => {
         [uploadId, userId],
     );
     return result.rows[0] || null;
+};
+
+const notFoundUploadError = () => {
+    const error = new Error("Upload not found");
+    error.status = 404;
+    error.code = "UPLOAD_NOT_FOUND";
+    return error;
+};
+
+export const exportTransformedContentForUser = async (userId, uploadId) => {
+    const row = await getUploadRowForUser(userId, uploadId);
+    if (!row) throw notFoundUploadError();
+
+    const extractedText = String(row.extracted_text || "").trim();
+    if (!extractedText) {
+        const error = new Error("Transformed content is not ready yet.");
+        error.status = 409;
+        error.code = "EXPORT_NOT_READY";
+        throw error;
+    }
+
+    const db = getPool();
+    const courseResult = await db.query(
+        `SELECT id, title FROM courses WHERE user_id = $1 AND upload_id = $2 LIMIT 1`,
+        [userId, uploadId],
+    );
+    const course = courseResult.rows[0] || null;
+    let topics = [];
+    let quizzes = [];
+
+    if (course?.id) {
+        const topicsResult = await db.query(
+            `SELECT title, description, content, sort_order
+             FROM topics
+             WHERE course_id = $1 AND user_id = $2
+             ORDER BY sort_order ASC, created_at ASC`,
+            [course.id, userId],
+        );
+        topics = topicsResult.rows;
+        const quizzesResult = await db.query(
+            `SELECT
+                q.prompt,
+                q.options,
+                q.correct_index,
+                q.explanation,
+                q.surface,
+                t.title AS topic_title
+             FROM questions q
+             JOIN topics t ON t.id = q.topic_id
+             WHERE t.course_id = $1 AND t.user_id = $2
+             ORDER BY t.sort_order ASC, q.sort_order ASC, q.created_at ASC`,
+            [course.id, userId],
+        );
+        quizzes = quizzesResult.rows.map((question) => ({
+            topicTitle: question.topic_title || "",
+            prompt: question.prompt || "",
+            options: question.options,
+            correctIndex: Number(question.correct_index || 0),
+            explanation: question.explanation || "",
+            surface: question.surface || "quiz",
+        }));
+    }
+
+    return buildTransformedExportZip({
+        fileName: row.file_name,
+        title: course?.title || row.file_name,
+        extractedText,
+        pageCount: row.page_count,
+        charCount: row.char_count,
+        topics,
+        quizzes,
+    });
+};
+
+export const getOriginalDownloadForUser = async (userId, uploadId) => {
+    const row = await getUploadRowForUser(userId, uploadId);
+    if (!row) throw notFoundUploadError();
+    if (!row.storage_path) {
+        const error = new Error("Original file is not available.");
+        error.status = 404;
+        error.code = "ORIGINAL_MISSING";
+        throw error;
+    }
+
+    const signed = await createSignedDownloadUrl({
+        bucket: row.storage_bucket,
+        path: row.storage_path,
+        expiresIn: 120,
+    });
+    return {
+        url: signed.signedUrl,
+        fileName: row.file_name,
+    };
 };
 
 export const initUploadForUser = async ({

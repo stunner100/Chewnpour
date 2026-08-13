@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { formatCourseTitle } from '../lib/courseTitle';
+import { downloadAuthenticatedFile } from '../lib/downloadFile';
 
 const filterTabs = [
     { label: 'All', value: 'all' },
@@ -61,13 +62,13 @@ const MaterialsSkeleton = () => (
 
 const MyMaterialsLibrary = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [activeFilter, setActiveFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [uploads, setUploads] = useState([]);
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [busyDownload, setBusyDownload] = useState(null);
 
     const loadLibrary = useCallback(async ({ silent = false } = {}) => {
         if (!user?.id) {
@@ -102,6 +103,42 @@ const MyMaterialsLibrary = () => {
         }
     }, [user?.id]);
 
+    const handleDownloadTransformed = useCallback(async (uploadId, title) => {
+        if (!uploadId) return;
+        setError('');
+        setBusyDownload({ id: uploadId, kind: 'export' });
+        try {
+            await downloadAuthenticatedFile(
+                `/api/uploads/${encodeURIComponent(uploadId)}/export`,
+                `${title || 'material'}-chewnpour.zip`,
+            );
+        } catch (err) {
+            setError(err.message || 'Could not download transformed content');
+        } finally {
+            setBusyDownload(null);
+        }
+    }, []);
+
+    const handleDownloadOriginal = useCallback(async (uploadId) => {
+        if (!uploadId) return;
+        setError('');
+        setBusyDownload({ id: uploadId, kind: 'original' });
+        try {
+            const response = await fetch(`/api/uploads/${encodeURIComponent(uploadId)}/original`, {
+                credentials: 'include',
+                headers: { Accept: 'application/json' },
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || 'Could not download original file');
+            if (!payload.url) throw new Error('Original file is not available');
+            window.open(payload.url, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+            setError(err.message || 'Could not download original file');
+        } finally {
+            setBusyDownload(null);
+        }
+    }, []);
+
     useEffect(() => {
         loadLibrary();
     }, [loadLibrary]);
@@ -114,12 +151,12 @@ const MyMaterialsLibrary = () => {
         onNewlyReady: (readyItems) => {
             const first = readyItems[0];
             if (!first) return;
-            watermelonToast(`${first.title} is ready to study`, {
+            watermelonToast(`${first.title} is ready to download`, {
                 type: 'success',
                 duration: 8000,
                 action: {
-                    label: 'Open lessons',
-                    onClick: () => navigate(first.lessonsHref),
+                    label: 'Download',
+                    onClick: () => handleDownloadTransformed(first.uploadId, first.title),
                 },
             });
         },
@@ -149,6 +186,7 @@ const MyMaterialsLibrary = () => {
                 lessons: topicCount,
                 quizzes: quizzesReady,
                 topicCount,
+                canExport: Boolean(upload.canExport) || (isComplete && Number(upload.charCount || 0) > 0),
             };
         });
     }, [courses, uploads]);
@@ -196,8 +234,8 @@ const MyMaterialsLibrary = () => {
                         <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
                             My Materials
                         </h1>
-                        <p className="mt-2 text-body-md text-text-secondary">
-                            Manage and study your uploaded files and generated content.
+                        <p className="mt-2 max-w-xl text-pretty text-body-md text-text-secondary">
+                            Download lessons and quizzes from every upload.
                         </p>
                     </div>
                     <div className="flex w-full items-center gap-2 rounded-full border border-border-subtle bg-surface px-4 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-primary-soft md:w-72">
@@ -205,7 +243,8 @@ const MyMaterialsLibrary = () => {
                         <input
                             className="w-full border-none bg-transparent p-0 text-body-sm outline-none placeholder:text-text-muted focus:ring-0"
                             placeholder="Search materials..."
-                            type="text"
+                            type="search"
+                            aria-label="Search materials"
                             value={searchTerm}
                             onChange={(event) => setSearchTerm(event.target.value)}
                         />
@@ -239,27 +278,21 @@ const MyMaterialsLibrary = () => {
                     {filteredMaterials.map((material) => {
                         const typeConfig = typeIcons[material.kind] || typeIcons.notes;
                         const isProcessing = material.status !== 'ready' && material.status !== 'error';
-                        const hasGeneratedContent =
-                            material.status === 'ready'
-                            && material.extractionStatus === 'complete'
-                            && material.courseId
-                            && material.topicCount > 0;
-                        const studyHref = hasGeneratedContent ? `/dashboard/lessons?courseId=${material.courseId}` : '';
+                        const exporting = busyDownload?.id === material.uploadId && busyDownload?.kind === 'export';
+                        const fetchingOriginal = busyDownload?.id === material.uploadId && busyDownload?.kind === 'original';
                         return (
                             <article
                                 key={material.uploadId}
-                                className={`flex h-full flex-col overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm ${
-                                    hasGeneratedContent ? 'transition-shadow hover:shadow-md' : ''
-                                }`}
+                                className="flex h-full flex-col overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm"
                             >
                                 <div className="mb-4 flex items-start justify-between gap-3">
                                     <div className={`flex size-11 items-center justify-center rounded-xl ${typeConfig.color}`}>
                                         <AppIcon name={typeConfig.icon} className="text-[22px]" />
                                     </div>
-                                    {hasGeneratedContent ? (
+                                    {material.canExport ? (
                                         <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-caption font-semibold text-success">
                                             <span className="size-1.5 rounded-full bg-success" />
-                                            Ready
+                                            Ready to download
                                         </span>
                                     ) : isProcessing ? (
                                         <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-caption font-semibold text-warning">
@@ -273,13 +306,13 @@ const MyMaterialsLibrary = () => {
                                         </span>
                                     )}
                                 </div>
-                                <h3 className="line-clamp-2 font-display text-display-sm font-bold text-text-primary">
+                                <h2 className="line-clamp-2 font-display text-display-sm font-bold text-text-primary">
                                     {material.title}
-                                </h3>
+                                </h2>
                                 <p className="mt-1 text-caption font-medium text-text-muted">
                                     Uploaded {formatUploadedAt(material.createdAt)}
                                 </p>
-                                {!hasGeneratedContent && material.errorMessage && (
+                                {!material.canExport && material.errorMessage && (
                                     <p className="mt-2 text-caption text-error">{material.errorMessage}</p>
                                 )}
 
@@ -287,7 +320,12 @@ const MyMaterialsLibrary = () => {
                                     <div className="mb-4 flex gap-4 border-t border-border-subtle pt-4">
                                         <div>
                                             <p className="font-semibold text-text-primary">{material.topicCount}</p>
-                                            <p className="text-caption text-text-muted">Topics</p>
+                                            <p className="text-caption text-text-muted">Lessons</p>
+                                        </div>
+                                        <div className="w-px bg-border-subtle" />
+                                        <div>
+                                            <p className="font-semibold text-text-primary">{material.canExport ? 'Yes' : 'No'}</p>
+                                            <p className="text-caption text-text-muted">Source text</p>
                                         </div>
                                         <div className="w-px bg-border-subtle" />
                                         <div>
@@ -295,75 +333,50 @@ const MyMaterialsLibrary = () => {
                                             <p className="text-caption text-text-muted">Quizzes</p>
                                         </div>
                                     </div>
-                                    {hasGeneratedContent ? (
-                                        <div className="flex flex-col gap-2">
-                                            <Link
-                                                to={studyHref}
-                                                className="btn-primary inline-flex w-full min-h-11 items-center justify-center gap-2 text-body-sm"
-                                            >
-                                                Continue Study
-                                                <AppIcon name="arrow_forward" className="text-[16px]" />
-                                            </Link>
-                                            {Number(material.quizzes || 0) > 0 ? (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <Link
-                                                        to={
-                                                            material.firstQuizTopicId
-                                                                ? `/dashboard/quiz/${encodeURIComponent(material.firstQuizTopicId)}`
-                                                                : '/dashboard/quiz'
-                                                        }
-                                                        className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
-                                                    >
-                                                        <AppIcon name="quiz" className="text-[16px]" />
-                                                        Practice quiz
-                                                    </Link>
-                                                    <Link
-                                                        to={`/dashboard/exam?courseId=${encodeURIComponent(material.courseId)}`}
-                                                        className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
-                                                    >
-                                                        <AppIcon name="school" className="text-[16px]" />
-                                                        Timed exam
-                                                    </Link>
-                                                </div>
-                                            ) : null}
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(material.uploadId)}
-                                                className="inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface text-body-sm font-semibold text-text-secondary hover:bg-surface-soft"
-                                            >
-                                                <AppIcon name="delete" className="text-[16px]" />
-                                                Delete
-                                            </button>
+                                    {isProcessing && (
+                                        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-surface-soft">
+                                            <div
+                                                className="h-full animate-pulse rounded-full bg-warning"
+                                                style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
+                                            />
                                         </div>
-                                    ) : (
-                                        <>
-                                            {isProcessing && (
-                                                <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                                                    <div
-                                                        className="h-full animate-pulse rounded-full bg-warning"
-                                                        style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
-                                                    />
-                                                </div>
-                                            )}
-                                            <div className="flex flex-col gap-2">
-                                                <button
-                                                    className="inline-flex w-full min-h-11 cursor-not-allowed items-center justify-center rounded-full border border-border-subtle bg-surface-soft text-body-sm font-semibold text-text-muted"
-                                                    disabled
-                                                    type="button"
-                                                >
-                                                    Study Unavailable
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDelete(material.uploadId)}
-                                                    className="inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface text-body-sm font-semibold text-text-secondary hover:bg-surface-soft"
-                                                >
-                                                    <AppIcon name="delete" className="text-[16px]" />
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </>
                                     )}
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            type="button"
+                                            className="btn-primary inline-flex w-full min-h-11 items-center justify-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-60"
+                                            disabled={!material.canExport || Boolean(busyDownload)}
+                                            aria-busy={exporting}
+                                            aria-label={`Download transformed content for ${material.title}`}
+                                            onClick={() => handleDownloadTransformed(material.uploadId, material.title)}
+                                        >
+                                            <AppIcon name={exporting ? 'pending' : 'download'} className="text-[16px]" />
+                                            {exporting
+                                                ? 'Downloading...'
+                                                : material.canExport
+                                                    ? (material.topicCount > 0 ? 'Download lessons' : 'Download extracted text')
+                                                    : 'Download when ready'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-secondary inline-flex w-full min-h-10 items-center justify-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-60"
+                                            disabled={Boolean(busyDownload)}
+                                            aria-busy={fetchingOriginal}
+                                            aria-label={`Download original file for ${material.title}`}
+                                            onClick={() => handleDownloadOriginal(material.uploadId)}
+                                        >
+                                            <AppIcon name={fetchingOriginal ? 'pending' : 'description'} className="text-[16px]" />
+                                            {fetchingOriginal ? 'Opening original...' : 'Download original'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDelete(material.uploadId)}
+                                            className="inline-flex w-full min-h-10 items-center justify-center gap-2 text-body-sm font-semibold text-text-muted hover:text-error"
+                                        >
+                                            <AppIcon name="delete" className="text-[16px]" />
+                                            Delete
+                                        </button>
+                                    </div>
                                 </div>
                             </article>
                         );
@@ -375,12 +388,12 @@ const MyMaterialsLibrary = () => {
                         <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-surface-soft text-text-muted">
                             <AppIcon name="search_off" className="text-[28px]" />
                         </div>
-                        <h3 className="font-display text-display-sm font-bold text-text-primary">
-                            {materials.length === 0 ? 'No materials yet' : 'No matching materials'}
-                        </h3>
+                        <h2 className="font-display text-display-sm font-bold text-text-primary">
+                            {materials.length === 0 ? 'No downloads yet' : 'No matching materials'}
+                        </h2>
                         <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
                             {materials.length === 0
-                                ? 'Upload a PDF, DOCX, or PPTX to generate topics and quizzes.'
+                                ? 'Upload a PDF, DOCX, or PPTX. Lessons appear here to download.'
                                 : 'Try a different search or clear your filters to see more files.'}
                         </p>
                         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

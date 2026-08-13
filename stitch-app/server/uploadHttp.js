@@ -2,12 +2,15 @@ import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
 import {
     deleteUploadForUser,
+    exportTransformedContentForUser,
     finalizeUploadForUser,
+    getOriginalDownloadForUser,
     getUploadForUser,
     initUploadForUser,
     isAllowedStudyUploadType,
     listUploadsForUser,
 } from "./uploads.js";
+import { asciiDownloadFilename } from "./materialExport.js";
 import { assertUploadCreditsAvailable } from "./billing.js";
 
 const sendJson = (res, statusCode, payload) => {
@@ -15,6 +18,16 @@ const sendJson = (res, statusCode, payload) => {
     res.statusCode = statusCode;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
+    res.end(body);
+};
+
+const sendAttachment = (res, { body, mimeType, filename }) => {
+    const safeName = asciiDownloadFilename(filename);
+    res.statusCode = 200;
+    res.setHeader("Content-Type", mimeType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Length", String(body.byteLength || body.length));
     res.end(body);
 };
 
@@ -103,6 +116,16 @@ export const handleUploadsRequest = async (req, res) => {
             const uploadId = parts[0];
             const upload = await finalizeUploadForUser(user.id, uploadId);
             return sendJson(res, 200, { upload });
+        }
+
+        if (parts.length === 2 && parts[1] === "export" && method === "GET") {
+            const exported = await exportTransformedContentForUser(user.id, parts[0]);
+            return sendAttachment(res, exported);
+        }
+
+        if (parts.length === 2 && parts[1] === "original" && method === "GET") {
+            const original = await getOriginalDownloadForUser(user.id, parts[0]);
+            return sendJson(res, 200, original);
         }
 
         if (parts.length === 1 && method === "GET") {

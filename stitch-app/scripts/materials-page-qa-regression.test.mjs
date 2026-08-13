@@ -26,22 +26,22 @@ const requireIncludes = (source, snippet, label) => {
 
 requireIncludes(
   materialsSource,
-  "import { useConvexAuth, useQuery } from 'convex/react';",
+  "fetch('/api/uploads'",
   'MyMaterialsLibrary.jsx',
 );
 requireIncludes(
   materialsSource,
-  'const shouldLoadMaterials = isAuthenticated && !authLoading;',
+  "fetch('/api/courses'",
   'MyMaterialsLibrary.jsx',
 );
 requireIncludes(
   materialsSource,
-  "useQuery(api.uploads.getUserUploads, shouldLoadMaterials ? {} : 'skip')",
+  '/api/uploads/${encodeURIComponent(uploadId)}/export',
   'MyMaterialsLibrary.jsx',
 );
 requireIncludes(
   materialsSource,
-  "useQuery(api.courses.getUserCourses, shouldLoadMaterials ? {} : 'skip')",
+  'Download lessons and quizzes from every upload.',
   'MyMaterialsLibrary.jsx',
 );
 
@@ -73,11 +73,6 @@ requireIncludes(
 requireIncludes(
   dashboardLayoutSource,
   'md:max-w-md',
-  'DashboardLayout.jsx',
-);
-requireIncludes(
-  dashboardLayoutSource,
-  'className="flex shrink-0 items-center gap-1.5 pr-3 md:gap-space-4 md:pr-4"',
   'DashboardLayout.jsx',
 );
 

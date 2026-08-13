@@ -97,17 +97,22 @@ export const uploadObject = async ({ path, body, contentType = "application/octe
     return { bucket, path };
 };
 
-export const createSignedDownloadUrl = async ({ path, expiresIn = 3600 }) => {
+export const createSignedDownloadUrl = async ({
+    bucket,
+    path,
+    expiresIn = 3600,
+} = {}) => {
     const supabase = getSupabaseAdmin();
-    const bucket = await ensureStudyUploadsBucket();
+    const targetBucket =
+        String(bucket || "").trim() || (await ensureStudyUploadsBucket());
     const { data, error } = await supabase.storage
-        .from(bucket)
+        .from(targetBucket)
         .createSignedUrl(path, expiresIn);
     if (error) {
         throw new Error(`Failed to create signed download URL: ${error.message}`);
     }
     return {
-        bucket,
+        bucket: targetBucket,
         path,
         signedUrl: data?.signedUrl || "",
     };

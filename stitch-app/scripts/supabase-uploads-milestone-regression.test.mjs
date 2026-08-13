@@ -16,7 +16,7 @@ if (!/study-uploads/.test(migration)) {
 }
 
 const uploadsSource = await fs.readFile(path.join(root, 'server', 'uploads.js'), 'utf8');
-for (const symbol of ['initUploadForUser', 'finalizeUploadForUser', 'listUploadsForUser', 'deleteUploadForUser']) {
+for (const symbol of ['initUploadForUser', 'finalizeUploadForUser', 'listUploadsForUser', 'deleteUploadForUser', 'exportTransformedContentForUser', 'getOriginalDownloadForUser']) {
   if (!uploadsSource.includes(`export const ${symbol}`)) {
     throw new Error(`Expected server/uploads.js to export ${symbol}.`);
   }
@@ -28,6 +28,12 @@ if (!/handleUploadsRequest/.test(uploadHttp) || !/auth\.api\.getSession/.test(up
 }
 if (!/method === "DELETE"/.test(uploadHttp)) {
   throw new Error('Expected upload HTTP handler to support DELETE.');
+}
+if (!/parts\[1\] === "export"/.test(uploadHttp) || !/exportTransformedContentForUser/.test(uploadHttp)) {
+  throw new Error('Expected upload HTTP handler to export transformed content.');
+}
+if (!/parts\[1\] === "original"/.test(uploadHttp) || !/getOriginalDownloadForUser/.test(uploadHttp)) {
+  throw new Error('Expected upload HTTP handler to sign original-file downloads.');
 }
 
 const apiRoute = await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8');
