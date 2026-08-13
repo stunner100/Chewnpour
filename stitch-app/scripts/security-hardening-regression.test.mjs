@@ -23,11 +23,23 @@ for (const key of [
 const csp = headers.get("Content-Security-Policy");
 assert.ok(csp.includes("frame-ancestors 'none'"), "CSP must block framing");
 assert.ok(csp.includes("object-src 'none'"), "CSP must block plugin/object content");
+assert.ok(/script-src[^;]*https:\/\/datafa\.st/.test(csp), "CSP script-src must allow DataFast");
+assert.ok(/connect-src[^;]*https:\/\/datafa\.st/.test(csp), "CSP connect-src must allow DataFast");
 assert.equal(csp.includes("assistia"), false, "CSP must not allow the Assistia support widget");
+const indexHtml = read("index.html");
 assert.equal(
-  read("index.html").includes("assistia"),
+  indexHtml.includes("assistia"),
   false,
   "index.html must not load the Assistia support widget",
+);
+assert.ok(indexHtml.includes('src="https://datafa.st/js/script.js"'), "index.html must load DataFast");
+assert.ok(
+  indexHtml.includes('data-website-id="dfid_XuoHdWYG3ZqYPssuhYooU"'),
+  "index.html must keep the DataFast website id",
+);
+assert.ok(
+  indexHtml.includes('data-domain="chewnpour.com"'),
+  "index.html must keep the DataFast domain",
 );
 assert.equal(headers.get("X-Frame-Options"), "DENY");
 assert.equal(headers.get("X-Content-Type-Options"), "nosniff");
