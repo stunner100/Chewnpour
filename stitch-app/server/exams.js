@@ -98,6 +98,7 @@ export const startExamForCourse = async ({
          INNER JOIN topics t ON t.id = q.topic_id
          WHERE q.course_id = $1
            AND q.user_id = $2
+           AND COALESCE(q.question_type, 'multiple_choice') = 'multiple_choice'
            AND COALESCE(jsonb_array_length(q.options), 0) >= 2
          ORDER BY t.sort_order ASC, q.sort_order ASC, q.id ASC`,
         [courseId, userId],

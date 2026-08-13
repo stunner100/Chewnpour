@@ -121,6 +121,7 @@ const ProductResearch = lazyRoute(() => import('./pages/ProductResearch'), { com
 const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentName: 'Unsubscribe' });
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
+const PublicSharedCourse = lazyRoute(() => import('./pages/PublicSharedCourse'), { componentName: 'PublicSharedCourse' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const SubscriptionCallback = lazyRoute(() => import('./pages/SubscriptionCallback'), { componentName: 'SubscriptionCallback' });
 
@@ -327,6 +328,7 @@ function App() {
         <Route path="/unsubscribe" element={withSuspense(<Unsubscribe />)} />
         <Route path="/terms" element={withSuspense(<Terms />)} />
         <Route path="/privacy" element={withSuspense(<Privacy />)} />
+        <Route path="/c/:token" element={withSuspense(<PublicSharedCourse />)} />
         <Route path="/kids" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
         <Route path="/kids/parent" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
         <Route path="/kids/upload" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />

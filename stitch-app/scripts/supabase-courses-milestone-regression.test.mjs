@@ -64,8 +64,8 @@ if (!/pages\/TopicQuizPlayer/.test(appSource)) {
 }
 
 const viteConfig = await fs.readFile(path.join(root, 'vite.config.js'), 'utf8');
-if (!/['"]\/api\/courses['"]/.test(viteConfig) || !/['"]\/api\/topics['"]/.test(viteConfig)) {
-  throw new Error('Expected Vite to proxy /api/courses and /api/topics.');
+if (!/['"]\/api\/courses['"]/.test(viteConfig) || !/['"]\/api\/topics['"]/.test(viteConfig) || !/['"]\/api\/share['"]/.test(viteConfig)) {
+  throw new Error('Expected Vite to proxy /api/courses, /api/topics, and /api/share.');
 }
 
 console.log('supabase-courses-milestone-regression.test.mjs passed');

@@ -15,6 +15,101 @@ const LessonsSkeleton = () => (
     </div>
 );
 
+const copyText = async (value) => {
+    try {
+        await navigator.clipboard.writeText(value);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+const CourseShareControls = ({ course, onCourseChange }) => {
+    const [busy, setBusy] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [shareError, setShareError] = useState('');
+    const shareHref = course?.shareUrl
+        ? `${typeof window !== 'undefined' ? window.location.origin : ''}${course.shareUrl}`
+        : '';
+
+    const toggleShare = async (enable) => {
+        if (!course?.id) return;
+        setBusy(true);
+        setShareError('');
+        try {
+            const response = await fetch(`/api/courses/${encodeURIComponent(course.id)}/share`, {
+                method: enable ? 'POST' : 'DELETE',
+                credentials: 'include',
+                headers: { Accept: 'application/json' },
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || 'Could not update sharing');
+            onCourseChange?.(payload.course || null);
+        } catch (err) {
+            setShareError(err.message || 'Could not update sharing');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="rounded-[20px] border border-border-subtle bg-surface p-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p className="text-body-sm font-semibold text-text-primary">Share this course</p>
+                    <p className="mt-1 text-caption text-text-secondary">
+                        A read-only link to generated lessons. Source files, quizzes, and tutor stay private.
+                    </p>
+                </div>
+                {course?.shareEnabled ? (
+                    <button
+                        type="button"
+                        className="btn-secondary inline-flex min-h-10 items-center justify-center text-body-sm"
+                        disabled={busy}
+                        onClick={() => toggleShare(false)}
+                    >
+                        Stop sharing
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        className="btn-primary inline-flex min-h-10 items-center justify-center text-body-sm"
+                        disabled={busy}
+                        onClick={() => toggleShare(true)}
+                    >
+                        Create share link
+                    </button>
+                )}
+            </div>
+            {course?.shareEnabled && shareHref ? (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                        readOnly
+                        value={shareHref}
+                        className="min-h-10 flex-1 rounded-xl border border-border-subtle bg-surface-soft px-3 text-body-sm text-text-primary"
+                    />
+                    <button
+                        type="button"
+                        className="btn-secondary inline-flex min-h-10 items-center justify-center text-body-sm"
+                        onClick={async () => {
+                            const ok = await copyText(shareHref);
+                            if (ok) {
+                                setCopied(true);
+                                window.setTimeout(() => setCopied(false), 1600);
+                            }
+                        }}
+                    >
+                        {copied ? 'Copied' : 'Copy link'}
+                    </button>
+                </div>
+            ) : null}
+            {shareError ? (
+                <p className="mt-2 text-caption text-error" role="alert">{shareError}</p>
+            ) : null}
+        </div>
+    );
+};
+
 const LessonMemoryNeuralBasis = () => {
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
@@ -173,6 +268,19 @@ const LessonMemoryNeuralBasis = () => {
                             <AppIcon name="arrow_back" className="text-[16px]" />
                             All courses
                         </Link>
+
+                        {selectedCourse ? (
+                            <CourseShareControls
+                                course={selectedCourse}
+                                onCourseChange={(next) => {
+                                    setSelectedCourse((current) => ({
+                                        ...(current || {}),
+                                        ...(next || {}),
+                                        topics: current?.topics || next?.topics || [],
+                                    }));
+                                }}
+                            />
+                        ) : null}
 
                         {Number(selectedCourse?.quizzesReady || 0) > 0 ? (
                             <div className="flex flex-wrap gap-2">

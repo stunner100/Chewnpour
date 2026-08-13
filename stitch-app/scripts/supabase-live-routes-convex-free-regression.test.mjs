@@ -18,6 +18,7 @@ const livePageModules = [
   'src/pages/Subscription.jsx',
   'src/pages/LessonMemoryNeuralBasis.jsx',
   'src/pages/TopicDetail.jsx',
+  'src/pages/PublicSharedCourse.jsx',
   'src/pages/DashboardPodcasts.jsx',
   'src/pages/LandingPage.jsx',
   'src/pages/Login.jsx',

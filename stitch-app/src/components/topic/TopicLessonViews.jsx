@@ -112,6 +112,7 @@ export const TopicLessonMainColumn = ({ controller }) => {
         voicePlaybackError,
         voiceStatus,
         wordBankTerms,
+        orderingCheck,
     } = controller;
 
     return (
@@ -148,6 +149,7 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 voicePlaybackError={voicePlaybackError}
                 voiceStatus={voiceStatus}
                 wordBankTerms={wordBankTerms}
+                orderingCheck={orderingCheck}
             />
             <TopicQuizPanel
                 examTopicId={examTopicId}

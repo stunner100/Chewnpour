@@ -26,6 +26,9 @@ const toClientCourse = (row, extras = {}) => {
         description: row.description || "",
         status: row.status,
         generationBackend: row.generation_backend || extras.generationBackend || null,
+        shareToken: row.share_token || extras.shareToken || null,
+        shareEnabled: Boolean(row.share_token || extras.shareToken),
+        shareUrl: extras.shareUrl || (row.share_token ? `/c/${row.share_token}` : null),
         topicCount: Number(extras.topicCount ?? row.topic_count ?? 0),
         quizzesReady: Number(extras.quizzesReady ?? row.quizzes_ready ?? 0),
         firstTopicId: extras.firstTopicId ?? row.first_topic_id ?? null,
@@ -49,11 +52,14 @@ const toClientTopic = (row, extras = {}) => {
         content: row.content || "",
         sortOrder: Number(row.sort_order || 0),
         questionCount: Number(extras.questionCount ?? row.question_count ?? 0),
+        orderingCheck: extras.orderingCheck ?? row.orderingCheck ?? null,
         assessmentRoute: "topic_quiz",
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
     };
 };
+
+const MCQ_TYPE_SQL = `COALESCE(question_type, 'multiple_choice') = 'multiple_choice'`;
 
 const toClientQuestion = (row) => {
     if (!row) return null;
@@ -66,6 +72,31 @@ const toClientQuestion = (row) => {
         correctIndex: Number(row.correct_index || 0),
         explanation: row.explanation || "",
         sortOrder: Number(row.sort_order || 0),
+        questionType: row.question_type || "multiple_choice",
+    };
+};
+
+const toClientOrderingCheck = (row) => {
+    if (!row) return null;
+    let payload = row.payload;
+    if (typeof payload === "string") {
+        try {
+            payload = JSON.parse(payload);
+        } catch {
+            payload = {};
+        }
+    }
+    const steps = Array.isArray(payload?.stepsInOrder)
+        ? payload.stepsInOrder
+        : Array.isArray(row.options)
+          ? row.options
+          : [];
+    if (steps.length < 3) return null;
+    return {
+        prompt: row.prompt,
+        stepsInOrder: steps.slice(0, 3),
+        explanation: row.explanation || "",
+        hint: row.hint || "",
     };
 };
 
@@ -170,18 +201,26 @@ export const ensureCourseFromUpload = async ({
         for (const question of questionSpecs) {
             await db.query(
                 `INSERT INTO questions (
-                    id, topic_id, course_id, user_id, prompt, options, correct_index, explanation, sort_order
-                 ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)`,
+                    id, topic_id, course_id, user_id, prompt, options, correct_index, explanation, sort_order,
+                    question_type, payload, hint
+                 ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11::jsonb,$12)`,
                 [
                     nanoid(),
                     topicId,
                     courseId,
                     userId,
                     question.prompt,
-                    JSON.stringify(question.options),
-                    question.correctIndex,
+                    JSON.stringify(
+                        question.questionType === "ordering"
+                            ? question.stepsInOrder || question.options
+                            : question.options,
+                    ),
+                    question.questionType === "ordering" ? 0 : question.correctIndex,
                     question.explanation || null,
                     question.sortOrder ?? 0,
+                    question.questionType || "multiple_choice",
+                    JSON.stringify(question.payload || {}),
+                    question.hint || null,
                 ],
             );
         }
@@ -224,6 +263,7 @@ export const listCoursesForUser = async (userId) => {
          LEFT JOIN (
             SELECT course_id, COUNT(DISTINCT topic_id)::int AS quiz_topic_count
             FROM questions
+            WHERE ${MCQ_TYPE_SQL}
             GROUP BY course_id
          ) q ON q.course_id = c.id
          LEFT JOIN LATERAL (
@@ -236,7 +276,7 @@ export const listCoursesForUser = async (userId) => {
          LEFT JOIN LATERAL (
             SELECT t2.id AS first_quiz_topic_id
             FROM topics t2
-            INNER JOIN questions qq ON qq.topic_id = t2.id
+            INNER JOIN questions qq ON qq.topic_id = t2.id AND ${MCQ_TYPE_SQL.replaceAll("question_type", "qq.question_type")}
             WHERE t2.course_id = c.id
             ORDER BY t2.sort_order ASC, t2.created_at ASC
             LIMIT 1
@@ -254,6 +294,7 @@ export const listCoursesForUser = async (userId) => {
             INNER JOIN (
                 SELECT topic_id, COUNT(*)::int AS question_count
                 FROM questions
+                WHERE ${MCQ_TYPE_SQL}
                 GROUP BY topic_id
             ) qq3 ON qq3.topic_id = t3.id
             WHERE t3.course_id = c.id
@@ -283,6 +324,7 @@ export const getCourseForUser = async (userId, courseId) => {
          LEFT JOIN (
             SELECT topic_id, COUNT(*)::int AS question_count
             FROM questions
+            WHERE ${MCQ_TYPE_SQL}
             GROUP BY topic_id
          ) q ON q.topic_id = t.id
          WHERE t.course_id = $1 AND t.user_id = $2
@@ -321,6 +363,7 @@ export const getTopicForUser = async (userId, topicId) => {
          LEFT JOIN (
             SELECT topic_id, COUNT(*)::int AS question_count
             FROM questions
+            WHERE ${MCQ_TYPE_SQL}
             GROUP BY topic_id
          ) q ON q.topic_id = t.id
          WHERE t.id = $1 AND t.user_id = $2
@@ -335,8 +378,19 @@ export const getTopicForUser = async (userId, topicId) => {
         [topic.course_id, userId],
     );
 
+    const orderingResult = await db.query(
+        `SELECT prompt, explanation, hint, payload, options
+         FROM questions
+         WHERE topic_id = $1 AND user_id = $2 AND question_type = 'ordering'
+         ORDER BY sort_order ASC, created_at ASC
+         LIMIT 1`,
+        [topicId, userId],
+    );
+
     return {
-        topic: toClientTopic(topic),
+        topic: toClientTopic(topic, {
+            orderingCheck: toClientOrderingCheck(orderingResult.rows[0] || null),
+        }),
         course: toClientCourse(courseResult.rows[0] || null),
     };
 };
@@ -348,7 +402,7 @@ export const getQuizForTopic = async (userId, topicId) => {
     const db = getPool();
     const questionsResult = await db.query(
         `SELECT * FROM questions
-         WHERE topic_id = $1 AND user_id = $2
+         WHERE topic_id = $1 AND user_id = $2 AND ${MCQ_TYPE_SQL}
          ORDER BY sort_order ASC, created_at ASC`,
         [topicId, userId],
     );
@@ -366,7 +420,7 @@ const getQuizForTopicWithAnswers = async (userId, topicId) => {
     const db = getPool();
     const questionsResult = await db.query(
         `SELECT * FROM questions
-         WHERE topic_id = $1 AND user_id = $2
+         WHERE topic_id = $1 AND user_id = $2 AND ${MCQ_TYPE_SQL}
          ORDER BY sort_order ASC, created_at ASC`,
         [topicId, userId],
     );
@@ -512,5 +566,91 @@ export const getQuizAttemptForUser = async (userId, attemptId) => {
         examFormat: "objective",
         tutorFeedback: null,
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
+    };
+};
+
+const publicShareUrl = (token) => (token ? `/c/${encodeURIComponent(token)}` : null);
+
+export const enableCourseShare = async (userId, courseId) => {
+    const course = await getCourseForUser(userId, courseId);
+    if (!course) return null;
+    if (course.shareToken) {
+        return {
+            ...course,
+            shareUrl: publicShareUrl(course.shareToken),
+        };
+    }
+    const db = getPool();
+    const shareToken = nanoid(16);
+    await db.query(
+        `UPDATE courses
+         SET share_token = $3, updated_at = NOW()
+         WHERE id = $1 AND user_id = $2`,
+        [courseId, userId, shareToken],
+    );
+    const updated = await getCourseForUser(userId, courseId);
+    return updated
+        ? { ...updated, shareUrl: publicShareUrl(updated.shareToken) }
+        : null;
+};
+
+export const disableCourseShare = async (userId, courseId) => {
+    const course = await getCourseForUser(userId, courseId);
+    if (!course) return null;
+    const db = getPool();
+    await db.query(
+        `UPDATE courses
+         SET share_token = NULL, updated_at = NOW()
+         WHERE id = $1 AND user_id = $2`,
+        [courseId, userId],
+    );
+    const updated = await getCourseForUser(userId, courseId);
+    return updated ? { ...updated, shareUrl: null } : null;
+};
+
+export const getPublicCourseByShareToken = async (token) => {
+    const shareToken = String(token || "").trim();
+    if (!shareToken) return null;
+    const db = getPool();
+    const courseResult = await db.query(
+        `SELECT id, title, description, status
+         FROM courses
+         WHERE share_token = $1
+         LIMIT 1`,
+        [shareToken],
+    );
+    const course = courseResult.rows[0];
+    if (!course) return null;
+
+    const topicsResult = await db.query(
+        `SELECT id, title, description, content, sort_order
+         FROM topics
+         WHERE course_id = $1
+         ORDER BY sort_order ASC, created_at ASC`,
+        [course.id],
+    );
+    const orderingResult = await db.query(
+        `SELECT topic_id, prompt, explanation, hint, payload, options
+         FROM questions
+         WHERE course_id = $1 AND question_type = 'ordering'
+         ORDER BY sort_order ASC, created_at ASC`,
+        [course.id],
+    );
+    const orderingByTopic = new Map();
+    for (const row of orderingResult.rows) {
+        if (orderingByTopic.has(row.topic_id)) continue;
+        orderingByTopic.set(row.topic_id, toClientOrderingCheck(row));
+    }
+
+    return {
+        title: course.title,
+        description: course.description || "",
+        topics: topicsResult.rows.map((row) => ({
+            title: row.title,
+            description: row.description || "",
+            content: row.content || "",
+            sortOrder: Number(row.sort_order || 0),
+            orderingCheck: orderingByTopic.get(row.id) || null,
+        })),
     };
 };

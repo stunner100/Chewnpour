@@ -1,8 +1,12 @@
 import { fromNodeHeaders } from "better-auth/node";
+import { Buffer } from "node:buffer";
 import { auth } from "./auth.js";
 import {
+    disableCourseShare,
+    enableCourseShare,
     ensureCourseFromUpload,
     getCourseForUser,
+    getPublicCourseByShareToken,
     getQuizAttemptForUser,
     getQuizForTopic,
     getTopicForUser,
@@ -120,7 +124,23 @@ export const handleCoursesRequest = async (req, res) => {
             return sendJson(res, 200, { course });
         }
 
-        res.setHeader("Allow", "GET, POST");
+        if (parts.length === 2 && parts[1] === "share" && method === "POST") {
+            const course = await enableCourseShare(user.id, parts[0]);
+            if (!course) {
+                return sendJson(res, 404, { error: "Course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        if (parts.length === 2 && parts[1] === "share" && method === "DELETE") {
+            const course = await disableCourseShare(user.id, parts[0]);
+            if (!course) {
+                return sendJson(res, 404, { error: "Course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        res.setHeader("Allow", "GET, POST, DELETE");
         return sendJson(res, 405, { error: "Method not allowed" });
     } catch (error) {
         console.error("[api/courses]", error);
@@ -282,6 +302,30 @@ export const handleQuizAttemptsRequest = async (req, res) => {
         const status = Number(error?.status) || 500;
         return sendJson(res, status, {
             error: error?.message || "Quiz attempt request failed",
+        });
+    }
+};
+
+export const handleShareRequest = async (req, res) => {
+    try {
+        const parts = parsePath(req.url || "", /^\/api\/share\/?/);
+        const method = String(req.method || "GET").toUpperCase();
+
+        if (parts.length === 1 && method === "GET") {
+            const course = await getPublicCourseByShareToken(parts[0]);
+            if (!course) {
+                return sendJson(res, 404, { error: "Shared course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        res.setHeader("Allow", "GET");
+        return sendJson(res, 405, { error: "Method not allowed" });
+    } catch (error) {
+        console.error("[api/share]", error);
+        const status = Number(error?.status) || 500;
+        return sendJson(res, status, {
+            error: error?.message || "Share request failed",
         });
     }
 };

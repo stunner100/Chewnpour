@@ -49,6 +49,7 @@ const fetchTopicPayload = async (topicId) => {
         _id: topic.id || topic._id,
         sourceUploadId: topic.sourceUploadId || topic.uploadId || null,
         assessmentRoute: topic.assessmentRoute || 'topic_quiz',
+        orderingCheck: topic.orderingCheck || null,
     };
 };
 
@@ -882,8 +883,21 @@ export const useTopicDetail = () => {
             });
         }
 
+        if (topic?.orderingCheck?.stepsInOrder?.length === 3) {
+            const quickCheckIndex = blocksWithWidgets.findIndex((block) => block.type === 'quickcheck_widget');
+            const orderingBlock = {
+                type: 'ordering_widget',
+                key: 'ordering-widget',
+            };
+            if (quickCheckIndex >= 0) {
+                blocksWithWidgets.splice(quickCheckIndex + 1, 0, orderingBlock);
+            } else {
+                blocksWithWidgets.push(orderingBlock);
+            }
+        }
+
         return blocksWithWidgets;
-    }, [filteredBlocks, parsed.quickCheckPairs, resolvedTopicTitle, wordBankTerms]);
+    }, [filteredBlocks, parsed.quickCheckPairs, resolvedTopicTitle, topic?.orderingCheck, wordBankTerms]);
 
     useEffect(() => {
         if (!studyMode) return undefined;
@@ -1142,6 +1156,7 @@ export const useTopicDetail = () => {
         openChat,
         openNotes,
         openSource,
+        orderingCheck: topic?.orderingCheck || null,
         parsed,
         pauseVoice,
         playVoice,

@@ -4,6 +4,7 @@ import { handleBillingRequest } from "../server/billingHttp.js";
 import {
     handleCoursesRequest,
     handleQuizAttemptsRequest,
+    handleShareRequest,
     handleTopicsRequest,
 } from "../server/courseHttp.js";
 import { handleExamsRequest } from "../server/examHttp.js";
@@ -62,6 +63,9 @@ export default async function handler(req, res) {
     }
     if (pathname === "/api/courses" || pathname.startsWith("/api/courses/")) {
         return handleCoursesRequest(req, res);
+    }
+    if (pathname === "/api/share" || pathname.startsWith("/api/share/")) {
+        return handleShareRequest(req, res);
     }
     if (pathname === "/api/exams" || pathname.startsWith("/api/exams/")) {
         return handleExamsRequest(req, res);

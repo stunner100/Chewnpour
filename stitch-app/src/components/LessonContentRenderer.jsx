@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import InteractiveQuickCheck from './InteractiveQuickCheck';
 import InteractiveWordBank from './InteractiveWordBank';
 import LessonDefinitionBlock from './LessonDefinitionBlock';
+import LessonOrderingCheck from './lesson/LessonOrderingCheck';
 import AppIcon from './AppIcon';
 
 const HEADER_SIZES = {
@@ -198,6 +199,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
     topicId,
     starredTerms,
     onTermsStarred,
+    orderingCheck,
 }) {
     const bold = (text) => parseInlineFormatting(text, cleanInline);
 
@@ -315,6 +317,15 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                             key={block.key}
                             pairs={quickCheckPairs}
                             topicId={topicId}
+                        />
+                    );
+                }
+
+                if (block.type === 'ordering_widget') {
+                    return (
+                        <LessonOrderingCheck
+                            key={block.key}
+                            check={orderingCheck}
                         />
                     );
                 }

@@ -16,6 +16,7 @@ const landing = read('src/pages/LandingPage.jsx');
 const parkedView = read('src/components/ParkedFeatureView.jsx');
 const kids = read('src/pages/Kids.jsx');
 const podcasts = read('src/pages/DashboardPodcasts.jsx');
+const sharePage = read('src/pages/PublicSharedCourse.jsx');
 const app = read('src/App.jsx');
 const upload = read('src/pages/UploadMaterials.jsx');
 const subscription = read('src/pages/Subscription.jsx');
@@ -40,6 +41,10 @@ assert.doesNotMatch(subscription, /podcasts/i, 'subscription FAQ must not promis
 assert.match(parkedView, /This feature is paused|paused/i, 'parked view must disclose pause');
 assert.match(kids, /ParkedFeatureView/, 'kids route page must use honest parked view');
 assert.doesNotMatch(podcasts, /ParkedFeatureView/, 'podcasts page must be live, not parked');
+assert.doesNotMatch(sharePage, /ParkedFeatureView/, 'public share page must be live, not parked');
+assert.match(sharePage, /\/api\/share\//, 'public share page must load generated topics');
+assert.doesNotMatch(sharePage, /\/api\/topics\/.+\/chat/, 'shared course must not include tutor');
+assert.match(app, /path="\/c\/:token"/, 'public share route must be live');
 assert.doesNotMatch(app, /ParkedDashboardFeature title="Study podcasts"/, 'podcasts route must be live');
 assert.match(
   app,

@@ -38,6 +38,7 @@ const TopicContentPanel = ({
     voicePlaybackError,
     voiceStatus,
     wordBankTerms,
+    orderingCheck,
 }) => (
     <>
         <TopicSidebar
@@ -87,6 +88,7 @@ const TopicContentPanel = ({
                     topicId={topicId}
                     starredTerms={topicProgress?.termsStarred}
                     onTermsStarred={handleTermsStarred}
+                    orderingCheck={orderingCheck}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
