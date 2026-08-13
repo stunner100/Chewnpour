@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AppIcon from '../AppIcon';
 import PodcastWaveformPlayer from '../podcast/PodcastWaveformPlayer';
+import { recordStudyActivity } from '../../lib/resumeActivity';
 
 const LessonPodcastCard = ({ topicId, topicTitle = '' }) => {
     const [podcast, setPodcast] = useState(null);
@@ -110,6 +111,7 @@ const LessonPodcastCard = ({ topicId, topicTitle = '' }) => {
                     title={podcast.topicTitle || topicTitle}
                     durationSeconds={podcast.durationSeconds}
                     className="mt-4"
+                    onPlay={() => recordStudyActivity(topicId, 'podcast')}
                 />
             ) : (
                 <p className="mt-3 text-body-sm text-text-secondary">

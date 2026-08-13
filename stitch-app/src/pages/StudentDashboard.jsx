@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
+import { resumeActivityCopy } from '../lib/resumeActivity';
 
 const firstName = (value) => {
   const text = String(value || '').trim();
@@ -86,15 +87,27 @@ const StudentDashboard = () => {
       if (match) return match;
       return {
         id: resumeTarget.courseId,
-        title: formatCourseTitle(resumeTarget.title || resumeTarget.courseTitle) || resumeTarget.title || resumeTarget.courseTitle || 'Continue learning',
+        title: formatCourseTitle(resumeTarget.courseTitle || resumeTarget.title) || resumeTarget.courseTitle || resumeTarget.title || 'Continue learning',
       };
     }
     return courses[0] || null;
   }, [courses, resumeTarget]);
 
+  const activity = useMemo(
+    () => resumeActivityCopy(resumeTarget),
+    [resumeTarget],
+  );
+  const continueHref = resumeTarget?.href
+    || (continueCourse ? courseHref(continueCourse) : '/dashboard/upload');
+  const continueHeading = resumeTarget
+    ? resumeTarget.kind === 'exam'
+      ? (formatCourseTitle(activity.heading) || activity.heading)
+      : activity.heading
+    : (continueCourse?.title || 'No courses yet');
+
   const recentUploads = useMemo(() => uploads.slice(0, 4), [uploads]);
   const readyCourses = courses.filter((course) => Number(course.topicCount || 0) > 0).length;
-  const progressPct = Math.min(100, Math.max(0, Number(continueCourse?.progressPercent || resumeTarget?.progressPercent || 0)));
+  const progressPct = Math.min(100, Math.max(0, Number(resumeTarget?.progressPercent || continueCourse?.progressPercent || 0)));
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -140,7 +153,7 @@ const StudentDashboard = () => {
           <StatCard label="Courses ready" value={loading ? '—' : readyCourses} icon="menu_book" />
           <StatCard
             label="Next step"
-            value={loading ? '—' : continueCourse ? 'Continue a lesson' : 'Upload your first file'}
+            value={loading ? '—' : continueCourse || resumeTarget ? activity.nextStep : 'Upload your first file'}
             icon="bolt"
           />
         </div>
@@ -150,23 +163,21 @@ const StudentDashboard = () => {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">Continue learning</p>
-                <h2 className="mt-2 font-display text-display-sm font-bold text-text-primary">
-                  {loading ? 'Loading…' : continueCourse?.title || 'No courses yet'}
+                <h2 className="mt-2 font-display-sm text-display-sm text-text-primary leading-tight line-clamp-2 [overflow-wrap:anywhere] font-bold">
+                  {loading ? 'Loading…' : continueHeading}
                 </h2>
               </div>
               <span className="inline-flex items-center rounded-full bg-surface-soft px-3 py-1 text-caption font-semibold text-text-secondary">
-                {resumeTarget?.title ? 'In progress' : 'Ready'}
+                {resumeTarget ? activity.badge : 'Ready'}
               </span>
             </div>
 
             {loading ? (
               <div className="mt-6 h-28 animate-pulse rounded-2xl bg-surface-soft" />
-            ) : continueCourse ? (
+            ) : continueCourse || resumeTarget ? (
               <>
                 <p className="mt-3 text-body-sm text-text-secondary">
-                  {resumeTarget?.title
-                    ? `Pick up ${resumeTarget.title}`
-                    : 'Open the latest course and keep moving through lessons and quizzes.'}
+                  {activity.hint}
                 </p>
                 <div className="mt-5">
                   <div className="mb-2 flex items-center justify-between text-caption font-semibold text-text-secondary">
@@ -181,8 +192,8 @@ const StudentDashboard = () => {
                   </div>
                 </div>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Link to={courseHref(continueCourse)} className="btn-primary inline-flex min-h-11 text-body-sm">
-                    Continue studying
+                  <Link to={continueHref} className="btn-primary inline-flex min-h-11 text-body-sm">
+                    {activity.cta || 'Continue studying'}
                     <AppIcon name="arrow_forward" className="text-[18px]" aria-hidden="true" />
                   </Link>
                   <Link to="/dashboard/quiz" className="btn-secondary inline-flex min-h-11 text-body-sm">

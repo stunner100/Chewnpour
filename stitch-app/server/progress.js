@@ -1,6 +1,7 @@
 import { getPool } from "./db.js";
 import { getProfileForUser } from "./profiles.js";
 import { listCoursesForUser } from "./courses.js";
+import { buildResumeTarget } from "./resumeTarget.js";
 
 const toDayIndex = (timestampMs) => Math.floor(Number(timestampMs) / (1000 * 60 * 60 * 24));
 
@@ -31,7 +32,7 @@ const computeStreakDays = (timestamps) => {
 
 export const getProgressSnapshotForUser = async (userId) => {
     const db = getPool();
-    const [profile, courses, attemptsResult, topicsResult] = await Promise.all([
+    const [profile, courses, attemptsResult, topicsResult, progressResult, examResult] = await Promise.all([
         getProfileForUser(userId),
         listCoursesForUser(userId),
         db.query(
@@ -42,18 +43,55 @@ export const getProgressSnapshotForUser = async (userId) => {
                 qa.score,
                 qa.total,
                 qa.created_at,
-                t.title AS topic_title
+                t.title AS topic_title,
+                c.title AS course_title
              FROM quiz_attempts qa
              LEFT JOIN topics t ON t.id = qa.topic_id
+             LEFT JOIN courses c ON c.id = qa.course_id
              WHERE qa.user_id = $1
              ORDER BY qa.created_at DESC`,
             [userId],
         ),
         db.query(
-            `SELECT id, course_id, title
+            `SELECT id, course_id, title, created_at
              FROM topics
              WHERE user_id = $1
              ORDER BY sort_order ASC, created_at ASC`,
+            [userId],
+        ),
+        db.query(
+            `SELECT
+                tp.topic_id,
+                tp.course_id,
+                tp.completed_at,
+                tp.last_studied_at,
+                tp.last_activity_kind,
+                t.title AS topic_title,
+                c.title AS course_title
+             FROM topic_progress tp
+             LEFT JOIN topics t ON t.id = tp.topic_id
+             LEFT JOIN courses c ON c.id = tp.course_id
+             WHERE tp.user_id = $1
+               AND tp.last_studied_at IS NOT NULL
+             ORDER BY tp.last_studied_at DESC
+             LIMIT 1`,
+            [userId],
+        ),
+        db.query(
+            `SELECT
+                ea.course_id,
+                ea.answers,
+                ea.total_questions,
+                ea.started_at,
+                ea.updated_at,
+                c.title AS course_title
+             FROM exam_attempts ea
+             INNER JOIN courses c ON c.id = ea.course_id
+             WHERE ea.user_id = $1
+               AND ea.status = 'in_progress'
+               AND ea.ends_at > NOW()
+             ORDER BY ea.updated_at DESC
+             LIMIT 1`,
             [userId],
         ),
     ]);
@@ -123,20 +161,50 @@ export const getProgressSnapshotForUser = async (userId) => {
         };
     });
 
-    let resumeTarget = null;
-    if (attempts[0]?.topic_id) {
-        resumeTarget = {
-            topicId: attempts[0].topic_id,
-            topicTitle: attempts[0].topic_title || "Latest lesson",
-            courseId: attempts[0].course_id || null,
-        };
-    } else if (topics[0]) {
-        resumeTarget = {
-            topicId: topics[0].id,
-            topicTitle: topics[0].title,
-            courseId: topics[0].course_id,
-        };
-    }
+    const latestProgressRow = progressResult.rows[0] || null;
+    const examRow = examResult.rows[0] || null;
+    const resumeTarget = buildResumeTarget({
+        inProgressExam: examRow
+            ? {
+                courseId: examRow.course_id,
+                courseTitle: examRow.course_title || "",
+                answers: examRow.answers,
+                totalQuestions: examRow.total_questions,
+                startedAt: examRow.started_at,
+                updatedAt: examRow.updated_at,
+            }
+            : null,
+        latestProgress: latestProgressRow
+            ? {
+                topicId: latestProgressRow.topic_id,
+                topicTitle: latestProgressRow.topic_title || "",
+                courseId: latestProgressRow.course_id,
+                courseTitle: latestProgressRow.course_title || "",
+                lastStudiedAt: latestProgressRow.last_studied_at,
+                lastActivityKind: latestProgressRow.last_activity_kind,
+                completedAt: latestProgressRow.completed_at,
+            }
+            : null,
+        latestQuizAttempt: attempts[0]
+            ? {
+                topicId: attempts[0].topic_id,
+                topicTitle: attempts[0].topic_title || "",
+                courseId: attempts[0].course_id,
+                courseTitle: attempts[0].course_title || "",
+                createdAt: attempts[0].created_at,
+                score: attempts[0].score,
+                total: attempts[0].total,
+            }
+            : null,
+        fallbackTopic: topics[0]
+            ? {
+                id: topics[0].id,
+                title: topics[0].title,
+                courseId: topics[0].course_id,
+                createdAt: topics[0].created_at,
+            }
+            : null,
+    });
 
     return {
         stats: {

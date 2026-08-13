@@ -776,6 +776,7 @@ export const submitLessonCheck = async ({
         };
         await upsertTopicProgressForUser(userId, topicId, {
             lastStudiedAt: Date.now(),
+            lastActivityKind: "lesson",
             lessonChecks: nextChecks,
         });
     } catch (error) {

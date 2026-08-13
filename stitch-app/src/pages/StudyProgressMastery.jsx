@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
+import { resumeActivityCopy } from '../lib/resumeActivity';
 
 const EMPTY_LIST = [];
 
@@ -82,6 +83,12 @@ const StudyProgressMastery = () => {
     const userStats = progress?.stats || null;
     const performanceInsights = progress?.performanceInsights || null;
     const resumeTarget = progress?.resumeTarget || null;
+    const resumeCopy = resumeActivityCopy(resumeTarget);
+    const recommendedHref = resumeTarget?.href
+        ? resumeTarget.href
+        : resumeTarget?.topicId
+            ? `/dashboard/topic/${resumeTarget.topicId}`
+            : '/dashboard/upload';
     const safeCourses = progress?.courses || EMPTY_LIST;
     const activityData = useMemo(() => buildCourseProgressItems(safeCourses), [safeCourses]);
     const topicBreakdown = useMemo(() => {
@@ -103,9 +110,6 @@ const StudyProgressMastery = () => {
     }, [performanceInsights, safeCourses]);
 
     const averageAccuracy = performanceInsights?.overallPreparedness ?? userStats?.accuracy ?? 0;
-    const recommendedHref = resumeTarget?.topicId
-        ? `/dashboard/topic/${resumeTarget.topicId}`
-        : '/dashboard/upload';
 
     if (loading) return <ProgressSkeleton />;
 
@@ -216,7 +220,7 @@ const StudyProgressMastery = () => {
                             </div>
                             <p className="text-body-sm text-text-secondary">
                                 {resumeTarget
-                                    ? <>Continue <strong className="text-text-primary">{resumeTarget.topicTitle}</strong> from your latest course.</>
+                                    ? resumeCopy.hint
                                     : 'Upload a material to start building your progress history.'}
                             </p>
                         </div>
@@ -224,7 +228,7 @@ const StudyProgressMastery = () => {
                             to={recommendedHref}
                             className="btn-primary mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 text-body-sm"
                         >
-                            {resumeTarget ? 'Continue Studying' : 'Upload Material'}
+                            {resumeTarget ? resumeCopy.cta : 'Upload Material'}
                             <AppIcon name="arrow_forward" className="text-[18px]" />
                         </Link>
                     </section>

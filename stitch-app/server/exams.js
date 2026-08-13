@@ -92,6 +92,21 @@ export const startExamForCourse = async ({
     }
 
     const db = getPool();
+    const existingAttempt = await db.query(
+        `SELECT id
+         FROM exam_attempts
+         WHERE user_id = $1
+           AND course_id = $2
+           AND status = 'in_progress'
+           AND ends_at > NOW()
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+        [userId, courseId],
+    );
+    if (existingAttempt.rows[0]?.id) {
+        return getExamAttemptForUser(userId, existingAttempt.rows[0].id);
+    }
+
     const questionsResult = await db.query(
         `SELECT q.*
          FROM questions q
@@ -213,6 +228,10 @@ export const getExamAttemptForUser = async (userId, examId) => {
             )
             : null,
         questions: ordered.map(toPlayableQuestion),
+        answers:
+            typeof attempt.answers === "object" && attempt.answers
+                ? attempt.answers
+                : {},
     };
 
     if (attempt.status === "submitted" || attempt.status === "expired") {

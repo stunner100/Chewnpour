@@ -4,6 +4,7 @@ import AppIcon from '../components/AppIcon';
 import PodcastStatusBadge from '../components/dashboard/PodcastStatusBadge';
 import PodcastWaveformPlayer from '../components/podcast/PodcastWaveformPlayer';
 import { formatCourseTitle } from '../lib/courseTitle';
+import { recordStudyActivity } from '../lib/resumeActivity';
 
 const formatDuration = (seconds) => {
     if (!seconds) return '—';
@@ -55,6 +56,7 @@ const PodcastListItem = ({ podcast, onRetry, retrying }) => {
                     subtitle={podcast.courseTitle}
                     durationSeconds={podcast.durationSeconds}
                     className="mt-4"
+                    onPlay={() => recordStudyActivity(podcast.topicId, 'podcast')}
                 />
             ) : null}
 

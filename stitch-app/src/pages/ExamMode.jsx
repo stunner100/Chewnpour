@@ -149,6 +149,8 @@ const ExamMode = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const preferredCourseId = String(searchParams.get('courseId') || '').trim();
+  const shouldResume = searchParams.get('resume') === '1';
+  const resumeAttemptedRef = useRef(false);
   const [courses, setCourses] = useState([]);
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -294,9 +296,15 @@ const ExamMode = () => {
       }
       const nextExam = payload.exam;
       setExam(nextExam);
-      setAnswers({});
-      answersRef.current = {};
-      setCurrentIndex(0);
+      const restoredAnswers =
+        nextExam?.answers && typeof nextExam.answers === 'object' && !Array.isArray(nextExam.answers)
+          ? nextExam.answers
+          : {};
+      setAnswers(restoredAnswers);
+      answersRef.current = restoredAnswers;
+      const questions = Array.isArray(nextExam?.questions) ? nextExam.questions : [];
+      const firstUnanswered = questions.findIndex((question) => restoredAnswers[question.id] == null);
+      setCurrentIndex(firstUnanswered >= 0 ? firstUnanswered : 0);
       const fromEndsAt = nextExam?.endsAt
         ? Math.max(0, Math.ceil((Number(nextExam.endsAt) - Date.now()) / 1000))
         : 0;
@@ -308,6 +316,13 @@ const ExamMode = () => {
       setStartingCourseId('');
     }
   };
+
+  useEffect(() => {
+    if (resumeAttemptedRef.current) return;
+    if (!shouldResume || !preferredCourseId || loading || exam || startingCourseId) return;
+    resumeAttemptedRef.current = true;
+    void startExam(preferredCourseId);
+  }, [shouldResume, preferredCourseId, loading, exam, startingCourseId]);
 
   const questions = exam?.questions || [];
   const currentQuestion = questions[currentIndex] || null;

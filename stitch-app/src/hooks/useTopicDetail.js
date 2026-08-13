@@ -368,7 +368,7 @@ export const useTopicDetail = () => {
     // Track topic study progress on mount
     useEffect(() => {
         if (!topicId || !user?.id) return;
-        upsertProgress({ topicId, lastStudiedAt: Date.now() }).catch(() => {});
+        upsertProgress({ topicId, lastStudiedAt: Date.now(), lastActivityKind: 'lesson' }).catch(() => {});
     }, [topicId, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const content = overrideContent || topic?.content || cachedContent;
