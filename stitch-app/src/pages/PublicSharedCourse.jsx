@@ -101,25 +101,25 @@ const PublicSharedCourse = () => {
                         </div>
                     ) : null}
                     {topic ? (
-                        <article className="mt-8 rounded-3xl border border-[#E5E5EA] bg-white p-6 shadow-sm">
-                            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[#6B6B70]">
-                                Topic {activeTopicIndex + 1} of {topics.length}
-                            </p>
-                            <h2 className="mt-1 font-display text-2xl font-bold text-[#0A0A0A]">{topic.title}</h2>
-                            {topic.description ? (
-                                <p className="mt-2 text-sm text-[#6B6B70]">{topic.description}</p>
-                            ) : null}
-                            <div className="mt-6">
-                                <LessonSectionStepper
-                                    key={topic.id || token}
-                                    steps={lessonSteps}
-                                    topicId={topic.id}
-                                    shareToken={token}
-                                    lessonChecks={{}}
-                                    cleanInline={(text) => text}
-                                />
-                            </div>
-                        </article>
+                        <div className="mt-8 space-y-6">
+                            <header>
+                                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[#6B6B70]">
+                                    Topic {activeTopicIndex + 1} of {topics.length}
+                                </p>
+                                <h2 className="mt-1 font-display text-2xl font-bold text-[#0A0A0A]">{topic.title}</h2>
+                                {topic.description ? (
+                                    <p className="mt-2 text-sm text-[#6B6B70]">{topic.description}</p>
+                                ) : null}
+                            </header>
+                            <LessonSectionStepper
+                                key={topic.id || token}
+                                steps={lessonSteps}
+                                topicId={topic.id}
+                                shareToken={token}
+                                lessonChecks={{}}
+                                cleanInline={(text) => text}
+                            />
+                        </div>
                     ) : null}
                     <div className="mt-10 flex items-center gap-2 rounded-2xl border border-[#E5E5EA] bg-white px-5 py-4">
                         <AppIcon name="menu_book" className="text-[20px] text-[#007AFF]" />

@@ -547,6 +547,33 @@ html.is-safari .safari-backdrop {
     color: #d4bdfb;
 }
 
+/* Dedicated lesson reading surface — keeps prose off chrome, checks, and tools. */
+.lesson-reading-stage {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 1.75rem 1.5rem 2rem;
+    box-shadow:
+        0 0 0 1px oklch(0 0 0 / 0.06),
+        0 1px 2px -1px oklch(0 0 0 / 0.06),
+        0 2px 4px 0 oklch(0 0 0 / 0.04);
+}
+.lesson-reading-stage > h2:first-of-type {
+    margin-top: 0;
+}
+@media (min-width: 768px) {
+    .lesson-reading-stage {
+        padding: 2.25rem 2.5rem 2.75rem;
+    }
+}
+.dark .lesson-reading-stage,
+.dark .cp-theme .lesson-reading-stage {
+    background: #1c1d20;
+    box-shadow:
+        inset 0 1px 0 0 oklch(1 0 0 / 0.08),
+        inset 0 0 0 1px oklch(1 0 0 / 0.04),
+        0 0 0 1px oklch(0 0 0 / 0.16);
+}
+
 /* ── Magic UI keyframes ───────────────────────────────────────── */
 @keyframes marquee {
     from { transform: translateX(0); }

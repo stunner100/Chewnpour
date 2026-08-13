@@ -77,7 +77,6 @@ export const TopicLessonMainColumn = ({ controller }) => {
         contentLines,
         contentRef,
         examTopicId,
-        handleAskTutor,
         handleLessonStepChange,
         handleTermsStarred,
         heroTopicTitle,
@@ -116,13 +115,12 @@ export const TopicLessonMainColumn = ({ controller }) => {
     } = controller;
 
     return (
-        <main ref={mainRef} className="min-w-0 space-y-6">
+        <main ref={mainRef} className="min-w-0 space-y-10">
             <TopicContentPanel
                 cleanInline={cleanInline}
                 cleanLine={cleanLine}
                 contentLines={contentLines}
                 contentRef={contentRef}
-                handleAskTutor={handleAskTutor}
                 handleLessonStepChange={handleLessonStepChange}
                 handleTermsStarred={handleTermsStarred}
                 heroTopicTitle={heroTopicTitle}

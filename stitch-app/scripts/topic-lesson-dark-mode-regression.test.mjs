@@ -33,7 +33,6 @@ for (const required of [
 for (const required of [
     'max-w-[65ch]',
     'Preparing your lesson',
-    'Guided study path',
 ]) {
     if (!contentPanelSource.includes(required)) {
         throw new Error(`Expected topic content panel to include "${required}".`);
@@ -44,6 +43,8 @@ for (const required of [
     '.dark .cp-theme .bg-error-soft',
     '.dark .cp-theme .bg-success-soft',
     '.dark .cp-theme .bg-warning-soft',
+    '.lesson-reading-stage',
+    '.dark .lesson-reading-stage',
 ]) {
     if (!cssSource.includes(required)) {
         throw new Error(`Expected dark theme remaps to include "${required}".`);

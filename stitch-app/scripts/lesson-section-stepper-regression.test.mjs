@@ -22,6 +22,11 @@ assert.match(topicDetail, /TopicLessonShell/, "TopicDetail must render the lesso
 assert.match(contentPanel, /LessonSectionStepper/, "lesson page must mount the section stepper");
 assert.doesNotMatch(contentPanel, /GuidedStudyPath/, "guided study path must not remain on the lesson page");
 assert.match(stepper, /Section \{clampedIndex \+ 1\} of \{total\}/, "stepper must show section progress");
+assert.match(stepper, /lesson-reading-stage/, "lesson prose must sit in a defined reading stage");
+assert.ok(
+    stepper.indexOf("</article>") < stepper.indexOf("<LessonInlineCheck"),
+    "inline checks must sit outside the reading article",
+);
 assert.match(stepper, /LessonInlineCheck/, "stepper must render the inline check");
 assert.match(stepper, /Next section/, "stepper must continue after an attempt");
 assert.match(inlineCheck, /\/lesson-check/, "inline checks must grade on the server");

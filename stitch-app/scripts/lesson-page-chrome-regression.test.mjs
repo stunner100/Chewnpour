@@ -41,7 +41,15 @@ assert.doesNotMatch(views, /rounded-2xl border border-border-subtle bg-surface-s
 assert.match(content, /max-w-\[65ch\]/, 'Lesson prose should have a readable measure.');
 assert.match(content, /showTopicIllustration && topicIllustrationUrl/, 'Lesson page must gate illustrations.');
 assert.match(content, /LessonSectionStepper/, 'Lesson page must use the section stepper.');
+assert.match(content, /contentRef=\{contentRef\}/, 'Highlight selection must target the reading stage, not the whole column.');
+assert.match(stepper, /lesson-reading-stage/, 'Lesson prose must live in a dedicated reading stage.');
+assert.match(stepper, /LessonInlineCheck/, 'Inline checks must stay outside the reading stage.');
+assert.ok(
+  stepper.indexOf('</article>') < stepper.indexOf('<LessonInlineCheck'),
+  'The inline check must render after the reading article closes.',
+);
 assert.match(stepper, /border-t border-border-subtle/, 'Stepper navigation should sit on a divider.');
+assert.match(css, /\.lesson-reading-stage/, 'Reading stage must have a dedicated surface in CSS.');
 
 assert.match(practice, /border-t border-border-subtle pt-6/, 'Practice actions should be a section, not a raised card.');
 assert.match(hook, /const practicePrimary = \[\];/, 'Practice block must not own a second solid quiz primary.');

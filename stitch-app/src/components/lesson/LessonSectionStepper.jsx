@@ -15,11 +15,11 @@ export default function LessonSectionStepper({
     onStepChange,
     cleanInline,
     onViewSource,
-    onAskTutor,
     wordBankTerms,
     starredTerms,
     onTermsStarred,
     shouldAnimateBlocks = false,
+    contentRef,
 }) {
     const safeSteps = Array.isArray(steps) ? steps : [];
     const [index, setIndex] = useState(0);
@@ -109,17 +109,14 @@ export default function LessonSectionStepper({
         );
     }
 
+    const headingId = 'lesson-reading-heading';
+
     return (
-        <div className="space-y-5">
-            <div className="flex items-center justify-between gap-3">
-                <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">
-                        Section {clampedIndex + 1} of {total}
-                    </p>
-                    <h2 className="font-display text-xl font-bold tracking-[-0.02em] text-text-primary md:text-2xl">
-                        {step.title}
-                    </h2>
-                </div>
+        <div className="space-y-8">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">
+                    Section {clampedIndex + 1} of {total}
+                </p>
                 <div
                     className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-soft md:w-32"
                     role="progressbar"
@@ -135,17 +132,28 @@ export default function LessonSectionStepper({
                 </div>
             </div>
 
-            <LessonContentRenderer
-                blocks={renderBlocks}
-                shouldAnimateBlocks={shouldAnimateBlocks}
-                cleanInline={cleanInline}
-                onViewSource={onViewSource}
-                onAskTutor={onAskTutor}
-                wordBankTerms={wordBankTerms}
-                topicId={topicId}
-                starredTerms={starredTerms}
-                onTermsStarred={onTermsStarred}
-            />
+            <article
+                ref={contentRef}
+                aria-labelledby={headingId}
+                className="lesson-reading-stage lesson-prose"
+            >
+                <h2
+                    id={headingId}
+                    className="font-display text-xl font-bold tracking-[-0.02em] text-text-primary md:text-2xl"
+                >
+                    {step.title}
+                </h2>
+                <LessonContentRenderer
+                    blocks={renderBlocks}
+                    shouldAnimateBlocks={shouldAnimateBlocks}
+                    cleanInline={cleanInline}
+                    onViewSource={onViewSource}
+                    wordBankTerms={wordBankTerms}
+                    topicId={topicId}
+                    starredTerms={starredTerms}
+                    onTermsStarred={onTermsStarred}
+                />
+            </article>
 
             {step.check ? (
                 <LessonInlineCheck

@@ -10,7 +10,6 @@ const TopicContentPanel = ({
     cleanLine,
     contentLines,
     contentRef,
-    handleAskTutor,
     handleLessonStepChange,
     handleTermsStarred,
     heroTopicTitle,
@@ -39,42 +38,44 @@ const TopicContentPanel = ({
     voiceStatus,
     wordBankTerms,
 }) => (
-    <>
-        <TopicSidebar
-            normalizedContent={normalizedContent}
-            contentLines={contentLines}
-            toc={parsed.toc}
-            cleanLine={cleanLine}
-            topic={topic}
-            mobileOnly
-        />
-
-        {isVoiceSupported && speechText ? (
-            <TopicVoiceToolbar
-                isPaused={isPaused}
-                isPlaying={isPlaying}
-                pauseVoice={pauseVoice}
-                playVoice={playVoice}
-                resumeVoice={resumeVoice}
-                speechText={speechText}
-                stopVoice={stopVoice}
-                voicePlaybackError={voicePlaybackError}
-                voiceStatus={voiceStatus}
+    <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-3">
+            <TopicSidebar
+                normalizedContent={normalizedContent}
+                contentLines={contentLines}
+                toc={parsed.toc}
+                cleanLine={cleanLine}
+                topic={topic}
+                mobileOnly
             />
-        ) : null}
 
-        {showTopicIllustration && topicIllustrationUrl ? (
-            <div className="overflow-hidden rounded-xl">
-                <img
-                    src={topicIllustrationUrl}
-                    alt={`${heroTopicTitle} illustration`}
-                    loading="lazy"
-                    className="h-28 w-full object-cover md:h-32"
+            {isVoiceSupported && speechText ? (
+                <TopicVoiceToolbar
+                    isPaused={isPaused}
+                    isPlaying={isPlaying}
+                    pauseVoice={pauseVoice}
+                    playVoice={playVoice}
+                    resumeVoice={resumeVoice}
+                    speechText={speechText}
+                    stopVoice={stopVoice}
+                    voicePlaybackError={voicePlaybackError}
+                    voiceStatus={voiceStatus}
                 />
-            </div>
-        ) : null}
+            ) : null}
 
-        <article className="max-w-[65ch] py-2" ref={contentRef}>
+            {showTopicIllustration && topicIllustrationUrl ? (
+                <div className="overflow-hidden rounded-xl">
+                    <img
+                        src={topicIllustrationUrl}
+                        alt={`${heroTopicTitle} illustration`}
+                        loading="lazy"
+                        className="h-28 w-full object-cover md:h-32"
+                    />
+                </div>
+            ) : null}
+        </div>
+
+        <div className="max-w-[65ch]">
             {normalizedContent ? (
                 <LessonSectionStepper
                     key={topicId || 'topic-lesson'}
@@ -86,11 +87,11 @@ const TopicContentPanel = ({
                     onStepChange={handleLessonStepChange}
                     cleanInline={cleanInline}
                     onViewSource={openSource}
-                    onAskTutor={handleAskTutor}
                     wordBankTerms={wordBankTerms}
                     starredTerms={topicProgress?.termsStarred}
                     onTermsStarred={handleTermsStarred}
                     shouldAnimateBlocks={shouldAnimateBlocks}
+                    contentRef={contentRef}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -103,12 +104,12 @@ const TopicContentPanel = ({
                     </p>
                 </div>
             )}
-        </article>
+        </div>
 
         {podcastEnabled && topicId ? (
             <LessonPodcastCard topicId={topicId} topicTitle={resolvedTopicTitle || heroTopicTitle} />
         ) : null}
-    </>
+    </div>
 );
 
 export default TopicContentPanel;
