@@ -34,6 +34,56 @@ const countAnswered = (answers) => {
     return Object.keys(answers).length;
 };
 
+const lessonCheckCount = (lessonChecks) => {
+    if (!lessonChecks || typeof lessonChecks !== "object" || Array.isArray(lessonChecks)) {
+        return 0;
+    }
+    return Object.keys(lessonChecks).length;
+};
+
+export const clampPercent = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 0;
+    return Math.max(0, Math.min(100, Math.round(numeric)));
+};
+
+export const computeResumeProgressPercent = ({
+    kind,
+    completedAt,
+    lessonChecks,
+    inLessonTotal,
+    bestScore,
+    courseProgress,
+    quizScore,
+    quizTotal,
+    examAnswers,
+    examTotal,
+} = {}) => {
+    if (kind === "exam") {
+        const total = Number(examTotal || 0);
+        if (total > 0) {
+            return clampPercent((countAnswered(examAnswers) / total) * 100);
+        }
+    }
+    if (kind === "quiz") {
+        const total = Number(quizTotal || 0);
+        if (total > 0) {
+            return clampPercent((Number(quizScore || 0) / total) * 100);
+        }
+    }
+    if (completedAt) return 100;
+    const checks = lessonCheckCount(lessonChecks);
+    const checkTotal = Math.max(Number(inLessonTotal || 0), checks);
+    if (checkTotal > 0 && checks > 0) {
+        return clampPercent((checks / checkTotal) * 100);
+    }
+    const best = Number(bestScore);
+    if (Number.isFinite(best) && best > 0) return clampPercent(best);
+    const course = Number(courseProgress);
+    if (Number.isFinite(course) && course > 0) return clampPercent(course);
+    return 0;
+};
+
 export const buildResumeTarget = ({
     inProgressExam,
     latestProgress,
@@ -41,8 +91,6 @@ export const buildResumeTarget = ({
     fallbackTopic,
 } = {}) => {
     if (inProgressExam?.courseId) {
-        const total = Number(inProgressExam.totalQuestions || 0);
-        const answered = countAnswered(inProgressExam.answers);
         return {
             kind: "exam",
             topicId: null,
@@ -54,7 +102,11 @@ export const buildResumeTarget = ({
                 kind: "exam",
                 courseId: inProgressExam.courseId,
             }),
-            progressPercent: total > 0 ? Math.round((answered / total) * 100) : 0,
+            progressPercent: computeResumeProgressPercent({
+                kind: "exam",
+                examAnswers: inProgressExam.answers,
+                examTotal: inProgressExam.totalQuestions,
+            }),
             lastActivityAt: toMs(inProgressExam.updatedAt || inProgressExam.startedAt),
         };
     }
@@ -63,6 +115,11 @@ export const buildResumeTarget = ({
     const quizAt = toMs(latestQuizAttempt?.createdAt);
     if (latestProgress?.topicId && progressAt >= quizAt) {
         const kind = normalizeActivityKind(latestProgress.lastActivityKind, "lesson");
+        const matchingQuiz =
+            latestQuizAttempt?.topicId &&
+            String(latestQuizAttempt.topicId) === String(latestProgress.topicId)
+                ? latestQuizAttempt
+                : null;
         return {
             kind,
             topicId: latestProgress.topicId,
@@ -75,16 +132,21 @@ export const buildResumeTarget = ({
                 topicId: latestProgress.topicId,
                 courseId: latestProgress.courseId,
             }),
-            progressPercent: latestProgress.completedAt
-                ? 100
-                : Math.max(0, Math.min(100, Number(latestProgress.progressPercent || 0))),
+            progressPercent: computeResumeProgressPercent({
+                kind,
+                completedAt: latestProgress.completedAt,
+                lessonChecks: latestProgress.lessonChecks,
+                inLessonTotal: latestProgress.inLessonTotal,
+                bestScore: latestProgress.bestScore,
+                courseProgress: latestProgress.courseProgress,
+                quizScore: matchingQuiz?.score,
+                quizTotal: matchingQuiz?.total,
+            }),
             lastActivityAt: progressAt,
         };
     }
 
     if (latestQuizAttempt?.topicId) {
-        const total = Number(latestQuizAttempt.total || 0);
-        const score = Number(latestQuizAttempt.score || 0);
         return {
             kind: "quiz",
             topicId: latestQuizAttempt.topicId,
@@ -96,7 +158,12 @@ export const buildResumeTarget = ({
                 kind: "quiz",
                 topicId: latestQuizAttempt.topicId,
             }),
-            progressPercent: total > 0 ? Math.round((score / total) * 100) : 0,
+            progressPercent: computeResumeProgressPercent({
+                kind: "quiz",
+                quizScore: latestQuizAttempt.score,
+                quizTotal: latestQuizAttempt.total,
+                courseProgress: latestQuizAttempt.courseProgress,
+            }),
             lastActivityAt: quizAt,
         };
     }
@@ -112,7 +179,10 @@ export const buildResumeTarget = ({
             courseTitle: fallbackTopic.courseTitle || "",
             title: fallbackTopic.title || fallbackTopic.topicTitle || "Continue learning",
             href: hrefForResumeTarget({ kind: "lesson", topicId }),
-            progressPercent: 0,
+            progressPercent: computeResumeProgressPercent({
+                kind: "lesson",
+                courseProgress: fallbackTopic.courseProgress,
+            }),
             lastActivityAt: toMs(fallbackTopic.createdAt || fallbackTopic.created_at),
         };
     }

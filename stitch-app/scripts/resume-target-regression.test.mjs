@@ -62,6 +62,29 @@ assert.equal(exam.kind, 'exam');
 assert.equal(exam.href, '/dashboard/exam?courseId=course-german&resume=1');
 assert.equal(exam.progressPercent, 20);
 
+const lessonWithChecks = buildResumeTarget({
+  latestProgress: {
+    topicId: 'topic-hre',
+    topicTitle: 'The Holy Roman Empire and Early German Fragmentation',
+    lastStudiedAt: '2026-08-13T19:40:00.000Z',
+    lastActivityKind: 'lesson',
+    lessonChecks: { q1: { correct: true }, q2: { correct: false } },
+    inLessonTotal: 4,
+  },
+});
+assert.equal(lessonWithChecks.progressPercent, 50);
+
+const lessonWithCourseProgress = buildResumeTarget({
+  latestProgress: {
+    topicId: 'topic-hre',
+    topicTitle: 'The Holy Roman Empire and Early German Fragmentation',
+    lastStudiedAt: '2026-08-13T19:41:00.000Z',
+    lastActivityKind: 'lesson',
+    courseProgress: 40,
+  },
+});
+assert.equal(lessonWithCourseProgress.progressPercent, 40);
+
 assert.equal(
   hrefForResumeTarget({ kind: 'lesson', topicId: 'abc' }),
   '/dashboard/topic/abc',

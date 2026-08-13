@@ -107,7 +107,10 @@ const StudentDashboard = () => {
 
   const recentUploads = useMemo(() => uploads.slice(0, 4), [uploads]);
   const readyCourses = courses.filter((course) => Number(course.topicCount || 0) > 0).length;
-  const progressPct = Math.min(100, Math.max(0, Number(resumeTarget?.progressPercent || continueCourse?.progressPercent || 0)));
+  const progressPct = Math.min(
+    100,
+    Math.max(0, Math.round(Number(resumeTarget?.progressPercent ?? continueCourse?.progressPercent ?? 0))),
+  );
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -182,12 +185,12 @@ const StudentDashboard = () => {
                 <div className="mt-5">
                   <div className="mb-2 flex items-center justify-between text-caption font-semibold text-text-secondary">
                     <span>Overall progress</span>
-                    <span>{progressPct || '—'}%</span>
+                    <span>{Number.isFinite(progressPct) ? progressPct : 0}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-surface-soft">
                     <div
                       className="h-full rounded-full bg-cta transition-all"
-                      style={{ width: `${progressPct || 8}%` }}
+                      style={{ width: `${Number.isFinite(progressPct) ? progressPct : 0}%` }}
                     />
                   </div>
                 </div>

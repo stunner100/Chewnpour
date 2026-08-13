@@ -66,8 +66,16 @@ export const getProgressSnapshotForUser = async (userId) => {
                 tp.completed_at,
                 tp.last_studied_at,
                 tp.last_activity_kind,
+                tp.lesson_checks,
+                tp.best_score,
                 t.title AS topic_title,
-                c.title AS course_title
+                c.title AS course_title,
+                (
+                    SELECT COUNT(*)::int
+                    FROM questions q
+                    WHERE q.topic_id = tp.topic_id
+                      AND COALESCE(q.surface, 'quiz') = 'in_lesson'
+                ) AS in_lesson_total
              FROM topic_progress tp
              LEFT JOIN topics t ON t.id = tp.topic_id
              LEFT JOIN courses c ON c.id = tp.course_id
@@ -163,6 +171,16 @@ export const getProgressSnapshotForUser = async (userId) => {
 
     const latestProgressRow = progressResult.rows[0] || null;
     const examRow = examResult.rows[0] || null;
+    const courseProgressById = new Map(
+        coursesWithProgress.map((course) => [String(course.id), Number(course.progress || 0)]),
+    );
+    const resumeCourseProgress = latestProgressRow?.course_id
+        ? courseProgressById.get(String(latestProgressRow.course_id)) || 0
+        : attempts[0]?.course_id
+            ? courseProgressById.get(String(attempts[0].course_id)) || 0
+            : topics[0]?.course_id
+                ? courseProgressById.get(String(topics[0].course_id)) || 0
+                : 0;
     const resumeTarget = buildResumeTarget({
         inProgressExam: examRow
             ? {
@@ -183,6 +201,10 @@ export const getProgressSnapshotForUser = async (userId) => {
                 lastStudiedAt: latestProgressRow.last_studied_at,
                 lastActivityKind: latestProgressRow.last_activity_kind,
                 completedAt: latestProgressRow.completed_at,
+                lessonChecks: latestProgressRow.lesson_checks,
+                inLessonTotal: latestProgressRow.in_lesson_total,
+                bestScore: latestProgressRow.best_score,
+                courseProgress: resumeCourseProgress,
             }
             : null,
         latestQuizAttempt: attempts[0]
@@ -194,6 +216,7 @@ export const getProgressSnapshotForUser = async (userId) => {
                 createdAt: attempts[0].created_at,
                 score: attempts[0].score,
                 total: attempts[0].total,
+                courseProgress: resumeCourseProgress,
             }
             : null,
         fallbackTopic: topics[0]
@@ -202,6 +225,7 @@ export const getProgressSnapshotForUser = async (userId) => {
                 title: topics[0].title,
                 courseId: topics[0].course_id,
                 createdAt: topics[0].created_at,
+                courseProgress: resumeCourseProgress,
             }
             : null,
     });

@@ -64,5 +64,11 @@ if (!/last_activity_kind/.test(migration)) {
 if (!/kind === 'quiz'/.test(activity) || !/Continue listening/.test(activity)) {
   throw new Error('Resume copy must distinguish lesson, quiz, and listening.');
 }
+if (dashboard.includes("progressPct || '—'") || dashboard.includes('progressPct || 8')) {
+  throw new Error('Continue learning must render a numeric progress percent, including 0%.');
+}
+if (!/in_lesson_total/.test(progressServer) || !/courseProgressById/.test(progressServer)) {
+  throw new Error('Progress snapshot must compute resume percent from lesson checks or course progress.');
+}
 
 console.log('dashboard-continue-activity-regression.test.mjs passed');
