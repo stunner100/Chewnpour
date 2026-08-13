@@ -9,16 +9,16 @@ const contentPanelSource = await fs.readFile(
   'utf8',
 );
 
-if (!useTopicDetailSource.includes('const podcastEnabled = false')) {
-  throw new Error('Expected useTopicDetail to hard-disable podcast surfaces during Supabase cutover.');
+if (!useTopicDetailSource.includes('const podcastEnabled = true')) {
+  throw new Error('Expected useTopicDetail to enable the lesson podcast surface.');
 }
 
-if (contentPanelSource.includes('LessonPodcastCard') || contentPanelSource.includes('TopicPodcastPanel')) {
-  throw new Error('Expected TopicContentPanel to stop mounting podcast UI during cutover.');
+if (!contentPanelSource.includes('LessonPodcastCard')) {
+  throw new Error('Expected TopicContentPanel to mount LessonPodcastCard.');
 }
 
 if (topicDetailSource.includes('LessonPodcastCard') || topicDetailSource.includes('TopicPodcastPanel')) {
-  throw new Error('Expected TopicDetail to stop mounting podcast UI during cutover.');
+  throw new Error('Expected TopicDetail to keep podcast UI in TopicContentPanel, not the page shell.');
 }
 
 for (const forbiddenSnippet of [

@@ -7,6 +7,7 @@ import {
     handleTopicsRequest,
 } from "../server/courseHttp.js";
 import { handleExamsRequest } from "../server/examHttp.js";
+import { handlePodcastsRequest } from "../server/podcastHttp.js";
 import { handleProfileRequest } from "../server/profileHttp.js";
 import { handleProgressRequest } from "../server/progressHttp.js";
 import { handleUploadsRequest } from "../server/uploadHttp.js";
@@ -64,6 +65,9 @@ export default async function handler(req, res) {
     }
     if (pathname === "/api/exams" || pathname.startsWith("/api/exams/")) {
         return handleExamsRequest(req, res);
+    }
+    if (pathname === "/api/podcasts" || pathname.startsWith("/api/podcasts/")) {
+        return handlePodcastsRequest(req, res);
     }
     if (pathname === "/api/topics" || pathname.startsWith("/api/topics/")) {
         return handleTopicsRequest(req, res);

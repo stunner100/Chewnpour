@@ -14,7 +14,7 @@ export const getDeepgramSpeakMaxChars = () => {
  * Synthesize speech with Deepgram Aura TTS.
  * Returns { buffer, contentType } or throws.
  */
-export const callDeepgramSpeak = async (text) => {
+export const callDeepgramSpeak = async (text, options = {}) => {
     const apiKey = String(process.env.DEEPGRAM_API_KEY || "").trim();
     if (!apiKey) {
         const error = new Error("Voice playback is not configured.");
@@ -40,8 +40,9 @@ export const callDeepgramSpeak = async (text) => {
         .trim()
         .replace(/\/+$/, "");
     const timeoutMs = Number(process.env.DEEPGRAM_TIMEOUT_MS || 20000) || 20000;
-    const model = String(process.env.DEEPGRAM_VOICE_MODEL || DEFAULT_MODEL).trim()
-        || DEFAULT_MODEL;
+    const model = String(
+        options.model || process.env.DEEPGRAM_VOICE_MODEL || DEFAULT_MODEL,
+    ).trim() || DEFAULT_MODEL;
 
     const url = new URL(`${base}/v1/speak`);
     url.searchParams.set("model", model);

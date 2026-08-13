@@ -238,7 +238,7 @@ export const useTopicDetail = () => {
     const courseId = topic?.courseId;
     const finalAssessmentTopic = null;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
-    const podcastEnabled = false;
+    const podcastEnabled = true;
     const sourcePassages = [];
     const isVoicePremium = false;
 

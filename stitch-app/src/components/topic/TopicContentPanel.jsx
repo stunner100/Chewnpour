@@ -3,6 +3,7 @@ import TopicSidebar from '../TopicSidebar';
 import LessonContentRenderer from '../LessonContentRenderer';
 import GuidedStudyPath from '../GuidedStudyPath';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
+import LessonPodcastCard from '../lesson/LessonPodcastCard';
 import AppIcon from '../AppIcon';
 
 const TopicContentPanel = ({
@@ -23,7 +24,7 @@ const TopicContentPanel = ({
     parsed,
     pauseVoice,
     playVoice,
-    podcastEnabled: _podcastEnabled,
+    podcastEnabled = false,
     resolvedTopicTitle,
     resumeVoice,
     shouldAnimateBlocks,
@@ -99,6 +100,10 @@ const TopicContentPanel = ({
                 </div>
             )}
         </article>
+
+        {podcastEnabled && topicId ? (
+            <LessonPodcastCard topicId={topicId} topicTitle={resolvedTopicTitle || heroTopicTitle} />
+        ) : null}
 
         <details className="group border-t border-border-subtle">
             <summary className="flex cursor-pointer list-none items-center gap-3 py-4 [&::-webkit-details-marker]:hidden">

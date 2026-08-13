@@ -6,6 +6,9 @@
     },
     "api/topic-voice.js": {
       "maxDuration": 30
+    },
+    "api/podcast-generate.js": {
+      "maxDuration": 120
     }
   },
   "headers": [
@@ -86,6 +89,10 @@
     {
       "source": "/api/topic-voice",
       "destination": "/api/topic-voice"
+    },
+    {
+      "source": "/api/podcast-generate",
+      "destination": "/api/podcast-generate"
     },
     {
       "source": "/api/:path(.*)",

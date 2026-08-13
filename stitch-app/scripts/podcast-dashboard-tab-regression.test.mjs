@@ -19,19 +19,13 @@ const requireIncludes = (source, snippet, label) => {
   }
 };
 
-const requireExcludes = (source, snippet, label) => {
-  if (source.includes(snippet)) {
-    throw new Error(`${label} should not include "${snippet}".`);
-  }
-};
-
 requireIncludes(
   appSource,
-  '<Route path="/dashboard/podcasts" element={<ParkedDashboardFeature title="Study podcasts" />} />',
+  '<Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />',
   'App.jsx',
 );
-requireExcludes(appSource, "import('./pages/DashboardPodcasts')", 'App.jsx');
-requireExcludes(appSource, 'DashboardPodcasts', 'App.jsx');
+requireIncludes(appSource, "import('./pages/DashboardPodcasts')", 'App.jsx');
+requireIncludes(appSource, 'DashboardPodcasts', 'App.jsx');
 
 requireIncludes(
   appSidebarSource,

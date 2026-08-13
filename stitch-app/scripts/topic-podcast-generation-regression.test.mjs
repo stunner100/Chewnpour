@@ -1,185 +1,90 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import process from 'node:process';
+import process from 'process';
 
 const root = process.cwd();
-const schemaSource = await fs.readFile(path.join(root, 'convex', 'schema.ts'), 'utf8');
-const podcastsSource = await fs.readFile(path.join(root, 'convex', 'podcasts.ts'), 'utf8');
-const podcastsActionsSource = await fs.readFile(path.join(root, 'convex', 'podcastsActions.ts'), 'utf8');
-const aiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
-const cronsSource = await fs.readFile(path.join(root, 'convex', 'crons.ts'), 'utf8');
-const panelSource = await fs.readFile(
-    path.join(root, 'src', 'components', 'TopicPodcastPanel.jsx'),
-    'utf8',
-);
-const waveformPlayerSource = await fs.readFile(
-    path.join(root, 'src', 'components', 'podcast', 'PodcastWaveformPlayer.jsx'),
-    'utf8',
-);
-const topicDetailSource = await fs.readFile(
-    path.join(root, 'src', 'pages', 'TopicDetail.jsx'),
-    'utf8',
-);
+const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-if (!/topicPodcasts:\s*defineTable/.test(schemaSource)) {
-    throw new Error('Expected schema to define a topicPodcasts table.');
-}
-if (!/audioStorageId:\s*v\.optional\(v\.id\("_storage"\)\)/.test(schemaSource)) {
-    throw new Error('Expected topicPodcasts to persist audio in Convex file storage.');
-}
-if (!/\.index\("by_status_startedAt", \["status", "startedAt"\]\)/.test(schemaSource)) {
-    throw new Error('Expected topicPodcasts to expose a by_status_startedAt index for the stuck-job sweeper.');
-}
+const [
+  serverSource,
+  generateApiSource,
+  httpSource,
+  routerSource,
+  vercelSource,
+  migrationSource,
+  panelSource,
+  contentPanelSource,
+  cardSource,
+  hubSource,
+] = await Promise.all([
+  read('server/podcasts.js'),
+  read('api/podcast-generate.js'),
+  read('server/podcastHttp.js'),
+  read('api/router.js'),
+  read('vercel.json'),
+  read('supabase/migrations/20260813160000_topic_podcasts.sql'),
+  read('src/components/TopicPodcastPanel.jsx'),
+  read('src/components/topic/TopicContentPanel.jsx'),
+  read('src/components/lesson/LessonPodcastCard.jsx'),
+  read('src/pages/DashboardPodcasts.jsx'),
+]);
 
-if (!/export const requestTopicPodcast = mutation\(/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to expose a requestTopicPodcast public mutation.');
+if (!/CREATE TABLE IF NOT EXISTS "topic_podcasts"/.test(migrationSource)) {
+  throw new Error('Expected topic_podcasts Postgres table for live podcasts.');
 }
-if (!/code: "FEATURE_DISABLED"/.test(podcastsSource)) {
-    throw new Error('Expected requestTopicPodcast to gate behind PODCAST_GEN_ENABLED.');
-}
-if (!/code: "PODCAST_IN_FLIGHT"/.test(podcastsSource)) {
-    throw new Error('Expected requestTopicPodcast to dedupe in-flight jobs per user+topic.');
-}
-if (!/code: "PODCAST_CAPACITY_EXCEEDED"/.test(podcastsSource)) {
-    throw new Error('Expected requestTopicPodcast to enforce a global concurrency cap.');
-}
-if (!/internal\.subscriptions\.consumeVoiceGenerationCreditOrThrowInternal/.test(podcastsSource)) {
-    throw new Error('Expected requestTopicPodcast to consume the shared voice-generation credit.');
-}
-if (!/const assertPodcastCapacityAvailable = async/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to share capacity checks between request and retry.');
-}
-if (!/const isStuckPodcastJob =/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to classify stale pending/running podcast jobs.');
-}
-if (!/const markStuckPodcastJobsFailed = async/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to fail stale podcast jobs before blocking new requests.');
-}
-if (!/const consumePodcastGenerationCredit = async/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to share voice quota checks between request and retry.');
-}
-if (!/const resolveTtsProvider = \(\)/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to resolve the active podcast TTS provider.');
-}
-if (!/return `\$\{provider\}:\$\{hostVoiceModel\}\|\$\{guestVoiceModel\}`;/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to persist the provider alongside the selected podcast voices.');
-}
-if (!/export const sweepStuckPodcastsInternal = internalMutation/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to expose sweepStuckPodcastsInternal for the cron sweeper.');
-}
-if (!/export const retryTopicPodcast = mutation/.test(podcastsSource)) {
-    throw new Error('Expected podcasts.ts to expose retryTopicPodcast for failed jobs.');
-}
-if (!/startedAt:\s*row\.startedAt \?\? null/.test(podcastsSource)) {
-    throw new Error('Expected podcast queries to expose startedAt so the UI can detect stale generation.');
-}
-if (!/retryTopicPodcast[\s\S]*await assertPodcastCapacityAvailable\(ctx\);[\s\S]*await consumePodcastGenerationCredit\(ctx, userId\);/.test(podcastsSource)) {
-    throw new Error('Expected retryTopicPodcast to enforce capacity and voice quota before requeueing.');
-}
-if (!/retryTopicPodcast[\s\S]*isStuckPodcastJob\(row, now\)[\s\S]*markStuckPodcastJobsFailed\(ctx, \[row\], now\)/.test(podcastsSource)) {
-    throw new Error('Expected retryTopicPodcast to allow stale in-flight rows to be retried.');
-}
-if (!/expectedStartedAt:\s*v\.number\(\)/.test(podcastsSource)) {
-    throw new Error('Expected podcast state transitions to guard on the active attempt timestamp.');
-}
-if (!/row\.status !== "running" \|\| row\.startedAt !== args\.expectedStartedAt/.test(podcastsSource)) {
-    throw new Error('Expected markReadyInternal to reject stale podcast attempts.');
+if (!/ENABLE ROW LEVEL SECURITY/.test(migrationSource)) {
+  throw new Error('Expected topic_podcasts to enable RLS.');
 }
 
-if (!/'use node'|"use node"/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to declare the node runtime for binary audio handling.');
+if (!/export const generatePodcastForTopic/.test(serverSource)) {
+  throw new Error('Expected server/podcasts.js to expose generatePodcastForTopic.');
 }
-if (!/internal\.ai\.generatePodcastScriptInternal/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.kickoff to delegate script generation to ai.generatePodcastScriptInternal.');
+if (!/parseDialogueTurns/.test(serverSource)) {
+  throw new Error('Expected server/podcasts.js to parse HOST and GUEST dialogue turns.');
 }
-if (!/const resolveVoiceModels = \(provider: TtsProvider\)/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to resolve separate host and guest voice models.');
+if (!/aura-2-apollo-en/.test(serverSource) || !/aura-2-luna-en/.test(serverSource)) {
+  throw new Error('Expected Deepgram host/guest voices Apollo and Luna.');
 }
-if (!/const resolveTtsProvider = \(\): TtsProvider =>/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to resolve the active TTS provider.');
+if (!/callDeepgramSpeak/.test(serverSource)) {
+  throw new Error('Expected podcast TTS to use Deepgram speak.');
 }
-if (!/const resolveMimoApiKey = \(\)/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to read the MiMo API key when MiMo synthesis is enabled.');
+if (!/uploadObject/.test(serverSource) || !/createSignedDownloadUrl/.test(serverSource)) {
+  throw new Error('Expected podcast audio to persist in Supabase Storage.');
 }
-if (!/DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en"/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to default the host to a masculine Deepgram voice.');
-}
-if (!/DEFAULT_GUEST_VOICE_MODEL = "aura-2-luna-en"/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to default the guest to a feminine Deepgram voice.');
-}
-if (!/DEFAULT_MIMO_HOST_VOICE = "Milo"/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to default MiMo host voice to Milo.');
-}
-if (!/DEFAULT_MIMO_GUEST_VOICE = "Chloe"/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to default MiMo guest voice to Chloe.');
-}
-if (!/const parseDialogueTurns = \(script: string\): DialogueTurn\[] =>/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to parse HOST and GUEST dialogue turns.');
-}
-if (!/chunk\.speaker === "HOST" \? hostVoiceModel : guestVoiceModel/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to synthesize host and guest turns with different voice models.');
-}
-if (!/https:\/\/api\.xiaomimimo\.com\/v1/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to support the MiMo TTS API endpoint.');
-}
-if (!/model: "mimo-v2\.5-tts"/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to request the MiMo V2.5 TTS model when MiMo is enabled.');
-}
-if (!/message\?\.audio\?\.data/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to decode base64 audio returned by MiMo.');
-}
-if (!/\/v1\/speak\?model=/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to call the Deepgram /v1/speak endpoint.');
-}
-if (!/encoding=mp3/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to request MP3 audio output.');
-}
-if (!/ctx\.storage\.store\(blob\)/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to persist the synthesized audio in Convex file storage.');
-}
-if (!/mimeType = "audio\/wav"/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to support WAV output when MiMo is the provider.');
-}
-if (!/internal\.podcasts\.markReadyInternal/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to mark the row ready after storage.');
-}
-if (!/internal\.podcasts\.markFailedInternal/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.ts to record failures via markFailedInternal.');
-}
-if (!/const attemptStartedAt = row\.startedAt/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.kickoff to capture the active attempt timestamp.');
-}
-if (!/expectedStartedAt: attemptStartedAt/.test(podcastsActionsSource)) {
-    throw new Error('Expected podcastsActions.kickoff to guard state transitions by attempt timestamp.');
+if (/xiaomimimo|mimo-v2\.5-tts|PODCAST_GEN_ENABLED/.test(serverSource)) {
+  throw new Error('Live podcast generation must not keep MiMo or Convex feature flags.');
 }
 
-if (!/export const generatePodcastScriptInternal = internalAction/.test(aiSource)) {
-    throw new Error('Expected ai.ts to expose generatePodcastScriptInternal.');
+if (!/generatePodcastForTopic/.test(generateApiSource)) {
+  throw new Error('Expected dedicated /api/podcast-generate handler.');
 }
-if (!/Every spoken turn must begin with either 'HOST:' or 'GUEST:'/i.test(aiSource)) {
-    throw new Error('Expected the script generator to require HOST and GUEST dialogue turns.');
+if (!/maxDuration:\s*120/.test(generateApiSource)) {
+  throw new Error('Expected podcast-generate to allow 120s.');
 }
-if (!/PODCAST_SCRIPT_TOO_SHORT/.test(aiSource)) {
-    throw new Error('Expected the script generator to reject scripts that are too short to use.');
+if (!/listPodcastsForUser/.test(httpSource)) {
+  throw new Error('Expected GET /api/podcasts to list the user library.');
 }
-
-if (!/internal\.podcasts\.sweepStuckPodcastsInternal/.test(cronsSource)) {
-    throw new Error('Expected crons.ts to schedule the podcast stuck-job sweeper.');
+if (!/handlePodcastsRequest/.test(routerSource)) {
+  throw new Error('Expected router to serve GET /api/podcasts.');
 }
-
-if (!/temporarily unavailable|LessonPodcastCard/.test(panelSource)) {
-    throw new Error('Expected TopicPodcastPanel to stay parked/Convex-free during Supabase cutover.');
+if (/podcast-generate/.test(routerSource)) {
+  throw new Error('Expected podcast-generate to stay off the anydoc router.');
 }
-if (/from ['"]convex\/react['"]|api\.podcasts/.test(panelSource)) {
-    throw new Error('Expected TopicPodcastPanel stub to stop depending on Convex.');
+if (!/"source": "\/api\/podcast-generate"/.test(vercelSource)) {
+  throw new Error('Expected Vercel rewrite to isolate /api/podcast-generate.');
 }
 
-const contentPanelSource = await fs.readFile(
-    path.join(root, 'src', 'components', 'topic', 'TopicContentPanel.jsx'),
-    'utf8',
-);
-if (contentPanelSource.includes('LessonPodcastCard') || contentPanelSource.includes('TopicPodcastPanel')) {
-    throw new Error('Expected live TopicContentPanel to stop mounting podcast UI during cutover.');
+if (!/LessonPodcastCard/.test(contentPanelSource)) {
+  throw new Error('Expected TopicContentPanel to mount LessonPodcastCard.');
+}
+if (!/\/api\/podcast-generate/.test(cardSource) || !/\/api\/podcasts/.test(cardSource)) {
+  throw new Error('Expected LessonPodcastCard to list and generate over HTTP.');
+}
+if (!/\/api\/podcast-generate/.test(hubSource) || !/PodcastWaveformPlayer/.test(hubSource)) {
+  throw new Error('Expected DashboardPodcasts to generate and play live audio.');
+}
+if (/from ['"]convex\/react['"]|api\.podcasts/.test(panelSource + cardSource + hubSource)) {
+  throw new Error('Expected live podcast UI to stay Convex-free.');
 }
 
 console.log('topic-podcast-generation-regression.test.mjs passed');
