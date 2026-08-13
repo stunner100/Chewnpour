@@ -7,7 +7,7 @@ export const config = {
     api: {
         bodyParser: false,
     },
-    maxDuration: 120,
+    maxDuration: 300,
 };
 
 const sendJson = (res, statusCode, payload) => {

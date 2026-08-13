@@ -58,8 +58,14 @@ if (/xiaomimimo|mimo-v2\.5-tts|PODCAST_GEN_ENABLED/.test(serverSource)) {
 if (!/generatePodcastForTopic/.test(generateApiSource)) {
   throw new Error('Expected dedicated /api/podcast-generate handler.');
 }
-if (!/maxDuration:\s*120/.test(generateApiSource)) {
-  throw new Error('Expected podcast-generate to allow 120s.');
+if (!/maxDuration:\s*300/.test(generateApiSource)) {
+  throw new Error('Expected podcast-generate to allow 300s.');
+}
+if (!/PODCAST_STALE_AFTER_MS/.test(serverSource) || !/expireStalePodcast/.test(serverSource)) {
+  throw new Error('Expected stale in-flight podcasts to expire instead of staying running.');
+}
+if (!/TTS_CONCURRENCY/.test(serverSource) || !/runWithConcurrency/.test(serverSource)) {
+  throw new Error('Expected podcast TTS to run with bounded concurrency.');
 }
 if (!/listPodcastsForUser/.test(httpSource)) {
   throw new Error('Expected GET /api/podcasts to list the user library.');
@@ -80,8 +86,14 @@ if (!/LessonPodcastCard/.test(contentPanelSource)) {
 if (!/\/api\/podcast-generate/.test(cardSource) || !/\/api\/podcasts/.test(cardSource)) {
   throw new Error('Expected LessonPodcastCard to list and generate over HTTP.');
 }
+if (!/setInterval/.test(cardSource)) {
+  throw new Error('Expected LessonPodcastCard to poll in-flight podcast generation.');
+}
 if (!/\/api\/podcast-generate/.test(hubSource) || !/PodcastWaveformPlayer/.test(hubSource)) {
   throw new Error('Expected DashboardPodcasts to generate and play live audio.');
+}
+if (!/setInterval/.test(hubSource) || !/Generate again/.test(hubSource)) {
+  throw new Error('Expected the podcasts hub to poll in-flight jobs and retry failed ones.');
 }
 if (/from ['"]convex\/react['"]|api\.podcasts/.test(panelSource + cardSource + hubSource)) {
   throw new Error('Expected live podcast UI to stay Convex-free.');

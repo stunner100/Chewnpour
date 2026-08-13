@@ -58,7 +58,11 @@ assert.doesNotMatch(server, /mimo|xiaomimimo|PODCAST_GEN_ENABLED/i, 'Live podcas
 
 assert.match(http, /listPodcastsForUser/, 'GET /api/podcasts must list the user library');
 assert.match(generateApi, /generatePodcastForTopic/, 'Dedicated generate function must call the server generator');
-assert.match(generateApi, /maxDuration:\s*120/, 'Generate function must allow up to 120s');
+assert.match(generateApi, /maxDuration:\s*300/, 'Generate function must allow up to 300s');
+assert.match(server, /PODCAST_STALE_AFTER_MS/, 'Stale in-flight podcasts must expire');
+assert.match(server, /expireStalePodcast/, 'List and generate must expire stale podcast jobs');
+assert.match(hub, /Generate again/, 'Failed podcast cards must offer Generate again');
+assert.match(hub, /setInterval/, 'Podcasts hub must poll in-flight generation');
 assert.match(router, /handlePodcastsRequest/, 'Router must serve GET /api/podcasts');
 assert.doesNotMatch(router, /podcast-generate/, 'Generate must not go through the anydoc router');
 assert.match(vercel, /"source": "\/api\/podcast-generate"/, 'Vercel must bypass the catch-all router for generate');

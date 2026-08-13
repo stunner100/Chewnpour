@@ -22,7 +22,7 @@ const formatDate = (timestamp) => {
     });
 };
 
-const PodcastListItem = ({ podcast }) => {
+const PodcastListItem = ({ podcast, onRetry, retrying }) => {
     const isInFlight = podcast.status === 'pending' || podcast.status === 'running';
     return (
         <div className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm md:p-5">
@@ -70,8 +70,16 @@ const PodcastListItem = ({ podcast }) => {
             ) : null}
 
             {podcast.status === 'failed' ? (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-body-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                    Podcast is not ready yet. Generate it again.
+                <div className="mt-4 flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-body-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+                    <p>{podcast.errorMessage || 'Podcast is not ready yet. Generate it again.'}</p>
+                    <button
+                        type="button"
+                        onClick={() => onRetry(podcast.topicId)}
+                        disabled={retrying || !podcast.topicId}
+                        className="btn-secondary shrink-0 text-caption disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {retrying ? 'Starting…' : 'Generate again'}
+                    </button>
                 </div>
             ) : null}
         </div>
@@ -301,6 +309,21 @@ const DashboardPodcasts = () => {
         };
     }, [loadPodcasts]);
 
+    const hasInFlight = useMemo(
+        () =>
+            Array.isArray(podcasts) &&
+            podcasts.some((podcast) => podcast.status === 'pending' || podcast.status === 'running'),
+        [podcasts],
+    );
+
+    useEffect(() => {
+        if (!hasInFlight) return undefined;
+        const timer = setInterval(() => {
+            loadPodcasts().catch(() => {});
+        }, 8000);
+        return () => clearInterval(timer);
+    }, [hasInFlight, loadPodcasts]);
+
     const openModal = useCallback(() => {
         setGenerateError('');
         setModalOpen(true);
@@ -327,6 +350,15 @@ const DashboardPodcasts = () => {
             if (!topicId || generatingTopicId) return;
             setGenerateError('');
             setGeneratingTopicId(topicId);
+            setPodcasts((prev) =>
+                Array.isArray(prev)
+                    ? prev.map((podcast) =>
+                          podcast.topicId === topicId
+                              ? { ...podcast, status: 'running', errorMessage: '' }
+                              : podcast,
+                      )
+                    : prev,
+            );
             try {
                 const response = await fetch('/api/podcast-generate', {
                     method: 'POST',
@@ -350,6 +382,7 @@ const DashboardPodcasts = () => {
                 }
             } catch (error) {
                 setGenerateError(error?.message || 'Podcast is still getting ready. Try again shortly.');
+                await loadPodcasts().catch(() => {});
             } finally {
                 setGeneratingTopicId('');
             }
@@ -422,7 +455,12 @@ const DashboardPodcasts = () => {
             ) : (
                 <div className="space-y-3">
                     {list.map((podcast) => (
-                        <PodcastListItem key={podcast.id} podcast={podcast} />
+                        <PodcastListItem
+                            key={podcast.id}
+                            podcast={podcast}
+                            onRetry={handleSelectTopic}
+                            retrying={Boolean(generatingTopicId) && generatingTopicId === podcast.topicId}
+                        />
                     ))}
                 </div>
             )}

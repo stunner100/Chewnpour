@@ -38,6 +38,15 @@ const LessonPodcastCard = ({ topicId, topicTitle = '' }) => {
         };
     }, [loadPodcast, topicId]);
 
+    useEffect(() => {
+        const inFlight = podcast?.status === 'pending' || podcast?.status === 'running';
+        if (!topicId || !inFlight) return undefined;
+        const timer = setInterval(() => {
+            loadPodcast().catch(() => {});
+        }, 8000);
+        return () => clearInterval(timer);
+    }, [loadPodcast, podcast?.status, topicId]);
+
     const isReady = podcast?.status === 'ready' && podcast?.audioUrl;
     const isInFlight = generating || podcast?.status === 'pending' || podcast?.status === 'running';
 

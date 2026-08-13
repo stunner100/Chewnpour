@@ -20,6 +20,10 @@ const DEFAULT_GUEST_VOICE = "aura-2-luna-en";
 const MAX_SCRIPT_WORDS = 700;
 const WORDS_PER_MINUTE = 150;
 const SIGNED_URL_TTL_SEC = 60 * 60;
+const TTS_CONCURRENCY = 3;
+// Past the 300s generate budget so a killed worker cannot stay "running" forever.
+export const PODCAST_STALE_AFTER_MS = 5 * 60 * 1000 + 30 * 1000;
+const STALE_ERROR = "Timed out while synthesizing audio.";
 
 const resolveHostVoice = () =>
     String(process.env.PODCAST_HOST_VOICE_MODEL || DEFAULT_HOST_VOICE).trim() ||
@@ -81,6 +85,40 @@ const parseDialogueTurns = (script) => {
     }
     if (current?.text) turns.push(current);
     return turns.filter((turn) => turn.text.length > 0);
+};
+
+const runWithConcurrency = async (items, limit, worker) => {
+    const results = new Array(items.length);
+    let next = 0;
+    const runnerCount = Math.min(Math.max(1, limit), items.length);
+    await Promise.all(
+        Array.from({ length: runnerCount }, async () => {
+            while (next < items.length) {
+                const index = next;
+                next += 1;
+                results[index] = await worker(items[index], index);
+            }
+        }),
+    );
+    return results;
+};
+
+export const isStalePodcastJob = (row, now = Date.now()) => {
+    if (!row || (row.status !== "pending" && row.status !== "running")) {
+        return false;
+    }
+    const started = new Date(row.started_at || row.created_at).getTime();
+    if (!Number.isFinite(started)) return true;
+    return now - started > PODCAST_STALE_AFTER_MS;
+};
+
+const expireStalePodcast = async (row) => {
+    if (!isStalePodcastJob(row)) return row;
+    const expired = await markPodcast(row.id, {
+        status: "failed",
+        error_message: STALE_ERROR,
+    });
+    return expired ? { ...row, ...expired, status: "failed" } : { ...row, status: "failed" };
 };
 
 const capScriptTurns = (turns) => {
@@ -191,7 +229,10 @@ const toClientPodcast = async (row) => {
         scriptWordCount: Number(row.script_word_count || 0),
         voiceModel: row.voice_model || "",
         audioUrl,
-        errorMessage: row.status === "failed" ? "Podcast is not ready yet." : "",
+        errorMessage:
+            row.status === "failed"
+                ? String(row.error_message || "Podcast is not ready yet.")
+                : "",
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
     };
@@ -220,7 +261,8 @@ export const listPodcastsForUser = async (userId, { topicId, limit = 20 } = {}) 
          LIMIT $${params.length}`,
         params,
     );
-    return Promise.all(result.rows.map((row) => toClientPodcast(row)));
+    const rows = await Promise.all(result.rows.map((row) => expireStalePodcast(row)));
+    return Promise.all(rows.map((row) => toClientPodcast(row)));
 };
 
 const markPodcast = async (id, fields) => {
@@ -276,7 +318,10 @@ export const generatePodcastForTopic = async ({ userId, topicId, force = false }
          LIMIT 1`,
         [userId, topic.id],
     );
-    const current = existing.rows[0];
+    let current = existing.rows[0];
+    if (isStalePodcastJob(current)) {
+        current = await expireStalePodcast(current);
+    }
     if (current?.status === "pending" || current?.status === "running") {
         return toClientPodcast(current);
     }
@@ -312,15 +357,22 @@ export const generatePodcastForTopic = async ({ userId, topicId, force = false }
         }
 
         const maxChars = Math.min(getDeepgramSpeakMaxChars(), 800);
-        const audioChunks = [];
+        const speakJobs = [];
         for (const turn of turns) {
             const pieces = splitTextForTts(turn.text, maxChars);
             const model = turn.speaker === "GUEST" ? guestVoice : hostVoice;
             for (const piece of pieces) {
-                const spoken = await callDeepgramSpeak(piece, { model });
-                audioChunks.push(spoken.buffer);
+                speakJobs.push({ piece, model });
             }
         }
+        const audioChunks = await runWithConcurrency(
+            speakJobs,
+            TTS_CONCURRENCY,
+            async (job) => {
+                const spoken = await callDeepgramSpeak(job.piece, { model: job.model });
+                return spoken.buffer;
+            },
+        );
         if (audioChunks.length === 0) {
             throw new Error("Voice synthesis returned no audio.");
         }
