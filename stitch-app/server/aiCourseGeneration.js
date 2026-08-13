@@ -6,6 +6,11 @@ import {
 import { dedupeCourseTopics, isValidMcq } from "./questionDedup.js";
 import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { pickTopicOrdering, snippetHasProcess } from "./processOrdering.js";
+import { normalizeInLessonChecks } from "./inLessonChecks.js";
+import {
+    splitMarkdownIntoSections,
+    eligibleLessonSectionTitles,
+} from "../src/lib/lessonSections.js";
 
 const MAX_SOURCE_CHARS = 12000;
 const MAX_TOPICS = 5;
@@ -13,6 +18,17 @@ const MAX_QUESTIONS_PER_TOPIC = 3;
 const MAX_TOPIC_CONTENT_CHARS = 8000;
 const TOPIC_SNIPPET_CHARS = 2500;
 const TOPIC_GEN_CONCURRENCY = 3;
+const STEPPER_SECTION_TITLES = [
+    "Simple Introduction",
+    "Key Ideas in Plain English",
+    "Step-by-Step Breakdown",
+    "Worked Example",
+    "Common Mistakes and Misconceptions",
+    "Everyday Analogy",
+    "Practical Use Cases",
+    "Word Bank",
+    "Summary",
+];
 
 const normalizeWhitespace = (value = "") =>
     String(value || "").replace(/\s+/g, " ").trim();
@@ -80,14 +96,46 @@ export const sliceSourceForTopic = (source, { title = "", focus = "", index = 0,
 };
 
 const heuristicTopics = ({ fileName, extractedText }) =>
-    buildTopicsFromExtractedText({ fileName, extractedText }).map((topic) => ({
-        ...topic,
-        questions: buildQuestionsForTopic({
+    buildTopicsFromExtractedText({ fileName, extractedText }).map((topic) => {
+        const quizQuestions = buildQuestionsForTopic({
             topicTitle: topic.title,
             topicContent: topic.content,
             limit: MAX_QUESTIONS_PER_TOPIC,
-        }),
-    }));
+        }).map((question) => ({
+            ...question,
+            questionType: "multiple_choice",
+            surface: "quiz",
+            payload: {},
+        }));
+        const sections = eligibleLessonSectionTitles(splitMarkdownIntoSections(topic.content));
+        const inLessonChecks = normalizeInLessonChecks(
+            sections.slice(0, 4).map((sectionTitle, index) => {
+                const generated = buildQuestionsForTopic({
+                    topicTitle: sectionTitle,
+                    topicContent: topic.content,
+                    limit: 1,
+                })[0];
+                if (!generated) return null;
+                return {
+                    ...generated,
+                    sectionTitle,
+                    questionType: "multiple_choice",
+                    sortOrder: index,
+                };
+            }).filter(Boolean),
+            {
+                content: topic.content,
+                title: topic.title,
+                quizPrompts: quizQuestions.map((question) => question.prompt),
+            },
+        );
+        return {
+            ...topic,
+            questions: quizQuestions,
+            inLessonChecks,
+            orderingCheck: null,
+        };
+    });
 
 const sanitizeMcqHint = (question) =>
     sanitizeGeneratedHint({
@@ -145,19 +193,22 @@ const normalizeTopicQuestions = (item, { title, content }) => {
         content,
         questions,
     });
-    if (ordering) {
-        const sanitized = {
-            ...ordering,
-            hint: sanitizeGeneratedHint({
-                hint: ordering.hint,
-                questionType: "ordering",
-                stepsInOrder: ordering.stepsInOrder,
-            }),
-        };
-        questions.push(sanitized);
-        return { questions, orderingCheck: sanitized };
-    }
-    return { questions, orderingCheck: null };
+    const quizPrompts = questions.map((question) => question.prompt);
+    const inLessonChecks = normalizeInLessonChecks(item?.inLessonChecks, {
+        content,
+        title,
+        quizPrompts,
+        ordering,
+    });
+    return {
+        questions: questions.map((question) => ({
+            ...question,
+            surface: "quiz",
+            questionType: question.questionType || "multiple_choice",
+        })),
+        inLessonChecks,
+        orderingCheck: inLessonChecks.find((check) => check.questionType === "ordering") || null,
+    };
 };
 
 export const normalizeAiCoursePayload = (
@@ -172,12 +223,13 @@ export const normalizeAiCoursePayload = (
         const title = normalizeWhitespace(item?.title).slice(0, 180);
         const content = String(item?.content || "").trim().slice(0, MAX_TOPIC_CONTENT_CHARS);
         if (!title || content.length < 40) continue;
-        const { questions, orderingCheck } = normalizeTopicQuestions(item, { title, content });
+        const { questions, orderingCheck, inLessonChecks } = normalizeTopicQuestions(item, { title, content });
         topics.push({
             title,
             description: normalizeWhitespace(item?.description || content).slice(0, 280),
             content,
             questions,
+            inLessonChecks,
             orderingCheck,
         });
     }
@@ -259,13 +311,17 @@ const generateOneTopic = async ({
     const system = [
         "You are ChewnPour's study lesson writer.",
         "Return ONLY valid JSON with this shape:",
-        '{"content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}',
+        '{"content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"inLessonChecks":[{"sectionTitle":"string","questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}',
         "Write a full grounded lesson in markdown: at least four paragraphs plus headings. Do not shrink the lesson to three sentences or flashcards.",
-        `Create 2-${MAX_QUESTIONS_PER_TOPIC} multiple-choice questions from THIS snippet only.`,
+        `Use these H2 titles where they fit: ${STEPPER_SECTION_TITLES.join(", ")}.`,
+        "Do not write a Quick Check Q/A section.",
+        `Create 2-${MAX_QUESTIONS_PER_TOPIC} topic-quiz multiple-choice questions from THIS snippet only in questions[].`,
+        "Also create inLessonChecks: at most one check per major H2 (not Word Bank or Summary), cap 4. questionType may be multiple_choice or true_false (options True/False).",
         "correctIndex must point at the correct option. Options must be unique. Prompts must not restate the topic title.",
+        "inLessonChecks must not duplicate the topic-quiz questions.",
         "Hints must not name the correct option, unique answer terms, a true/false verdict, or the ordered steps.",
         allowOrdering
-            ? 'If the snippet describes a process or sequence, also set ordering to {"prompt":"string","stepsInOrder":["step 1","step 2","step 3"],"explanation":"string","hint":"string"} with exactly 3 source-backed steps. Otherwise set ordering to null.'
+            ? 'If the snippet describes a process or sequence, include at most one ordering check in inLessonChecks or set ordering to {"prompt":"string","stepsInOrder":["step 1","step 2","step 3"],"explanation":"string","hint":"string","sectionTitle":"Step-by-Step Breakdown"} with exactly 3 source-backed steps. Otherwise set ordering to null.'
             : "Set ordering to null. Do not invent a process check.",
         "Do not invent facts that are absent from the snippet.",
         previous.length
@@ -330,6 +386,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline,
                 return {
                     content: snippets[index] || `## ${topic.title}\n\n${topic.description}`,
                     questions: [],
+                    inLessonChecks: [],
                     ordering: null,
                 };
             }
@@ -342,6 +399,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline,
             description: topic.description,
             content: generated[index]?.content,
             questions: generated[index]?.questions,
+            inLessonChecks: generated[index]?.inLessonChecks,
             ordering: generated[index]?.ordering,
         })),
     };
@@ -374,10 +432,11 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline,
                             content: extra.content || topic.content,
                             questions: [
                                 ...(topic.questions || []).filter(
-                                    (question) => question.questionType !== "ordering",
+                                    (question) => question.questionType !== "ordering" && question.surface !== "in_lesson",
                                 ),
                                 ...(Array.isArray(extra.questions) ? extra.questions : []),
                             ],
+                            inLessonChecks: extra.inLessonChecks || topic.inLessonChecks,
                             ordering: extra.ordering || topic.orderingCheck,
                         },
                     ],
@@ -407,12 +466,14 @@ const generateCurriculumSinglePass = async ({ fileName, extractedText, clipped }
     const system = [
         "You are ChewnPour's study curriculum generator.",
         "Return ONLY valid JSON with this shape:",
-        '{"topics":[{"title":"string","description":"string","content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}]}',
+        '{"topics":[{"title":"string","description":"string","content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"inLessonChecks":[{"sectionTitle":"string","questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}]}',
         `Create 3-${MAX_TOPICS} topics grounded only in the source text.`,
-        `Each topic needs 2-${MAX_QUESTIONS_PER_TOPIC} multiple-choice questions.`,
+        `Each topic needs 2-${MAX_QUESTIONS_PER_TOPIC} topic-quiz multiple-choice questions in questions[].`,
+        `Use these H2 titles where they fit: ${STEPPER_SECTION_TITLES.join(", ")}. Do not write Quick Check Q/A pairs.`,
         "Write full markdown lessons, at least four paragraphs each. Do not shrink lessons to three sentences.",
+        "Also include inLessonChecks: at most one check per major H2, cap 4, distinct from the quiz bank.",
         "correctIndex must point at the correct option. Options must be unique.",
-        "If a topic describes a process, include ordering with exactly 3 source-backed steps; otherwise set ordering to null.",
+        "If a topic describes a process, include at most one ordering check; otherwise set ordering to null.",
         "Hints must not leak answers.",
         "Do not invent facts that are absent from the source.",
     ].join(" ");

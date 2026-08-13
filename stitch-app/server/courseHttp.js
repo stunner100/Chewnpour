@@ -11,6 +11,8 @@ import {
     getQuizForTopic,
     getTopicForUser,
     listCoursesForUser,
+    submitLessonCheck,
+    submitPublicLessonCheck,
     submitQuizAttempt,
 } from "./courses.js";
 import { getPool } from "./db.js";
@@ -198,6 +200,18 @@ export const handleTopicsRequest = async (req, res) => {
             return sendJson(res, 200, { attempt: result });
         }
 
+        if (parts.length === 2 && parts[1] === "lesson-check" && method === "POST") {
+            const body = await readJsonBody(req);
+            const result = await submitLessonCheck({
+                userId: user.id,
+                topicId: parts[0],
+                questionId: body.questionId,
+                selectedIndex: body.selectedIndex,
+                orderedSteps: body.orderedSteps,
+            });
+            return sendJson(res, 200, { result });
+        }
+
         if (parts.length === 2 && parts[1] === "chat" && method === "GET") {
             const messages = await listTopicChatMessages(user.id, parts[0]);
             return sendJson(res, 200, { messages });
@@ -319,7 +333,18 @@ export const handleShareRequest = async (req, res) => {
             return sendJson(res, 200, { course });
         }
 
-        res.setHeader("Allow", "GET");
+        if (parts.length === 2 && parts[1] === "lesson-check" && method === "POST") {
+            const body = await readJsonBody(req);
+            const result = await submitPublicLessonCheck({
+                token: parts[0],
+                questionId: body.questionId,
+                selectedIndex: body.selectedIndex,
+                orderedSteps: body.orderedSteps,
+            });
+            return sendJson(res, 200, { result });
+        }
+
+        res.setHeader("Allow", "GET, POST");
         return sendJson(res, 405, { error: "Method not allowed" });
     } catch (error) {
         console.error("[api/share]", error);

@@ -20,19 +20,36 @@ const shuffleSteps = (steps) => {
 const sameOrder = (left, right) =>
     left.length === right.length && left.every((item, index) => item === right[index]);
 
-export default function LessonOrderingCheck({ check }) {
-    const canonical = useMemo(
+const toItems = (steps) =>
+    (Array.isArray(steps) ? steps : [])
+        .map((text, index) => ({ id: `step-${index}`, text: String(text || '').trim() }))
+        .filter((item) => item.text);
+
+export default function LessonOrderingCheck({ check, onSubmit, result, submitting = false }) {
+    const playable = useMemo(() => {
+        if (Array.isArray(check?.options) && check.options.filter(Boolean).length >= 3) {
+            return toItems(check.options);
+        }
+        return shuffleSteps(check?.stepsInOrder);
+    }, [check]);
+    const localCanonical = useMemo(
         () => (Array.isArray(check?.stepsInOrder) ? check.stepsInOrder.map((step) => String(step).trim()).filter(Boolean) : []),
         [check],
     );
-    const [order, setOrder] = useState(() => shuffleSteps(canonical));
+    const [order, setOrder] = useState(playable);
     const [draggingId, setDraggingId] = useState(null);
-    const [submitted, setSubmitted] = useState(false);
+    const [localSubmitted, setLocalSubmitted] = useState(false);
 
-    if (!check?.prompt || canonical.length !== 3) return null;
-
+    const submitted = Boolean(result) || localSubmitted;
+    const canonical = Array.isArray(result?.stepsInOrder) && result.stepsInOrder.length
+        ? result.stepsInOrder
+        : localCanonical;
     const current = order.map((item) => item.text);
-    const isCorrect = submitted && sameOrder(current, canonical);
+    const isCorrect = submitted && (typeof result?.correct === 'boolean'
+        ? result.correct
+        : sameOrder(current, canonical));
+
+    if (!check?.prompt || playable.length < 3) return null;
 
     const moveItem = (fromId, toId) => {
         if (!fromId || !toId || fromId === toId || submitted) return;
@@ -45,6 +62,14 @@ export default function LessonOrderingCheck({ check }) {
             next.splice(toIndex, 0, moved);
             return next;
         });
+    };
+
+    const handleCheck = async () => {
+        if (typeof onSubmit === 'function') {
+            await onSubmit(current);
+            return;
+        }
+        setLocalSubmitted(true);
     };
 
     return (
@@ -86,23 +111,13 @@ export default function LessonOrderingCheck({ check }) {
                 {!submitted ? (
                     <button
                         type="button"
-                        className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm"
-                        onClick={() => setSubmitted(true)}
+                        className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm disabled:opacity-50"
+                        disabled={submitting}
+                        onClick={handleCheck}
                     >
-                        Check order
+                        {submitting ? 'Checking…' : 'Check order'}
                     </button>
-                ) : (
-                    <button
-                        type="button"
-                        className="btn-secondary inline-flex min-h-10 items-center gap-1.5 text-body-sm"
-                        onClick={() => {
-                            setSubmitted(false);
-                            setOrder(shuffleSteps(canonical));
-                        }}
-                    >
-                        Try again
-                    </button>
-                )}
+                ) : null}
             </div>
             {submitted ? (
                 <div
@@ -115,18 +130,18 @@ export default function LessonOrderingCheck({ check }) {
                     <p className="text-body-sm font-semibold">
                         {isCorrect ? 'That matches the process in the lesson.' : 'Not quite. The lesson order is:'}
                     </p>
-                    {!isCorrect ? (
+                    {!isCorrect && canonical.length > 0 ? (
                         <ol className="mt-2 list-decimal space-y-1 pl-5 text-body-sm text-text-secondary">
                             {canonical.map((step) => (
                                 <li key={step}>{step}</li>
                             ))}
                         </ol>
                     ) : null}
-                    {check.explanation ? (
-                        <p className="mt-2 text-body-sm text-text-secondary">{check.explanation}</p>
+                    {(result?.explanation || check.explanation) ? (
+                        <p className="mt-2 text-body-sm text-text-secondary">{result?.explanation || check.explanation}</p>
                     ) : null}
-                    {check.hint && !isCorrect ? (
-                        <p className="mt-2 text-caption text-text-muted">{check.hint}</p>
+                    {(result?.hint || check.hint) && !isCorrect ? (
+                        <p className="mt-2 text-caption text-text-muted">{result?.hint || check.hint}</p>
                     ) : null}
                 </div>
             ) : null}

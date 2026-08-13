@@ -1,4 +1,8 @@
 import { jaccardSimilarity } from "./questionDedup.js";
+import {
+    eligibleLessonSectionTitles,
+    splitMarkdownIntoSections,
+} from "../src/lib/lessonSections.js";
 
 const answerText = (question) => {
     if (question?.questionType === "ordering") {
@@ -27,8 +31,18 @@ export const scoreCourseCurriculum = (curriculum, { sourceText = "", expectProce
             topicContent: topic.content,
         })),
     );
-    const mcqs = questions.filter((question) => question.questionType !== "ordering");
-    const ordering = questions.filter((question) => question.questionType === "ordering");
+    const inLessonChecks = topics.flatMap((topic) =>
+        (Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : []).map((question) => ({
+            ...question,
+            topicTitle: topic.title,
+            topicContent: topic.content,
+        })),
+    );
+    const mcqs = questions.filter((question) => question.questionType !== "ordering" && question.surface !== "in_lesson");
+    const ordering = [
+        ...questions.filter((question) => question.questionType === "ordering"),
+        ...inLessonChecks.filter((question) => question.questionType === "ordering"),
+    ];
     let duplicatePairs = 0;
     for (let i = 0; i < mcqs.length; i += 1) {
         for (let j = i + 1; j < mcqs.length; j += 1) {
@@ -47,15 +61,24 @@ export const scoreCourseCurriculum = (curriculum, { sourceText = "", expectProce
                 Array.isArray(topic.questions),
         );
     const processOk = !expectProcess || ordering.length >= 1;
+    const multiSectionTopics = topics.filter((topic) => {
+        const eligible = eligibleLessonSectionTitles(splitMarkdownIntoSections(topic.content));
+        return eligible.length >= 2;
+    });
+    const inLessonCoverageOk = multiSectionTopics.every((topic) =>
+        (Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : []).length >= 2,
+    );
     return {
         topicCount: topics.length,
         questionCount: mcqs.length,
         orderingCount: ordering.length,
+        inLessonCount: inLessonChecks.length,
         duplicatePairs,
         groundedCount,
         groundedRatio: mcqs.length ? groundedCount / mcqs.length : 1,
         structureOk,
         processOk,
         expectProcess,
+        inLessonCoverageOk,
     };
 };

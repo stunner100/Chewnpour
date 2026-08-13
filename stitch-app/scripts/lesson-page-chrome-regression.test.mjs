@@ -8,6 +8,7 @@ const read = (relativePath) => readFileSync(resolve(root, relativePath), 'utf8')
 const layout = read('src/components/DashboardLayout.jsx');
 const views = read('src/components/topic/TopicLessonViews.jsx');
 const content = read('src/components/topic/TopicContentPanel.jsx');
+const stepper = read('src/components/lesson/LessonSectionStepper.jsx');
 const mobileActions = read('src/components/lesson/MobileLessonActions.jsx');
 const fab = read('src/components/lesson/FloatingStudyTools.jsx');
 const hook = read('src/hooks/useTopicDetail.js');
@@ -39,7 +40,8 @@ assert.doesNotMatch(views, /rounded-2xl border border-border-subtle bg-surface-s
 
 assert.match(content, /max-w-\[65ch\]/, 'Lesson prose should have a readable measure.');
 assert.match(content, /showTopicIllustration && topicIllustrationUrl/, 'Lesson page must gate illustrations.');
-assert.match(content, /border-t border-border-subtle/, 'Guided path should be a divider section.');
+assert.match(content, /LessonSectionStepper/, 'Lesson page must use the section stepper.');
+assert.match(stepper, /border-t border-border-subtle/, 'Stepper navigation should sit on a divider.');
 
 assert.match(practice, /border-t border-border-subtle pt-6/, 'Practice actions should be a section, not a raised card.');
 assert.match(hook, /const practicePrimary = \[\];/, 'Practice block must not own a second solid quiz primary.');

@@ -26,6 +26,10 @@ const toClientProgress = (row) => {
             ? new Date(row.last_studied_at).getTime()
             : null,
         termsStarred: Array.isArray(row.terms_starred) ? row.terms_starred : [],
+        lessonChecks:
+            row.lesson_checks && typeof row.lesson_checks === "object" && !Array.isArray(row.lesson_checks)
+                ? row.lesson_checks
+                : {},
         bestScore:
             row.best_score == null || Number.isNaN(Number(row.best_score))
                 ? null
@@ -127,6 +131,12 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
     const nextTerms = Array.isArray(patch.termsStarred)
         ? patch.termsStarred
         : existing.rows[0]?.terms_starred || [];
+    const nextLessonChecks =
+        patch.lessonChecks && typeof patch.lessonChecks === "object" && !Array.isArray(patch.lessonChecks)
+            ? patch.lessonChecks
+            : existing.rows[0]?.lesson_checks && typeof existing.rows[0].lesson_checks === "object"
+                ? existing.rows[0].lesson_checks
+                : {};
     const nextCompletedAt =
         patch.completedAt === undefined
             ? existing.rows[0]?.completed_at || null
@@ -159,15 +169,17 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
                  completed_at = $2,
                  last_studied_at = $3,
                  terms_starred = $4::jsonb,
-                 best_score = $5,
+                 lesson_checks = $5::jsonb,
+                 best_score = $6,
                  updated_at = NOW()
-             WHERE id = $6
+             WHERE id = $7
              RETURNING *`,
             [
                 courseId,
                 nextCompletedAt,
                 nextLastStudiedAt,
                 JSON.stringify(nextTerms),
+                JSON.stringify(nextLessonChecks),
                 nextBestScore,
                 existing.rows[0].id,
             ],
@@ -177,8 +189,8 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
 
     const inserted = await db.query(
         `INSERT INTO topic_progress (
-            id, user_id, topic_id, course_id, completed_at, last_studied_at, terms_starred, best_score
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+            id, user_id, topic_id, course_id, completed_at, last_studied_at, terms_starred, lesson_checks, best_score
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9)
          RETURNING *`,
         [
             nanoid(),
@@ -188,6 +200,7 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
             nextCompletedAt,
             nextLastStudiedAt,
             JSON.stringify(nextTerms),
+            JSON.stringify(nextLessonChecks),
             nextBestScore,
         ],
     );

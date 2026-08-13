@@ -1,9 +1,8 @@
 import React from 'react';
 import TopicSidebar from '../TopicSidebar';
-import LessonContentRenderer from '../LessonContentRenderer';
-import GuidedStudyPath from '../GuidedStudyPath';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
 import LessonPodcastCard from '../lesson/LessonPodcastCard';
+import LessonSectionStepper from '../lesson/LessonSectionStepper';
 import AppIcon from '../AppIcon';
 
 const TopicContentPanel = ({
@@ -11,15 +10,16 @@ const TopicContentPanel = ({
     cleanLine,
     contentLines,
     contentRef,
-    displayBlocks,
-    filteredBlocks,
     handleAskTutor,
+    handleLessonStepChange,
     handleTermsStarred,
     heroTopicTitle,
     isPaused,
     isPlaying,
     isVoiceSupported,
+    lessonSteps,
     normalizedContent,
+    objectiveExamRoute,
     openSource,
     parsed,
     pauseVoice,
@@ -38,7 +38,6 @@ const TopicContentPanel = ({
     voicePlaybackError,
     voiceStatus,
     wordBankTerms,
-    orderingCheck,
 }) => (
     <>
         <TopicSidebar
@@ -77,18 +76,21 @@ const TopicContentPanel = ({
 
         <article className="max-w-[65ch] py-2" ref={contentRef}>
             {normalizedContent ? (
-                <LessonContentRenderer
-                    blocks={displayBlocks}
-                    shouldAnimateBlocks={shouldAnimateBlocks}
+                <LessonSectionStepper
+                    key={topicId || 'topic-lesson'}
+                    steps={lessonSteps}
+                    topicId={topicId}
+                    lessonChecks={topicProgress?.lessonChecks}
+                    quizHref={objectiveExamRoute}
+                    quizLabel="Start topic quiz"
+                    onStepChange={handleLessonStepChange}
                     cleanInline={cleanInline}
                     onViewSource={openSource}
                     onAskTutor={handleAskTutor}
-                    quickCheckPairs={parsed.quickCheckPairs}
                     wordBankTerms={wordBankTerms}
-                    topicId={topicId}
                     starredTerms={topicProgress?.termsStarred}
                     onTermsStarred={handleTermsStarred}
-                    orderingCheck={orderingCheck}
+                    shouldAnimateBlocks={shouldAnimateBlocks}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -106,23 +108,6 @@ const TopicContentPanel = ({
         {podcastEnabled && topicId ? (
             <LessonPodcastCard topicId={topicId} topicTitle={resolvedTopicTitle || heroTopicTitle} />
         ) : null}
-
-        <details className="group border-t border-border-subtle">
-            <summary className="flex cursor-pointer list-none items-center gap-3 py-4 [&::-webkit-details-marker]:hidden">
-                <span className="min-w-0 flex-1">
-                    <span className="block text-body-md font-semibold leading-tight text-text-primary">Guided study path</span>
-                    <span className="mt-0.5 block text-caption text-text-muted">A section-by-section walkthrough of this lesson.</span>
-                </span>
-                <AppIcon name="expand_more" className="text-[20px] text-text-muted transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="pb-5 pt-1">
-                <GuidedStudyPath
-                    topicTitle={resolvedTopicTitle}
-                    blocks={filteredBlocks}
-                    onAskTutor={handleAskTutor}
-                />
-            </div>
-        </details>
     </>
 );
 

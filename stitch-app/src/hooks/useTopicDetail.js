@@ -32,6 +32,7 @@ import {
     getCurrentHashTargetId,
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
+import { splitBlocksIntoSections, buildLessonSteps } from '../lib/lessonSections';
 
 const fetchTopicPayload = async (topicId) => {
     const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}`, {
@@ -49,7 +50,7 @@ const fetchTopicPayload = async (topicId) => {
         _id: topic.id || topic._id,
         sourceUploadId: topic.sourceUploadId || topic.uploadId || null,
         assessmentRoute: topic.assessmentRoute || 'topic_quiz',
-        orderingCheck: topic.orderingCheck || null,
+        inLessonChecks: Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : [],
     };
 };
 
@@ -112,6 +113,7 @@ export const useTopicDetail = () => {
     const [sourceOpen, setSourceOpen] = useState(false);
     const [topicQueryResult, setTopicQueryResult] = useState(undefined);
     const [topicProgress, setTopicProgress] = useState(null);
+    const [currentStepSpeech, setCurrentStepSpeech] = useState('');
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
         // Default to full lesson so direct links (e.g. lesson cards) open readable content
@@ -408,15 +410,15 @@ export const useTopicDetail = () => {
         ? normalizedContent.split(/\\n|\n/).filter(Boolean)
         : null;
     const speechText = useMemo(() => {
-        if (!normalizedContent || typeof normalizedContent !== 'string') return '';
-        return normalizedContent
+        if (!currentStepSpeech) return '';
+        return currentStepSpeech
             .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
             .replace(/\*\*(.*?)\*\*/g, '$1')
             .replace(/\*(.*?)\*/g, '$1')
             .replace(/[#>`_~-]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-    }, [normalizedContent]);
+    }, [currentStepSpeech]);
     const previousSpeechTextRef = useRef(speechText);
     const previousVoiceModeRef = useRef(voiceModeEnabled);
 
@@ -813,18 +815,14 @@ export const useTopicDetail = () => {
         });
     }, [parsed.blocks, studyMode]);
 
-    const displayBlocks = useMemo(() => {
-        const blocksWithWidgets = [];
-        let insertedQuickCheck = false;
-        let insertedWordBank = false;
-        let skippedDuplicateTitle = false;
+    const lessonSteps = useMemo(() => {
         const normalizeTitle = (value) => String(value || '')
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, ' ')
             .trim();
         const pageTitleKey = normalizeTitle(resolvedTopicTitle);
-
-        for (const block of filteredBlocks) {
+        let skippedDuplicateTitle = false;
+        const sectionBlocks = filteredBlocks.filter((block) => {
             if (
                 !skippedDuplicateTitle
                 && block.type === 'header'
@@ -833,71 +831,21 @@ export const useTopicDetail = () => {
                 && normalizeTitle(block.text) === pageTitleKey
             ) {
                 skippedDuplicateTitle = true;
-                continue;
+                return false;
             }
+            return true;
+        });
+        return buildLessonSteps({
+            sections: splitBlocksIntoSections(sectionBlocks),
+            checks: topic?.inLessonChecks || [],
+            wordBankTerms,
+            studyMode,
+        });
+    }, [filteredBlocks, resolvedTopicTitle, topic?.inLessonChecks, wordBankTerms, studyMode]);
 
-            blocksWithWidgets.push(block);
-
-            if (block.type !== 'header') {
-                continue;
-            }
-
-            const normalized = block.text.toLowerCase().replace(SECTION_TEXT_STRIP_PATTERN, '').trim();
-
-            if (
-                !insertedQuickCheck
-                && parsed.quickCheckPairs?.length > 0
-                && QUICK_CHECK_SECTION_PATTERN.test(normalized)
-            ) {
-                blocksWithWidgets.push({
-                    type: 'quickcheck_widget',
-                    key: `${block.key}-quickcheck-widget`,
-                });
-                insertedQuickCheck = true;
-            }
-
-            if (
-                !insertedWordBank
-                && wordBankTerms?.length > 0
-                && WORD_BANK_SECTION_PATTERN.test(normalized)
-            ) {
-                blocksWithWidgets.push({
-                    type: 'wordbank_widget',
-                    key: `${block.key}-wordbank-widget`,
-                });
-                insertedWordBank = true;
-            }
-        }
-
-        if (!insertedQuickCheck && parsed.quickCheckPairs?.length > 0) {
-            blocksWithWidgets.push({
-                type: 'quickcheck_widget',
-                key: 'quickcheck-widget-fallback',
-            });
-        }
-
-        if (!insertedWordBank && wordBankTerms?.length > 0) {
-            blocksWithWidgets.push({
-                type: 'wordbank_widget',
-                key: 'wordbank-widget-fallback',
-            });
-        }
-
-        if (topic?.orderingCheck?.stepsInOrder?.length === 3) {
-            const quickCheckIndex = blocksWithWidgets.findIndex((block) => block.type === 'quickcheck_widget');
-            const orderingBlock = {
-                type: 'ordering_widget',
-                key: 'ordering-widget',
-            };
-            if (quickCheckIndex >= 0) {
-                blocksWithWidgets.splice(quickCheckIndex + 1, 0, orderingBlock);
-            } else {
-                blocksWithWidgets.push(orderingBlock);
-            }
-        }
-
-        return blocksWithWidgets;
-    }, [filteredBlocks, parsed.quickCheckPairs, resolvedTopicTitle, topic?.orderingCheck, wordBankTerms]);
+    const handleLessonStepChange = useCallback((payload) => {
+        setCurrentStepSpeech(payload?.speechText || '');
+    }, []);
 
     useEffect(() => {
         if (!studyMode) return undefined;
@@ -906,7 +854,7 @@ export const useTopicDetail = () => {
             scrollHashTargetIntoView({ behavior: 'auto' });
         }, 100);
         return () => window.clearTimeout(timer);
-    }, [displayBlocks, studyMode]);
+    }, [lessonSteps, studyMode]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -1127,10 +1075,10 @@ export const useTopicDetail = () => {
         contentRef,
         courseHref,
         courseId,
-        displayBlocks,
         examTopicId,
         filteredBlocks,
         handleAskTutor,
+        handleLessonStepChange,
         handleReExplain,
         handleStartExam,
         handleStudyModeSelect,
@@ -1147,6 +1095,7 @@ export const useTopicDetail = () => {
         isTopicQuizRoute,
         isVoiceSupported,
         lessonStatusBadge,
+        lessonSteps,
         mainRef,
         mobileActionItems,
         normalizedContent,
@@ -1156,7 +1105,6 @@ export const useTopicDetail = () => {
         openChat,
         openNotes,
         openSource,
-        orderingCheck: topic?.orderingCheck || null,
         parsed,
         pauseVoice,
         playVoice,

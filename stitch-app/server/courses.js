@@ -53,13 +53,19 @@ const toClientTopic = (row, extras = {}) => {
         sortOrder: Number(row.sort_order || 0),
         questionCount: Number(extras.questionCount ?? row.question_count ?? 0),
         orderingCheck: extras.orderingCheck ?? row.orderingCheck ?? null,
+        inLessonChecks: extras.inLessonChecks ?? row.inLessonChecks ?? [],
         assessmentRoute: "topic_quiz",
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
     };
 };
 
-const MCQ_TYPE_SQL = `COALESCE(question_type, 'multiple_choice') = 'multiple_choice'`;
+const quizQuestionSql = (alias = "") => {
+    const prefix = alias ? `${alias}.` : "";
+    return `COALESCE(${prefix}question_type, 'multiple_choice') = 'multiple_choice' AND COALESCE(${prefix}surface, 'quiz') = 'quiz'`;
+};
+
+const MCQ_TYPE_SQL = quizQuestionSql("");
 
 const toClientQuestion = (row) => {
     if (!row) return null;
@@ -76,27 +82,46 @@ const toClientQuestion = (row) => {
     };
 };
 
-const toClientOrderingCheck = (row) => {
-    if (!row) return null;
-    let payload = row.payload;
-    if (typeof payload === "string") {
+const shuffleCopy = (items) => {
+    const copy = [...items];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+};
+
+const parsePayload = (raw) => {
+    if (!raw) return {};
+    if (typeof raw === "string") {
         try {
-            payload = JSON.parse(payload);
+            return JSON.parse(raw) || {};
         } catch {
-            payload = {};
+            return {};
         }
     }
-    const steps = Array.isArray(payload?.stepsInOrder)
-        ? payload.stepsInOrder
-        : Array.isArray(row.options)
-          ? row.options
-          : [];
-    if (steps.length < 3) return null;
+    return typeof raw === "object" ? raw : {};
+};
+
+const toPlayableInLessonCheck = (row) => {
+    if (!row) return null;
+    const payload = parsePayload(row.payload);
+    const questionType = row.question_type || "multiple_choice";
+    let options = Array.isArray(row.options) ? row.options : row.options || [];
+    if (questionType === "ordering") {
+        const steps = Array.isArray(payload.stepsInOrder) ? payload.stepsInOrder : options;
+        options = shuffleCopy(steps.map((step) => String(step || "").trim()).filter(Boolean));
+        if (options.length > 1 && options.every((step, index) => step === steps[index])) {
+            [options[0], options[options.length - 1]] = [options[options.length - 1], options[0]];
+        }
+    }
     return {
+        id: row.id,
         prompt: row.prompt,
-        stepsInOrder: steps.slice(0, 3),
-        explanation: row.explanation || "",
-        hint: row.hint || "",
+        options,
+        questionType,
+        sectionTitle: payload.sectionTitle || "",
+        sortOrder: Number(row.sort_order || 0),
     };
 };
 
@@ -197,13 +222,23 @@ export const ensureCourseFromUpload = async ({
             ],
         );
 
-        const questionSpecs = Array.isArray(spec.questions) ? spec.questions : [];
+        const questionSpecs = [
+            ...(Array.isArray(spec.questions) ? spec.questions : []).map((question) => ({
+                ...question,
+                surface: question.surface || "quiz",
+            })),
+            ...(Array.isArray(spec.inLessonChecks) ? spec.inLessonChecks : []).map((question) => ({
+                ...question,
+                surface: "in_lesson",
+            })),
+        ];
         for (const question of questionSpecs) {
+            if (!question?.prompt) continue;
             await db.query(
                 `INSERT INTO questions (
                     id, topic_id, course_id, user_id, prompt, options, correct_index, explanation, sort_order,
-                    question_type, payload, hint
-                 ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11::jsonb,$12)`,
+                    question_type, payload, hint, surface
+                 ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11::jsonb,$12,$13)`,
                 [
                     nanoid(),
                     topicId,
@@ -212,15 +247,22 @@ export const ensureCourseFromUpload = async ({
                     question.prompt,
                     JSON.stringify(
                         question.questionType === "ordering"
-                            ? question.stepsInOrder || question.options
-                            : question.options,
+                            ? question.stepsInOrder || question.options || []
+                            : question.options || [],
                     ),
                     question.questionType === "ordering" ? 0 : question.correctIndex,
                     question.explanation || null,
                     question.sortOrder ?? 0,
                     question.questionType || "multiple_choice",
-                    JSON.stringify(question.payload || {}),
+                    JSON.stringify({
+                        ...(question.payload && typeof question.payload === "object" ? question.payload : {}),
+                        ...(question.sectionTitle ? { sectionTitle: question.sectionTitle } : {}),
+                        ...(question.questionType === "ordering"
+                            ? { stepsInOrder: question.stepsInOrder || question.options || [] }
+                            : {}),
+                    }),
                     question.hint || null,
+                    question.surface || "quiz",
                 ],
             );
         }
@@ -276,7 +318,7 @@ export const listCoursesForUser = async (userId) => {
          LEFT JOIN LATERAL (
             SELECT t2.id AS first_quiz_topic_id
             FROM topics t2
-            INNER JOIN questions qq ON qq.topic_id = t2.id AND ${MCQ_TYPE_SQL.replaceAll("question_type", "qq.question_type")}
+            INNER JOIN questions qq ON qq.topic_id = t2.id AND ${quizQuestionSql("qq")}
             WHERE t2.course_id = c.id
             ORDER BY t2.sort_order ASC, t2.created_at ASC
             LIMIT 1
@@ -378,18 +420,18 @@ export const getTopicForUser = async (userId, topicId) => {
         [topic.course_id, userId],
     );
 
-    const orderingResult = await db.query(
-        `SELECT prompt, explanation, hint, payload, options
+    const inLessonResult = await db.query(
+        `SELECT id, prompt, options, question_type, payload, sort_order
          FROM questions
-         WHERE topic_id = $1 AND user_id = $2 AND question_type = 'ordering'
-         ORDER BY sort_order ASC, created_at ASC
-         LIMIT 1`,
+         WHERE topic_id = $1 AND user_id = $2 AND COALESCE(surface, 'quiz') = 'in_lesson'
+         ORDER BY sort_order ASC, created_at ASC`,
         [topicId, userId],
     );
+    const inLessonChecks = inLessonResult.rows.map(toPlayableInLessonCheck).filter(Boolean);
 
     return {
         topic: toClientTopic(topic, {
-            orderingCheck: toClientOrderingCheck(orderingResult.rows[0] || null),
+            inLessonChecks,
         }),
         course: toClientCourse(courseResult.rows[0] || null),
     };
@@ -629,28 +671,150 @@ export const getPublicCourseByShareToken = async (token) => {
          ORDER BY sort_order ASC, created_at ASC`,
         [course.id],
     );
-    const orderingResult = await db.query(
-        `SELECT topic_id, prompt, explanation, hint, payload, options
+    const checksResult = await db.query(
+        `SELECT id, topic_id, prompt, options, question_type, payload, sort_order
          FROM questions
-         WHERE course_id = $1 AND question_type = 'ordering'
+         WHERE course_id = $1 AND COALESCE(surface, 'quiz') = 'in_lesson'
          ORDER BY sort_order ASC, created_at ASC`,
         [course.id],
     );
-    const orderingByTopic = new Map();
-    for (const row of orderingResult.rows) {
-        if (orderingByTopic.has(row.topic_id)) continue;
-        orderingByTopic.set(row.topic_id, toClientOrderingCheck(row));
+    const checksByTopic = new Map();
+    for (const row of checksResult.rows) {
+        const list = checksByTopic.get(row.topic_id) || [];
+        list.push(toPlayableInLessonCheck(row));
+        checksByTopic.set(row.topic_id, list);
     }
 
     return {
         title: course.title,
         description: course.description || "",
         topics: topicsResult.rows.map((row) => ({
+            id: row.id,
             title: row.title,
             description: row.description || "",
             content: row.content || "",
             sortOrder: Number(row.sort_order || 0),
-            orderingCheck: orderingByTopic.get(row.id) || null,
+            inLessonChecks: (checksByTopic.get(row.id) || []).filter(Boolean),
         })),
     };
 };
+
+const gradeInLessonRow = (row, { selectedIndex, orderedSteps } = {}) => {
+    const questionType = row.question_type || "multiple_choice";
+    const payload = parsePayload(row.payload);
+    const options = Array.isArray(row.options) ? row.options : [];
+    if (questionType === "ordering") {
+        const canonical = (Array.isArray(payload.stepsInOrder) ? payload.stepsInOrder : options)
+            .map((step) => String(step || "").trim())
+            .filter(Boolean);
+        const submitted = (Array.isArray(orderedSteps) ? orderedSteps : [])
+            .map((step) => String(step || "").trim())
+            .filter(Boolean);
+        const correct =
+            canonical.length === submitted.length
+            && canonical.length >= 3
+            && canonical.every((step, index) => step === submitted[index]);
+        return {
+            correct,
+            explanation: row.explanation || "",
+            hint: row.hint || "",
+            correctIndex: 0,
+            stepsInOrder: canonical,
+            questionType,
+        };
+    }
+    const selected = Number(selectedIndex);
+    const correctIndex = Number(row.correct_index || 0);
+    return {
+        correct: Number.isFinite(selected) && selected === correctIndex,
+        explanation: row.explanation || "",
+        hint: row.hint || "",
+        correctIndex,
+        questionType,
+    };
+};
+
+export const submitLessonCheck = async ({
+    userId,
+    topicId,
+    questionId,
+    selectedIndex,
+    orderedSteps,
+}) => {
+    const payload = await getTopicForUser(userId, topicId);
+    if (!payload?.topic) {
+        const error = new Error("Topic not found");
+        error.status = 404;
+        throw error;
+    }
+    const db = getPool();
+    const result = await db.query(
+        `SELECT *
+         FROM questions
+         WHERE id = $1 AND topic_id = $2 AND user_id = $3 AND COALESCE(surface, 'quiz') = 'in_lesson'
+         LIMIT 1`,
+        [questionId, topicId, userId],
+    );
+    const row = result.rows[0];
+    if (!row) {
+        const error = new Error("Lesson check not found");
+        error.status = 404;
+        throw error;
+    }
+    const graded = gradeInLessonRow(row, { selectedIndex, orderedSteps });
+    try {
+        const { getTopicProgressForUser, upsertTopicProgressForUser } = await import("./topicNotes.js");
+        const existing = await getTopicProgressForUser(userId, topicId);
+        const nextChecks = {
+            ...(existing?.lessonChecks || {}),
+            [questionId]: {
+                selectedIndex: Number.isFinite(Number(selectedIndex)) ? Number(selectedIndex) : null,
+                orderedSteps: Array.isArray(orderedSteps) ? orderedSteps : null,
+                correct: graded.correct,
+                at: Date.now(),
+            },
+        };
+        await upsertTopicProgressForUser(userId, topicId, {
+            lastStudiedAt: Date.now(),
+            lessonChecks: nextChecks,
+        });
+    } catch (error) {
+        console.warn("[courses] lesson check progress failed", {
+            message: error?.message || String(error),
+        });
+    }
+    return { questionId, ...graded };
+};
+
+export const submitPublicLessonCheck = async ({
+    token,
+    questionId,
+    selectedIndex,
+    orderedSteps,
+}) => {
+    const shareToken = String(token || "").trim();
+    if (!shareToken || !questionId) {
+        const error = new Error("Shared course not found");
+        error.status = 404;
+        throw error;
+    }
+    const db = getPool();
+    const result = await db.query(
+        `SELECT q.*
+         FROM questions q
+         INNER JOIN courses c ON c.id = q.course_id
+         WHERE q.id = $1
+           AND c.share_token = $2
+           AND COALESCE(q.surface, 'quiz') = 'in_lesson'
+         LIMIT 1`,
+        [questionId, shareToken],
+    );
+    const row = result.rows[0];
+    if (!row) {
+        const error = new Error("Lesson check not found");
+        error.status = 404;
+        throw error;
+    }
+    return { questionId, ...gradeInLessonRow(row, { selectedIndex, orderedSteps }) };
+};
+

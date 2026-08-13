@@ -1,8 +1,6 @@
 import React, { memo } from 'react';
-import InteractiveQuickCheck from './InteractiveQuickCheck';
 import InteractiveWordBank from './InteractiveWordBank';
 import LessonDefinitionBlock from './LessonDefinitionBlock';
-import LessonOrderingCheck from './lesson/LessonOrderingCheck';
 import AppIcon from './AppIcon';
 
 const HEADER_SIZES = {
@@ -74,7 +72,7 @@ const getHeaderIcon = (text) => {
  * Parse inline markdown into styled React elements.
  * Handles: **bold**, *italic*, `code`, and [link](url).
  */
-const parseInlineFormatting = (text, cleanInline) => {
+const parseInlineFormatting = (text, cleanInline = (value) => value) => {
     if (!text) return '';
     const TOKEN_RE = /(\*\*[^*]+?\*\*|\*[^*\n]+?\*|`[^`\n]+?`|\[[^\]]+?\]\([^)]+?\))/g;
     const parts = text.split(TOKEN_RE);
@@ -194,12 +192,10 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
     cleanInline,
     onViewSource,
     onAskTutor,
-    quickCheckPairs,
     wordBankTerms,
     topicId,
     starredTerms,
     onTermsStarred,
-    orderingCheck,
 }) {
     const bold = (text) => parseInlineFormatting(text, cleanInline);
 
@@ -308,25 +304,6 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                             <span aria-hidden="true" className="mt-2.5 size-1.5 shrink-0 rounded-full bg-text-muted/70" />
                             <span className="text-[15px] leading-7 text-neutral-700 dark:text-neutral-300 md:text-base">{bold(block.text)}</span>
                         </div>
-                    );
-                }
-
-                if (block.type === 'quickcheck_widget') {
-                    return (
-                        <InteractiveQuickCheck
-                            key={block.key}
-                            pairs={quickCheckPairs}
-                            topicId={topicId}
-                        />
-                    );
-                }
-
-                if (block.type === 'ordering_widget') {
-                    return (
-                        <LessonOrderingCheck
-                            key={block.key}
-                            check={orderingCheck}
-                        />
                     );
                 }
 

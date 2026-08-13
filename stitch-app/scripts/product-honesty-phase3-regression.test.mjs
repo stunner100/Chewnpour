@@ -43,6 +43,7 @@ assert.match(kids, /ParkedFeatureView/, 'kids route page must use honest parked 
 assert.doesNotMatch(podcasts, /ParkedFeatureView/, 'podcasts page must be live, not parked');
 assert.doesNotMatch(sharePage, /ParkedFeatureView/, 'public share page must be live, not parked');
 assert.match(sharePage, /\/api\/share\//, 'public share page must load generated topics');
+assert.match(sharePage, /LessonSectionStepper/, 'public share page must use the live section stepper');
 assert.doesNotMatch(sharePage, /\/api\/topics\/.+\/chat/, 'shared course must not include tutor');
 assert.match(app, /path="\/c\/:token"/, 'public share route must be live');
 assert.doesNotMatch(app, /ParkedDashboardFeature title="Study podcasts"/, 'podcasts route must be live');

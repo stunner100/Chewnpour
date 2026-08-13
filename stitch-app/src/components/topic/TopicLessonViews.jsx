@@ -76,10 +76,9 @@ export const TopicLessonMainColumn = ({ controller }) => {
         cleanLine,
         contentLines,
         contentRef,
-        displayBlocks,
         examTopicId,
-        filteredBlocks,
         handleAskTutor,
+        handleLessonStepChange,
         handleTermsStarred,
         heroTopicTitle,
         isPaused,
@@ -87,7 +86,9 @@ export const TopicLessonMainColumn = ({ controller }) => {
         isTopicQuizRoute,
         isVoiceSupported,
         mainRef,
+        lessonSteps,
         normalizedContent,
+        objectiveExamRoute,
         openChat,
         openSource,
         parsed,
@@ -112,7 +113,6 @@ export const TopicLessonMainColumn = ({ controller }) => {
         voicePlaybackError,
         voiceStatus,
         wordBankTerms,
-        orderingCheck,
     } = controller;
 
     return (
@@ -122,15 +122,16 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 cleanLine={cleanLine}
                 contentLines={contentLines}
                 contentRef={contentRef}
-                displayBlocks={displayBlocks}
-                filteredBlocks={filteredBlocks}
                 handleAskTutor={handleAskTutor}
+                handleLessonStepChange={handleLessonStepChange}
                 handleTermsStarred={handleTermsStarred}
                 heroTopicTitle={heroTopicTitle}
                 isPaused={isPaused}
                 isPlaying={isPlaying}
                 isVoiceSupported={isVoiceSupported}
+                lessonSteps={lessonSteps}
                 normalizedContent={normalizedContent}
+                objectiveExamRoute={objectiveExamRoute}
                 openSource={openSource}
                 parsed={parsed}
                 pauseVoice={pauseVoice}
@@ -149,7 +150,6 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 voicePlaybackError={voicePlaybackError}
                 voiceStatus={voiceStatus}
                 wordBankTerms={wordBankTerms}
-                orderingCheck={orderingCheck}
             />
             <TopicQuizPanel
                 examTopicId={examTopicId}
@@ -307,7 +307,7 @@ export const TopicLessonBreadcrumbs = ({ courseTitle, courseHref, topicTitle }) 
     </nav>
 );
 
-export const TopicMetaBadges = ({ sourceLabel: _sourceLabel, topicProgress }) => {
+export const TopicMetaBadges = ({ topicProgress }) => {
     const completed = Boolean(topicProgress?.completedAt);
     const bestScore = Number(topicProgress?.bestScore ?? 0);
     let masteryLabel = 'In progress';

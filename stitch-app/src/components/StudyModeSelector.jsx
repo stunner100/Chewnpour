@@ -26,7 +26,7 @@ const MODES = [
     {
         id: 'practice_only',
         title: 'Practice Only',
-        description: 'Jump straight to quick check and quizzes',
+        description: 'Jump to in-lesson checks and the word bank',
         icon: 'quiz',
         color: 'text-accent-purple',
     },

@@ -33,6 +33,8 @@ assert.doesNotMatch(page, /ParkedFeatureView/, 'share page must be a live featur
 assert.doesNotMatch(page, /\/api\/topics\/.+\/chat/, 'shared course must not load tutor');
 assert.doesNotMatch(page, /from-upload/, 'shared course must not generate');
 assert.match(page, /\/api\/share\//, 'share page must load the public course API');
+assert.match(page, /LessonSectionStepper/, 'shared course must use the same section stepper');
+assert.match(courseHttp, /lesson-check/, 'public share must grade in-lesson checks');
 assert.match(lessons, /Create share link/, 'course lessons page must offer owner opt-in sharing');
 assert.match(lessons, /\/api\/courses\/\$\{encodeURIComponent\(course.id\)\}\/share/, 'share toggle must call the owner API');
 

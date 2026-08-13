@@ -10,7 +10,7 @@ export const isReExplainQuotaExceededError = (error) => {
 export const SECTION_SETS = {
     quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
     exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
-    practice_only: ['quick check', 'self-check', 'self-check prompts'],
+    practice_only: null,
     full: null,
 };
 export const EMBEDDED_SECTION_SPLIT_PATTERN = new RegExp(`((?:^|\\s)(?:${SECTION_TITLE_PATTERN})\\s*(?:[:\\-]|\\b))`, 'i');

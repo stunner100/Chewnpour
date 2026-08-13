@@ -27,6 +27,8 @@ assert.equal(score.duplicatePairs, 0, 'near-duplicate MCQs must be removed befor
 assert.ok(score.groundedRatio >= 0.5, 'answers must be grounded in the topic snippet');
 assert.ok(score.orderingCount >= 1, 'has_process fixture must keep a process-ordering check');
 assert.equal(score.processOk, true);
+assert.ok(score.inLessonCount >= 2, 'multi-section fixture must emit in-lesson checks');
+assert.equal(score.inLessonCoverageOk, true, 'each multi-section topic must have in-lesson coverage');
 
 const orderingSource = await fs.readFile(path.join(root, 'src', 'components', 'lesson', 'LessonOrderingCheck.jsx'), 'utf8');
 assert.match(orderingSource, /draggable/, 'ordering UI must use drag-and-drop');
@@ -38,13 +40,14 @@ assert.doesNotMatch(
 );
 
 const coursesSource = await fs.readFile(path.join(root, 'server', 'courses.js'), 'utf8');
-assert.match(coursesSource, /question_type = 'ordering'/, 'topic GET must load ordering checks');
+assert.match(coursesSource, /= 'in_lesson'/, 'topic GET must load in-lesson checks');
 assert.match(coursesSource, /MCQ_TYPE_SQL/, 'quizzes must exclude ordering rows');
 
 const examsSource = await fs.readFile(path.join(root, 'server', 'exams.js'), 'utf8');
 assert.match(examsSource, /question_type, 'multiple_choice'/, 'exams must stay MCQ-only');
+assert.match(examsSource, /surface, 'quiz'/, 'exams must require surface=quiz');
 
-const renderer = await fs.readFile(path.join(root, 'src', 'components', 'LessonContentRenderer.jsx'), 'utf8');
-assert.match(renderer, /ordering_widget/, 'lesson renderer must mount the ordering widget under Quick Check');
+const stepper = await fs.readFile(path.join(root, 'src', 'components', 'lesson', 'LessonSectionStepper.jsx'), 'utf8');
+assert.match(stepper, /LessonInlineCheck/, 'lesson stepper must mount in-lesson checks');
 
 console.log('course-generation-eval.test.mjs passed', score);
