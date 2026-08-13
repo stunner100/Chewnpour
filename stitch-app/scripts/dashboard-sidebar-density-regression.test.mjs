@@ -28,7 +28,7 @@ requireIncludes(sidebarSource, 'Generate Material', 'primary sidebar CTA');
 requireIncludes(sidebarSource, 'profile?.fullName', 'profile fullName for sidebar display name');
 requireIncludes(sidebarSource, 'profile?.avatarUrl', 'profile avatarUrl for sidebar avatar');
 requireExcludes(sidebarSource, '/dashboard/flashcards', 'parked flashcards nav');
-requireExcludes(sidebarSource, '/dashboard/podcasts', 'parked podcasts nav');
+requireIncludes(sidebarSource, '/dashboard/podcasts', 'podcasts sidebar nav');
 requireIncludes(navMainSource, 'SidebarMenuButton', 'compact sidebar menu buttons');
 requireIncludes(navMainSource, 'tooltip={item.title}', 'icon-collapsed tooltips');
 requireIncludes(sidebarUiSource, 'w-[var(--sidebar-width)]', 'tailwind v3 sidebar width classes');

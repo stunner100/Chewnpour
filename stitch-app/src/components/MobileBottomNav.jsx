@@ -9,12 +9,13 @@ const primaryTabs = [
     { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', matchPaths: ['/dashboard/progress'] },
 ];
 
-const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-tutor', '/dashboard/exam', '/dashboard/settings'];
+const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-tutor', '/dashboard/exam', '/dashboard/podcasts', '/dashboard/settings'];
 
 const moreItems = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, or PPTX files' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'All uploaded files and progress' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
+    { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
     { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', description: 'Ask follow-up questions' },
     { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
 ];

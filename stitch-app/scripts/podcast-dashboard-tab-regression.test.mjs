@@ -27,23 +27,23 @@ const requireExcludes = (source, snippet, label) => {
 
 requireIncludes(
   appSource,
-  '<Route path="/dashboard/podcasts" element={<Navigate to="/dashboard" replace />} />',
+  '<Route path="/dashboard/podcasts" element={<ParkedDashboardFeature title="Study podcasts" />} />',
   'App.jsx',
 );
 requireExcludes(appSource, "import('./pages/DashboardPodcasts')", 'App.jsx');
 requireExcludes(appSource, 'DashboardPodcasts', 'App.jsx');
 
-requireExcludes(
+requireIncludes(
   appSidebarSource,
   "/dashboard/podcasts",
   'app-sidebar.jsx',
 );
-requireExcludes(
+requireIncludes(
   mobileBottomNavSource,
   '/dashboard/podcasts',
   'MobileBottomNav.jsx',
 );
-requireExcludes(
+requireIncludes(
   commandPaletteSource,
   "/dashboard/podcasts",
   'CommandPalette.jsx',
