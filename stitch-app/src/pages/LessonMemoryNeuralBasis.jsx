@@ -180,8 +180,8 @@ const LessonMemoryNeuralBasis = () => {
                         ? (formatCourseTitle(selectedCourse.title) || selectedCourse.title)
                         : 'Your courses'}
                 </h1>
-                <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
-                    Topics are generated from your uploads. Open a lesson to study, or jump into a quiz when questions are ready.
+                <p className="mt-2 max-w-2xl text-pretty text-body-md text-text-secondary">
+                    Read a lesson, or take a quiz when questions are ready.
                 </p>
 
                 {error && (
@@ -207,54 +207,62 @@ const LessonMemoryNeuralBasis = () => {
                                 </Link>
                             </div>
                         ) : (
-                            courses.map((course) => (
-                                <div
+                            courses.map((course) => {
+                                const courseTitle = formatCourseTitle(course.title) || course.title;
+                                const readHref = course.firstTopicId
+                                    ? `/dashboard/topic/${encodeURIComponent(course.firstTopicId)}`
+                                    : `/dashboard/lessons?courseId=${encodeURIComponent(course.id)}`;
+                                return (
+                                <article
                                     key={course.id}
                                     className="rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm"
                                 >
-                                    <Link
-                                        to={`/dashboard/lessons?courseId=${encodeURIComponent(course.id)}`}
-                                        className="flex items-center justify-between gap-4 transition-opacity hover:opacity-90"
-                                    >
-                                        <div className="min-w-0">
-                                            <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                                                <AppIcon name="menu_book" className="text-[22px]" />
+                                    <div className="min-w-0">
+                                        <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+                                            <AppIcon name="menu_book" className="text-[22px]" />
+                                        </div>
+                                        <h2 className="font-display text-display-sm font-bold text-text-primary">
+                                            {courseTitle}
+                                        </h2>
+                                        <p className="mt-1 text-body-sm text-text-secondary">
+                                            {course.topicCount} topics · {course.quizzesReady} quizzes ready
+                                        </p>
+                                    </div>
+                                    <div className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4">
+                                        <Link
+                                            to={readHref}
+                                            className="btn-primary inline-flex w-full min-h-11 items-center justify-center gap-2 text-body-sm"
+                                            aria-label={`Read lessons for ${courseTitle}`}
+                                        >
+                                            Read lessons
+                                            <AppIcon name="arrow_forward" className="text-[16px]" />
+                                        </Link>
+                                        {Number(course.quizzesReady || 0) > 0 ? (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Link
+                                                    to={
+                                                        course.firstQuizTopicId
+                                                            ? `/dashboard/quiz/${encodeURIComponent(course.firstQuizTopicId)}`
+                                                            : '/dashboard/quiz'
+                                                    }
+                                                    className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
+                                                >
+                                                    <AppIcon name="quiz" className="text-[16px]" />
+                                                    Practice quiz
+                                                </Link>
+                                                <Link
+                                                    to={`/dashboard/exam?courseId=${encodeURIComponent(course.id)}`}
+                                                    className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
+                                                >
+                                                    <AppIcon name="school" className="text-[16px]" />
+                                                    Timed exam
+                                                </Link>
                                             </div>
-                                            <h2 className="font-display text-display-sm font-bold text-text-primary">
-                                                {formatCourseTitle(course.title) || course.title}
-                                            </h2>
-                                            <p className="mt-1 text-body-sm text-text-secondary">
-                                                {course.topicCount} topics · {course.quizzesReady} quizzes ready
-                                            </p>
-                                        </div>
-                                        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-soft text-text-secondary">
-                                            <AppIcon name="arrow_forward" className="text-[18px]" />
-                                        </span>
-                                    </Link>
-                                    {Number(course.quizzesReady || 0) > 0 ? (
-                                        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
-                                            <Link
-                                                to={
-                                                    course.firstQuizTopicId
-                                                        ? `/dashboard/quiz/${encodeURIComponent(course.firstQuizTopicId)}`
-                                                        : '/dashboard/quiz'
-                                                }
-                                                className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
-                                            >
-                                                <AppIcon name="quiz" className="text-[16px]" />
-                                                Practice quiz
-                                            </Link>
-                                            <Link
-                                                to={`/dashboard/exam?courseId=${encodeURIComponent(course.id)}`}
-                                                className="btn-secondary inline-flex min-h-10 items-center justify-center gap-1.5 text-body-sm"
-                                            >
-                                                <AppIcon name="school" className="text-[16px]" />
-                                                Timed exam
-                                            </Link>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            ))
+                                        ) : null}
+                                    </div>
+                                </article>
+                                );
+                            })
                         )}
                     </div>
                 )}
@@ -347,7 +355,7 @@ const LessonMemoryNeuralBasis = () => {
                                                 to={`/dashboard/topic/${encodeURIComponent(topic.id)}`}
                                                 className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm"
                                             >
-                                                Open lesson
+                                                Read lesson
                                                 <AppIcon name="arrow_forward" className="text-[16px]" />
                                             </Link>
                                             {Number(topic.questionCount || 0) > 0 && (
