@@ -11,6 +11,12 @@ import {
     splitMarkdownIntoSections,
     eligibleLessonSectionTitles,
 } from "../src/lib/lessonSections.js";
+import {
+    classifyLessonKind,
+    normalizeLessonKind,
+    promptBlockForLessonKind,
+    spineForLessonKind,
+} from "../src/lib/lessonKind.js";
 
 const MAX_SOURCE_CHARS = 12000;
 const MAX_TOPICS = 5;
@@ -18,17 +24,6 @@ const MAX_QUESTIONS_PER_TOPIC = 3;
 const MAX_TOPIC_CONTENT_CHARS = 8000;
 const TOPIC_SNIPPET_CHARS = 2500;
 const TOPIC_GEN_CONCURRENCY = 3;
-const STEPPER_SECTION_TITLES = [
-    "Simple Introduction",
-    "Key Ideas in Plain English",
-    "Step-by-Step Breakdown",
-    "Worked Example",
-    "Common Mistakes and Misconceptions",
-    "Everyday Analogy",
-    "Practical Use Cases",
-    "Word Bank",
-    "Summary",
-];
 
 const normalizeWhitespace = (value = "") =>
     String(value || "").replace(/\s+/g, " ").trim();
@@ -260,6 +255,7 @@ const parseOutlinePayload = (parsed) => {
             title: normalizeWhitespace(item?.title).slice(0, 180),
             description: normalizeWhitespace(item?.description).slice(0, 280),
             focus: normalizeWhitespace(item?.focus || item?.sourceSpan || item?.span).slice(0, 280),
+            kind: normalizeLessonKind(item?.kind),
         }))
         .filter((item) => item.title)
         .slice(0, MAX_TOPICS);
@@ -274,9 +270,11 @@ const generateOutline = async ({ fileName, clipped }) => {
                 content: [
                     "You are ChewnPour's study curriculum planner.",
                     "Return ONLY valid JSON with this shape:",
-                    '{"topics":[{"title":"string","description":"string","focus":"short source phrase this topic owns"}]}',
+                    '{"topics":[{"title":"string","description":"string","focus":"short source phrase this topic owns","kind":"narrative|procedure|concept|argument"}]}',
                     `Create 3-${MAX_TOPICS} topics grounded only in the source text.`,
                     "Each focus must be a distinctive heading, term, or sentence span from the source.",
+                    "kind must match the topic: narrative for history and events, procedure for how-to and processes the learner can perform, concept for ideas and mechanisms, argument for claims and debates.",
+                    "Do not assign the same kind to every topic unless the source truly has only one type.",
                     "Do not write the lesson body yet.",
                 ].join(" "),
             },
@@ -302,9 +300,16 @@ const generateOneTopic = async ({
     title,
     description,
     snippet,
+    kind = null,
     previousQuestions = [],
 }) => {
-    const allowOrdering = snippetHasProcess(snippet);
+    const lessonKind =
+        normalizeLessonKind(kind) ||
+        classifyLessonKind({ title, description, snippet });
+    const allowOrdering =
+        lessonKind === "procedure" ||
+        lessonKind === "narrative" ||
+        snippetHasProcess(snippet);
     const previous = (Array.isArray(previousQuestions) ? previousQuestions : [])
         .filter(Boolean)
         .slice(-12);
@@ -313,15 +318,15 @@ const generateOneTopic = async ({
         "Return ONLY valid JSON with this shape:",
         '{"content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"inLessonChecks":[{"sectionTitle":"string","questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}',
         "Write a full grounded lesson in markdown: at least four paragraphs plus headings. Do not shrink the lesson to three sentences or flashcards.",
-        `Use these H2 titles where they fit: ${STEPPER_SECTION_TITLES.join(", ")}.`,
+        promptBlockForLessonKind(lessonKind),
         "Do not write a Quick Check Q/A section.",
         `Create 2-${MAX_QUESTIONS_PER_TOPIC} topic-quiz multiple-choice questions from THIS snippet only in questions[].`,
-        "Also create inLessonChecks: at most one check per major H2 (not Word Bank or Summary), cap 4. questionType may be multiple_choice or true_false (options True/False).",
+        `Also create inLessonChecks: at most one check per major H2 (not Word Bank or Recap from Memory), cap 4. Use sectionTitle values from: ${spineForLessonKind(lessonKind).join(", ")}. questionType may be multiple_choice or true_false (options True/False).`,
         "correctIndex must point at the correct option. Options must be unique. Prompts must not restate the topic title.",
         "inLessonChecks must not duplicate the topic-quiz questions.",
         "Hints must not name the correct option, unique answer terms, a true/false verdict, or the ordered steps.",
         allowOrdering
-            ? 'If the snippet describes a process or sequence, include at most one ordering check in inLessonChecks or set ordering to {"prompt":"string","stepsInOrder":["step 1","step 2","step 3"],"explanation":"string","hint":"string","sectionTitle":"Step-by-Step Breakdown"} with exactly 3 source-backed steps. Otherwise set ordering to null.'
+            ? `If the snippet describes a process or sequence, include at most one ordering check in inLessonChecks or set ordering to {"prompt":"string","stepsInOrder":["step 1","step 2","step 3"],"explanation":"string","hint":"string","sectionTitle":"${lessonKind === "narrative" ? "Causal Chain" : "The Steps"}"} with exactly 3 source-backed steps. Otherwise set ordering to null.`
             : "Set ordering to null. Do not invent a process check.",
         "Do not invent facts that are absent from the snippet.",
         previous.length
@@ -377,6 +382,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline,
                     title: topic.title,
                     description: topic.description,
                     snippet: snippets[index],
+                    kind: topic.kind,
                 });
             } catch (error) {
                 console.warn("[aiCourseGeneration] topic generation failed", {
@@ -422,6 +428,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline,
                 title: topic.title,
                 description: topic.description,
                 snippet: snippets[index],
+                kind: outline.topics[index]?.kind,
                 previousQuestions: collectPrompts(normalized.topics),
             });
             const merged = normalizeAiCoursePayload(
@@ -469,7 +476,12 @@ const generateCurriculumSinglePass = async ({ fileName, extractedText, clipped }
         '{"topics":[{"title":"string","description":"string","content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"inLessonChecks":[{"sectionTitle":"string","questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}]}',
         `Create 3-${MAX_TOPICS} topics grounded only in the source text.`,
         `Each topic needs 2-${MAX_QUESTIONS_PER_TOPIC} topic-quiz multiple-choice questions in questions[].`,
-        `Use these H2 titles where they fit: ${STEPPER_SECTION_TITLES.join(", ")}. Do not write Quick Check Q/A pairs.`,
+        "Assign each topic a kind: narrative, procedure, concept, or argument. Different topics must use different H2 spines when the source supports more than one kind. Do not use the same nine-section template for every topic.",
+        `Narrative H2s: ${spineForLessonKind("narrative").join(", ")}.`,
+        `Procedure H2s: ${spineForLessonKind("procedure").join(", ")}.`,
+        `Concept H2s: ${spineForLessonKind("concept").join(", ")}.`,
+        `Argument H2s: ${spineForLessonKind("argument").join(", ")}.`,
+        "Use exactly the H2 list for that topic's kind, then ## Word Bank. Do not write Quick Check Q/A pairs.",
         "Write full markdown lessons, at least four paragraphs each. Do not shrink lessons to three sentences.",
         "Also include inLessonChecks: at most one check per major H2, cap 4, distinct from the quiz bank.",
         "correctIndex must point at the correct option. Options must be unique.",
