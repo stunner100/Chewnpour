@@ -25,6 +25,7 @@ import {
     explainTopicSelection,
     reExplainTopicContent,
 } from "./topicExplain.js";
+import { callDeepgramSpeak } from "./deepgramSpeak.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -244,6 +245,23 @@ export const handleTopicsRequest = async (req, res) => {
                 style: body.style,
             });
             return sendJson(res, 200, result);
+        }
+
+        if (parts.length === 2 && parts[1] === "voice" && method === "POST") {
+            const topic = await getTopicForUser(user.id, parts[0]);
+            if (!topic) {
+                return sendJson(res, 404, { error: "Topic not found" });
+            }
+            const body = await readJsonBody(req);
+            const { buffer, contentType } = await callDeepgramSpeak(
+                body.text || body.content || "",
+            );
+            res.statusCode = 200;
+            res.setHeader("Content-Type", contentType || "audio/mpeg");
+            res.setHeader("Cache-Control", "no-store");
+            res.setHeader("Content-Length", String(buffer.length));
+            res.end(buffer);
+            return;
         }
 
         res.setHeader("Allow", "GET, POST, PUT, DELETE");

@@ -273,9 +273,33 @@ export const useTopicDetail = () => {
 
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
     const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
-    const synthesizeLessonVoice = useCallback(async () => {
-        throw new Error('Voice playback is temporarily unavailable.');
-    }, []);
+    const synthesizeLessonVoice = useCallback(async (text) => {
+        if (!topicId) {
+            throw new Error('No lesson selected.');
+        }
+        const spoken = String(text || '').trim();
+        if (!spoken) {
+            throw new Error('No explanation text available to read.');
+        }
+        const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/voice`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                Accept: 'audio/mpeg',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: spoken }),
+        });
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload?.error || `Voice request failed (${response.status})`);
+        }
+        const blob = await response.blob();
+        if (!blob || blob.size === 0) {
+            throw new Error('Voice playback did not return audio.');
+        }
+        return URL.createObjectURL(blob);
+    }, [topicId]);
     const {
         isSupported: isVoiceSupported,
         status: voiceStatus,

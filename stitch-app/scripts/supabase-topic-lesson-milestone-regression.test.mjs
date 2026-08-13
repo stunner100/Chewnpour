@@ -37,6 +37,7 @@ for (const snippet of [
   'parts[1] === "progress"',
   'parts[1] === "explain"',
   'parts[1] === "re-explain"',
+  'parts[1] === "voice"',
 ]) {
   if (!courseHttp.includes(snippet)) {
     throw new Error(`Expected courseHttp to handle ${snippet}.`);

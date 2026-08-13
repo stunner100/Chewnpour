@@ -1,28 +1,16 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 const root = process.cwd();
-const source = await fs.readFile(path.join(root, "convex/lib/voiceStreamToken.ts"), "utf8");
+const courseHttp = await fs.readFile(path.join(root, 'server/courseHttp.js'), 'utf8');
+const topicDetail = await fs.readFile(path.join(root, 'src/hooks/useTopicDetail.js'), 'utf8');
 
-const requiredPatterns = [
-  "const BASE64_URL_ALPHABET =",
-  "const decodeBase64UrlChar =",
-  "const bytesToBase64Url = (bytes: Uint8Array) => {",
-  "const base64UrlToBytes = (value: string) => {",
-  "if (normalized.length % 4 === 1)",
-  "\"A\".repeat(padLength)",
-];
-
-for (const pattern of requiredPatterns) {
-  if (!source.includes(pattern)) {
-    throw new Error(`Expected voiceStreamToken.ts to include \"${pattern}\".`);
-  }
+if (topicDetail.includes('voice/stream?token=') || courseHttp.includes('VOICE_STREAM_SIGNING_SECRET')) {
+  throw new Error('Lesson voice must use the authenticated topics API instead of Convex stream tokens.');
 }
 
-for (const forbiddenPattern of ["btoa(", "atob("]) {
-  if (source.includes(forbiddenPattern)) {
-    throw new Error(`voiceStreamToken.ts should not include \"${forbiddenPattern}\".`);
-  }
+if (!topicDetail.includes('credentials: \'include\'') || !topicDetail.includes('/voice')) {
+  throw new Error('Expected lesson voice requests to send the session cookie to /api/topics/:id/voice.');
 }
 
-console.log("voice-stream-token-regression.test.mjs passed");
+console.log('voice-stream-token-regression.test.mjs passed');
