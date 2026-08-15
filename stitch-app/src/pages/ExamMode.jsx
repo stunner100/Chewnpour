@@ -398,7 +398,7 @@ const ExamMode = () => {
           })}
         </div>
 
-        <section className="rounded-2xl border border-border-subtle bg-surface p-space-6 shadow-sm">
+        <section className="rounded-2xl border border-border-subtle bg-surface p-space-6 shadow-sm ph-mask">
           <p className="text-caption text-text-secondary">
             Question {currentIndex + 1} of {questions.length}
           </p>

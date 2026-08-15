@@ -215,7 +215,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     if (!selection) return null;
 
     return (
-        <div ref={popoverRef} style={style} className="w-max max-w-[calc(100vw-2rem)]">
+        <div ref={popoverRef} style={style} className="w-max max-w-[calc(100vw-2rem)] ph-mask">
             <div className="flex flex-col items-center gap-2">
                 <div
                     ref={barRef}

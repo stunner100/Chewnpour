@@ -246,7 +246,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="topic-notes-title"
-                className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}
+                className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ph-mask ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}
             >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2">

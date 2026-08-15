@@ -192,7 +192,7 @@ const TopicQuizPlayer = () => {
                         </div>
                     </section>
                 ) : (
-                    <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+                    <form className="mt-8 space-y-5 ph-mask" onSubmit={handleSubmit}>
                         {questions.map((question, index) => (
                             <fieldset
                                 key={question.id}

@@ -42,7 +42,7 @@ export function TutorChatMessages({
       scrollPreviousItemPeek={64}
     >
       <MessageScroller
-        className={cn('min-h-0 w-full flex-1', className)}
+        className={cn('min-h-0 w-full flex-1 ph-mask', className)}
         aria-label={ariaLabel}
       >
         <MessageScrollerViewport>

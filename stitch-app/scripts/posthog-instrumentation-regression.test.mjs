@@ -11,11 +11,15 @@ const read = async (relativePath) => {
 const posthogLib = await read('src/lib/posthog.js');
 for (const pattern of [
   'VITE_POSTHOG_KEY',
-  'posthog.init',
+  'client.init',
   'capturePostHogEvent',
   'capturePostHogPageView',
   'setPostHogUser',
   'resetPostHogUser',
+  'disable_session_recording: false',
+  'disable_surveys: false',
+  'maskAllInputs: true',
+  'maskTextSelector',
 ]) {
   if (!posthogLib.includes(pattern)) {
     throw new Error(`Expected src/lib/posthog.js to include "${pattern}".`);
@@ -26,15 +30,15 @@ const mainSource = await read('src/main.jsx');
 if (!mainSource.includes('initPostHog()')) {
   throw new Error('Expected src/main.jsx to initialize PostHog.');
 }
-if (!mainSource.includes("from '@posthog/react'")) {
-  throw new Error('Expected src/main.jsx to use PostHogProvider from @posthog/react.');
+
+const stepper = await read('src/components/lesson/LessonSectionStepper.jsx');
+if (!stepper.includes('ph-mask')) {
+  throw new Error('Lesson reading stage must mask session-replay text.');
 }
 
-const appSource = await read('src/App.jsx');
-for (const pattern of ['usePostHog', "posthog.capture('$pageview'"]) {
-  if (!appSource.includes(pattern)) {
-    throw new Error(`Expected src/App.jsx to include "${pattern}" for pageview tracking.`);
-  }
+const chatPanel = await read('src/components/TopicChatPanel.jsx');
+if (!chatPanel.includes('ph-mask')) {
+  throw new Error('Tutor chat must mask session-replay text.');
 }
 
 const authSource = await read('src/contexts/AuthContext.jsx');

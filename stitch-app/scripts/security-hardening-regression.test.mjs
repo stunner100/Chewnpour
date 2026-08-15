@@ -25,6 +25,8 @@ assert.ok(csp.includes("frame-ancestors 'none'"), "CSP must block framing");
 assert.ok(csp.includes("object-src 'none'"), "CSP must block plugin/object content");
 assert.ok(/script-src[^;]*https:\/\/datafa\.st/.test(csp), "CSP script-src must allow DataFast");
 assert.ok(/connect-src[^;]*https:\/\/datafa\.st/.test(csp), "CSP connect-src must allow DataFast");
+assert.ok(/script-src[^;]*https:\/\/us-assets\.i\.posthog\.com/.test(csp), "CSP script-src must allow PostHog replay/survey assets");
+assert.ok(/connect-src[^;]*https:\/\/us\.i\.posthog\.com/.test(csp), "CSP connect-src must allow PostHog capture");
 assert.equal(csp.includes("assistia"), false, "CSP must not allow the Assistia support widget");
 const indexHtml = read("index.html");
 assert.equal(

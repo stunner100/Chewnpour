@@ -73,7 +73,7 @@ export default function LessonOrderingCheck({ check, onSubmit, result, submittin
     };
 
     return (
-        <section className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm md:p-5 ph-mask">
             <div className="mb-3 flex items-center gap-2">
                 <AppIcon name="low_priority" className="text-[20px] text-primary" />
                 <div>

@@ -8,7 +8,7 @@ const Privacy = () => (
                 <span className="inline-block w-8 h-[2px] bg-[#B39DFF]" /> Legal
             </div>
             <h1>Privacy Policy</h1>
-            <p className="text-[#687384] text-sm">Last updated: 21 March 2026</p>
+            <p className="text-[#687384] text-sm">Last updated: 15 August 2026</p>
 
             <h2>1. Introduction</h2>
             <p>
@@ -34,6 +34,13 @@ const Privacy = () => (
                 We automatically collect information about how you interact with the Service, including pages visited,
                 features used, quiz results, study session duration, device type, browser type, and IP address. This
                 data helps us improve the Service and your learning experience.
+            </p>
+            <h3>Session recordings and in-app surveys</h3>
+            <p>
+                We use PostHog to record a sample of product sessions and to show optional in-app surveys. Recordings
+                capture how you move through the interface (clicks, navigation, and layout). We mask typed input and
+                the text of lessons, quizzes, tutor chats, notes, and source passages before that data leaves your
+                browser. Surveys collect the answers you choose to submit. We do not use this data for advertising.
             </p>
             <h3>Payment Information</h3>
             <p>
@@ -68,7 +75,8 @@ const Privacy = () => (
             <ul>
                 <li>
                     <strong>Service providers</strong>, cloud hosting, payment processing, email delivery, and
-                    analytics providers who help us operate the Service, bound by data protection agreements
+                    product analytics (PostHog) providers who help us operate the Service, bound by data protection
+                    agreements
                 </li>
                 <li>
                     <strong>AI model providers</strong>, your content may be sent to third-party AI services for
@@ -119,8 +127,9 @@ const Privacy = () => (
             <h2>9. Cookies and Tracking</h2>
             <p>
                 We use essential cookies to keep you signed in and remember your preferences (such as dark mode). We
-                may use analytics tools to understand how the Service is used. We do not use third-party advertising
-                cookies or tracking pixels.
+                use PostHog for product analytics, sampled session recordings, and in-app surveys. Those tools may
+                store a cookie or similar identifier on your device so we can understand usage across visits. We do
+                not use third-party advertising cookies or tracking pixels.
             </p>
 
             <h2>10. Children's Privacy</h2>

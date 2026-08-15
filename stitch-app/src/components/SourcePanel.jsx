@@ -47,7 +47,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                 aria-labelledby="topic-sources-title"
                 className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px]
                 bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark
-                flex flex-col overflow-hidden
+                flex flex-col overflow-hidden ph-mask
                 ${isClosing ? 'animate-panel-slide-right md:animate-panel-slide-right' : 'animate-panel-slide-up md:animate-panel-slide-left'}
             `}
             >

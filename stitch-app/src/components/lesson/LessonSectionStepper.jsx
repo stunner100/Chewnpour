@@ -135,7 +135,7 @@ export default function LessonSectionStepper({
             <article
                 ref={contentRef}
                 aria-labelledby={headingId}
-                className="lesson-reading-stage lesson-prose"
+                className="lesson-reading-stage lesson-prose ph-mask"
             >
                 <h2
                     id={headingId}
