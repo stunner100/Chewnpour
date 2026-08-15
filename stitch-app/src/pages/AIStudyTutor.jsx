@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     DropdownMenu,
@@ -10,10 +10,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { TutorChatComposer, TutorChatMessages, TutorWelcomeMessage } from '@/components/tutor/TutorChatSurface';
+import StudyWorkerChat from '@/components/tutor/StudyWorkerChat';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
 import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
+import { DEFAULT_TUTOR_PERSONA } from '../lib/tutorPersonas';
+import { useAuth } from '../contexts/AuthContext';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms', prompt: 'Explain this topic in simple terms.' },
@@ -70,14 +72,11 @@ const TutorContextLoading = ({ topicTitle }) => (
 );
 
 const AIStudyTutor = () => {
+    const { profile } = useAuth();
     const [courses, setCourses] = useState(null);
     const [selectedCourseId, setSelectedCourseId] = useState('');
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [selectedTopicId, setSelectedTopicId] = useState('');
-    const [messages, setMessages] = useState(null);
-    const [sending, setSending] = useState(false);
-    const [error, setError] = useState('');
-    const [pendingExchange, setPendingExchange] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -147,124 +146,7 @@ const AIStudyTutor = () => {
         [effectiveSelectedTopicId, topicOptions],
     );
 
-    useEffect(() => {
-        const topicId = selectedTopicOption?.topicId;
-        if (!topicId) {
-            setMessages([]);
-            return undefined;
-        }
-        let cancelled = false;
-        setMessages(null);
-        (async () => {
-            try {
-                const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/chat`, {
-                    credentials: 'include',
-                    headers: { Accept: 'application/json' },
-                });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload?.error || 'Failed to load chat');
-                if (!cancelled) setMessages(Array.isArray(payload.messages) ? payload.messages : []);
-            } catch (err) {
-                console.error(err);
-                if (!cancelled) setMessages([]);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [selectedTopicOption?.topicId]);
-
-    const messageList = Array.isArray(messages) ? messages : EMPTY_LIST;
-    const pendingExchangeForTopic = pendingExchange && selectedTopicOption?.topicId && String(pendingExchange.topicId) === String(selectedTopicOption.topicId)
-        ? pendingExchange
-        : null;
-    const pendingServerState = useMemo(() => {
-        if (!pendingExchangeForTopic) {
-            return { hasQuestion: false, hasAssistant: false };
-        }
-        let matchingQuestionCount = 0;
-        let questionIndex = -1;
-        for (let index = 0; index < messageList.length; index += 1) {
-            const message = messageList[index];
-            if (message.role !== 'user') continue;
-            if (String(message.content || '').trim() !== pendingExchangeForTopic.question) continue;
-            matchingQuestionCount += 1;
-            if (matchingQuestionCount > pendingExchangeForTopic.baselineQuestionCount) {
-                questionIndex = index;
-            }
-        }
-        const assistantMessage = questionIndex >= 0
-            ? messageList.slice(questionIndex + 1).find((message) => message.role === 'assistant')
-            : null;
-        return {
-            hasQuestion: questionIndex >= 0,
-            hasAssistant: Boolean(assistantMessage),
-        };
-    }, [messageList, pendingExchangeForTopic]);
-
-    const displayMessages = useMemo(() => {
-        const nextMessages = [...messageList];
-        if (!pendingExchangeForTopic || messages === null) return nextMessages;
-        if (!pendingServerState.hasQuestion) {
-            nextMessages.push({
-                id: `pending-user-${pendingExchangeForTopic.clientId}`,
-                _id: `pending-user-${pendingExchangeForTopic.clientId}`,
-                role: 'user',
-                content: pendingExchangeForTopic.question,
-                optimistic: true,
-            });
-        }
-        return nextMessages;
-    }, [messageList, messages, pendingExchangeForTopic, pendingServerState]);
-
-    const isTyping = Boolean(pendingExchangeForTopic && !pendingServerState.hasAssistant);
-    const showTypingIndicator = sending || isTyping;
-
-    useEffect(() => {
-        setPendingExchange(null);
-    }, [effectiveSelectedTopicId]);
-
-    useEffect(() => {
-        if (pendingExchangeForTopic && pendingServerState.hasAssistant) {
-            setPendingExchange(null);
-        }
-    }, [pendingExchangeForTopic, pendingServerState.hasAssistant]);
-
-    const handleSend = useCallback(async (overridePrompt) => {
-        const question = String(overridePrompt || '').trim();
-        if (!question || !selectedTopicOption?.topicId || sending) return;
-        const baselineQuestionCount = messageList.filter((message) =>
-            message.role === 'user' && String(message.content || '').trim() === question
-        ).length;
-        setPendingExchange({
-            clientId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            topicId: selectedTopicOption.topicId,
-            question,
-            baselineQuestionCount,
-        });
-        setSending(true);
-        setError('');
-        try {
-            const response = await fetch(`/api/topics/${encodeURIComponent(selectedTopicOption.topicId)}/chat`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ question }),
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload?.error || 'Could not get a tutor response.');
-            setMessages(Array.isArray(payload.messages) ? payload.messages : []);
-        } catch (err) {
-            setPendingExchange(null);
-            setError(err.message || 'Could not get a tutor response. Please try again.');
-            throw err;
-        } finally {
-            setSending(false);
-        }
-    }, [messageList, selectedTopicOption?.topicId, sending]);
+    const persona = profile?.studyPreferences?.preferredPersona || DEFAULT_TUTOR_PERSONA;
 
     if (courses === null || (effectiveCourseId && selectedCourse === null && safeCourses.length > 0)) {
         return <TutorSkeleton />;
@@ -358,40 +240,23 @@ const AIStudyTutor = () => {
                     </div>
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-border-subtle bg-surface shadow-sm">
-                    <TutorChatMessages
-                        scrollerKey={effectiveSelectedTopicId}
-                        messages={messages === null || displayMessages.length === 0 ? [] : displayMessages}
-                        isTyping={showTypingIndicator}
-                        loadingState={messages === null ? (
-                            <TutorContextLoading topicTitle={selectedTopicOption?.title} />
-                        ) : null}
-                        emptyState={messages !== null && displayMessages.length === 0 ? (
-                            <TutorWelcomeMessage
-                                topicTitle={selectedTopicOption?.title}
-                                description={selectedTopicOption?.description}
-                                suggestedPrompts={suggestedPrompts}
-                                onSuggestedPrompt={handleSend}
-                                sending={sending}
-                            />
-                        ) : null}
-                        courseBadge={(
-                            <span className="rounded-full bg-surface-soft px-3 py-1 text-caption font-semibold text-text-muted">
-                                {selectedTopicOption?.courseTitle}
-                            </span>
-                        )}
-                    />
-
-                    <TutorChatComposer
-                        suggestedPrompts={displayMessages.length === 0 ? EMPTY_LIST : suggestedPrompts}
-                        onSuggestedPrompt={handleSend}
-                        onSubmit={handleSend}
-                        sending={sending}
-                        error={error}
-                        placeholder={`Ask a question about ${selectedTopicOption?.title || 'this lesson'}...`}
-                        inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption?.title || 'this lesson'}`}
-                        disclaimer="AI Tutor can make mistakes. Verify important academic information."
-                    />
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-border-subtle bg-surface shadow-sm ph-mask">
+                    {selectedTopicOption ? (
+                        <StudyWorkerChat
+                            key={effectiveSelectedTopicId}
+                            topicId={selectedTopicOption.topicId}
+                            topicTitle={selectedTopicOption.title}
+                            courseId={selectedTopicOption.courseId}
+                            courseTitle={selectedTopicOption.courseTitle}
+                            persona={persona}
+                            suggestedPrompts={suggestedPrompts}
+                            placeholder={`Ask a question about ${selectedTopicOption.title || 'this lesson'}...`}
+                            inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption.title || 'this lesson'}`}
+                            disclaimer="AI Tutor can make mistakes. Verify important academic information."
+                        />
+                    ) : (
+                        <TutorContextLoading topicTitle="" />
+                    )}
                 </div>
             </main>
         </div>

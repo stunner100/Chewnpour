@@ -147,7 +147,7 @@ export function TutorChatComposer({
       ) : null}
 
       {error ? (
-        <p className="rounded-[16px] border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error">
+        <p className="rounded-[16px] border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error" role="alert">
           {error}
         </p>
       ) : null}

@@ -62,6 +62,10 @@ export default defineConfig(({ mode }) => {
           target: `http://127.0.0.1:${authDevPort}`,
           changeOrigin: true,
         },
+        '/eve': {
+          target: String(env.VITE_EVE_DEV_ORIGIN || 'http://127.0.0.1:2000').trim(),
+          changeOrigin: true,
+        },
       },
     },
     build: {

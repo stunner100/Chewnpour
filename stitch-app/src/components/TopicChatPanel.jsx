@@ -2,64 +2,18 @@ import React, { memo, useState, useEffect, useRef, useCallback, useMemo } from '
 import { createPortal } from 'react-dom';
 import { DEFAULT_TUTOR_PERSONA, TUTOR_PERSONAS } from '../lib/tutorPersonas';
 import { useAuth } from '../contexts/AuthContext';
-import { TutorChatComposer, TutorChatMessages } from '@/components/tutor/TutorChatSurface';
+import StudyWorkerChat from '@/components/tutor/StudyWorkerChat';
 import { TutorAvatarMark } from '@/components/tutor/TutorAvatar';
-import { TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
 import { useSidePanelA11y } from '../hooks/useSidePanelA11y';
 import AppIcon from './AppIcon';
 
 const EXIT_ANIMATION_MS = 250;
 
-const fetchTopicChatMessages = async (topicId) => {
-    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/chat`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { Accept: 'application/json' },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(payload?.error || `Failed to load chat (${response.status})`);
-    }
-    return Array.isArray(payload.messages) ? payload.messages : [];
-};
-
-const askTopicTutor = async ({ topicId, question, persona }) => {
-    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/chat`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ question, persona }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(payload?.error || `Tutor request failed (${response.status})`);
-    }
-    return payload;
-};
-
-const clearTopicChat = async (topicId) => {
-    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/chat`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { Accept: 'application/json' },
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(payload?.error || `Failed to clear chat (${response.status})`);
-    }
-    return payload;
-};
-
 const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose, initialPrompt }) {
     const { profile, updateProfile } = useAuth();
-    const [messages, setMessages] = useState([]);
-    const [messagesLoading, setMessagesLoading] = useState(false);
-    const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
+    const [clearChat, setClearChat] = useState(null);
     const [selectedPersona, setSelectedPersona] = useState(
         profile?.studyPreferences?.preferredPersona || DEFAULT_TUTOR_PERSONA,
     );
@@ -90,26 +44,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         const preferred = profile?.studyPreferences?.preferredPersona;
         if (preferred) setSelectedPersona(preferred);
     }, [profile?.studyPreferences?.preferredPersona]);
-
-    useEffect(() => {
-        if (!open || !topicId) return undefined;
-        let cancelled = false;
-        setMessagesLoading(true);
-        setError('');
-        (async () => {
-            try {
-                const next = await fetchTopicChatMessages(topicId);
-                if (!cancelled) setMessages(next);
-            } catch (err) {
-                if (!cancelled) setError(err.message || 'Could not load chat.');
-            } finally {
-                if (!cancelled) setMessagesLoading(false);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [open, topicId]);
 
     useEffect(() => {
         if (!personaMenuOpen) return;
@@ -164,31 +98,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [open, handleClose]);
 
-    const handleSend = useCallback(async (questionInput) => {
-        const question = String(questionInput || '').trim();
-        if (!question || sending || !topicId) return;
-        setSending(true);
-        setError('');
-        try {
-            const result = await askTopicTutor({
-                topicId,
-                question,
-                persona: selectedPersona,
-            });
-            if (Array.isArray(result?.messages)) {
-                setMessages(result.messages);
-            } else {
-                const next = await fetchTopicChatMessages(topicId);
-                setMessages(next);
-            }
-        } catch (err) {
-            setError(err.message || 'Could not get a response. Please try again.');
-            throw err;
-        } finally {
-            setSending(false);
-        }
-    }, [sending, topicId, selectedPersona]);
-
     const handlePersonaChange = useCallback(async (personaKey) => {
         const normalized = String(personaKey || DEFAULT_TUTOR_PERSONA);
         setSelectedPersona(normalized);
@@ -204,20 +113,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         }
     }, [profile?.studyPreferences, updateProfile]);
 
-    const handleClearChat = useCallback(async () => {
-        if (!topicId) return;
-        try {
-            await clearTopicChat(topicId);
-            setMessages([]);
-        } catch {
-            // Silent
-        }
-    }, [topicId]);
-
     if ((!open && !isClosing) || typeof document === 'undefined') return null;
 
-    const messageList = Array.isArray(messages) ? messages : [];
-    const showWelcome = messageList.length === 0 && !sending && !messagesLoading;
     const panelAnimClass = isClosing
         ? 'animate-panel-slide-down lg:animate-panel-slide-right'
         : 'animate-panel-slide-up lg:animate-panel-slide-left';
@@ -253,16 +150,16 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
-                        {messageList.length > 0 && (
+                        {clearChat ? (
                             <button
-                                onClick={handleClearChat}
+                                onClick={() => void clearChat()}
                                 className="btn-icon size-8 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
                                 title="Clear chat"
                                 aria-label="Clear chat"
                             >
                                 <AppIcon name="delete" className="text-[16px]" />
                             </button>
-                        )}
+                        ) : null}
                         <button
                             onClick={handleClose}
                             className="btn-icon size-8"
@@ -328,42 +225,32 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         )}
                     </div>
                     <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                        {messagesLoading ? 'Loading…' : 'Lesson-grounded'}
+                        Lesson-grounded
                     </span>
                 </div>
 
-                <TutorChatMessages
-                    scrollerKey={topicId}
-                    compact
-                    className="min-h-0 flex-1 overflow-hidden"
-                    messages={messageList}
-                    isTyping={sending}
-                    emptyState={
-                        showWelcome ? (
-                            <TutorWelcomeMessage
-                                topicTitle={topicTitle}
-                                compact
-                                suggestedPrompts={suggestedPrompts}
-                                onSuggestedPrompt={handleSend}
-                                sending={sending}
-                            />
-                        ) : null
-                    }
-                />
+                {error ? (
+                    <p className="mx-4 mt-3 rounded-[16px] border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error" role="alert">
+                        {error}
+                    </p>
+                ) : null}
 
-                <TutorChatComposer
-                    className="relative z-10 shrink-0 border-border-light bg-surface-light p-3 dark:border-border-dark dark:bg-surface-dark"
-                    suggestedPrompts={[]}
-                    onSuggestedPrompt={handleSend}
-                    onSubmit={handleSend}
-                    sending={sending}
-                    error={error}
-                    disabled={false}
-                    initialInput={open ? (initialPrompt || '') : ''}
+                <div className="flex min-h-0 flex-1 flex-col">
+                    <StudyWorkerChat
+                    key={`${topicId}:${selectedPersona}`}
+                    topicId={topicId}
+                    topicTitle={topicTitle}
+                    persona={selectedPersona}
+                    compact
+                    initialPrompt={open ? (initialPrompt || '') : ''}
+                    suggestedPrompts={suggestedPrompts}
+                    showComposerSuggestions={false}
                     placeholder="Ask about this lesson..."
                     inputAriaLabel="Send message to AI Tutor"
                     disclaimer="Enter to send · Shift+Enter for new line"
+                    onClearAvailable={setClearChat}
                 />
+                </div>
             </div>
         </>,
         document.body,

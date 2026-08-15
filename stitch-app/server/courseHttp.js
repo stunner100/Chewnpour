@@ -31,6 +31,8 @@ import {
     explainTopicSelection,
     reExplainTopicContent,
 } from "./topicExplain.js";
+import { signStudyWorkerToken } from "./studyWorkerToken.js";
+import { DEFAULT_TUTOR_PERSONA, normalizeTutorPersona } from "./tutorPersonas.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -222,6 +224,21 @@ export const handleTopicsRequest = async (req, res) => {
                 orderedSteps: body.orderedSteps,
             });
             return sendJson(res, 200, { result });
+        }
+
+        if (parts.length === 2 && parts[1] === "study-worker-token" && method === "POST") {
+            const payload = await getTopicForUser(user.id, parts[0]);
+            if (!payload?.topic) {
+                return sendJson(res, 404, { error: "Topic not found" });
+            }
+            const body = await readJsonBody(req).catch(() => ({}));
+            const signed = signStudyWorkerToken({
+                userId: user.id,
+                topicId: payload.topic.id,
+                courseId: payload.topic.courseId || payload.course?.id || "",
+                persona: normalizeTutorPersona(body.persona || DEFAULT_TUTOR_PERSONA),
+            });
+            return sendJson(res, 200, signed);
         }
 
         if (parts.length === 2 && parts[1] === "chat" && method === "GET") {
