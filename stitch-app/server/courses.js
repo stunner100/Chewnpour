@@ -176,9 +176,12 @@ export const ensureCourseFromUpload = async ({
     const topicSpecs = Array.isArray(curriculum.topics) ? curriculum.topics : [];
     const courseId = nanoid();
     const db = getPool();
-    const description = String(curriculum.backend || "").includes("heuristic")
+    const truncatedNote = curriculum.sourceTruncated
+        ? " \u2014 covers the first section of a longer source"
+        : "";
+    const description = (String(curriculum.backend || "").includes("heuristic")
         ? "Generated from your upload"
-        : "AI-generated from your upload";
+        : "AI-generated from your upload") + truncatedNote;
 
     try {
         await db.query(
