@@ -1,11 +1,13 @@
 import {
   extractBearerToken,
+  ForbiddenError,
   localDev,
   type AuthFn,
   vercelOidc,
   verifyJwtHmac,
 } from "eve/channels/auth";
 import { defaultEveAuth, eveChannel } from "eve/channels/eve";
+import { getSessionOwner, recordSessionOwner } from "../lib/sessionOwnership";
 
 const ISSUER = "chewnpour";
 const AUDIENCE = "study-worker";
@@ -49,7 +51,19 @@ const decodeJwtPayload = (token: string) => {
 };
 
 const jwtSecret = () =>
-  String(process.env.STUDY_WORKER_JWT_SECRET || process.env.BETTER_AUTH_SECRET || "").trim();
+  String(process.env.STUDY_WORKER_JWT_SECRET || "").trim();
+
+// Session-scoped routes carry the durable session id in the path. The create
+// route (`/eve/v1/session`) has none, so it never matches here.
+const extractSessionIdFromUrl = (url: string): string | null => {
+  try {
+    const pathname = new URL(url).pathname;
+    const match = pathname.match(/\/eve\/v1\/session\/([^/]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+};
 
 const studyWorkerAuth = (): AuthFn<Request> => {
   return async (request) => {
@@ -64,6 +78,21 @@ const studyWorkerAuth = (): AuthFn<Request> => {
     });
     if (!result.ok || !token) return null;
 
+    const principalId = result.sessionAuth.principalId;
+
+    // Eve does not bind a durable session to its initiating principal, so
+    // without this check any caller holding their own valid token could
+    // continue (and read the history of) another student's session.
+    const sessionId = extractSessionIdFromUrl(request.url);
+    if (sessionId) {
+      const owner = await getSessionOwner(sessionId);
+      if (owner && owner !== principalId) {
+        throw new ForbiddenError({
+          message: "This study session belongs to another student.",
+        });
+      }
+    }
+
     const payload = decodeJwtPayload(token);
     const topicId =
       asString(request.headers.get("x-chewnpour-topic-id")) ||
@@ -75,7 +104,7 @@ const studyWorkerAuth = (): AuthFn<Request> => {
 
     return {
       authenticator: "chewnpour",
-      principalId: result.sessionAuth.principalId,
+      principalId,
       principalType: "user",
       issuer: ISSUER,
       attributes: {
@@ -112,5 +141,13 @@ export default eveChannel({
         personaPrompt,
       ],
     };
+  },
+  events: {
+    async "turn.started"(_data, _channel, ctx) {
+      const sessionId = ctx.session.id;
+      const initiator = ctx.session.auth.initiator;
+      if (!sessionId || !initiator || initiator.principalType !== "user") return;
+      await recordSessionOwner(sessionId, initiator.principalId);
+    },
   },
 });
