@@ -30,6 +30,7 @@ for (const pattern of [
   'importing a module script failed',
   'chunkloaderror',
   'loading chunk',
+  'did not export a react component',
 ]) {
   if (!chunkRecoverySource.toLowerCase().includes(pattern)) {
     throw new Error(`Expected src/lib/chunkLoadRecovery.js to classify "${pattern}" as a recoverable chunk-load error.`);

@@ -42,7 +42,14 @@ const normalizeMessage = (errorLike) =>
         .replace(/\s+/g, ' ')
         .trim();
 
+export const isMissingLazyRouteExportError = (errorLike) => {
+    const message = normalizeMessage(errorLike).toLowerCase();
+    return /lazy route\s+"[^"]+"\s+did not export a react component/.test(message);
+};
+
 export const isChunkLoadError = (errorLike) => {
+    if (isMissingLazyRouteExportError(errorLike)) return true;
+
     const message = normalizeMessage(errorLike).toLowerCase();
     return (
         message.includes('failed to fetch dynamically imported module') ||

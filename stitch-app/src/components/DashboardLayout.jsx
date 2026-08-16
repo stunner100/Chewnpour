@@ -7,6 +7,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { BlurFade } from './magicui/BlurFade';
 import CommandPalette from './CommandPalette';
 import { AppSidebar } from './app-sidebar';
+import {
+    attemptChunkRecoveryReload,
+    isChunkLoadError,
+} from '../lib/chunkLoadRecovery.js';
 import { captureSentryException } from '../lib/sentry.js';
 import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
 import { DARK_THEME } from '../lib/theme.js';
@@ -55,6 +59,10 @@ class DashboardContentErrorBoundary extends Component {
     componentDidCatch(error, errorInfo) {
         if (import.meta.env.DEV) {
             console.error('[DashboardContentErrorBoundary]', error, errorInfo);
+        }
+
+        if (isChunkLoadError(error) && attemptChunkRecoveryReload('dashboard-chunk-load')) {
+            return;
         }
 
         captureSentryException(error, {
