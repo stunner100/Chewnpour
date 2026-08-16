@@ -1,22 +1,18 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 const root = process.cwd();
-const source = await fs.readFile(path.join(root, "src/lib/useVoicePlayback.js"), "utf8");
+const source = await fs.readFile(path.join(root, 'src/lib/useVoicePlayback.js'), 'utf8');
 
 for (const pattern of [
-  "const blockedByAutoplayRef = useRef(false);",
-  "if (isMobileBrowser && blockedByAutoplayRef.current && activeAudioRef.current) {",
-  "const blockedAudio = activeAudioRef.current;",
-  "await blockedAudio.play();",
-  "blockedByAutoplayRef.current = true;",
-  "blockedByAutoplayRef.current = false;",
-  "audio.loop = true;",
-  "audio.muted = true;",
+  'data:audio/wav;base64,',
+  'unlock.muted = true',
+  'audio.muted = false',
+  'audio.volume = 1',
 ]) {
   if (!source.includes(pattern)) {
-    throw new Error(`Expected mobile autoplay retry hardening to include \"${pattern}\".`);
+    throw new Error(`Expected mobile autoplay retry hardening to include "${pattern}".`);
   }
 }
 
-console.log("voice-mobile-autoplay-retry-regression.test.mjs passed");
+console.log('voice-mobile-autoplay-retry-regression.test.mjs passed');

@@ -8,6 +8,9 @@ const progress = await fs.readFile(path.join(root, 'server', 'progress.js'), 'ut
 if (!/export const getProgressSnapshotForUser/.test(progress)) {
   throw new Error('Expected server/progress.js to export getProgressSnapshotForUser.');
 }
+if (!/buildResumeTarget/.test(progress) || !/last_activity_kind/.test(progress)) {
+  throw new Error('Expected progress snapshot to resume the current lesson, quiz, podcast, or exam.');
+}
 
 const progressHttp = await fs.readFile(path.join(root, 'server', 'progressHttp.js'), 'utf8');
 if (!/handleProgressRequest/.test(progressHttp)) {

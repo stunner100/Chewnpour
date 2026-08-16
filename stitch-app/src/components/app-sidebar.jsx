@@ -18,6 +18,7 @@ import {
   CloudUploadIcon,
   FolderIcon,
   GraduationCapIcon,
+  HeadphonesIcon,
   LayoutDashboardIcon,
   CircleHelpIcon,
   SparklesIcon,
@@ -29,7 +30,8 @@ const navItems = [
   { title: 'My Materials', url: '/dashboard/library', icon: FolderIcon },
   { title: 'Lessons', url: '/dashboard/lessons', icon: BookOpenIcon },
   { title: 'Quizzes', url: '/dashboard/quiz', icon: CircleHelpIcon },
-  { title: 'Exam', url: '/dashboard/exam', icon: GraduationCapIcon },
+  { title: 'Podcasts', url: '/dashboard/podcasts', icon: HeadphonesIcon },
+  { title: 'Timed exams', url: '/dashboard/exam', icon: GraduationCapIcon },
   { title: 'AI Tutor', url: '/dashboard/ai-tutor', icon: TutorAvatarMark, isTutorAvatar: true },
   { title: 'Progress', url: '/dashboard/progress', icon: BarChart3Icon },
 ];
@@ -67,7 +69,7 @@ export function AppSidebar({ ...props }) {
       <SidebarHeader>
         <TeamSwitcher />
         <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
-          <Button asChild className="w-full justify-center gap-2">
+          <Button asChild className="w-full justify-center gap-2 rounded-full bg-cta text-cta-foreground hover:bg-cta-hover">
             <Link to="/dashboard/upload">
               <SparklesIcon className="size-4" />
               Generate Material
@@ -78,7 +80,7 @@ export function AppSidebar({ ...props }) {
       <SidebarContent>
         <NavMain items={items} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="pb-3">
         <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />

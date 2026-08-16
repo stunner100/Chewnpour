@@ -57,16 +57,10 @@ const Terms = () => (
                 ChewnPour Ltd.
             </p>
 
-            <h2>6. Payments and Credits</h2>
+            <h2>6. Access</h2>
             <p>
-                ChewnPour offers a free tier with limited uploads and paid top-up plans that provide additional upload
-                credits and premium features. All payments are processed through our third-party payment provider.
-                Prices are displayed in your local currency where available.
-            </p>
-            <p>
-                Upload credits are non-refundable once used. Unused credits from top-up plans remain available until
-                the plan's validity period expires (where applicable). We reserve the right to modify pricing with
-                reasonable notice.
+                ChewnPour is free to use. There is no subscription, credit pack, or paid plan required to upload
+                materials, generate lessons, take quizzes, or use the AI tutor.
             </p>
 
             <h2>7. AI-Generated Content Disclaimer</h2>

@@ -73,3 +73,47 @@ export const downloadUploadObject = async ({ bucket, path }) => {
     const arrayBuffer = await data.arrayBuffer();
     return Buffer.from(arrayBuffer);
 };
+
+export const deleteUploadObject = async ({ bucket, path }) => {
+    const supabase = getSupabaseAdmin();
+    const targetBucket = bucket || getStorageBucket();
+    const { error } = await supabase.storage.from(targetBucket).remove([path]);
+    if (error) {
+        throw new Error(`Failed to delete upload object: ${error.message}`);
+    }
+    return { deleted: true, bucket: targetBucket, path };
+};
+
+export const uploadObject = async ({ path, body, contentType = "application/octet-stream" }) => {
+    const supabase = getSupabaseAdmin();
+    const bucket = await ensureStudyUploadsBucket();
+    const { error } = await supabase.storage.from(bucket).upload(path, body, {
+        contentType,
+        upsert: true,
+    });
+    if (error) {
+        throw new Error(`Failed to upload object: ${error.message}`);
+    }
+    return { bucket, path };
+};
+
+export const createSignedDownloadUrl = async ({
+    bucket,
+    path,
+    expiresIn = 3600,
+} = {}) => {
+    const supabase = getSupabaseAdmin();
+    const targetBucket =
+        String(bucket || "").trim() || (await ensureStudyUploadsBucket());
+    const { data, error } = await supabase.storage
+        .from(targetBucket)
+        .createSignedUrl(path, expiresIn);
+    if (error) {
+        throw new Error(`Failed to create signed download URL: ${error.message}`);
+    }
+    return {
+        bucket: targetBucket,
+        path,
+        signedUrl: data?.signedUrl || "",
+    };
+};

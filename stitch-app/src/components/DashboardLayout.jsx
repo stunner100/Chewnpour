@@ -106,7 +106,7 @@ const DashboardLayout = ({ children }) => {
     const { profile, user } = useAuth();
     const { mode: themeMode, toggle: toggleTheme } = useThemeMode();
     const isDarkMode = themeMode === DARK_THEME;
-    const hideMobileBottomNav = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
+    const hideMobileBottomNav = /^\/dashboard\/(?:quiz\/(?!results\/)|topic\/)[^/]+/.test(routerLocation.pathname);
 
     useEffect(() => {
         const incomingToast = routerLocation.state?.watermelonToast;
@@ -181,7 +181,7 @@ const DashboardLayout = ({ children }) => {
                             type="button"
                             onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
                             aria-label="Open command palette to search pages and actions"
-                            className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
+                            className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
                         >
                             <AppIcon name="search" className="absolute left-3 text-text-muted" aria-hidden="true" />
                             <span className="truncate">Search materials, lessons, or topics...</span>
@@ -227,7 +227,7 @@ const DashboardLayout = ({ children }) => {
                             to="/dashboard/settings"
                             aria-label="Open settings"
                             title="Open settings"
-                            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary-soft text-xs font-bold text-primary transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:ml-1"
+                            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary-subtle text-xs font-bold text-primary transition-shadow hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:ml-1"
                         >
                             {profile?.avatarUrl ? (
                                 <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -240,7 +240,7 @@ const DashboardLayout = ({ children }) => {
 
                 <main id="dashboard-main" className="flex flex-1 flex-col overflow-y-auto overflow-x-clip">
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
-                        <BlurFade duration={0.35} yOffset={8}>
+                        <BlurFade duration={0.35} yOffset={0} blur="0px">
                             {children}
                         </BlurFade>
                     </DashboardContentErrorBoundary>

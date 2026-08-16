@@ -1,5 +1,4 @@
 import React, { memo } from 'react';
-import InteractiveQuickCheck from './InteractiveQuickCheck';
 import InteractiveWordBank from './InteractiveWordBank';
 import LessonDefinitionBlock from './LessonDefinitionBlock';
 import AppIcon from './AppIcon';
@@ -73,7 +72,7 @@ const getHeaderIcon = (text) => {
  * Parse inline markdown into styled React elements.
  * Handles: **bold**, *italic*, `code`, and [link](url).
  */
-const parseInlineFormatting = (text, cleanInline) => {
+const parseInlineFormatting = (text, cleanInline = (value) => value) => {
     if (!text) return '';
     const TOKEN_RE = /(\*\*[^*]+?\*\*|\*[^*\n]+?\*|`[^`\n]+?`|\[[^\]]+?\]\([^)]+?\))/g;
     const parts = text.split(TOKEN_RE);
@@ -128,13 +127,71 @@ const TUTOR_PROMPTS = [
     { icon: 'compare_arrows', label: 'Compare', prompt: 'Compare this concept with a related one from this section:' },
 ];
 
+const SectionAskMenu = ({ sectionTitle, onAskTutor }) => {
+    const [open, setOpen] = React.useState(false);
+    const menuRef = React.useRef(null);
+
+    React.useEffect(() => {
+        if (!open) return undefined;
+        const handlePointer = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) setOpen(false);
+        };
+        const handleKey = (event) => {
+            if (event.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', handlePointer);
+        document.addEventListener('keydown', handleKey);
+        return () => {
+            document.removeEventListener('mousedown', handlePointer);
+            document.removeEventListener('keydown', handleKey);
+        };
+    }, [open]);
+
+    return (
+        <div ref={menuRef} className="relative mb-3 -mt-1">
+            <button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-caption font-medium text-text-muted transition-colors hover:bg-surface hover:text-primary"
+                aria-expanded={open}
+                aria-haspopup="menu"
+            >
+                <AppIcon name="smart_toy" className="text-[14px]" />
+                Ask about this section
+                <AppIcon name={open ? 'expand_less' : 'expand_more'} className="text-[14px]" />
+            </button>
+            {open ? (
+                <div
+                    role="menu"
+                    className="absolute left-0 top-full z-20 mt-1 min-w-[12rem] rounded-xl border border-border-subtle bg-surface p-1 shadow-sm"
+                >
+                    {TUTOR_PROMPTS.map((tp) => (
+                        <button
+                            key={tp.label}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                                onAskTutor(`${tp.prompt} "${sectionTitle}"`);
+                                setOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-caption text-text-secondary transition-colors hover:bg-surface-soft hover:text-primary"
+                        >
+                            <AppIcon name={tp.icon} className="text-[14px]" />
+                            {tp.label}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
+};
+
 const LessonContentRenderer = memo(function LessonContentRenderer({
     blocks,
     shouldAnimateBlocks,
     cleanInline,
     onViewSource,
     onAskTutor,
-    quickCheckPairs,
     wordBankTerms,
     topicId,
     starredTerms,
@@ -177,19 +234,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                                 )}
                             </div>
                             {showTutorPrompts && (
-                                <div className={`flex items-center gap-1.5 flex-wrap mb-3 -mt-1 ${animationClass}`} style={animationStyle}>
-                                    {TUTOR_PROMPTS.map((tp) => (
-                                        <button
-                                            key={tp.label}
-                                            type="button"
-                                            onClick={() => onAskTutor(`${tp.prompt} "${block.text}"`)}
-                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all"
-                                        >
-                                            <AppIcon name={tp.icon} className="text-[14px]" />
-                                            {tp.label}
-                                        </button>
-                                    ))}
-                                </div>
+                                <SectionAskMenu sectionTitle={block.text} onAskTutor={onAskTutor} />
                             )}
                         </React.Fragment>
                     );
@@ -255,22 +300,10 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'bullet') {
                     return (
-                        <div key={block.key} className={`flex items-start gap-3 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
-                            <div className="mt-1.5 size-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                                <AppIcon name="arrow_forward" className="text-[14px] text-primary" />
-                            </div>
-                            <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
+                        <div key={block.key} className={`mb-3 ml-1 flex items-start gap-3 group md:mb-4 ${animationClass}`} style={animationStyle}>
+                            <span aria-hidden="true" className="mt-2.5 size-1.5 shrink-0 rounded-full bg-text-muted/70" />
+                            <span className="text-[15px] leading-7 text-neutral-700 dark:text-neutral-300 md:text-base">{bold(block.text)}</span>
                         </div>
-                    );
-                }
-
-                if (block.type === 'quickcheck_widget') {
-                    return (
-                        <InteractiveQuickCheck
-                            key={block.key}
-                            pairs={quickCheckPairs}
-                            topicId={topicId}
-                        />
                     );
                 }
 

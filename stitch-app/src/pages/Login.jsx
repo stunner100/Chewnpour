@@ -149,15 +149,15 @@ const Login = () => {
                 {/* Left — brand pitch (landing style) */}
                 <div className="hidden lg:flex flex-col gap-8">
                     <BlurFade delay={0.05} yOffset={12}>
-                        <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[rgb(13, 148, 136)]">
-                            <span className="inline-block w-8 h-[2px] bg-[rgb(13, 148, 136)]" /> Welcome back
+                        <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#007AFF]">
+                            <span className="inline-block w-8 h-[2px] bg-[#007AFF]" /> Welcome back
                         </div>
                     </BlurFade>
                     <BlurFade delay={0.12} yOffset={14}>
                         <h1 className="text-5xl xl:text-6xl font-semibold leading-[1.05] tracking-tight">
                             Your AI{' '}
                             <br />
-                            <span className="text-[rgb(13, 148, 136)]">study</span>{' '}
+                            <span className="text-[#007AFF]">study</span>{' '}
                             <br />
                             <span className="inline-flex items-center gap-3">
                                 <ArrowBadge size={44} /> companion
@@ -165,11 +165,11 @@ const Login = () => {
                         </h1>
                     </BlurFade>
                     <BlurFade delay={0.2} yOffset={10}>
-                        <p className="text-[#687384] text-base leading-relaxed max-w-md">
+                        <p className="text-[#6B6B70] text-base leading-relaxed max-w-md">
                             Upload your course materials and get instant lessons, smart quizzes, and an AI tutor that understands your content.
                         </p>
                     </BlurFade>
-                    <div className="flex items-center gap-4 pt-4 border-t border-[#E7E0D4]">
+                    <div className="flex items-center gap-4 pt-4 border-t border-[#E5E5EA]">
                         <div className="flex">
                             {['/chewnpour/img1.jpg', '/chewnpour/img2.jpg', '/chewnpour/img3.jpg', '/chewnpour/img4.jpg'].map((src, i) => (
                                 <img
@@ -184,7 +184,7 @@ const Login = () => {
                                 />
                             ))}
                         </div>
-                        <p className="text-sm text-[#687384]">
+                        <p className="text-sm text-[#6B6B70]">
                             Join thousands of students already studying smarter
                         </p>
                     </div>
@@ -194,7 +194,7 @@ const Login = () => {
                 <BlurFade delay={0.05} yOffset={12} className="cp-card">
                     <div className="mb-6">
                         <h2 className="text-2xl font-semibold mb-1">Welcome back</h2>
-                        <p className="text-sm text-[#687384]">Sign in to continue studying.</p>
+                        <p className="text-sm text-[#6B6B70]">Sign in to continue studying.</p>
                     </div>
 
                     {error && (
@@ -202,7 +202,7 @@ const Login = () => {
                             initial={{ opacity: 0, y: -8, scale: 0.98 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                            className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[rgb(13, 148, 136)] flex items-center gap-2"
+                            className="mb-5 rounded-xl border border-error/30 bg-error-soft px-4 py-3 text-sm text-error flex items-center gap-2"
                         >
                             <AppIcon name="error" className="text-[18px]" />
                             {error}
@@ -224,9 +224,9 @@ const Login = () => {
                     </button>
 
                     <div className="flex items-center gap-3 my-5">
-                        <div className="flex-1 border-t border-[#E7E0D4]" />
-                        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#8A94A6]">or</span>
-                        <div className="flex-1 border-t border-[#E7E0D4]" />
+                        <div className="flex-1 border-t border-[#E5E5EA]" />
+                        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#8E8E93]">or</span>
+                        <div className="flex-1 border-t border-[#E5E5EA]" />
                     </div>
 
                     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -248,12 +248,7 @@ const Login = () => {
                         </div>
 
                         <div>
-                            <div className="flex items-center justify-between">
-                                <label className="cp-label" htmlFor="password">Password</label>
-                                <Link to="/reset-password" className="text-xs font-semibold text-[rgb(13, 148, 136)] hover:underline">
-                                    Forgot password?
-                                </Link>
-                            </div>
+                            <label className="cp-label" htmlFor="password">Password</label>
                             <div className="relative">
                                 <input
                                     className="cp-input pr-11"
@@ -269,13 +264,21 @@ const Login = () => {
                                     required
                                 />
                                 <button
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A94A6] hover:text-[#1F2933] transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E8E93] hover:text-[#0A0A0A] transition-colors"
                                     type="button"
                                     onClick={() => dispatchLogin({ type: 'togglePassword' })}
                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                 >
                                     <AppIcon name={showPassword ? 'visibility' : 'visibility_off'} className="text-[18px]" />
                                 </button>
+                            </div>
+                            <div className="mt-2 flex justify-end">
+                                <Link
+                                    to="/reset-password"
+                                    className="text-sm font-semibold text-[#007AFF] hover:underline"
+                                >
+                                    Forgot password?
+                                </Link>
                             </div>
                         </div>
 
@@ -291,9 +294,9 @@ const Login = () => {
                         </button>
                     </form>
 
-                    <p className="mt-6 text-center text-sm text-[#687384]">
+                    <p className="mt-6 text-center text-sm text-[#6B6B70]">
                         New here?{' '}
-                        <Link to="/signup" className="font-semibold text-[rgb(13, 148, 136)] hover:underline">
+                        <Link to="/signup" className="font-semibold text-[#007AFF] hover:underline">
                             Create an account
                         </Link>
                     </p>

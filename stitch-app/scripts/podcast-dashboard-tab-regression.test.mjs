@@ -19,31 +19,25 @@ const requireIncludes = (source, snippet, label) => {
   }
 };
 
-const requireExcludes = (source, snippet, label) => {
-  if (source.includes(snippet)) {
-    throw new Error(`${label} should not include "${snippet}".`);
-  }
-};
-
 requireIncludes(
   appSource,
-  '<Route path="/dashboard/podcasts" element={<Navigate to="/dashboard" replace />} />',
+  '<Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />',
   'App.jsx',
 );
-requireExcludes(appSource, "import('./pages/DashboardPodcasts')", 'App.jsx');
-requireExcludes(appSource, 'DashboardPodcasts', 'App.jsx');
+requireIncludes(appSource, "import('./pages/DashboardPodcasts')", 'App.jsx');
+requireIncludes(appSource, 'DashboardPodcasts', 'App.jsx');
 
-requireExcludes(
+requireIncludes(
   appSidebarSource,
   "/dashboard/podcasts",
   'app-sidebar.jsx',
 );
-requireExcludes(
+requireIncludes(
   mobileBottomNavSource,
   '/dashboard/podcasts',
   'MobileBottomNav.jsx',
 );
-requireExcludes(
+requireIncludes(
   commandPaletteSource,
   "/dashboard/podcasts",
   'CommandPalette.jsx',

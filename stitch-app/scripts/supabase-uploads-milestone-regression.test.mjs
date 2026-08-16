@@ -16,7 +16,7 @@ if (!/study-uploads/.test(migration)) {
 }
 
 const uploadsSource = await fs.readFile(path.join(root, 'server', 'uploads.js'), 'utf8');
-for (const symbol of ['initUploadForUser', 'finalizeUploadForUser', 'listUploadsForUser']) {
+for (const symbol of ['initUploadForUser', 'finalizeUploadForUser', 'listUploadsForUser', 'deleteUploadForUser', 'exportTransformedContentForUser', 'getOriginalDownloadForUser']) {
   if (!uploadsSource.includes(`export const ${symbol}`)) {
     throw new Error(`Expected server/uploads.js to export ${symbol}.`);
   }
@@ -26,15 +26,39 @@ const uploadHttp = await fs.readFile(path.join(root, 'server', 'uploadHttp.js'),
 if (!/handleUploadsRequest/.test(uploadHttp) || !/auth\.api\.getSession/.test(uploadHttp)) {
   throw new Error('Expected upload HTTP handler to require a Better Auth session.');
 }
+if (!/method === "DELETE"/.test(uploadHttp)) {
+  throw new Error('Expected upload HTTP handler to support DELETE.');
+}
+if (!/parts\[1\] === "export"/.test(uploadHttp) || !/exportTransformedContentForUser/.test(uploadHttp)) {
+  throw new Error('Expected upload HTTP handler to export transformed content.');
+}
+if (!/parts\[1\] === "original"/.test(uploadHttp) || !/getOriginalDownloadForUser/.test(uploadHttp)) {
+  throw new Error('Expected upload HTTP handler to sign original-file downloads.');
+}
 
 const apiRoute = await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8');
 if (!/handleUploadsRequest/.test(apiRoute) || !/\/api\/uploads/.test(apiRoute)) {
   throw new Error('Expected api/router.js to route /api/uploads to the uploads HTTP handler.');
 }
+if (!/maxDuration:\s*300/.test(apiRoute)) {
+  throw new Error('Expected api/router.js to allow longer OCR finalize duration.');
+}
 
-const doclingClient = await fs.readFile(path.join(root, 'server', 'doclingClient.js'), 'utf8');
-if (!/callDoclingExtract/.test(doclingClient) || !/isDoclingEnabled/.test(doclingClient)) {
-  throw new Error('Expected server/doclingClient.js to expose Docling extract helpers.');
+const anydocClient = await fs.readFile(path.join(root, 'server', 'anydocClient.js'), 'utf8');
+if (!/callAnydocExtract/.test(anydocClient) || !/isAnydocExtractable/.test(anydocClient)) {
+  throw new Error('Expected server/anydocClient.js to expose anydoc extract helpers.');
+}
+if (!uploadsSource.includes('callAnydocExtract') || !uploadsSource.includes('isAnydocExtractable')) {
+  throw new Error('Expected finalizeUploadForUser to use anydoc extraction.');
+}
+if (!uploadsSource.includes('callOcrSpace')) {
+  throw new Error('Expected finalizeUploadForUser to fall back to OCR.space.');
+}
+if (/doclingClient|callDoclingExtract|isDoclingEnabled/.test(uploadsSource)) {
+  throw new Error('Expected finalizeUploadForUser to stop depending on Docling.');
+}
+if (uploadsSource.includes('extraction_status: "deferred"')) {
+  throw new Error('Expected deferred ready+charge path to be removed.');
 }
 
 const localExtract = await fs.readFile(path.join(root, 'server', 'localExtract.js'), 'utf8');

@@ -9,7 +9,7 @@ import {
 import { TutorAvatar } from '@/components/tutor/TutorAvatar';
 import { cn } from '@/lib/utils';
 
-const bubbleShapeClass = 'rounded-2xl px-4 py-2.5';
+const bubbleShapeClass = 'rounded-[20px] px-4 py-3';
 
 function StudentAvatar({ className }) {
   const { profile, user } = useAuth();
@@ -83,7 +83,29 @@ export function TutorMessageRow({
   );
 }
 
-export function TutorWelcomeMessage({ topicTitle, description, compact = false }) {
+const promptChipLabel = (prompt) => prompt.label || prompt.text || prompt.prompt;
+
+export function TutorWelcomeMessage({
+  topicTitle,
+  description,
+  compact = false,
+  suggestedPrompts = [],
+  onSuggestedPrompt,
+  sending = false,
+}) {
+  const lessonLabel = topicTitle || 'this lesson';
+  const prompts = Array.isArray(suggestedPrompts) ? suggestedPrompts : [];
+
+  const handleSuggested = async (value) => {
+    const question = String(value || '').trim();
+    if (!question || sending) return;
+    try {
+      await onSuggestedPrompt?.(question);
+    } catch {
+      // Parent owns error state.
+    }
+  };
+
   return (
     <Message align="start">
       <MessageAvatar className={compact ? 'min-w-7' : 'min-w-9'}>
@@ -93,16 +115,25 @@ export function TutorWelcomeMessage({ topicTitle, description, compact = false }
         <Bubble variant="muted" className="max-w-[85%]">
           <BubbleContent className={cn(bubbleShapeClass, 'bg-surface-soft dark:bg-surface-hover-dark')}>
             <p className="font-body-sm text-body-sm text-foreground">
-              {compact ? (
-                <>Hi! I&apos;m your AI tutor{topicTitle ? ` for "${topicTitle}"` : ''}. Ask anything, or try one of these:</>
-              ) : (
-                <>
-                  I can help with {topicTitle}. Ask about a confusing idea, request examples, or start a quick review.
-                </>
-              )}
+              Ask about a confusing idea, get an example, or start a quick review of {lessonLabel}.
             </p>
             {!compact && description ? (
               <p className="mt-space-3 font-body-sm text-body-sm text-muted-foreground">{description}</p>
+            ) : null}
+            {prompts.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {prompts.map((prompt) => (
+                  <button
+                    key={promptChipLabel(prompt)}
+                    type="button"
+                    disabled={sending}
+                    onClick={() => handleSuggested(prompt.prompt)}
+                    className="rounded-[999px] border border-border-default bg-surface px-3 py-1.5 text-left text-caption font-semibold text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary disabled:opacity-50"
+                  >
+                    {promptChipLabel(prompt)}
+                  </button>
+                ))}
+              </div>
             ) : null}
           </BubbleContent>
         </Bubble>

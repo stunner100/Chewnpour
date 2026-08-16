@@ -1,0 +1,59 @@
+{
+  "topics": [
+    {
+      "title": "Cellular respiration sequence",
+      "description": "Glycolysis, Krebs cycle, then electron transport",
+      "content": "## Key Ideas\n\nCellular respiration converts glucose into usable energy. Glycolysis, the Krebs cycle, and the electron transport chain work in sequence so the cell can harvest ATP.\n\n## Step-by-Step Breakdown\n\nFirst, glycolysis breaks glucose into pyruvate in the cytoplasm. Then the Krebs cycle oxidizes pyruvate-derived acetyl-CoA in the mitochondrial matrix. Finally, the electron transport chain uses the resulting NADH and FADH2 to make ATP.\n\n## Common Mistakes\n\nStudents often confuse the Krebs cycle with glycolysis. Glycolysis happens in the cytoplasm, while the Krebs cycle happens in the mitochondrial matrix.",
+      "questions": [
+        {
+          "prompt": "Where does glycolysis break glucose into pyruvate?",
+          "options": ["the cytoplasm", "the nucleus", "the cell wall", "the Golgi body"],
+          "correctIndex": 0,
+          "explanation": "Glycolysis happens in the cytoplasm.",
+          "hint": "Look for the location named before mitochondria."
+        },
+        {
+          "prompt": "Where is glucose broken into pyruvate during glycolysis?",
+          "options": ["cytoplasm", "chloroplast", "vacuole", "ribosome"],
+          "correctIndex": 0,
+          "explanation": "Duplicate of the previous question."
+        },
+        {
+          "prompt": "What does the electron transport chain use to make ATP?",
+          "options": ["NADH and FADH2", "DNA only", "cellulose", "starch grains"],
+          "correctIndex": 0,
+          "explanation": "ETC uses NADH and FADH2."
+        }
+      ],
+      "inLessonChecks": [
+        {
+          "sectionTitle": "Key Ideas",
+          "questionType": "multiple_choice",
+          "prompt": "What does cellular respiration convert glucose into?",
+          "options": ["usable energy", "cellulose", "starch grains", "the cell wall"],
+          "correctIndex": 0,
+          "explanation": "Cellular respiration converts glucose into usable energy."
+        },
+        {
+          "sectionTitle": "Common Mistakes",
+          "questionType": "true_false",
+          "prompt": "Students often confuse the Krebs cycle with glycolysis.",
+          "options": ["True", "False"],
+          "correctIndex": 0,
+          "explanation": "The lesson says students often confuse Krebs with glycolysis."
+        }
+      ],
+      "ordering": {
+        "prompt": "Order the main stages of cellular respiration.",
+        "stepsInOrder": [
+          "glycolysis breaks glucose into pyruvate",
+          "Krebs cycle oxidizes acetyl-CoA",
+          "electron transport chain makes ATP"
+        ],
+        "explanation": "Glycolysis is first, then Krebs, then electron transport.",
+        "hint": "Start in the cytoplasm, then move into mitochondria.",
+        "sectionTitle": "Step-by-Step Breakdown"
+      }
+    }
+  ]
+}

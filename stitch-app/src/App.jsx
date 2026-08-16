@@ -109,8 +109,9 @@ const QuizResults = lazyRoute(() => import('./pages/DashboardResults'), { compon
 const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { componentName: 'AIStudyTutor' });
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
 const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySettings'), { componentName: 'AccountStudySettings' });
-const Subscription = lazyRoute(() => import('./pages/Subscription'), { componentName: 'Subscription' });
 const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
+const FlashcardStudySession = lazyRoute(() => import('./pages/FlashcardStudySession'), { componentName: 'FlashcardStudySession' });
+const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
 const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
@@ -119,8 +120,8 @@ const ProductResearch = lazyRoute(() => import('./pages/ProductResearch'), { com
 const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentName: 'Unsubscribe' });
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
+const PublicSharedCourse = lazyRoute(() => import('./pages/PublicSharedCourse'), { componentName: 'PublicSharedCourse' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
-const SubscriptionCallback = lazyRoute(() => import('./pages/SubscriptionCallback'), { componentName: 'SubscriptionCallback' });
 
 function RouteChangeTracker() {
   const routerLocation = useLocation();
@@ -263,7 +264,7 @@ const RedirectLegacyFlashcardsRoute = () => {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <ParkedFeatureView title="Flashcards" />
+        <FlashcardStudySession />
       </DashboardLayout>
     </ProtectedRoute>
   );
@@ -325,6 +326,7 @@ function App() {
         <Route path="/unsubscribe" element={withSuspense(<Unsubscribe />)} />
         <Route path="/terms" element={withSuspense(<Terms />)} />
         <Route path="/privacy" element={withSuspense(<Privacy />)} />
+        <Route path="/c/:token" element={withSuspense(<PublicSharedCourse />)} />
         <Route path="/kids" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
         <Route path="/kids/parent" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
         <Route path="/kids/upload" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
@@ -351,14 +353,14 @@ function App() {
         <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/exam" element={withSuspense(<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
-        <Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />
-        <Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />
+        <Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/progress" element={withSuspense(<ProtectedRoute><DashboardLayout><StudyProgressMastery /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />
-        <Route path="/dashboard/podcasts" element={<ParkedDashboardFeature title="Study podcasts" />} />
+        <Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/kids" element={<ParkedDashboardFeature title="Kids mode" />} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
@@ -378,9 +380,8 @@ function App() {
         <Route path="/dashboard/concept" element={<ParkedDashboardFeature title="Concept builder" />} />
         <Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
 
-        {/* Subscription Route */}
-        <Route path="/subscription" element={withSuspense(<ProtectedRoute><DashboardLayout><Subscription /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/subscription/callback" element={withSuspense(<ProtectedRoute><SubscriptionCallback /></ProtectedRoute>)} />
+        <Route path="/subscription" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/subscription/callback" element={<Navigate to="/dashboard" replace />} />
 
         {/* Profile Routes */}
         <Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />

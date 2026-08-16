@@ -20,8 +20,8 @@ for (const symbol of ['listTopicChatMessages', 'askTopicTutor', 'clearTopicChat'
 }
 
 const courseHttp = await fs.readFile(path.join(root, 'server', 'courseHttp.js'), 'utf8');
-if (!/parts\[1\] === "chat"/.test(courseHttp) || !/askTopicTutor/.test(courseHttp)) {
-  throw new Error('Expected topics HTTP handler to expose /chat routes.');
+if (!/parts\[1\] === "study-worker-token"/.test(courseHttp) || !/signStudyWorkerToken/.test(courseHttp)) {
+  throw new Error('Expected topics HTTP handler to mint study-worker tokens.');
 }
 
 for (const relativePath of [
@@ -33,14 +33,15 @@ for (const relativePath of [
   if (/from ['"]convex\/react['"]/.test(source) || /api\.topicChat|api\.ai\.askTopicTutor/.test(source)) {
     throw new Error(`Expected ${relativePath} to stop depending on Convex tutor chat.`);
   }
-  if (!/\/api\/topics\//.test(source) && relativePath !== 'src/components/topic/TopicLessonViews.jsx') {
-    throw new Error(`Expected ${relativePath} to call the topics chat API.`);
-  }
 }
 
 const lessonViews = await fs.readFile(path.join(root, 'src', 'components', 'topic', 'TopicLessonViews.jsx'), 'utf8');
-if (!/\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/chat/.test(lessonViews)) {
-  throw new Error('Expected TopicStudyAssistantCard to use /api/topics/:id/chat.');
+const topicChatPanel = await fs.readFile(path.join(root, 'src', 'components', 'TopicChatPanel.jsx'), 'utf8');
+if (!/Open AI Tutor/.test(lessonViews) || !/onAsk=\{handleAskTutor\}/.test(lessonViews)) {
+  throw new Error('Expected TopicStudyAssistantCard to open the shared TopicChatPanel tutor entry.');
+}
+if (!/StudyWorkerChat/.test(topicChatPanel)) {
+  throw new Error('Expected TopicChatPanel to use the eve study worker.');
 }
 
 console.log('supabase-topic-tutor-chat-regression.test.mjs passed');

@@ -26,8 +26,13 @@ requireIncludes(
 
 requireIncludes(
   uploadSource,
-  "const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, MP3, M4A, MP4, WAV, WEBM, OGG, AAC, FLAC';",
+  "const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX';",
   'single supported-format copy source',
+);
+requireIncludes(
+  uploadSource,
+  "const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx';",
+  'accept list limited to extractable study formats',
 );
 requireIncludes(
   uploadSource,
@@ -36,12 +41,12 @@ requireIncludes(
 );
 requireIncludes(
   uploadSource,
-  'Upload PDFs, slides, Word docs, or recordings to generate study guides, flashcards, and quizzes.',
+  'Upload PDF, DOCX, or PPTX files. ChewnPour extracts text and prepares lessons and quizzes.',
   'header copy mirrors supported formats',
 );
 requireIncludes(
   uploadSource,
-  'Drop PDFs, slides, docs, or audio here',
+  'Drop PDF, DOCX, or PPTX files here',
   'dropzone copy mirrors supported formats',
 );
 requireIncludes(
@@ -49,29 +54,18 @@ requireIncludes(
   'Supported formats: ${ACCEPTED_FILE_TYPE_COPY}. Max 50MB.',
   'dropzone detail copy mirrors supported formats',
 );
-
 requireIncludes(
   uploadSource,
-  'px-space-4 py-space-5 md:p-space-10 pb-28 md:pb-space-10 pt-16',
-  'compact mobile page padding with bottom-nav clearance',
+  "label: 'Failed'",
+  'failed extraction is shown as Failed not Stored',
 );
-requireIncludes(
-  uploadSource,
-  'px-space-5 py-space-6 md:p-space-12',
-  'compact mobile dropzone padding',
-);
-requireIncludes(
-  uploadSource,
-  'mt-space-8 md:mt-space-16',
-  'compact mobile recent upload spacing',
-);
-
-requireExcludes(uploadSource, 'Drop your PDFs, slides, or notes here', 'old inconsistent dropzone copy');
 requireExcludes(
   uploadSource,
-  'Our AI will automatically process your files, extract key concepts, and prepare them for study generation.',
-  'old verbose dropzone detail copy',
+  "label: extraction === 'complete' ? 'Extracted' : 'Stored'",
+  'deferred uploads must not look successfully Stored',
 );
+requireExcludes(uploadSource, 'audio/*', 'audio must not be in accept list');
+requireExcludes(uploadSource, 'Drop your PDFs, slides, or notes here', 'old inconsistent dropzone copy');
 requireIncludes(uploadSource, '\\bqa\\s+probe\\b', 'targeted internal QA probe filter');
 requireExcludes(uploadSource, '|| /\\bqa\\b/.test(normalized)', 'overbroad QA upload filter');
 

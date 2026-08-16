@@ -4,17 +4,30 @@ import { handleBillingRequest } from "../server/billingHttp.js";
 import {
     handleCoursesRequest,
     handleQuizAttemptsRequest,
+    handleShareRequest,
     handleTopicsRequest,
 } from "../server/courseHttp.js";
+import { handleExamsRequest } from "../server/examHttp.js";
+import { handlePodcastsRequest } from "../server/podcastHttp.js";
 import { handleProfileRequest } from "../server/profileHttp.js";
 import { handleProgressRequest } from "../server/progressHttp.js";
 import { handleUploadsRequest } from "../server/uploadHttp.js";
 
 // Better Auth must parse the raw body itself.
+// Include anydoc NAPI binaries — file tracing often skips optionalDependencies.
 export const config = {
     api: {
         bodyParser: false,
     },
+    // OCR.space + anydoc finalize can exceed the default serverless limit.
+    maxDuration: 300,
+    includeFiles: [
+        "node_modules/@firecrawl/anydoc/**",
+        "node_modules/@firecrawl/anydoc-linux-x64-gnu/**",
+        "node_modules/@firecrawl/anydoc-linux-arm64-gnu/**",
+        "node_modules/@firecrawl/anydoc-linux-x64-musl/**",
+        "node_modules/@firecrawl/anydoc-linux-arm64-musl/**",
+    ],
 };
 
 const authHandler = toNodeHandler(auth);
@@ -50,6 +63,15 @@ export default async function handler(req, res) {
     }
     if (pathname === "/api/courses" || pathname.startsWith("/api/courses/")) {
         return handleCoursesRequest(req, res);
+    }
+    if (pathname === "/api/share" || pathname.startsWith("/api/share/")) {
+        return handleShareRequest(req, res);
+    }
+    if (pathname === "/api/exams" || pathname.startsWith("/api/exams/")) {
+        return handleExamsRequest(req, res);
+    }
+    if (pathname === "/api/podcasts" || pathname.startsWith("/api/podcasts/")) {
+        return handlePodcastsRequest(req, res);
     }
     if (pathname === "/api/topics" || pathname.startsWith("/api/topics/")) {
         return handleTopicsRequest(req, res);

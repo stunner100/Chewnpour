@@ -17,14 +17,14 @@ const requireExcludes = (snippet, label) => {
   }
 };
 
-requireIncludes('gap-space-6 p-space-6 md:p-space-8', 'compact page spacing');
-requireIncludes('font-display-md text-display-md text-text-primary mb-1">My Materials', 'compact page title');
-requireIncludes('font-body-sm text-body-sm text-text-secondary', 'compact subtitle');
-requireIncludes('px-3.5 py-2 rounded-lg font-label-sm text-label-sm', 'compact filter tabs');
-requireIncludes('rounded-xl p-space-4 shadow-sm flex flex-col', 'compact material card padding');
-requireIncludes('font-body-base text-body-base font-bold text-text-primary mb-1 line-clamp-2', 'compact material card title');
-requireIncludes('text-caption font-medium text-text-muted mb-5', 'compact upload timestamp');
-requireIncludes('font-label-sm text-label-sm hover:bg-primary-hover', 'compact card CTA');
+requireIncludes('px-4 py-8 md:px-8 md:py-10', 'compact page spacing');
+requireIncludes('font-display text-display-md font-bold tracking-[-0.02em] text-text-primary', 'compact page title');
+requireIncludes('mt-2 max-w-xl text-pretty text-body-md text-text-secondary', 'compact subtitle');
+requireIncludes('rounded-full px-4 py-2 text-body-sm font-semibold', 'compact filter tabs');
+requireIncludes('rounded-[24px] border border-border-subtle bg-surface p-5', 'compact material card padding');
+requireIncludes('line-clamp-2 font-display text-display-sm font-bold text-text-primary', 'compact material card title');
+requireIncludes('mt-1 text-caption font-medium text-text-muted', 'compact upload timestamp');
+requireIncludes('btn-primary inline-flex w-full min-h-11', 'compact card CTA');
 
 requireExcludes('font-display-lg text-display-lg text-text-primary mb-2">My Materials', 'oversized page title');
 requireExcludes('font-headline-sm text-headline-sm text-text-primary mb-1 line-clamp-2', 'oversized material card title');

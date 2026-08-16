@@ -10,7 +10,7 @@ export const isReExplainQuotaExceededError = (error) => {
 export const SECTION_SETS = {
     quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
     exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
-    practice_only: ['quick check', 'self-check', 'self-check prompts'],
+    practice_only: null,
     full: null,
 };
 export const EMBEDDED_SECTION_SPLIT_PATTERN = new RegExp(`((?:^|\\s)(?:${SECTION_TITLE_PATTERN})\\s*(?:[:\\-]|\\b))`, 'i');
@@ -21,10 +21,13 @@ export const ANALOGY_SECTION_PATTERN = /\b(analog|everyday analog)\b/;
 export const COMMON_MISTAKE_SECTION_PATTERN = /\b(common mistake|misconception)\b/;
 export const STEP_TERM_PATTERN = /step/i;
 
-export const buildObjectiveExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=mcq` : '/dashboard';
-export const buildEssayExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=essay` : '/dashboard';
+export const buildTopicQuizRoute = (topicId) =>
+    topicId ? `/dashboard/quiz/${topicId}?autostart=mcq` : '/dashboard';
+export const buildEssayQuizRoute = (topicId) =>
+    topicId ? `/dashboard/quiz/${topicId}?autostart=essay` : '/dashboard';
+export const buildTimedExamRoute = (courseId) =>
+    courseId ? `/dashboard/exam?courseId=${encodeURIComponent(courseId)}` : '/dashboard/exam';
+
 
 export const getCurrentHashTargetId = () => {
     if (typeof window === 'undefined') return '';

@@ -18,6 +18,8 @@ const livePageModules = [
   'src/pages/Subscription.jsx',
   'src/pages/LessonMemoryNeuralBasis.jsx',
   'src/pages/TopicDetail.jsx',
+  'src/pages/PublicSharedCourse.jsx',
+  'src/pages/DashboardPodcasts.jsx',
   'src/pages/LandingPage.jsx',
   'src/pages/Login.jsx',
   'src/pages/ResetPassword.jsx',
@@ -48,11 +50,6 @@ for (const relativePath of livePageModules) {
 const appProviders = await read('src/bootstrap/AppProviders.jsx');
 if (!appProviders.includes('AuthProvider') || appProviders.includes('ConvexProvider')) {
   throw new Error('Expected AppProviders to mount AuthProvider without ConvexProvider.');
-}
-
-const contentPanel = await read('src/components/topic/TopicContentPanel.jsx');
-if (contentPanel.includes('LessonPodcastCard')) {
-  throw new Error('TopicContentPanel should not import LessonPodcastCard while podcasts are parked.');
 }
 
 console.log('supabase-live-routes-convex-free-regression.test.mjs passed');

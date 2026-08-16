@@ -68,9 +68,12 @@ const posthogSource = read('src/lib/posthog.js');
 for (const pattern of [
     'MAX_PENDING_ACTIONS',
     'queueingAllowed',
-    'disable_session_recording: true',
-    'disable_surveys: true',
-    'disable_external_dependency_loading',
+    'disable_session_recording: false',
+    'disable_surveys: false',
+    'maskAllInputs: true',
+    'disable_external_dependency_loading: false',
+    'disable_web_experiments: true',
+    'autocapture: false',
 ]) {
     assert.match(
         posthogSource,

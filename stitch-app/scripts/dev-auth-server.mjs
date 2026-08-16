@@ -22,7 +22,7 @@ const { handleProfileRequest } = await import(
 const { handleUploadsRequest } = await import(
     pathToFileURL(path.join(root, "server", "uploadHttp.js")).href
 );
-const { handleCoursesRequest, handleTopicsRequest, handleQuizAttemptsRequest } = await import(
+const { handleCoursesRequest, handleTopicsRequest, handleQuizAttemptsRequest, handleShareRequest } = await import(
     pathToFileURL(path.join(root, "server", "courseHttp.js")).href
 );
 const { handleBillingRequest } = await import(
@@ -45,6 +45,9 @@ const server = http.createServer((req, res) => {
     }
     if (url.startsWith("/api/courses")) {
         return handleCoursesRequest(req, res);
+    }
+    if (url.startsWith("/api/share")) {
+        return handleShareRequest(req, res);
     }
     if (url.startsWith("/api/topics")) {
         return handleTopicsRequest(req, res);

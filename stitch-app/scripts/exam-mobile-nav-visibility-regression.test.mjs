@@ -10,8 +10,8 @@ const read = async (relativePath) => {
 
 const dashboardLayoutSource = await read('src/components/DashboardLayout.jsx');
 for (const pattern of [
-  "useLocation",
-  "(?!results",
+  'useLocation',
+  '(?:quiz\\/(?!results\\/)|topic\\/)',
   '!hideMobileBottomNav && <MobileBottomNav />',
 ]) {
   if (!dashboardLayoutSource.includes(pattern)) {
@@ -21,12 +21,12 @@ for (const pattern of [
 
 const examModeSource = await read('src/pages/ExamMode.jsx');
 for (const pattern of [
-  'fixed bottom-0 inset-x-0',
-  'z-50',
-  'md:hidden',
+  'Submit exam',
+  'sticky top-0',
+  'requestSubmit',
 ]) {
   if (!examModeSource.includes(pattern)) {
-    throw new Error(`Expected ExamMode mobile action bar to include "${pattern}".`);
+    throw new Error(`Expected ExamMode sticky exam chrome to include "${pattern}".`);
   }
 }
 

@@ -1,6 +1,14 @@
 import { nanoid } from "nanoid";
 import { getPool } from "./db.js";
 import { getTopicForUser } from "./courses.js";
+import { normalizeActivityKind } from "./resumeTarget.js";
+
+const TOPIC_ACTIVITY_KINDS = new Set(["lesson", "quiz", "podcast"]);
+
+const normalizeTopicActivityKind = (value, fallback = "lesson") => {
+    const kind = normalizeActivityKind(value, fallback);
+    return TOPIC_ACTIVITY_KINDS.has(kind) ? kind : fallback;
+};
 
 const toClientNote = (row) => {
     if (!row) return null;
@@ -25,7 +33,12 @@ const toClientProgress = (row) => {
         lastStudiedAt: row.last_studied_at
             ? new Date(row.last_studied_at).getTime()
             : null,
+        lastActivityKind: normalizeTopicActivityKind(row.last_activity_kind, "lesson"),
         termsStarred: Array.isArray(row.terms_starred) ? row.terms_starred : [],
+        lessonChecks:
+            row.lesson_checks && typeof row.lesson_checks === "object" && !Array.isArray(row.lesson_checks)
+                ? row.lesson_checks
+                : {},
         bestScore:
             row.best_score == null || Number.isNaN(Number(row.best_score))
                 ? null
@@ -127,6 +140,12 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
     const nextTerms = Array.isArray(patch.termsStarred)
         ? patch.termsStarred
         : existing.rows[0]?.terms_starred || [];
+    const nextLessonChecks =
+        patch.lessonChecks && typeof patch.lessonChecks === "object" && !Array.isArray(patch.lessonChecks)
+            ? patch.lessonChecks
+            : existing.rows[0]?.lesson_checks && typeof existing.rows[0].lesson_checks === "object"
+                ? existing.rows[0].lesson_checks
+                : {};
     const nextCompletedAt =
         patch.completedAt === undefined
             ? existing.rows[0]?.completed_at || null
@@ -136,6 +155,10 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
     const nextLastStudiedAt = patch.lastStudiedAt
         ? new Date(Number(patch.lastStudiedAt) || Date.now())
         : new Date();
+    const nextActivityKind = normalizeTopicActivityKind(
+        patch.lastActivityKind,
+        normalizeTopicActivityKind(existing.rows[0]?.last_activity_kind, "lesson"),
+    );
     const nextBestScore =
         patch.bestScore === undefined
             ? existing.rows[0]?.best_score ?? null
@@ -158,16 +181,20 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
              SET course_id = $1,
                  completed_at = $2,
                  last_studied_at = $3,
-                 terms_starred = $4::jsonb,
-                 best_score = $5,
+                 last_activity_kind = $4,
+                 terms_starred = $5::jsonb,
+                 lesson_checks = $6::jsonb,
+                 best_score = $7,
                  updated_at = NOW()
-             WHERE id = $6
+             WHERE id = $8
              RETURNING *`,
             [
                 courseId,
                 nextCompletedAt,
                 nextLastStudiedAt,
+                nextActivityKind,
                 JSON.stringify(nextTerms),
+                JSON.stringify(nextLessonChecks),
                 nextBestScore,
                 existing.rows[0].id,
             ],
@@ -177,8 +204,8 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
 
     const inserted = await db.query(
         `INSERT INTO topic_progress (
-            id, user_id, topic_id, course_id, completed_at, last_studied_at, terms_starred, best_score
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+            id, user_id, topic_id, course_id, completed_at, last_studied_at, last_activity_kind, terms_starred, lesson_checks, best_score
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10)
          RETURNING *`,
         [
             nanoid(),
@@ -187,7 +214,9 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
             courseId,
             nextCompletedAt,
             nextLastStudiedAt,
+            nextActivityKind,
             JSON.stringify(nextTerms),
+            JSON.stringify(nextLessonChecks),
             nextBestScore,
         ],
     );

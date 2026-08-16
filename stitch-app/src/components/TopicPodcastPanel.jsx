@@ -1,5 +1,4 @@
 /**
- * Podcast panel is parked. Live routes must not import the Convex-backed implementation.
- * Keep this module as a Convex-free stub for any residual imports.
+ * Live lesson podcast card. Residual imports keep this Convex-free re-export.
  */
 export { default } from './lesson/LessonPodcastCard';

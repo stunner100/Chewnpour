@@ -138,75 +138,13 @@ export const grantStarterCredits = async (userId) => {
 
 export const getBillingForUser = async (userId) => ensureBillingAccount(userId);
 
-export const assertUploadCreditsAvailable = async (userId) => {
-    const billing = await ensureBillingAccount(userId);
-    if (billing.remainingUploadCredits < UPLOAD_CREDIT_COST) {
-        const error = new Error(
-            `No upload credits remaining. You need ${UPLOAD_CREDIT_COST} credit to process an upload.`,
-        );
-        error.status = 402;
-        error.code = "UPLOAD_CREDITS_EXHAUSTED";
-        error.billing = billing;
-        throw error;
-    }
-    return billing;
-};
+export const assertUploadCreditsAvailable = async (userId) => getBillingForUser(userId);
 
-export const consumeUploadCredit = async ({ userId, uploadId }) => {
-    await assertUploadCreditsAvailable(userId);
+export const consumeUploadCredit = async ({ userId, uploadId: _uploadId }) =>
+    getBillingForUser(userId);
 
-    const db = getPool();
-    const updated = await db.query(
-        `UPDATE billing_accounts
-         SET consumed_upload_credits = consumed_upload_credits + $2,
-             updated_at = NOW()
-         WHERE user_id = $1
-           AND (purchased_upload_credits - consumed_upload_credits) >= $2
-         RETURNING *`,
-        [userId, UPLOAD_CREDIT_COST],
-    );
-
-    if (!updated.rows[0]) {
-        const error = new Error("No upload credits remaining.");
-        error.status = 402;
-        error.code = "UPLOAD_CREDITS_EXHAUSTED";
-        error.billing = await getBillingForUser(userId);
-        throw error;
-    }
-
-    const row = updated.rows[0];
-    const billing = toClientBilling(row);
-    await insertLedgerEntry({
-        userId,
-        entryType: "spend",
-        amount: -UPLOAD_CREDIT_COST,
-        reason: "upload_finalize",
-        uploadId: uploadId || null,
-        balanceAfter: billing.remainingUploadCredits,
-    });
-    return billing;
-};
-
-export const hasUploadCreditSpend = async (uploadId) => {
-    if (!uploadId) return false;
-    const db = getPool();
-    const result = await db.query(
-        `SELECT id
-         FROM credit_ledger
-         WHERE upload_id = $1
-           AND entry_type = 'spend'
-         LIMIT 1`,
-        [uploadId],
-    );
-    return Boolean(result.rows[0]);
-};
-
-export const chargeUploadIfNeeded = async ({ userId, uploadId }) => {
-    if (await hasUploadCreditSpend(uploadId)) {
-        return getBillingForUser(userId);
-    }
-    return consumeUploadCredit({ userId, uploadId });
-};
+export const chargeUploadIfNeeded = async ({ userId, uploadId: _uploadId }) =>
+    getBillingForUser(userId);
 
 export const hasSuccessfulPurchase = async (userId) => {
     const db = getPool();

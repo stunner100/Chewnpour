@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AppIcon from './AppIcon';
+import { formatCourseTitle } from '../lib/courseTitle';
 
 const EMPTY_ARRAY = [];
 
@@ -24,6 +25,7 @@ const CourseCard = ({
     onConfirmDelete,
     onMoveToFolder,
 }) => {
+    const displayTitle = formatCourseTitle(course?.title) || course?.title || 'Untitled course';
     const [menuState, setMenuState] = useState({
         menuOpen: false,
         moveSubmenuOpen: false,
@@ -86,7 +88,7 @@ const CourseCard = ({
                             if (event.key === 'Enter' || event.key === ' ') stopCardNav(event);
                         }}
                         role="group"
-                        aria-label={`Confirm deleting ${course.title}`}
+                        aria-label={`Confirm deleting ${displayTitle}`}
                         className="absolute top-2 right-2 z-20 flex items-center gap-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg px-2.5 py-1.5 shadow-card"
                     >
                         <span className="text-caption text-red-600 dark:text-red-400">Delete?</span>
@@ -108,7 +110,7 @@ const CourseCard = ({
                             if (event.key === 'Enter' || event.key === ' ') stopCardNav(event);
                         }}
                         role="group"
-                        aria-label={`Actions for ${course.title}`}
+                        aria-label={`Actions for ${displayTitle}`}
                         className="absolute top-2 right-2 z-20"
                     >
                         <button
@@ -124,7 +126,7 @@ const CourseCard = ({
                             className="btn-icon size-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 focus:opacity-100 data-[open=true]:opacity-100 transition-all"
                             data-open={menuOpen}
                             title="Course actions"
-                            aria-label={`Actions for ${course.title}`}
+                            aria-label={`Actions for ${displayTitle}`}
                             aria-haspopup="menu"
                             aria-expanded={menuOpen}
                         >
@@ -219,7 +221,7 @@ const CourseCard = ({
                         {progress}%
                     </span>
                 </div>
-                <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark leading-snug line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
+                <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark leading-snug line-clamp-1 group-hover:text-primary transition-colors">{displayTitle}</h3>
                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark line-clamp-2">{course.description}</p>
                 <div className="w-full h-1 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden mt-auto">
                     <div

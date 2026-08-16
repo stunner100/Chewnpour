@@ -1,3 +1,5 @@
+import { formatCourseTitle } from "../src/lib/courseTitle.js";
+
 const stripExtension = (fileName = "") =>
     String(fileName || "Untitled material").replace(
         /\.(pdf|pptx|docx|mp3|m4a|mp4|wav|webm|ogg|aac|flac)$/i,
@@ -70,7 +72,7 @@ const chunkByParagraphs = (text = "", maxChunks = 5) => {
 };
 
 export const buildTopicsFromExtractedText = ({ fileName, extractedText }) => {
-    const titleBase = stripExtension(fileName) || "Study material";
+    const titleBase = formatCourseTitle(fileName) || "Study material";
     const text = String(extractedText || "").trim();
 
     if (!text) {
@@ -111,23 +113,46 @@ const DISTRACTORS = [
     "This statement contradicts the source excerpt.",
 ];
 
+const shuffleOptionsWithCorrect = (options, correctIndex) => {
+    const items = options.map((option, index) => ({
+        option,
+        isCorrect: index === correctIndex,
+    }));
+    for (let i = items.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+    }
+    return {
+        options: items.map((item) => item.option),
+        correctIndex: items.findIndex((item) => item.isCorrect),
+    };
+};
+
 export const buildQuestionsForTopic = ({ topicTitle, topicContent, limit = 3 }) => {
-    const sentences = splitIntoSentences(topicContent).slice(0, Math.max(1, limit));
+    const allSentences = splitIntoSentences(topicContent);
+    const sentences = allSentences.slice(0, Math.max(1, limit));
     if (sentences.length === 0) {
         return [];
     }
 
     return sentences.map((sentence, index) => {
         const correct = sentence.slice(0, 180);
-        const options = [correct, ...DISTRACTORS].slice(0, 4);
+        const alternate = allSentences
+            .filter((candidate) => candidate !== sentence)
+            .slice(0, 3)
+            .map((candidate) => candidate.slice(0, 180));
+        const distractors = [...alternate, ...DISTRACTORS].slice(0, 3);
+        const unshuffled = [correct, ...distractors].slice(0, 4);
+        const shuffled = shuffleOptionsWithCorrect(unshuffled, 0);
         return {
             prompt: `According to “${normalizeWhitespace(topicTitle).slice(0, 60) || "this topic"}”, which statement is accurate?`,
-            options,
-            correctIndex: 0,
+            options: shuffled.options,
+            correctIndex: shuffled.correctIndex,
             explanation: `Drawn from the source excerpt: ${correct}`,
             sortOrder: index,
         };
     });
 };
 
-export const stripCourseTitle = stripExtension;
+export const stripCourseTitle = (fileName = "") =>
+    formatCourseTitle(fileName) || stripExtension(fileName);

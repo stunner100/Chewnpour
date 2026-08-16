@@ -29,7 +29,7 @@ for (const token of [
 
 assert.ok(
   !/from ['"]convex\/react['"]/.test(panelSource),
-  'Expected TopicPodcastPanel to stay Convex-free while podcasts are parked.',
+  'Expected TopicPodcastPanel to stay Convex-free.',
 );
 
 assert.ok(

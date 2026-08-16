@@ -21,8 +21,9 @@ assert.doesNotMatch(indexHtml, /maximum-scale\s*=\s*1/i, 'viewport must not lock
 assert.match(indexHtml, /width=device-width/, 'viewport must keep device-width');
 
 assert.doesNotMatch(tailwind, /"text-muted":\s*"#7B8794"/, 'text-muted must not use low-contrast #7B8794');
-assert.match(tailwind, /"text-muted":\s*"#3F4B55"/, 'text-muted must use AA-friendly #3F4B55');
-assert.match(indexCss, /--muted-foreground:\s*63 75 85/, 'CSS muted-foreground must be AA-friendly');
+assert.doesNotMatch(tailwind, /"text-muted":\s*"#8E8E93"/, 'text-muted must not use low-contrast #8E8E93');
+assert.match(tailwind, /"text-muted":\s*"#6B6B70"/, 'text-muted must use AA-friendly #6B6B70');
+assert.match(indexCss, /--muted-foreground:\s*107 107 112/, 'CSS muted-foreground must be AA-friendly');
 
 assert.match(mobileNav, /aria-label=\{tab\.label\}/, 'mobile tabs must expose aria-label');
 assert.match(mobileNav, /\{tab\.label\}/, 'mobile tabs must show visible labels');

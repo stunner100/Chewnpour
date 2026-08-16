@@ -1,4 +1,5 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import AppIcon from './AppIcon';
 
 const RE_EXPLAIN_STYLES = [
@@ -20,57 +21,92 @@ const TopicReExplainModal = memo(function TopicReExplainModal({
     error,
     onReExplain,
 }) {
-    if (!open) return null;
+    useEffect(() => {
+        if (!open) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const handleKey = (event) => {
+            if (event.key === 'Escape') onClose?.();
+        };
+        document.addEventListener('keydown', handleKey);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKey);
+        };
+    }, [open, onClose]);
 
-    return (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Re-explain this lesson</h3>
+    if (!open || typeof document === 'undefined') return null;
+
+    return createPortal(
+        <div
+            className="cp-theme fixed inset-0 z-[80] flex items-center justify-center bg-black/60 px-4"
+            onMouseDown={(event) => {
+                if (event.target === event.currentTarget) onClose?.();
+            }}
+        >
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="topic-reexplain-title"
+                className="w-full max-w-lg rounded-3xl border border-border-subtle bg-surface-light p-6 text-text-primary shadow-xl dark:border-border-dark dark:bg-surface-dark dark:text-text-main-dark"
+            >
+                <div className="mb-4 flex items-center justify-between">
+                    <h3 id="topic-reexplain-title" className="text-lg font-semibold text-text-primary">
+                        Re-explain this lesson
+                    </h3>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="size-9 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-primary flex items-center justify-center"
+                        className="btn-icon size-9"
+                        aria-label="Close re-explain dialog"
                     >
                         <AppIcon name="close" className="text-[20px]" />
                     </button>
                 </div>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Choose how you want this explanation to be rewritten.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <p className="mb-4 text-sm text-text-secondary">
+                    Choose how you want this explanation to be rewritten.
+                </p>
+                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {RE_EXPLAIN_STYLES.map((option) => (
                         <button
                             key={option}
+                            type="button"
                             onClick={() => onStyleChange(option)}
-                            className={`px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${selectedStyle === option
-                                ? 'bg-primary text-white border-primary'
-                                : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700'
-                                }`}
+                            className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${
+                                selectedStyle === option
+                                    ? 'border-primary bg-primary text-white'
+                                    : 'border-border-subtle bg-surface-soft text-text-secondary'
+                            }`}
                         >
                             {option}
                         </button>
                     ))}
                 </div>
-                {error && (
-                    <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
+                {error ? (
+                    <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
                         {error}
                     </div>
-                )}
+                ) : null}
                 <div className="flex items-center justify-end gap-3">
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold text-zinc-600 hover:text-zinc-900"
+                        className="rounded-xl px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary"
                     >
                         Cancel
                     </button>
                     <button
+                        type="button"
                         onClick={onReExplain}
                         disabled={loading}
-                        className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white shadow-sm shadow-primary/30 hover:shadow-primary/50 disabled:opacity-60"
+                        className="btn-primary px-5 py-2 text-sm disabled:opacity-60"
                     >
                         {loading ? 'Rewriting...' : 'Re-explain'}
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 });
 

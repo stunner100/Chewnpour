@@ -5,12 +5,14 @@ import process from 'node:process';
 const root = process.cwd();
 const source = await fs.readFile(path.join(root, 'src/pages/AIStudyTutor.jsx'), 'utf8');
 const surfaceSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorChatSurface.jsx'), 'utf8');
+const workerSource = await fs.readFile(path.join(root, 'src/components/tutor/StudyWorkerChat.jsx'), 'utf8');
+const sessionSource = await fs.readFile(path.join(root, 'src/lib/studyWorkerSession.js'), 'utf8');
 const topicPanelSource = await fs.readFile(path.join(root, 'src/components/TopicChatPanel.jsx'), 'utf8');
 const messageRowSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorMessageRow.jsx'), 'utf8');
 const tutorAvatarSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorAvatar.jsx'), 'utf8');
 const peepsSpriteSource = await fs.readFile(path.join(root, 'src/lib/peepsSprite.js'), 'utf8');
 const typingIndicatorSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorTypingIndicator.jsx'), 'utf8');
-const combinedSource = `${source}\n${surfaceSource}\n${topicPanelSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
+const combinedSource = `${source}\n${surfaceSource}\n${workerSource}\n${sessionSource}\n${topicPanelSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
 
 const requireIncludes = (snippet, label) => {
   if (!combinedSource.includes(snippet)) {
@@ -36,11 +38,10 @@ const requireExcludes = (snippet, label) => {
   }
 };
 
-requireIncludes('const [pendingExchange, setPendingExchange] = useState(null);', 'optimistic pending exchange state');
-requireIncludes('const displayMessages = useMemo(() => {', 'derived display messages');
-requireIncludes("role: 'user',", 'optimistic user message role');
-requireIncludes('const isTyping = Boolean(pendingExchangeForTopic && !pendingServerState.hasAssistant);', 'derived tutor typing state');
-requireExcludes('pending: true', 'pending assistant bubble row');
+requireIncludes("from 'eve/react'", 'eve React study-worker hook');
+requireIncludes('useEveAgent', 'durable study-worker session');
+requireIncludes("role: message.role === 'user' ? 'user' : 'assistant'", 'user and assistant transcript roles');
+requireIncludes("agent.status === 'submitted' || agent.status === 'streaming'", 'derived tutor busy state');
 requireIncludes("'AI Tutor conversation'", 'conversation region label');
 
 requireIncludes('MessageScrollerProvider', 'message scroller provider');
@@ -51,8 +52,8 @@ requireIncludes("const defaultScrollPosition = hasUserScrollAnchor ? 'last-ancho
 requireIncludes('scrollPreviousItemPeek={64}', 'previous turn context peek');
 requireIncludes('MessageScrollerItem', 'transcript row boundaries');
 requireIncludes('scrollAnchor={message.role === \'user\'}', 'user-turn scroll anchors');
-requireIncludes('MessageScrollerButton', 'jump-to-latest control');
-requireIncludes('scrollerKey={effectiveSelectedTopicId}', 'topic-scoped scroller reset');
+requireExcludes('MessageScrollerButton', 'clipped jump-to-latest control over the composer');
+requireIncludes('scrollerKey={topicId}', 'topic-scoped scroller reset');
 requireIncludes('aria-busy={isTyping || undefined}', 'streaming busy state on transcript');
 
 requireExcludes('messagesContainerRef', 'manual message container ref');
@@ -61,10 +62,9 @@ requireExcludes('questionAnchorRef', 'manual question anchor ref');
 requireExcludes('scrollIntoView({', 'manual scrollIntoView anchoring');
 requireExcludes("block: 'start'", 'manual viewport-start scroll anchoring');
 requireExcludes('top: messagesContainer.scrollHeight', 'bottom-anchored response scrolling');
-requireExcludes('}, [effectiveSelectedTopicId, messages, sending]);', 'sending-driven bottom auto-scroll');
 
-requireIncludesIn(topicPanelSource, 'TutorChatMessages', 'topic panel shared tutor messages');
-requireIncludesIn(topicPanelSource, 'scrollerKey={topicId}', 'topic panel scroller reset');
+requireIncludesIn(topicPanelSource, 'StudyWorkerChat', 'topic panel shared study worker');
+requireIncludesIn(workerSource, 'scrollerKey={topicId}', 'topic panel scroller reset');
 
 requireIncludes('const TutorContextLoading = ({ topicTitle }) => (', 'named context loading state');
 requireIncludes('role="status" aria-live="polite"', 'polite loading status');
@@ -82,7 +82,7 @@ requireIncludes('rounded-2xl', 'chat-friendly bubble corners for multi-line repl
 requireExcludesIn(messageRowSource, 'rounded-full', 'pill bubbles that dome on long replies');
 requireIncludes('StudentAvatar', 'student avatar on outgoing tutor messages');
 
-requireIncludes('inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption?.title || \'this lesson\'}`}', 'textarea accessible label');
+requireIncludes('inputAriaLabel={`Ask AI Tutor a question about ${selectedTopicOption.title || \'this lesson\'}`}', 'textarea accessible label');
 requireIncludes('TutorChatMessages', 'shadcn ai-elements tutor message surface');
 requireIncludes('TutorChatComposer', 'shadcn ai-elements tutor composer');
 requireIncludes('@/components/ui/message', 'shadcn radix message primitives');
@@ -93,7 +93,7 @@ requireIncludes('AvatarImage', 'radix avatar image for tutor peep');
 requireExcludes('BotIcon', 'bot fallback avatar icon');
 requireIncludes('TutorTypingIndicator', 'shadcn marker typing indicator');
 requireIncludes('@/components/ui/marker', 'shadcn marker primitive for typing status');
-requireIncludes('const showTypingIndicator = sending || isTyping;', 'sending-aware tutor typing state');
+requireIncludes('isTyping={isBusy}', 'sending-aware tutor typing state');
 requireIncludes('className="shimmer', 'css shimmer typing animation');
 requireIncludes('is typing...', 'tutor typing copy');
 requireExcludes('@/components/ai-elements/shimmer', 'broken motion shimmer dependency for typing');
@@ -101,5 +101,10 @@ requireExcludes('Tutor is preparing an answer', 'legacy spinner typing copy');
 requireExcludes('from \'@/components/ui/spinner\'', 'spinner-based tutor pending state');
 requireIncludes('@/components/ai-elements/prompt-input', 'ai-elements prompt input');
 requireIncludes('@/components/ui/message-scroller', 'shadcn message scroller primitives');
+requireIncludesIn(messageRowSource, 'prompt.label || prompt.text || prompt.prompt', 'welcome chips must show label or text');
+requireIncludesIn(messageRowSource, 'await onSuggestedPrompt?.(question)', 'welcome chips must send through the tutor submit path');
+requireIncludesIn(surfaceSource, 'await (onSuggestedPrompt || onSubmit)(question)', 'composer chips must reuse the submit path');
+requireIncludesIn(source, 'suggestedPrompts={suggestedPrompts}', 'dedicated tutor welcome must show prompt chips');
+requireIncludesIn(workerSource, 'showComposerSuggestions && messageList.length > 0 ? suggestedPrompts : []', 'dedicated tutor composer chips only after the first turn');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');

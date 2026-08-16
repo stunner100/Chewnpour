@@ -28,7 +28,7 @@ const FloatingStudyTools = ({ tools = EMPTY_ARRAY, hidden }) => {
     return (
         <div
             ref={wrapperRef}
-            className="fixed z-30 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 flex flex-col items-end gap-2 lg:hidden"
+            className="fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 z-30 flex flex-col items-end gap-2 lg:hidden"
         >
             {open && (
                 <div className="rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-elevated p-1.5 w-56 animate-fade-in-up">

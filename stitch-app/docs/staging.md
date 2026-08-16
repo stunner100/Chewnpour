@@ -60,18 +60,12 @@ Recommended:
 
 At minimum, staging must not use the production Convex deployment.
 
-## Extraction Service
+## Extraction
 
-The staging Convex deployment also needs the Docling extraction adapter envs.
-
-- `DOCLING_ENABLED=true`
-- `DOCLING_EXTRACT_URL=https://<your-docling-service>/extract`
-- `DOCLING_TIMEOUT_MS=120000`
-- `DOCLING_SHARED_SECRET=<shared-secret>`
-- `DOCLING_MAX_UPLOAD_BYTES=52428800`
-
-Do not set `DOCLING_ALLOW_INSECURE_LOCAL` outside local-only development. Keep
-these on the staging Convex deployment only until the service is validated.
+Upload finalize extracts PDF/DOCX/PPTX in-process with `@firecrawl/anydoc`
+(Markdown). No `DOCLING_*` env vars are required on Vercel. Scanned or
+image-only PDFs are deferred (OCR is not enabled in this path). Local
+text extraction remains a fallback if anydoc fails to load.
 
 ## Current Workflow
 

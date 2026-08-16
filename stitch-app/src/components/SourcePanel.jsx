@@ -1,22 +1,38 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AppIcon from './AppIcon';
+import { useSidePanelA11y } from '../hooks/useSidePanelA11y';
 
 const SourcePanel = ({ open, onClose, passages }) => {
     const [isClosing, setIsClosing] = useState(false);
+    const panelRef = useRef(null);
+    const closeButtonRef = useRef(null);
+    useSidePanelA11y({
+        open: open || isClosing,
+        containerRef: panelRef,
+        initialFocusRef: closeButtonRef,
+    });
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         setIsClosing(true);
         setTimeout(() => {
             setIsClosing(false);
             onClose();
         }, 200);
-    };
+    }, [onClose]);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') handleClose();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [open, handleClose]);
 
     if (!open && !isClosing) return null;
 
     return (
         <>
-            {/* Backdrop */}
             <button
                 type="button"
                 aria-label="Close sources panel"
@@ -24,47 +40,56 @@ const SourcePanel = ({ open, onClose, passages }) => {
                 onClick={handleClose}
             />
 
-            {/* Panel */}
-            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px]
+            <div
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="topic-sources-title"
+                className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px]
                 bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark
-                flex flex-col overflow-hidden
+                flex flex-col overflow-hidden ph-mask
                 ${isClosing ? 'animate-panel-slide-right md:animate-panel-slide-right' : 'animate-panel-slide-up md:animate-panel-slide-left'}
-            `}>
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 h-14 border-b border-border-light dark:border-border-dark shrink-0">
+            `}
+            >
+                <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-light px-4 dark:border-border-dark">
                     <div className="flex items-center gap-2">
                         <AppIcon name="link" className="text-[18px] text-primary" />
-                        <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Sources</h3>
+                        <h3 id="topic-sources-title" className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Sources</h3>
                     </div>
-                    <button onClick={handleClose} className="btn-icon size-8">
+                    <button
+                        ref={closeButtonRef}
+                        type="button"
+                        onClick={handleClose}
+                        className="btn-icon size-8"
+                        aria-label="Close sources panel"
+                    >
                         <AppIcon name="close" className="text-[18px]" />
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 space-y-3 overflow-y-auto p-4">
                     {!passages || passages.length === 0 ? (
-                        <div className="text-center py-12">
-                            <AppIcon name="source" className="text-[32px] text-text-faint-light dark:text-text-faint-dark mb-3 block" />
+                        <div className="py-12 text-center">
+                            <AppIcon name="source" className="mb-3 block text-[32px] text-text-faint-light dark:text-text-faint-dark" />
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                                 No source passages available for this topic.
                             </p>
                         </div>
                     ) : (
                         passages.map((passage, i) => (
-                            <div key={passage.passageId || i} className="card-flat p-4 space-y-2">
+                            <div key={passage.passageId || i} className="card-flat space-y-2 p-4">
                                 <div className="flex items-center gap-2">
                                     <span className="badge badge-primary gap-1">
                                         <AppIcon name="description" className="text-[10px]" />
                                         Page {passage.page}
                                     </span>
                                     {passage.sectionHint && (
-                                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark truncate">
+                                        <span className="truncate text-caption text-text-faint-light dark:text-text-faint-dark">
                                             {passage.sectionHint}
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-caption text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                                <p className="text-caption leading-relaxed text-text-sub-light dark:text-text-sub-dark">
                                     {passage.text}
                                 </p>
                             </div>

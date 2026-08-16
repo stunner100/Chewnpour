@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { SparklesText } from '../magicui/SparklesText';
 import { Marquee } from '../magicui/Marquee';
 import { Particles } from '../magicui/Particles';
@@ -8,18 +7,11 @@ import AppIcon from '../AppIcon';
 const DashboardHero = ({
     uploading,
     uploadError,
-    uploadQuota,
-    uploadLimitMessage,
     onUploadClick,
     fileInputRef,
     onFileSelect,
     referralSlot,
-    topUpHref = '/subscription',
 }) => {
-    const remaining = Number(uploadQuota?.remaining ?? 0);
-    const total = Number(uploadQuota?.totalAllowed ?? 0);
-    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((remaining / total) * 100))) : 0;
-
     return (
         <section className="relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-primary-50 via-white to-white dark:from-primary-900/20 dark:via-surface-dark dark:to-surface-dark p-5 md:p-8 shadow-soft animate-fade-in">
             <div className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-primary/15 blur-3xl" aria-hidden="true" />
@@ -74,32 +66,6 @@ const DashboardHero = ({
                             PDF, PPTX, DOCX, audio · Max 50MB
                         </span>
                     </div>
-
-                    {uploadQuota && (
-                        <div className="max-w-sm space-y-1.5">
-                            <div className="flex items-center justify-between text-caption">
-                                <span className="text-text-sub-light dark:text-text-sub-dark">
-                                    {remaining}/{total} uploads remaining
-                                </span>
-                                <Link to={topUpHref} className="font-semibold text-primary hover:text-primary-hover transition-colors">
-                                    Top up
-                                </Link>
-                            </div>
-                            <div className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-[width] duration-500 ${
-                                        remaining === 0 ? 'bg-red-500'
-                                        : remaining <= 1 ? 'bg-amber-500'
-                                        : 'bg-accent-emerald'
-                                    }`}
-                                    style={{ width: `${pct}%` }}
-                                />
-                            </div>
-                            {uploadLimitMessage && remaining === 0 && (
-                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark">{uploadLimitMessage}</p>
-                            )}
-                        </div>
-                    )}
 
                     {referralSlot}
                 </div>

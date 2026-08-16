@@ -42,6 +42,14 @@ for (const snippet of [
     throw new Error(`Expected courseHttp to handle ${snippet}.`);
   }
 }
+if (courseHttp.includes('parts[1] === "voice"')) {
+  throw new Error('Expected lesson voice to leave the topics router.');
+}
+
+const topicVoice = await read('server/topicVoiceHttp.js');
+if (!topicVoice.includes('callDeepgramSpeak') || !topicVoice.includes('getTopicForUser')) {
+  throw new Error('Expected dedicated topic-voice handler to authenticate and synthesize.');
+}
 
 const profiles = await read('server/profiles.js');
 if (!profiles.includes('export const addStudyTimeForUser')) {

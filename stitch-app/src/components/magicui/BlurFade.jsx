@@ -12,11 +12,22 @@ export const BlurFade = ({
     inViewMargin = '-50px',
     blur = '6px',
 }) => {
+    const hidden = { opacity: 0 };
+    const visible = { opacity: 1 };
+    if (yOffset) {
+        hidden.y = yOffset;
+        visible.y = 0;
+    }
+    if (blur && blur !== '0px') {
+        hidden.filter = `blur(${blur})`;
+        visible.filter = 'blur(0px)';
+    }
+
     return (
         <Motion.div
-            initial={{ opacity: 0, y: yOffset, filter: `blur(${blur})` }}
-            whileInView={inView ? { opacity: 1, y: 0, filter: 'blur(0px)' } : undefined}
-            animate={!inView ? { opacity: 1, y: 0, filter: 'blur(0px)' } : undefined}
+            initial={hidden}
+            whileInView={inView ? visible : undefined}
+            animate={!inView ? visible : undefined}
             transition={{
                 delay: delay,
                 duration: duration,

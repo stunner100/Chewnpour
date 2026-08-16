@@ -81,6 +81,7 @@ const PodcastWaveformPlayer = ({
     subtitle,
     durationSeconds,
     className = '',
+    onPlay,
 }) => {
     const audioRef = useRef(null);
     const scrubberRef = useRef(null);
@@ -160,6 +161,7 @@ const PodcastWaveformPlayer = ({
                 dispatchPlayer({ type: 'buffering', value: true });
                 await audio.play();
                 dispatchPlayer({ type: 'playback', playing: true });
+                onPlay?.();
             } else {
                 audio.pause();
                 dispatchPlayer({ type: 'playback', playing: false });

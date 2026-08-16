@@ -1,6 +1,6 @@
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { config as loadEnv } from 'dotenv';
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -73,13 +73,9 @@ assert(signup.response.ok, `sign-up failed: ${signup.payload?.message || signup.
 const billingBefore = await api('/api/billing');
 assert(billingBefore.response.ok, `billing GET failed: ${billingBefore.payload?.error || billingBefore.response.status}`);
 assert(
-  billingBefore.payload?.billing?.remainingUploadCredits === 3,
-  `Expected 3 starter credits, got ${billingBefore.payload?.billing?.remainingUploadCredits}`,
-);
-assert(
   Array.isArray(billingBefore.payload?.quota?.topUpOptions)
-    && billingBefore.payload.quota.topUpOptions.some((plan) => plan.id === 'first-time-starter'),
-  'Expected first-time starter in top-up options',
+    && billingBefore.payload.quota.topUpOptions.length === 0,
+  'Expected top-up options to be empty after the free cutover',
 );
 
 const checkout = await api('/api/billing/checkout', {
@@ -89,61 +85,20 @@ const checkout = await api('/api/billing/checkout', {
     returnPath: '/dashboard',
   },
 });
-assert(checkout.response.ok, `checkout failed: ${checkout.payload?.error || checkout.response.status}`);
-assert(checkout.payload?.provider === 'manual', `Expected manual provider, got ${checkout.payload?.provider}`);
-assert(checkout.payload?.reference, 'Expected checkout reference');
+assert(checkout.response.status === 410, `Expected checkout 410, got ${checkout.response.status}`);
+assert(checkout.payload?.code === 'BILLING_RETIRED', `Expected BILLING_RETIRED, got ${checkout.payload?.code}`);
 
 const verify = await api('/api/billing/verify', {
   method: 'POST',
   body: {
-    reference: checkout.payload.reference,
+    reference: 'unused',
     returnPath: '/dashboard',
   },
 });
-assert(verify.response.ok, `verify failed: ${verify.payload?.error || verify.response.status}`);
-assert(verify.payload?.success === true, `Expected verify success, got ${JSON.stringify(verify.payload)}`);
-assert(
-  verify.payload?.grantedCredits === 5,
-  `Expected 5 granted credits, got ${verify.payload?.grantedCredits}`,
-);
-
-const billingAfter = await api('/api/billing');
-assert(
-  billingAfter.payload?.billing?.remainingUploadCredits === 8,
-  `Expected 8 remaining after top-up (3+5), got ${billingAfter.payload?.billing?.remainingUploadCredits}`,
-);
-assert(
-  !billingAfter.payload?.quota?.topUpOptions?.some((plan) => plan.id === 'first-time-starter'),
-  'Expected first-time starter to disappear after purchase',
-);
-
-const verifyAgain = await api('/api/billing/verify', {
-  method: 'POST',
-  body: {
-    reference: checkout.payload.reference,
-    returnPath: '/dashboard',
-  },
-});
-assert(verifyAgain.payload?.success === true, 'Expected duplicate verify to succeed idempotently');
-assert(
-  (await api('/api/billing')).payload?.billing?.remainingUploadCredits === 8,
-  'Expected duplicate verify not to double-grant credits',
-);
-
-const { applySuccessfulPayment } = await import(
-  pathToFileURL(path.join(root, 'server', 'payments.js')).href
-);
-const duplicateApply = await applySuccessfulPayment({
-  reference: checkout.payload.reference,
-  amountMinor: 1500,
-  currency: 'GHS',
-  provider: 'manual',
-  source: 'smoke_duplicate',
-});
-assert(duplicateApply.duplicate === true, 'Expected applySuccessfulPayment duplicate=true');
+assert(verify.response.status === 410, `Expected verify 410, got ${verify.response.status}`);
 
 console.log('[topup-smoke] passed', {
   email,
-  remainingAfterSignup: 3,
-  remainingAfterTopUp: 8,
+  checkoutRetired: true,
 });
+

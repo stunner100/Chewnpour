@@ -16,7 +16,7 @@ import {
     normalizeLessonContent,
     slugifyText,
 } from '../lib/topicContentFormatting';
-import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
+import { isPlaceholderTopicIllustration, resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import {
     SECTION_SETS,
     EMBEDDED_SECTION_SPLIT_PATTERN,
@@ -26,11 +26,13 @@ import {
     ANALOGY_SECTION_PATTERN,
     COMMON_MISTAKE_SECTION_PATTERN,
     STEP_TERM_PATTERN,
-    buildObjectiveExamRoute,
-    buildEssayExamRoute,
+    buildTopicQuizRoute,
+    buildEssayQuizRoute,
+    buildTimedExamRoute,
     getCurrentHashTargetId,
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
+import { splitBlocksIntoSections, buildLessonSteps } from '../lib/lessonSections';
 
 const fetchTopicPayload = async (topicId) => {
     const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}`, {
@@ -48,6 +50,7 @@ const fetchTopicPayload = async (topicId) => {
         _id: topic.id || topic._id,
         sourceUploadId: topic.sourceUploadId || topic.uploadId || null,
         assessmentRoute: topic.assessmentRoute || 'topic_quiz',
+        inLessonChecks: Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : [],
     };
 };
 
@@ -110,6 +113,7 @@ export const useTopicDetail = () => {
     const [sourceOpen, setSourceOpen] = useState(false);
     const [topicQueryResult, setTopicQueryResult] = useState(undefined);
     const [topicProgress, setTopicProgress] = useState(null);
+    const [currentStepSpeech, setCurrentStepSpeech] = useState('');
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
         // Default to full lesson so direct links (e.g. lesson cards) open readable content
@@ -236,8 +240,8 @@ export const useTopicDetail = () => {
     });
     const courseId = topic?.courseId;
     const finalAssessmentTopic = null;
-    const voiceModeEnabled = false;
-    const podcastEnabled = false;
+    const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
+    const podcastEnabled = true;
     const sourcePassages = [];
     const isVoicePremium = false;
 
@@ -272,9 +276,46 @@ export const useTopicDetail = () => {
 
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
     const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
-    const synthesizeLessonVoice = useCallback(async () => {
-        throw new Error('Voice playback is temporarily unavailable.');
-    }, []);
+    const synthesizeLessonVoice = useCallback(async (text) => {
+        if (!topicId) {
+            throw new Error('No lesson selected.');
+        }
+        const spoken = String(text || '').trim();
+        if (!spoken) {
+            throw new Error('No explanation text available to read.');
+        }
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), 25000);
+        try {
+            const response = await fetch('/api/topic-voice', {
+                method: 'POST',
+                credentials: 'include',
+                signal: controller.signal,
+                headers: {
+                    Accept: 'audio/mpeg',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ topicId, text: spoken }),
+            });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload?.error || `Voice request failed (${response.status})`);
+            }
+            const buffer = await response.arrayBuffer();
+            if (!buffer || buffer.byteLength === 0) {
+                throw new Error('Voice playback did not return audio.');
+            }
+            const blob = new Blob([buffer], { type: 'audio/mpeg' });
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            if (error?.name === 'AbortError' || /terminated|fetch failed/i.test(String(error?.message || ''))) {
+                throw new Error('Voice is taking too long. Tap Play again.');
+            }
+            throw error;
+        } finally {
+            window.clearTimeout(timer);
+        }
+    }, [topicId]);
     const {
         isSupported: isVoiceSupported,
         status: voiceStatus,
@@ -327,7 +368,7 @@ export const useTopicDetail = () => {
     // Track topic study progress on mount
     useEffect(() => {
         if (!topicId || !user?.id) return;
-        upsertProgress({ topicId, lastStudiedAt: Date.now() }).catch(() => {});
+        upsertProgress({ topicId, lastStudiedAt: Date.now(), lastActivityKind: 'lesson' }).catch(() => {});
     }, [topicId, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const content = overrideContent || topic?.content || cachedContent;
@@ -369,22 +410,24 @@ export const useTopicDetail = () => {
         ? normalizedContent.split(/\\n|\n/).filter(Boolean)
         : null;
     const speechText = useMemo(() => {
-        if (!normalizedContent || typeof normalizedContent !== 'string') return '';
-        return normalizedContent
+        if (!currentStepSpeech) return '';
+        return currentStepSpeech
             .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
             .replace(/\*\*(.*?)\*\*/g, '$1')
             .replace(/\*(.*?)\*/g, '$1')
             .replace(/[#>`_~-]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-    }, [normalizedContent]);
+    }, [currentStepSpeech]);
     const previousSpeechTextRef = useRef(speechText);
+    const previousVoiceModeRef = useRef(voiceModeEnabled);
 
     useEffect(() => {
-        if (!voiceModeEnabled && (isPlaying || isPaused)) {
+        if (previousVoiceModeRef.current && !voiceModeEnabled) {
             stopVoice();
         }
-    }, [voiceModeEnabled, isPlaying, isPaused, stopVoice]);
+        previousVoiceModeRef.current = voiceModeEnabled;
+    }, [voiceModeEnabled, stopVoice]);
 
     useEffect(() => {
         if (
@@ -483,6 +526,8 @@ export const useTopicDetail = () => {
     const headerTopicTitle = resolvedTopicTitle;
     const heroTopicTitle = resolvedTopicTitle;
     const topicIllustrationUrl = resolveTopicIllustrationUrl(topic?.illustrationUrl);
+    const showTopicIllustration = Boolean(topicIllustrationUrl)
+        && !isPlaceholderTopicIllustration(topic?.illustrationUrl || topicIllustrationUrl);
 
     const toggleVoiceMode = async () => {
         if (!user) return;
@@ -770,61 +815,37 @@ export const useTopicDetail = () => {
         });
     }, [parsed.blocks, studyMode]);
 
-    const displayBlocks = useMemo(() => {
-        const blocksWithWidgets = [];
-        let insertedQuickCheck = false;
-        let insertedWordBank = false;
-
-        for (const block of filteredBlocks) {
-            blocksWithWidgets.push(block);
-
-            if (block.type !== 'header') {
-                continue;
-            }
-
-            const normalized = block.text.toLowerCase().replace(SECTION_TEXT_STRIP_PATTERN, '').trim();
-
+    const lessonSteps = useMemo(() => {
+        const normalizeTitle = (value) => String(value || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+        const pageTitleKey = normalizeTitle(resolvedTopicTitle);
+        let skippedDuplicateTitle = false;
+        const sectionBlocks = filteredBlocks.filter((block) => {
             if (
-                !insertedQuickCheck &&
-                parsed.quickCheckPairs?.length > 0 &&
-                QUICK_CHECK_SECTION_PATTERN.test(normalized)
+                !skippedDuplicateTitle
+                && block.type === 'header'
+                && block.level === 1
+                && pageTitleKey
+                && normalizeTitle(block.text) === pageTitleKey
             ) {
-                blocksWithWidgets.push({
-                    type: 'quickcheck_widget',
-                    key: `${block.key}-quickcheck-widget`,
-                });
-                insertedQuickCheck = true;
+                skippedDuplicateTitle = true;
+                return false;
             }
+            return true;
+        });
+        return buildLessonSteps({
+            sections: splitBlocksIntoSections(sectionBlocks),
+            checks: topic?.inLessonChecks || [],
+            wordBankTerms,
+            studyMode,
+        });
+    }, [filteredBlocks, resolvedTopicTitle, topic?.inLessonChecks, wordBankTerms, studyMode]);
 
-            if (
-                !insertedWordBank &&
-                wordBankTerms?.length > 0 &&
-                WORD_BANK_SECTION_PATTERN.test(normalized)
-            ) {
-                blocksWithWidgets.push({
-                    type: 'wordbank_widget',
-                    key: `${block.key}-wordbank-widget`,
-                });
-                insertedWordBank = true;
-            }
-        }
-
-        if (!insertedQuickCheck && parsed.quickCheckPairs?.length > 0) {
-            blocksWithWidgets.push({
-                type: 'quickcheck_widget',
-                key: 'quickcheck-widget-fallback',
-            });
-        }
-
-        if (!insertedWordBank && wordBankTerms?.length > 0) {
-            blocksWithWidgets.push({
-                type: 'wordbank_widget',
-                key: 'wordbank-widget-fallback',
-            });
-        }
-
-        return blocksWithWidgets;
-    }, [filteredBlocks, parsed.quickCheckPairs, wordBankTerms]);
+    const handleLessonStepChange = useCallback((payload) => {
+        setCurrentStepSpeech(payload?.speechText || '');
+    }, []);
 
     useEffect(() => {
         if (!studyMode) return undefined;
@@ -833,7 +854,7 @@ export const useTopicDetail = () => {
             scrollHashTargetIntoView({ behavior: 'auto' });
         }, 100);
         return () => window.clearTimeout(timer);
-    }, [displayBlocks, studyMode]);
+    }, [lessonSteps, studyMode]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -856,20 +877,25 @@ export const useTopicDetail = () => {
     const examTopicId = isTopicQuizRoute
         ? topicId
         : (finalAssessmentTopic?._id || null);
-    const objectiveExamRoute = buildObjectiveExamRoute(examTopicId);
-    const essayExamRoute = buildEssayExamRoute(examTopicId);
+    const objectiveExamRoute = buildTopicQuizRoute(examTopicId);
+    const essayExamRoute = buildEssayQuizRoute(examTopicId);
+    const timedExamRoute = buildTimedExamRoute(courseId);
+    const timedExamAvailable = Number(topic?.questionCount || 0) > 0;
+    const handleStartExam = useCallback(() => {
+        navigate(timedExamRoute);
+    }, [navigate, timedExamRoute]);
     const objectiveExamActionLabel = isTopicQuizRoute
-        ? (topicProgress?.bestScore != null ? 'Retry Objective Quiz' : 'Start Objective Quiz')
-        : (examTopicId ? 'Take Final Objective Quiz' : 'Final Objective Quiz Preparing');
+        ? (topicProgress?.bestScore != null ? 'Retry quiz' : 'Start quiz')
+        : (examTopicId ? 'Start quiz' : 'Quiz preparing');
     const essayExamActionLabel = isTopicQuizRoute
-        ? 'Start Essay'
-        : (examTopicId ? 'Take Final Essay' : 'Final Essay Preparing');
+        ? 'Start essay'
+        : (examTopicId ? 'Start essay' : 'Essay preparing');
     const practiceDescription = isTopicQuizRoute
         ? 'Choose the format that fits how you want to test this lesson.'
-        : 'This topic is assessed in the final exam for better question quality.';
+        : 'This topic is assessed in the course quiz for better question quality.';
     const postLessonPrompt = isTopicQuizRoute
         ? 'Pick the next practice format for this topic.'
-        : 'This topic will be assessed in the final exam.';
+        : 'This topic will be assessed in the course quiz.';
 
     const { progress: readingProgress, activeId: activeSectionId } = useReadingProgress({
         toc: parsed.toc,
@@ -976,6 +1002,7 @@ export const useTopicDetail = () => {
         },
     ].filter(Boolean);
 
+    // Mobile FAB only — Notes/Tutor live in MobileLessonActions; desktop uses header + rail.
     const studyToolSecondary = [
         {
             id: 'reexplain',
@@ -984,30 +1011,27 @@ export const useTopicDetail = () => {
             onClick: () => setReExplainOpen(true),
         },
         {
-            id: 'notes',
-            icon: 'edit_note',
-            label: 'Open notes',
-            onClick: openNotes,
-        },
-        {
             id: 'source',
             icon: 'menu_book',
             label: 'View source passages',
             onClick: openSource,
         },
+        {
+            id: 'settings',
+            icon: 'settings',
+            label: 'Voice settings',
+            onClick: () => setSettingsOpen(true),
+        },
     ];
 
-    const practicePrimary = examTopicId
-        ? [{ id: 'p-start-quiz', icon: 'quiz', label: 'Start Quiz', href: objectiveExamRoute }]
-        : [{ id: 'p-quiz-pending', icon: 'hourglass_top', label: 'Quiz preparing', disabled: true }];
+    // End-of-lesson practice: Quiz is secondary here because the sticky header owns the primary.
+    const practicePrimary = [];
 
     const practiceSecondary = [
+        examTopicId
+            ? { id: 'p-start-quiz', icon: 'quiz', label: objectiveExamActionLabel, href: objectiveExamRoute }
+            : { id: 'p-quiz-pending', icon: 'hourglass_top', label: 'Quiz preparing', disabled: true },
         examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
-        { id: 'p-tutor', icon: 'smart_toy', label: 'Ask AI Tutor', onClick: openChat },
-        podcastEnabled && { id: 'p-podcast', icon: 'podcasts', label: 'Generate Podcast', onClick: () => {
-            const node = document.getElementById('topic-podcast');
-            if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } },
     ].filter(Boolean);
 
     const practiceTertiary = topicProgress?.completedAt ? [] : [{
@@ -1023,14 +1047,16 @@ export const useTopicDetail = () => {
         examTopicId
             ? { id: 'm-quiz', icon: 'quiz', label: 'Quiz', href: objectiveExamRoute, primary: true }
             : { id: 'm-quiz', icon: 'hourglass_top', label: 'Quiz', disabled: true },
-        { id: 'm-tutor', icon: 'smart_toy', label: 'Tutor', onClick: openChat },
+        { id: 'm-tutor', icon: 'smart_toy', label: 'AI Tutor', onClick: openChat },
         { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
         topicProgress?.completedAt
-            ? podcastEnabled && { id: 'm-podcast', icon: 'podcasts', label: 'Podcast', onClick: () => {
-                const node = document.getElementById('topic-podcast');
-                if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } }
-            : { id: 'm-done', icon: 'check_circle', label: 'Done', primary: true, onClick: () => upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {}) },
+            ? { id: 'm-settings', icon: 'settings', label: 'Voice', onClick: () => setSettingsOpen(true) }
+            : {
+                id: 'm-done',
+                icon: 'check_circle',
+                label: 'Done',
+                onClick: () => upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {}),
+            },
     ].filter(Boolean);
 
     return {
@@ -1049,11 +1075,12 @@ export const useTopicDetail = () => {
         contentRef,
         courseHref,
         courseId,
-        displayBlocks,
         examTopicId,
         filteredBlocks,
         handleAskTutor,
+        handleLessonStepChange,
         handleReExplain,
+        handleStartExam,
         handleStudyModeSelect,
         handleStudyModeSkip,
         handleTermsStarred,
@@ -1068,11 +1095,13 @@ export const useTopicDetail = () => {
         isTopicQuizRoute,
         isVoiceSupported,
         lessonStatusBadge,
+        lessonSteps,
         mainRef,
         mobileActionItems,
         normalizedContent,
         notesAppendText,
         notesOpen,
+        objectiveExamRoute,
         openChat,
         openNotes,
         openSource,
@@ -1102,6 +1131,7 @@ export const useTopicDetail = () => {
         setSettingsOpen,
         settingsOpen,
         shouldAnimateBlocks,
+        showTopicIllustration,
         showScrollTop,
         sourceOpen,
         sourcePassages,
@@ -1110,6 +1140,7 @@ export const useTopicDetail = () => {
         studyMode,
         studyToolActions,
         studyToolSecondary,
+        timedExamAvailable,
         topic,
         topicId,
         topicIllustrationUrl,

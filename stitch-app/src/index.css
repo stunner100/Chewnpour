@@ -2,45 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── shadcn-compatible CSS variables (used by hero section components) ── */
+/* ── shadcn-compatible CSS variables (Slate redesign) ── */
 :root {
-    --background: 240 253 250;       /* #F0FDFA */
-    --foreground: 19 78 74;          /* #134E4A */
-    --muted-foreground: 63 75 85;    /* #3F4B55 AA on mint/white */
-    --accent-foreground: 19 78 74;
-    --border: 94 234 212;            /* #5EEAD4 */
-    --input: 204 251 241;            /* #CCFBF1 */
-    --ring: 13 148 136;              /* #0D9488 */
-    --sidebar: 255 255 255;
-    --sidebar-foreground: 19 78 74;
-    --sidebar-primary: 217 119 6;    /* #D97706 CTA */
+    --background: 249 249 249;       /* #F9F9F9 */
+    --foreground: 10 10 10;          /* #0A0A0A */
+    --muted-foreground: 107 107 112; /* #6B6B70 */
+    --accent-foreground: 10 10 10;
+    --border: 229 229 234;           /* #E5E5EA */
+    --input: 242 242 247;            /* #F2F2F7 */
+    --ring: 0 122 255;               /* #007AFF */
+    --sidebar: 242 242 247;
+    --sidebar-foreground: 10 10 10;
+    --sidebar-primary: 17 17 17;     /* #111111 CTA */
     --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 232 241 244;   /* #E8F1F4 */
-    --sidebar-accent-foreground: 19 78 74;
-    --sidebar-border: 153 246 228;   /* #99F6E4 */
-    --sidebar-ring: 13 148 136;
+    --sidebar-accent: 229 229 234;
+    --sidebar-accent-foreground: 10 10 10;
+    --sidebar-border: 229 229 234;
+    --sidebar-ring: 0 122 255;
     --popover: 255 255 255;
-    --popover-foreground: 19 78 74;
+    --popover-foreground: 10 10 10;
 }
 
 .dark {
-    --background: 4 47 46;           /* #042F2E */
-    --foreground: 204 251 241;       /* #CCFBF1 */
-    --muted-foreground: 94 234 212;  /* #5EEAD4 */
-    --accent-foreground: 204 251 241;
-    --border: 17 94 89;              /* #115E59 */
-    --input: 17 94 89;
-    --ring: 45 212 191;              /* #2DD4BF */
-    --sidebar: 6 54 52;
-    --sidebar-foreground: 204 251 241;
-    --sidebar-primary: 245 158 11;
-    --sidebar-primary-foreground: 15 15 18;
-    --sidebar-accent: 17 94 89;
-    --sidebar-accent-foreground: 204 251 241;
-    --sidebar-border: 17 94 89;
-    --sidebar-ring: 45 212 191;
-    --popover: 6 54 52;
-    --popover-foreground: 204 251 241;
+    --background: 12 13 16;          /* #0C0D10 */
+    --foreground: 233 233 238;       /* #E9E9EE */
+    --muted-foreground: 161 161 170; /* #A1A1AA */
+    --accent-foreground: 233 233 238;
+    --border: 42 43 48;              /* #2A2B30 */
+    --input: 33 34 38;               /* #212226 */
+    --ring: 90 200 250;              /* #5AC8FA */
+    --sidebar: 17 18 20;             /* #111214 — match dark shell */
+    --sidebar-foreground: 233 233 238;
+    --sidebar-primary: 255 255 255;  /* light CTA on dark */
+    --sidebar-primary-foreground: 10 10 10;
+    --sidebar-accent: 33 34 38;      /* #212226 active/hover */
+    --sidebar-accent-foreground: 233 233 238;
+    --sidebar-border: 28 29 32;      /* #1C1D20 — soft edge vs sidebar/content */
+    --sidebar-ring: 90 200 250;
+    --popover: 22 23 25;             /* #161719 */
+    --popover-foreground: 233 233 238;
 }
 
 @layer base {
@@ -80,13 +80,13 @@ html.is-safari .safari-backdrop {
 
     /* ── Buttons ── */
     .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-cta text-cta-foreground font-semibold text-sm
-               shadow-button hover:shadow-button-hover hover:bg-cta-hover
+        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-cta text-cta-foreground font-semibold text-sm
+               shadow-sm hover:bg-cta-hover
                active:scale-[0.98] transition-all duration-150 ease-spring;
     }
 
     .btn-secondary {
-        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
+        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full
                bg-surface-light dark:bg-surface-dark
                border border-border-light dark:border-border-dark
                text-text-main-light dark:text-text-main-dark font-semibold text-sm
@@ -376,19 +376,19 @@ html.is-safari .safari-backdrop {
     width: 100%;
     height: 3rem;
     padding: 0 1rem;
-    border-radius: 0.75rem;
+    border-radius: 9999px;
     background: #fff;
-    border: 1px solid #d9d2c6;
-    color: #1f2933;
+    border: 1px solid #E5E5EA;
+    color: #0A0A0A;
     font-family: inherit;
     font-size: 0.9rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.cp-input::placeholder { color: rgba(104,115,132,0.7); }
+.cp-input::placeholder { color: rgba(107,107,112,0.7); }
 .cp-input:focus {
     outline: none;
-    border-color: rgb(13, 148, 136);
-    box-shadow: 0 0 0 3px rgba(13,148,136,0.18);
+    border-color: #007AFF;
+    box-shadow: 0 0 0 3px rgba(0,122,255,0.18);
 }
 .cp-input:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -398,11 +398,11 @@ html.is-safari .safari-backdrop {
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: rgba(31,41,51,0.72);
+    color: #6B6B70;
     margin-bottom: 0.4rem;
 }
 
-/* Public surfaces: Space Grotesk / DM Sans, white cards, teal accent, amber CTA. */
+/* Public surfaces: Plus Jakarta Sans, white cards, blue accent, black CTA. */
 .cp-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -410,15 +410,15 @@ html.is-safari .safari-backdrop {
     gap: 0.5rem;
     width: 100%;
     height: 2.75rem;
-    border-radius: 0.5rem;
-    background: #D97706;
+    border-radius: 9999px;
+    background: #111111;
     color: #fff;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 700;
     font-size: 0.875rem;
     transition: background 0.15s ease, transform 0.1s ease;
 }
-.cp-btn-primary:hover:not(:disabled) { background: #B45309; }
+.cp-btn-primary:hover:not(:disabled) { background: #000000; }
 .cp-btn-primary:active:not(:disabled) { transform: scale(0.98); }
 .cp-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -429,49 +429,38 @@ html.is-safari .safari-backdrop {
     gap: 0.5rem;
     width: 100%;
     height: 2.75rem;
-    border-radius: 0.5rem;
+    border-radius: 9999px;
     background: #fff;
-    border: 2px solid #0D9488;
-    color: #0D9488;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    border: 1px solid #E5E5EA;
+    color: #0A0A0A;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 600;
     font-size: 0.875rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     transition: background 0.15s ease, border-color 0.15s ease;
 }
-.cp-btn-secondary:hover:not(:disabled) { background: #F0FDFA; border-color: #0F766E; }
+.cp-btn-secondary:hover:not(:disabled) { background: #F9F9F9; border-color: #C7C7CC; }
 .cp-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .cp-card {
     background: #fff;
-    border: 1px solid #e7e0d4;
-    border-radius: 20px;
+    border: 1px solid #E5E5EA;
+    border-radius: 24px;
     padding: 2rem;
-    box-shadow: 0 18px 40px rgba(31,41,51,0.08);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
     position: relative;
     isolation: isolate;
 }
-/* Grain overlay so cards match the landing-page card texture */
-.cp-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border-radius: inherit;
-    opacity: 0.18;
-    mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-    background-size: 180px 180px;
-    z-index: 0;
-}
+.cp-card::before { display: none; }
 .cp-card > * { position: relative; z-index: 1; }
 
 .cp-prose {
-    color: #4b5563;
+    color: #6B6B70;
     font-family: inherit;
     line-height: 1.65;
 }
 .cp-prose h1, .cp-prose h2, .cp-prose h3 {
-    color: #1f2933;
+    color: #0A0A0A;
     font-weight: 700;
     letter-spacing: -0.01em;
     margin-top: 2.25rem;
@@ -481,11 +470,11 @@ html.is-safari .safari-backdrop {
 .cp-prose h2 { font-size: 1.35rem; }
 .cp-prose h3 { font-size: 1.1rem; }
 .cp-prose p { margin-bottom: 1rem; }
-.cp-prose a { color: #0D9488; text-decoration: underline; text-underline-offset: 3px; }
-.cp-prose a:hover { color: #0F766E; }
+.cp-prose a { color: #007AFF; text-decoration: underline; text-underline-offset: 3px; }
+.cp-prose a:hover { color: #0066D6; }
 .cp-prose ul, .cp-prose ol { margin: 0.75rem 0 1rem 1.25rem; }
 .cp-prose li { margin-bottom: 0.35rem; }
-.cp-prose strong { color: #1f2933; }
+.cp-prose strong { color: #0A0A0A; }
 
 /* ── Lesson reader scope ─────────────────────────────────────────────── */
 .lesson-prose { font-feature-settings: "ss01", "ss02"; }
@@ -556,6 +545,33 @@ html.is-safari .safari-backdrop {
 .dark .lesson-prose code {
     background: rgba(168, 123, 247, 0.18);
     color: #d4bdfb;
+}
+
+/* Dedicated lesson reading surface — keeps prose off chrome, checks, and tools. */
+.lesson-reading-stage {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 1.75rem 1.5rem 2rem;
+    box-shadow:
+        0 0 0 1px oklch(0 0 0 / 0.06),
+        0 1px 2px -1px oklch(0 0 0 / 0.06),
+        0 2px 4px 0 oklch(0 0 0 / 0.04);
+}
+.lesson-reading-stage > h2:first-of-type {
+    margin-top: 0;
+}
+@media (min-width: 768px) {
+    .lesson-reading-stage {
+        padding: 2.25rem 2.5rem 2.75rem;
+    }
+}
+.dark .lesson-reading-stage,
+.dark .cp-theme .lesson-reading-stage {
+    background: #1c1d20;
+    box-shadow:
+        inset 0 1px 0 0 oklch(1 0 0 / 0.08),
+        inset 0 0 0 1px oklch(1 0 0 / 0.04),
+        0 0 0 1px oklch(0 0 0 / 0.16);
 }
 
 /* ── Magic UI keyframes ───────────────────────────────────────── */
@@ -630,15 +646,21 @@ html.is-safari .safari-backdrop {
 }
 
 .cp-theme {
-    --background: 250 248 243;
-    --cp-primary: #D97706;
-    --cp-primary-hover: #B45309;
+    --background: 249 249 249;
+    --cp-primary: #007AFF;
+    --cp-primary-hover: #0066D6;
+    --cp-cta: #111111;
+    --cp-cta-hover: #000000;
+    --cp-cta-foreground: #FFFFFF;
 }
 
 .dark .cp-theme {
     --background: 12 13 16;
-    --cp-primary: #f59e0b;
-    --cp-primary-hover: #fbbf24;
+    --cp-primary: #5AC8FA;
+    --cp-primary-hover: #94C2FF;
+    --cp-cta: #FFFFFF;
+    --cp-cta-hover: #E5E5EA;
+    --cp-cta-foreground: #0A0A0A;
 }
 
 .cp-theme.dashboard-shell {
@@ -677,23 +699,23 @@ html.is-safari .safari-backdrop {
 }
 
 .cp-theme .focus\:ring-primary-soft:focus {
-    --tw-ring-color: #FEF3C7 !important;
+    --tw-ring-color: #E5F0FF !important;
 }
 
 .cp-theme .focus-within\:ring-primary-soft:focus-within {
-    --tw-ring-color: #FEF3C7 !important;
+    --tw-ring-color: #E5F0FF !important;
 }
 
 .cp-theme .ring-primary-soft {
-    --tw-ring-color: #FEF3C7 !important;
+    --tw-ring-color: #E5F0FF !important;
 }
 
 .cp-theme .selection\:bg-primary-soft::selection {
-    background-color: #FEF3C7 !important;
+    background-color: #E5F0FF !important;
 }
 
 .cp-theme .selection\:text-primary::selection {
-    color: #D97706 !important;
+    color: #007AFF !important;
 }
 
 .cp-theme .bg-gradient-to-r.from-surface {
@@ -705,12 +727,28 @@ html.is-safari .safari-backdrop {
   background-color: #FFFFFF !important;
 }
 
+.cp-theme .bg-cta,
+.cp-theme .btn-primary {
+    background-color: var(--cp-cta) !important;
+    color: var(--cp-cta-foreground) !important;
+}
+
+.cp-theme .hover\:bg-cta-hover:hover,
+.cp-theme .btn-primary:hover:not(:disabled) {
+    background-color: var(--cp-cta-hover) !important;
+}
+
+.cp-theme .text-cta-foreground {
+    color: var(--cp-cta-foreground) !important;
+}
+
 .dark .cp-theme.dashboard-shell {
     color: #e9e9ee;
 }
 
 .dark .cp-theme .bg-background-light,
-.dark .cp-theme .bg-surface {
+.dark .cp-theme .bg-surface,
+.dark .cp-theme .bg-white {
     background-color: #161719 !important;
 }
 
@@ -727,7 +765,7 @@ html.is-safari .safari-backdrop {
 
 .dark .cp-theme .bg-primary-soft,
 .dark .cp-theme .bg-primary-subtle {
-    background-color: rgba(245, 158, 11, 0.16) !important;
+    background-color: rgba(0, 122, 255, 0.16) !important;
 }
 
 .dark .cp-theme .text-text-primary,
@@ -752,8 +790,11 @@ html.is-safari .safari-backdrop {
     border-color: #2a2b30 !important;
 }
 
+.dark .cp-theme .focus\:ring-primary-soft:focus,
+.dark .cp-theme .focus-within\:ring-primary-soft:focus-within,
+.dark .cp-theme .ring-primary-soft,
 .dark .cp-theme .focus-visible\:ring-primary-soft:focus-visible {
-    --tw-ring-color: rgba(245, 158, 11, 0.35) !important;
+    --tw-ring-color: rgba(90, 200, 250, 0.35) !important;
 }
 
 .dark .cp-theme .focus-visible\:ring-offset-2:focus-visible {
@@ -770,4 +811,16 @@ html.is-safari .safari-backdrop {
 
 .dark .cp-theme .settings-tutor-card {
     background-color: #161719 !important;
+}
+
+.dark .cp-theme .bg-error-soft {
+    background-color: rgba(255, 59, 48, 0.16) !important;
+}
+
+.dark .cp-theme .bg-success-soft {
+    background-color: rgba(52, 199, 89, 0.16) !important;
+}
+
+.dark .cp-theme .bg-warning-soft {
+    background-color: rgba(255, 159, 10, 0.16) !important;
 }

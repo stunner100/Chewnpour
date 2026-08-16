@@ -21,7 +21,13 @@ export function TeamSwitcher() {
               variant={isDarkMode ? 'white' : 'default'}
               size={28}
               decorative
-              className="h-7 w-auto max-w-full"
+              className="h-7 w-auto max-w-full group-data-[collapsible=icon]:hidden"
+            />
+            <BrandLogo
+              variant="mark"
+              size={28}
+              decorative
+              className="hidden size-7 group-data-[collapsible=icon]:block"
             />
           </Link>
         </SidebarMenuButton>

@@ -6,3 +6,12 @@ export const resolveTopicIllustrationUrl = (illustrationUrl) => {
     }
     return DEFAULT_TOPIC_ILLUSTRATION_URL;
 };
+
+export const isPlaceholderTopicIllustration = (illustrationUrl) => {
+    const resolved = resolveTopicIllustrationUrl(illustrationUrl);
+    return (
+        resolved === DEFAULT_TOPIC_ILLUSTRATION_URL
+        || resolved.endsWith('/topic-placeholder.svg')
+        || resolved.includes('topic-placeholder.svg')
+    );
+};

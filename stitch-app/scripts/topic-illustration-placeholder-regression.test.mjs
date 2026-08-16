@@ -4,70 +4,39 @@ import process from "node:process";
 
 const root = process.cwd();
 
-const aiPath = path.join(root, "convex", "ai.ts");
-const topicsPath = path.join(root, "convex", "topics.ts");
-const dashboardCoursePath = path.join(root, "src", "pages", "DashboardCourse.jsx");
-const topicDetailPath = path.join(root, "src", "pages", "TopicDetail.jsx");
 const topicIllustrationLibPath = path.join(root, "src", "lib", "topicIllustration.js");
+const topicContentPanelPath = path.join(root, "src", "components", "topic", "TopicContentPanel.jsx");
+const topicHookPath = path.join(root, "src", "hooks", "useTopicDetail.js");
 const placeholderAssetPath = path.join(root, "public", "topic-placeholder.svg");
 const envExamplePath = path.join(root, ".env.example");
 
 const [
-    aiSource,
-    topicsSource,
-    dashboardCourseSource,
-    topicDetailSource,
     topicIllustrationLibSource,
+    topicContentPanelSource,
+    topicHookSource,
     envExampleSource,
 ] = await Promise.all([
-    fs.readFile(aiPath, "utf8"),
-    fs.readFile(topicsPath, "utf8"),
-    fs.readFile(dashboardCoursePath, "utf8"),
-    fs.readFile(topicDetailPath, "utf8"),
     fs.readFile(topicIllustrationLibPath, "utf8"),
+    fs.readFile(topicContentPanelPath, "utf8"),
+    fs.readFile(topicHookPath, "utf8"),
     fs.readFile(envExamplePath, "utf8"),
 ]);
 
 await fs.access(placeholderAssetPath);
 
-if (
-    !/TOPIC_ILLUSTRATION_GENERATION_ENABLED/.test(aiSource)
-    || !/process\.env\.TOPIC_ILLUSTRATION_GENERATION_ENABLED/.test(aiSource)
-    || !/process\.env\.TOPIC_ILLUSTRATION_GENERATION_ENABLED \|\| "false"/.test(aiSource)
-) {
-    throw new Error("Expected convex/ai.ts to define TOPIC_ILLUSTRATION_GENERATION_ENABLED defaulting to false.");
-}
-
-if (!/illustrationUrl:\s*resolveTopicPlaceholderIllustrationUrl\(\)/.test(aiSource)) {
-    throw new Error("Expected convex/ai.ts to assign placeholder illustration URL when creating topics.");
-}
-
-if (
-    !/if\s*\(TOPIC_ILLUSTRATION_GENERATION_ENABLED\)\s*\{\s*await ctx\.scheduler\.runAfter\(0,\s*internal\.ai\.generateTopicIllustration/s.test(aiSource)
-) {
-    throw new Error("Expected convex/ai.ts to guard topic illustration scheduling behind TOPIC_ILLUSTRATION_GENERATION_ENABLED.");
-}
-
-if (!/illustrationUrl:\s*args\.illustrationUrl \|\| resolveDefaultTopicIllustrationUrl\(\)/.test(topicsSource)) {
-    throw new Error("Expected convex/topics.ts createTopic to default to a placeholder illustration URL.");
-}
-
 if (!/resolveTopicIllustrationUrl/.test(topicIllustrationLibSource)) {
     throw new Error("Expected src/lib/topicIllustration.js to export resolveTopicIllustrationUrl.");
 }
 
-if (
-    !/src=\{topicIllustrationUrl\}/.test(dashboardCourseSource)
-    || !/resolveTopicIllustrationUrl\(topic\.illustrationUrl\)/.test(dashboardCourseSource)
-) {
-    throw new Error("Expected DashboardCourse to use resolved topic illustration fallback.");
+if (!/isPlaceholderTopicIllustration/.test(topicIllustrationLibSource)) {
+    throw new Error("Expected src/lib/topicIllustration.js to export isPlaceholderTopicIllustration.");
 }
 
 if (
-    !/src=\{topicIllustrationUrl\}/.test(topicDetailSource)
-    || !/resolveTopicIllustrationUrl\(topic\?\.illustrationUrl\)/.test(topicDetailSource)
+    !/showTopicIllustration && topicIllustrationUrl/.test(topicContentPanelSource)
+    || !/isPlaceholderTopicIllustration/.test(topicHookSource)
 ) {
-    throw new Error("Expected TopicDetail to use resolved topic illustration fallback.");
+    throw new Error("Expected lesson page to hide placeholder illustrations and only show real topic art.");
 }
 
 if (!/TOPIC_ILLUSTRATION_GENERATION_ENABLED=false/.test(envExampleSource)) {

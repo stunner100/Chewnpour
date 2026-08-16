@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import AppIcon from '../AppIcon';
+import { formatCourseTitle } from '../../lib/courseTitle';
 
 const formatRelative = (timestamp) => {
     if (!timestamp) return '';
@@ -35,7 +36,7 @@ const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', on
                 <div className="p-5 md:p-6 flex flex-col gap-4">
                     <div className="space-y-1.5">
                         <p className="text-overline text-primary">Continue learning</p>
-                        <h3 className="text-display-sm md:text-display-md text-text-main-light dark:text-text-main-dark line-clamp-1">{course.title}</h3>
+                        <h3 className="text-display-sm md:text-display-md text-text-main-light dark:text-text-main-dark line-clamp-1">{formatCourseTitle(course.title) || course.title}</h3>
                         {nextLesson && (
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark line-clamp-1">
                                 Next: <span className="font-semibold text-text-main-light dark:text-text-main-dark">{nextLesson}</span>

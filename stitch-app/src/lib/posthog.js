@@ -7,9 +7,6 @@ const posthogUiHost = String(import.meta.env.VITE_POSTHOG_UI_HOST || 'https://us
 const posthogDebug = String(import.meta.env.VITE_POSTHOG_DEBUG || '')
     .trim()
     .toLowerCase() === 'true';
-const posthogAllowExternalDeps = String(import.meta.env.VITE_POSTHOG_ALLOW_EXTERNAL_DEPS || '')
-    .trim()
-    .toLowerCase() === 'true';
 const MAX_PENDING_ACTIONS = 64;
 
 let initialized = false;
@@ -120,13 +117,25 @@ export const initPostHog = () => {
                 autocapture: false,
                 capture_dead_clicks: false,
                 capture_heatmaps: false,
-                disable_session_recording: true,
-                disable_surveys: true,
-                disable_surveys_automatic_display: true,
+                disable_session_recording: false,
+                disable_surveys: false,
+                disable_surveys_automatic_display: false,
                 disable_product_tours: true,
                 disable_conversations: true,
                 disable_web_experiments: true,
-                disable_external_dependency_loading: !posthogAllowExternalDeps,
+                // Surveys and session replay load extra PostHog scripts.
+                disable_external_dependency_loading: false,
+                mask_personal_data_properties: true,
+                session_recording: {
+                    maskAllInputs: true,
+                    maskTextClass: 'ph-mask',
+                    maskTextSelector: '.ph-mask, .lesson-reading-stage',
+                    blockClass: 'ph-no-capture',
+                    recordHeaders: false,
+                    recordBody: false,
+                    recordCrossOriginIframes: false,
+                    collectFonts: false,
+                },
                 loaded: (loadedClient) => {
                     if (posthogDebug || !import.meta.env.PROD) {
                         loadedClient.debug();

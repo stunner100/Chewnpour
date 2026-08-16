@@ -14,6 +14,9 @@ const aiCourse = await fs.readFile(path.join(root, 'server', 'aiCourseGeneration
 if (!/generateCourseCurriculumWithAi/.test(aiCourse) || !/normalizeAiCoursePayload/.test(aiCourse)) {
   throw new Error('Expected server/aiCourseGeneration.js to expose AI curriculum helpers.');
 }
+if (!/generateOutline/.test(aiCourse) || !/mapWithConcurrency/.test(aiCourse) || !/sliceSourceForTopic/.test(aiCourse)) {
+  throw new Error('Expected outline-then-parallel topic generation.');
+}
 
 const courses = await fs.readFile(path.join(root, 'server', 'courses.js'), 'utf8');
 if (!/generateCourseCurriculumWithAi/.test(courses) || !/generation_backend/.test(courses)) {

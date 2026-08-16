@@ -1,12 +1,18 @@
 import { fromNodeHeaders } from "better-auth/node";
+import { Buffer } from "node:buffer";
 import { auth } from "./auth.js";
 import {
+    disableCourseShare,
+    enableCourseShare,
     ensureCourseFromUpload,
     getCourseForUser,
+    getPublicCourseByShareToken,
     getQuizAttemptForUser,
     getQuizForTopic,
     getTopicForUser,
     listCoursesForUser,
+    submitLessonCheck,
+    submitPublicLessonCheck,
     submitQuizAttempt,
 } from "./courses.js";
 import { getPool } from "./db.js";
@@ -25,6 +31,8 @@ import {
     explainTopicSelection,
     reExplainTopicContent,
 } from "./topicExplain.js";
+import { signStudyWorkerToken } from "./studyWorkerToken.js";
+import { DEFAULT_TUTOR_PERSONA, normalizeTutorPersona } from "./tutorPersonas.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -120,7 +128,23 @@ export const handleCoursesRequest = async (req, res) => {
             return sendJson(res, 200, { course });
         }
 
-        res.setHeader("Allow", "GET, POST");
+        if (parts.length === 2 && parts[1] === "share" && method === "POST") {
+            const course = await enableCourseShare(user.id, parts[0]);
+            if (!course) {
+                return sendJson(res, 404, { error: "Course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        if (parts.length === 2 && parts[1] === "share" && method === "DELETE") {
+            const course = await disableCourseShare(user.id, parts[0]);
+            if (!course) {
+                return sendJson(res, 404, { error: "Course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        res.setHeader("Allow", "GET, POST, DELETE");
         return sendJson(res, 405, { error: "Method not allowed" });
     } catch (error) {
         console.error("[api/courses]", error);
@@ -154,6 +178,17 @@ export const handleTopicsRequest = async (req, res) => {
             if (!quiz?.topic) {
                 return sendJson(res, 404, { error: "Topic not found" });
             }
+            try {
+                const { upsertTopicProgressForUser } = await import("./topicNotes.js");
+                await upsertTopicProgressForUser(user.id, parts[0], {
+                    lastStudiedAt: Date.now(),
+                    lastActivityKind: "quiz",
+                });
+            } catch (progressError) {
+                console.warn("[api/topics] quiz start progress upsert failed", {
+                    message: progressError?.message || String(progressError),
+                });
+            }
             return sendJson(res, 200, quiz);
         }
 
@@ -168,6 +203,7 @@ export const handleTopicsRequest = async (req, res) => {
                 const { upsertTopicProgressForUser } = await import("./topicNotes.js");
                 await upsertTopicProgressForUser(user.id, parts[0], {
                     lastStudiedAt: Date.now(),
+                    lastActivityKind: "lesson",
                     bestScore: result.percent,
                 });
             } catch (progressError) {
@@ -176,6 +212,33 @@ export const handleTopicsRequest = async (req, res) => {
                 });
             }
             return sendJson(res, 200, { attempt: result });
+        }
+
+        if (parts.length === 2 && parts[1] === "lesson-check" && method === "POST") {
+            const body = await readJsonBody(req);
+            const result = await submitLessonCheck({
+                userId: user.id,
+                topicId: parts[0],
+                questionId: body.questionId,
+                selectedIndex: body.selectedIndex,
+                orderedSteps: body.orderedSteps,
+            });
+            return sendJson(res, 200, { result });
+        }
+
+        if (parts.length === 2 && parts[1] === "study-worker-token" && method === "POST") {
+            const payload = await getTopicForUser(user.id, parts[0]);
+            if (!payload?.topic) {
+                return sendJson(res, 404, { error: "Topic not found" });
+            }
+            const body = await readJsonBody(req).catch(() => ({}));
+            const signed = signStudyWorkerToken({
+                userId: user.id,
+                topicId: payload.topic.id,
+                courseId: payload.topic.courseId || payload.course?.id || "",
+                persona: normalizeTutorPersona(body.persona || DEFAULT_TUTOR_PERSONA),
+            });
+            return sendJson(res, 200, signed);
         }
 
         if (parts.length === 2 && parts[1] === "chat" && method === "GET") {
@@ -282,6 +345,41 @@ export const handleQuizAttemptsRequest = async (req, res) => {
         const status = Number(error?.status) || 500;
         return sendJson(res, status, {
             error: error?.message || "Quiz attempt request failed",
+        });
+    }
+};
+
+export const handleShareRequest = async (req, res) => {
+    try {
+        const parts = parsePath(req.url || "", /^\/api\/share\/?/);
+        const method = String(req.method || "GET").toUpperCase();
+
+        if (parts.length === 1 && method === "GET") {
+            const course = await getPublicCourseByShareToken(parts[0]);
+            if (!course) {
+                return sendJson(res, 404, { error: "Shared course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        if (parts.length === 2 && parts[1] === "lesson-check" && method === "POST") {
+            const body = await readJsonBody(req);
+            const result = await submitPublicLessonCheck({
+                token: parts[0],
+                questionId: body.questionId,
+                selectedIndex: body.selectedIndex,
+                orderedSteps: body.orderedSteps,
+            });
+            return sendJson(res, 200, { result });
+        }
+
+        res.setHeader("Allow", "GET, POST");
+        return sendJson(res, 405, { error: "Method not allowed" });
+    } catch (error) {
+        console.error("[api/share]", error);
+        const status = Number(error?.status) || 500;
+        return sendJson(res, status, {
+            error: error?.message || "Share request failed",
         });
     }
 };

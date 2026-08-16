@@ -39,7 +39,7 @@ Optional backend variables:
 
 ## PostHog Configuration
 
-Frontend product analytics and behavior tracking are enabled when `VITE_POSTHOG_KEY` is set.
+Frontend product analytics, sampled session replay, and in-app surveys are enabled when `VITE_POSTHOG_KEY` is set.
 
 Required environment variables:
 
@@ -47,9 +47,11 @@ Required environment variables:
 
 Optional variables:
 
-- `VITE_POSTHOG_HOST` (default `https://us.i.posthog.com`)
+- `VITE_POSTHOG_HOST` (default `/ingest` same-origin proxy; production may use `https://us.i.posthog.com`)
 - `VITE_POSTHOG_UI_HOST` (default `https://us.posthog.com`)
 - `VITE_POSTHOG_DEBUG` (`true` to enable client-side debug logs)
+
+Lesson text, tutor chat, notes, quizzes, and typed inputs are masked in recordings. Create surveys and set replay sampling in the PostHog project UI.
 
 ## Staging
 

@@ -1,8 +1,8 @@
 import React from 'react';
 import TopicSidebar from '../TopicSidebar';
-import LessonContentRenderer from '../LessonContentRenderer';
-import GuidedStudyPath from '../GuidedStudyPath';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
+import LessonPodcastCard from '../lesson/LessonPodcastCard';
+import LessonSectionStepper from '../lesson/LessonSectionStepper';
 import AppIcon from '../AppIcon';
 
 const TopicContentPanel = ({
@@ -10,23 +10,24 @@ const TopicContentPanel = ({
     cleanLine,
     contentLines,
     contentRef,
-    displayBlocks,
-    filteredBlocks,
-    handleAskTutor,
+    handleLessonStepChange,
     handleTermsStarred,
     heroTopicTitle,
     isPaused,
     isPlaying,
     isVoiceSupported,
+    lessonSteps,
     normalizedContent,
+    objectiveExamRoute,
     openSource,
     parsed,
     pauseVoice,
     playVoice,
-    podcastEnabled: _podcastEnabled,
+    podcastEnabled = false,
     resolvedTopicTitle,
     resumeVoice,
     shouldAnimateBlocks,
+    showTopicIllustration = false,
     speechText,
     stopVoice,
     topic,
@@ -37,88 +38,78 @@ const TopicContentPanel = ({
     voiceStatus,
     wordBankTerms,
 }) => (
-    <>
-        <TopicSidebar
-            normalizedContent={normalizedContent}
-            contentLines={contentLines}
-            toc={parsed.toc}
-            cleanLine={cleanLine}
-            topic={topic}
-            mobileOnly
-        />
-
-        {topicIllustrationUrl ? (
-            <div className="overflow-hidden rounded-2xl border border-border-subtle dark:border-border-subtle-dark">
-                <img
-                    src={topicIllustrationUrl}
-                    alt={`${heroTopicTitle} illustration`}
-                    loading="lazy"
-                    className="h-44 md:h-56 w-full object-cover"
-                />
-            </div>
-        ) : null}
-
-        {isVoiceSupported && speechText ? (
-            <TopicVoiceToolbar
-                isPaused={isPaused}
-                isPlaying={isPlaying}
-                pauseVoice={pauseVoice}
-                playVoice={playVoice}
-                resumeVoice={resumeVoice}
-                speechText={speechText}
-                stopVoice={stopVoice}
-                voicePlaybackError={voicePlaybackError}
-                voiceStatus={voiceStatus}
+    <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-3">
+            <TopicSidebar
+                normalizedContent={normalizedContent}
+                contentLines={contentLines}
+                toc={parsed.toc}
+                cleanLine={cleanLine}
+                topic={topic}
+                mobileOnly
             />
-        ) : null}
 
-        <article className="bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
+            {isVoiceSupported && speechText ? (
+                <TopicVoiceToolbar
+                    isPaused={isPaused}
+                    isPlaying={isPlaying}
+                    pauseVoice={pauseVoice}
+                    playVoice={playVoice}
+                    resumeVoice={resumeVoice}
+                    speechText={speechText}
+                    stopVoice={stopVoice}
+                    voicePlaybackError={voicePlaybackError}
+                    voiceStatus={voiceStatus}
+                />
+            ) : null}
+
+            {showTopicIllustration && topicIllustrationUrl ? (
+                <div className="overflow-hidden rounded-xl">
+                    <img
+                        src={topicIllustrationUrl}
+                        alt={`${heroTopicTitle} illustration`}
+                        loading="lazy"
+                        className="h-28 w-full object-cover md:h-32"
+                    />
+                </div>
+            ) : null}
+        </div>
+
+        <div className="max-w-[65ch]">
             {normalizedContent ? (
-                <LessonContentRenderer
-                    blocks={displayBlocks}
-                    shouldAnimateBlocks={shouldAnimateBlocks}
+                <LessonSectionStepper
+                    key={topicId || 'topic-lesson'}
+                    steps={lessonSteps}
+                    topicId={topicId}
+                    lessonChecks={topicProgress?.lessonChecks}
+                    quizHref={objectiveExamRoute}
+                    quizLabel="Start topic quiz"
+                    onStepChange={handleLessonStepChange}
                     cleanInline={cleanInline}
                     onViewSource={openSource}
-                    onAskTutor={handleAskTutor}
-                    quickCheckPairs={parsed.quickCheckPairs}
                     wordBankTerms={wordBankTerms}
-                    topicId={topicId}
                     starredTerms={topicProgress?.termsStarred}
                     onTermsStarred={handleTermsStarred}
+                    shouldAnimateBlocks={shouldAnimateBlocks}
+                    contentRef={contentRef}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="size-14 rounded-2xl bg-primary-soft flex items-center justify-center mb-4 animate-pulse">
-                        <AppIcon name="auto_stories" className="text-primary text-[26px]" />
+                    <div className="mb-4 flex size-14 animate-pulse items-center justify-center rounded-2xl bg-primary-subtle">
+                        <AppIcon name="auto_stories" className="text-[26px] text-primary" />
                     </div>
-                    <h3 className="text-body-lg font-semibold text-text-primary">Preparing your lesson</h3>
-                    <p className="text-body-sm text-text-secondary mt-1 max-w-xs">
+                    <h3 className="font-display text-display-sm font-bold text-text-primary">Preparing your lesson</h3>
+                    <p className="mt-1 max-w-xs text-body-sm text-text-secondary">
                         ChewnPour is organizing this topic into key ideas, examples, checks, and study tools.
                     </p>
                 </div>
             )}
-        </article>
+        </div>
 
-        <details className="group bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle px-5 md:px-6">
-            <summary className="flex items-center gap-3 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                <span className="size-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
-                    <AppIcon name="route" className="text-primary text-[18px]" />
-                </span>
-                <span className="flex-1 min-w-0">
-                    <span className="block text-body-md font-semibold text-text-primary leading-tight">Guided study path</span>
-                    <span className="block text-caption text-text-muted mt-0.5">A section-by-section walkthrough of this lesson.</span>
-                </span>
-                <AppIcon name="expand_more" className="text-[20px] text-text-muted transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="pb-5 pt-1">
-                <GuidedStudyPath
-                    topicTitle={resolvedTopicTitle}
-                    blocks={filteredBlocks}
-                    onAskTutor={handleAskTutor}
-                />
-            </div>
-        </details>
-    </>
+        {podcastEnabled && topicId ? (
+            <LessonPodcastCard topicId={topicId} topicTitle={resolvedTopicTitle || heroTopicTitle} />
+        ) : null}
+    </div>
 );
 
 export default TopicContentPanel;

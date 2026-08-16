@@ -1,11 +1,22 @@
-import React, { memo, useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AppIcon from './AppIcon';
 
-const STYLES = [
-    { key: 'explain', label: 'Explain', icon: 'lightbulb' },
-    { key: 'breakdown', label: 'Break down', icon: 'account_tree' },
-    { key: 'simplify', label: 'Simplify', icon: 'child_care' },
+const PRIMARY_ACTIONS = [
+    { key: 'explain', label: 'Explain', icon: 'lightbulb', busy: 'Explaining' },
+    { key: 'breakdown', label: 'Break down', icon: 'account_tree', busy: 'Breaking down' },
 ];
+
+const SECONDARY_ACTIONS = [
+    { key: 'simplify', label: 'Simplify', icon: 'child_care', busy: 'Simplifying' },
+];
+
+const ALL_ACTIONS = [...PRIMARY_ACTIONS, ...SECONDARY_ACTIONS];
+
+const controlClass =
+    'inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-text-primary transition-[background-color,color,transform] duration-150 hover:bg-surface-soft active:scale-[0.96]';
+
+const primaryClass =
+    'inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 text-[12.5px] font-medium text-white transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96]';
 
 const explainSelectionRequest = async ({ topicId, selectedText, style }) => {
     const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/explain`, {
@@ -34,17 +45,30 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         error: '',
         activeStyle: '',
     });
+    const [expanded, setExpanded] = useState(false);
+    const [placement, setPlacement] = useState({ top: 0, left: 0, above: false, ready: false });
+
     const selectionText = selection?.text || '';
     const hasCurrentSelectionState = explainState.selectionText === selectionText;
     const loading = hasCurrentSelectionState ? explainState.loading : false;
     const explanation = hasCurrentSelectionState ? explainState.explanation : '';
     const error = hasCurrentSelectionState ? explainState.error : '';
     const activeStyle = hasCurrentSelectionState ? explainState.activeStyle : '';
+
     const popoverRef = useRef(null);
+    const barRef = useRef(null);
+    const contentRef = useRef(null);
+    const previousModeRef = useRef('idle');
+    const lastWidthRef = useRef(0);
+    const widthAnimationRef = useRef(null);
+
+    const mode = loading ? 'thinking' : explanation || error ? 'result' : 'idle';
+    const activeAction = ALL_ACTIONS.find((action) => action.key === activeStyle) || PRIMARY_ACTIONS[0];
 
     const handleExplain = useCallback(async (style) => {
         if (!topicId || !selection?.text) return;
         const selectedText = selection.text;
+        setExpanded(false);
         setExplainState({
             selectionText: selectedText,
             loading: true,
@@ -76,154 +100,264 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         }
     }, [topicId, selection]);
 
-    // Click outside to dismiss
+    const resetToIdle = useCallback(() => {
+        setExpanded(false);
+        setExplainState({
+            selectionText,
+            loading: false,
+            explanation: '',
+            error: '',
+            activeStyle: '',
+        });
+    }, [selectionText]);
+
     useEffect(() => {
-        if (!selection) return;
-        const handleClick = (e) => {
-            if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        if (!selection) return undefined;
+        const handleClick = (event) => {
+            if (popoverRef.current && !popoverRef.current.contains(event.target)) {
                 onClose();
             }
         };
-        const handleEscape = (e) => {
-            if (e.key === 'Escape') onClose();
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') onClose();
         };
-        // Delay listener attachment so the triggering click doesn't immediately dismiss
-        const timer = setTimeout(() => {
+        const timer = window.setTimeout(() => {
             document.addEventListener('mousedown', handleClick);
             document.addEventListener('keydown', handleEscape);
         }, 100);
         return () => {
-            clearTimeout(timer);
+            window.clearTimeout(timer);
             document.removeEventListener('mousedown', handleClick);
             document.removeEventListener('keydown', handleEscape);
         };
     }, [selection, onClose]);
 
-    // Position: centered above selection, flip below if off-screen
-    const style = useMemo(() => {
-        if (!selection?.rect) return { display: 'none' };
+    const updatePlacement = useCallback(() => {
+        if (!selection?.rect || !popoverRef.current) return;
         const { top, left, width, bottom } = selection.rect;
-        const popoverHeight = explanation ? 280 : 52;
-        const gap = 10;
         const centerX = left + width / 2;
+        const gap = 8;
+        const popoverHeight = popoverRef.current.getBoundingClientRect().height || 44;
+        const above = bottom + gap + popoverHeight > window.innerHeight - 16 && top - gap - popoverHeight > 16;
+        const nextLeft = Math.max(16, Math.min(centerX, window.innerWidth - 16));
+        const nextTop = above ? top - gap : bottom + gap;
+        setPlacement((current) => {
+            if (
+                current.ready
+                && current.above === above
+                && Math.abs(current.top - nextTop) < 1
+                && Math.abs(current.left - nextLeft) < 1
+            ) {
+                return current;
+            }
+            return { top: nextTop, left: nextLeft, above, ready: true };
+        });
+    }, [selection]);
 
-        // Flip below if not enough room above
-        const above = top - gap - popoverHeight > 0;
+    useLayoutEffect(() => {
+        updatePlacement();
+    }, [updatePlacement, mode, expanded, explanation, error]);
+
+    useEffect(() => {
+        if (!selection) return undefined;
+        const onResize = () => updatePlacement();
+        window.addEventListener('resize', onResize);
+        window.addEventListener('scroll', onResize, true);
+        return () => {
+            window.removeEventListener('resize', onResize);
+            window.removeEventListener('scroll', onResize, true);
+        };
+    }, [selection, updatePlacement]);
+
+    useLayoutEffect(() => {
+        const bar = barRef.current;
+        const content = contentRef.current;
+        if (!bar || !content || mode === 'result') return;
+
+        const nextWidth = Math.ceil(content.getBoundingClientRect().width) + 8;
+        const previousWidth = lastWidthRef.current || Math.ceil(bar.getBoundingClientRect().width);
+
+        if (previousModeRef.current !== mode && Math.abs(nextWidth - previousWidth) > 1) {
+            widthAnimationRef.current?.cancel();
+            const animation = bar.animate(
+                [{ width: `${previousWidth}px` }, { width: `${nextWidth}px` }],
+                { duration: 320, easing: 'cubic-bezier(0.23,1,0.32,1)' },
+            );
+            widthAnimationRef.current = animation;
+            animation.onfinish = () => {
+                lastWidthRef.current = nextWidth;
+                widthAnimationRef.current = null;
+                bar.style.width = '';
+            };
+        } else {
+            lastWidthRef.current = nextWidth;
+        }
+
+        previousModeRef.current = mode;
+    }, [mode, expanded]);
+
+    const style = useMemo(() => {
+        if (!selection?.rect || !placement.ready) {
+            return { position: 'fixed', opacity: 0, pointerEvents: 'none', zIndex: 50 };
+        }
         return {
             position: 'fixed',
-            top: above ? `${top - gap}px` : `${bottom + gap}px`,
-            left: `${Math.max(16, Math.min(centerX, window.innerWidth - 16))}px`,
-            transform: above ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+            top: `${placement.top}px`,
+            left: `${placement.left}px`,
+            transform: placement.above ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
             zIndex: 50,
-            maxWidth: `${Math.min(380, window.innerWidth - 32)}px`,
+            maxWidth: `${Math.min(420, window.innerWidth - 32)}px`,
+            opacity: 1,
+            transition: 'opacity 180ms ease-out, transform 220ms cubic-bezier(0.23,1,0.32,1)',
         };
-    }, [selection, explanation]);
+    }, [selection, placement]);
 
     if (!selection) return null;
 
-    const truncatedText = selection.text.length > 80
-        ? selection.text.slice(0, 77) + '...'
-        : selection.text;
-
     return (
-        <div ref={popoverRef} style={style} className="w-full">
-            <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden">
-                {/* Selected text preview */}
-                <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
-                    <p className="text-xs text-zinc-400 dark:text-neutral-400 italic truncate">
-                        &ldquo;{truncatedText}&rdquo;
-                    </p>
-                </div>
+        <div ref={popoverRef} style={style} className="w-max max-w-[calc(100vw-2rem)] ph-mask">
+            <div className="flex flex-col items-center gap-2">
+                <div
+                    ref={barRef}
+                    className={`flex h-9 w-fit max-w-[calc(100vw-2rem)] items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-surface p-1 shadow-elevated ${placement.ready ? 'animate-fade-in' : 'opacity-0'}`}
+                >
+                    <div ref={contentRef} className="flex w-fit shrink-0 items-center justify-center gap-0.5">
+                        {loading ? (
+                            <span className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap px-2.5 text-[12.5px] text-text-secondary">
+                                <span className="size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-border-subtle border-t-text-secondary" />
+                                <span className="shimmer text-[12.5px] font-medium">
+                                    {activeAction.busy}…
+                                </span>
+                            </span>
+                        ) : null}
 
-                {/* Action buttons */}
-                {!loading && !explanation && !error && (
-                    <div className="flex items-center gap-1 p-2">
-                        {STYLES.map(({ key, label, icon }) => (
-                            <button
-                                key={key}
-                                onClick={() => handleExplain(key)}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
-                            >
-                                <AppIcon name={icon} className="text-[16px]" />
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                {/* Loading state */}
-                {loading && (
-                    <div className="flex items-center gap-2 px-4 py-3">
-                        <span className="size-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                            {activeStyle === 'breakdown' ? 'Breaking down...' : activeStyle === 'simplify' ? 'Simplifying...' : 'Explaining...'}
-                        </span>
-                    </div>
-                )}
-
-                {/* Error state */}
-                {error && !loading && (
-                    <div className="px-4 py-3">
-                        <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">{error}</p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => handleExplain(activeStyle || 'explain')}
-                                className="text-xs font-semibold text-primary hover:text-primary/80"
-                            >
-                                Retry
-                            </button>
-                            <button
-                                onClick={onClose}
-                                className="text-xs font-semibold text-zinc-400 hover:text-zinc-600"
-                            >
-                                Dismiss
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Explanation result */}
-                {explanation && !loading && (
-                    <div className="px-4 py-3">
-                        <div className="max-h-48 overflow-y-auto text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                            {explanation}
-                        </div>
-                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                            <div className="flex items-center gap-2">
-                                {onCopyToNotes && (
+                        {mode === 'result' ? (
+                            <>
+                                {onCopyToNotes && explanation ? (
                                     <button
+                                        type="button"
                                         onClick={() => onCopyToNotes(explanation)}
-                                        className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700"
+                                        className={primaryClass}
                                     >
                                         <AppIcon name="note_add" className="text-[14px]" />
-                                        Copy to notes
+                                        Keep in notes
                                     </button>
-                                )}
+                                ) : null}
+                                <button type="button" onClick={onClose} className={controlClass}>
+                                    <AppIcon name="close" className="text-[14px]" />
+                                    Dismiss
+                                </button>
+                                <span className="mx-0.5 h-4 w-px shrink-0 bg-border-subtle" />
                                 <button
-                                    onClick={() => {
-                                        setExplainState({
-                                            selectionText,
-                                            loading: false,
-                                            explanation: '',
-                                            error: '',
-                                            activeStyle: '',
-                                        });
-                                    }}
-                                    className="flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-zinc-600"
+                                    type="button"
+                                    aria-label="Try again"
+                                    onClick={() => handleExplain(activeStyle || 'explain')}
+                                    className="flex size-7 shrink-0 items-center justify-center rounded-full text-text-muted transition-[background-color,color,transform] duration-150 hover:bg-surface-soft hover:text-text-secondary active:scale-[0.96]"
                                 >
-                                    <AppIcon name="refresh" className="text-[14px]" />
-                                    Try another
+                                    <AppIcon name="refresh" className="text-[16px]" />
+                                </button>
+                            </>
+                        ) : null}
+
+                        {mode === 'idle' ? (
+                            <>
+                                <div
+                                    className="flex min-w-0 items-center gap-0.5 overflow-hidden transition-[max-width,opacity] duration-300"
+                                    style={{
+                                        maxWidth: expanded ? 420 : 220,
+                                        transitionTimingFunction: 'cubic-bezier(0.23,1,0.32,1)',
+                                    }}
+                                >
+                                    {PRIMARY_ACTIONS.map((action) => (
+                                        <button
+                                            key={action.key}
+                                            type="button"
+                                            onClick={() => handleExplain(action.key)}
+                                            className={controlClass}
+                                        >
+                                            <AppIcon name={action.icon} className="text-[14px]" />
+                                            {action.label}
+                                        </button>
+                                    ))}
+
+                                    <div
+                                        className="flex min-w-0 items-center gap-0.5 overflow-hidden transition-[max-width,opacity,margin] duration-300"
+                                        style={{
+                                            maxWidth: expanded ? 160 : 0,
+                                            opacity: expanded ? 1 : 0,
+                                            marginLeft: expanded ? 2 : 0,
+                                            transitionTimingFunction: 'cubic-bezier(0.23,1,0.32,1)',
+                                        }}
+                                    >
+                                        {SECONDARY_ACTIONS.map((action) => (
+                                            <button
+                                                key={action.key}
+                                                type="button"
+                                                onClick={() => handleExplain(action.key)}
+                                                className={controlClass}
+                                            >
+                                                <AppIcon name={action.icon} className="text-[14px]" />
+                                                {action.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <span className="mx-0.5 h-4 w-px shrink-0 bg-border-subtle" />
+                                    <button
+                                        type="button"
+                                        aria-label={expanded ? 'Show fewer actions' : 'Show more actions'}
+                                        aria-expanded={expanded}
+                                        onClick={() => setExpanded((value) => !value)}
+                                        className="flex size-7 shrink-0 items-center justify-center rounded-full text-text-secondary transition-[background-color,transform] duration-200 hover:bg-surface-soft active:scale-[0.96]"
+                                    >
+                                        <AppIcon
+                                            name="chevron_right"
+                                            className={`text-[16px] transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+                                        />
+                                    </button>
+                                </div>
+                            </>
+                        ) : null}
+                    </div>
+                </div>
+
+                {(explanation || error) && !loading ? (
+                    <div className="w-[min(380px,calc(100vw-2rem))] rounded-2xl border border-border-subtle bg-surface p-3 shadow-elevated">
+                        {error ? (
+                            <p className="text-caption text-amber-700 dark:text-amber-400">{error}</p>
+                        ) : (
+                            <div className="max-h-48 overflow-y-auto whitespace-pre-wrap text-body-sm leading-relaxed text-text-secondary">
+                                {explanation}
+                            </div>
+                        )}
+                        {error ? (
+                            <div className="mt-2 flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => handleExplain(activeStyle || 'explain')}
+                                    className="text-caption font-semibold text-primary hover:text-primary/80"
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={resetToIdle}
+                                    className="text-caption font-semibold text-text-muted hover:text-text-secondary"
+                                >
+                                    Back
                                 </button>
                             </div>
+                        ) : (
                             <button
-                                onClick={onClose}
-                                className="size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-primary flex items-center justify-center"
+                                type="button"
+                                onClick={resetToIdle}
+                                className="mt-2 text-caption font-semibold text-text-muted hover:text-text-secondary"
                             >
-                                <AppIcon name="close" className="text-[16px]" />
+                                Try another
                             </button>
-                        </div>
+                        )}
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );

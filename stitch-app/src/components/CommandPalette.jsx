@@ -7,14 +7,14 @@ import AppIcon from './AppIcon';
 
 const NAV_OPTIONS = [
     { label: 'Dashboard', value: '/dashboard', icon: 'space_dashboard', keywords: ['home', 'main'] },
-    { label: 'Library', value: '/dashboard/library', icon: 'auto_stories', keywords: ['books', 'materials', 'upload'] },
+    { label: 'Library', value: '/dashboard/library', icon: 'auto_stories', keywords: ['books', 'materials', 'upload', 'download'] },
     { label: 'Upload', value: '/dashboard/upload', icon: 'cloud_upload', keywords: ['file', 'pdf', 'material'] },
     { label: 'Lessons', value: '/dashboard/lessons', icon: 'menu_book', keywords: ['read', 'course', 'topic'] },
     { label: 'Quizzes', value: '/dashboard/quiz', icon: 'quiz', keywords: ['test', 'assessment'] },
-    { label: 'Exam', value: '/dashboard/exam', icon: 'school', keywords: ['exam', 'mcq', 'practice'] },
+    { label: 'Podcasts', value: '/dashboard/podcasts', icon: 'podcasts', keywords: ['audio', 'listen', 'headphones'] },
+    { label: 'Timed exams', value: '/dashboard/exam', icon: 'school', keywords: ['exam', 'mcq', 'timed'] },
     { label: 'AI Tutor', value: '/dashboard/ai-tutor', icon: 'smart_toy', keywords: ['chat', 'help', 'explain'] },
     { label: 'Study Plan', value: '/dashboard/progress', icon: 'event_note', keywords: ['schedule', 'plan', 'analysis'] },
-    { label: 'Subscription', value: '/dashboard/settings#subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },
     { label: 'Profile', value: '/dashboard/settings#profile', icon: 'person', keywords: ['account', 'settings'] },
     { label: 'Sign Out', value: '__signout', icon: 'logout', keywords: ['sign out', 'log out', 'exit'] },
 ];

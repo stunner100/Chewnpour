@@ -9,7 +9,6 @@ import {
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
 import {
   MessageScroller,
-  MessageScrollerButton,
   MessageScrollerContent,
   MessageScrollerItem,
   MessageScrollerProvider,
@@ -43,12 +42,12 @@ export function TutorChatMessages({
       scrollPreviousItemPeek={64}
     >
       <MessageScroller
-        className={cn('min-h-0 flex-1', className)}
+        className={cn('min-h-0 w-full flex-1 ph-mask', className)}
         aria-label={ariaLabel}
       >
         <MessageScrollerViewport>
           <MessageScrollerContent
-            className={cn(compact ? 'gap-3 px-3 py-4' : 'gap-space-6 p-space-5', contentClassName)}
+            className={cn(compact ? 'gap-3 px-3 py-4' : 'gap-5 p-5 md:p-6', contentClassName)}
             aria-busy={isTyping || undefined}
           >
             {courseBadge ? (
@@ -95,7 +94,6 @@ export function TutorChatMessages({
             ) : null}
           </MessageScrollerContent>
         </MessageScrollerViewport>
-        <MessageScrollerButton />
       </MessageScroller>
     </MessageScrollerProvider>
   );
@@ -120,43 +118,54 @@ export function TutorChatComposer({
     await onSubmit(question);
   };
 
+  const handleSuggested = async (value) => {
+    const question = String(value || '').trim();
+    if (!question || sending || disabled) return;
+    try {
+      await (onSuggestedPrompt || onSubmit)(question);
+    } catch {
+      // Parent owns error state.
+    }
+  };
+
   const composer = (
-    <div className={cn('flex flex-col gap-space-3 border-t border-border-subtle bg-surface p-space-4', className)}>
+    <div className={cn('flex shrink-0 flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)}>
       {suggestedPrompts.length > 0 ? (
         <Suggestions>
           {suggestedPrompts.map((prompt) => (
             <Suggestion
-              key={prompt.text || prompt.label}
+              key={prompt.label || prompt.text || prompt.prompt}
               suggestion={prompt.prompt}
               disabled={sending || disabled}
-              className="border-border-default bg-surface-soft font-label-xs text-label-xs text-text-secondary hover:bg-surface-muted hover:text-text-primary"
-              onClick={(value) => onSuggestedPrompt?.(value)}
+              className="rounded-full border-border-default bg-surface-soft text-caption font-semibold text-text-secondary hover:bg-surface-muted hover:text-text-primary"
+              onClick={handleSuggested}
             >
-              {prompt.text || prompt.label}
+              {prompt.label || prompt.text || prompt.prompt}
             </Suggestion>
           ))}
         </Suggestions>
       ) : null}
 
       {error ? (
-        <p className="rounded-lg border border-error/20 bg-error-soft px-space-3 py-space-2 font-body-sm text-body-sm text-error">
+        <p className="rounded-[16px] border border-error/20 bg-error-soft px-3 py-2 text-body-sm text-error" role="alert">
           {error}
         </p>
       ) : null}
 
-      <PromptInput className="shadow-sm" onSubmit={handleSubmit}>
+      <PromptInput className="rounded-[20px] border border-border-subtle bg-background-light shadow-sm dark:bg-background-dark" onSubmit={handleSubmit}>
         <PromptInputBody>
           <PromptInputTextarea
             aria-label={inputAriaLabel}
             placeholder={placeholder}
             disabled={sending || disabled}
+            className="min-h-12 text-body-sm text-text-primary placeholder:text-text-muted"
           />
         </PromptInputBody>
         <PromptInputFooter className="justify-end">
           <PromptInputSubmit
             disabled={sending || disabled}
             status={sending ? 'submitted' : undefined}
-            className="bg-primary text-on-primary hover:bg-primary-hover"
+            className="size-9 shrink-0 rounded-full bg-cta text-cta-foreground hover:bg-cta-hover"
             aria-label="Send message to AI Tutor"
           />
         </PromptInputFooter>
@@ -164,21 +173,17 @@ export function TutorChatComposer({
 
       {disclaimer ? (
         <div className="text-center">
-          <p className="font-label-xs text-label-xs text-text-muted">{disclaimer}</p>
+          <p className="text-caption text-text-muted">{disclaimer}</p>
         </div>
       ) : null}
     </div>
   );
 
-  if (initialInput) {
-    return (
-      <PromptInputProvider initialInput={initialInput} key={initialInput}>
-        {composer}
-      </PromptInputProvider>
-    );
-  }
-
-  return composer;
+  return (
+    <PromptInputProvider initialInput={initialInput} key={`${initialInput || 'empty'}`}>
+      {composer}
+    </PromptInputProvider>
+  );
 }
 
 export { TutorWelcomeMessage };
