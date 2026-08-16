@@ -1,3 +1,5 @@
+import { isTextGroundedInSource } from "./grounding.js";
+
 const PROCESS_LANGUAGE =
     /\b(first|then|next|finally|after|before|step|steps|sequence|process|pipeline|workflow|stage|stages|followed by)\b/i;
 
@@ -11,18 +13,9 @@ export const normalizeOrderingQuestion = (raw, { sourceText = "" } = {}) => {
         .slice(0, 3);
     if (!prompt || steps.length !== 3) return null;
     if (new Set(steps.map((step) => step.toLowerCase())).size !== 3) return null;
-    const source = String(sourceText || "").toLowerCase();
-    const grounded = source
-        ? steps.every((step) => {
-              const tokens = step
-                  .toLowerCase()
-                  .split(/\s+/)
-                  .filter((token) => token.length >= 4);
-              if (tokens.length === 0) return source.includes(step.toLowerCase());
-              return tokens.some((token) => source.includes(token));
-          })
-        : true;
-    if (!grounded) return null;
+    if (sourceText && !steps.every((step) => isTextGroundedInSource(step, sourceText))) {
+        return null;
+    }
     return {
         questionType: "ordering",
         prompt,

@@ -9,7 +9,7 @@ const base64Url = (value) =>
     Buffer.from(value).toString("base64url");
 
 export const getStudyWorkerJwtSecret = () =>
-    String(process.env.STUDY_WORKER_JWT_SECRET || process.env.BETTER_AUTH_SECRET || "").trim();
+    String(process.env.STUDY_WORKER_JWT_SECRET || "").trim();
 
 export const signStudyWorkerToken = ({
     userId,

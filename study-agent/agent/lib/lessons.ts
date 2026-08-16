@@ -62,10 +62,12 @@ export const splitMarkdownIntoSections = (markdown: string): LessonSection[] => 
   }
   pushCurrent();
 
-  return sections.filter((section) => {
-    const skipped = SKIP_TITLES.has(normalizeTitle(section.title));
-    return section.content.length >= 20 || !skipped;
-  });
+  // Quiz and self-check sections hold the answer key. Never hand them to the
+  // tutor tools (search, outline, get_section): answers are revealed through
+  // the ask_question flow after the student responds.
+  return sections.filter(
+    (section) => !SKIP_TITLES.has(normalizeTitle(section.title)),
+  );
 };
 
 const clip = (value: string, max = 4000) => {

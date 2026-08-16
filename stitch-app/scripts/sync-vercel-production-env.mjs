@@ -39,6 +39,9 @@ const REQUIRED_FROM_FILE = [
     "SUPABASE_SERVICE_ROLE_KEY",
     "SUPABASE_ANON_KEY",
     "BETTER_AUTH_SECRET",
+    // Must match the value set on the study-agent worker's own Vercel project.
+    // Signing fails closed without it.
+    "STUDY_WORKER_JWT_SECRET",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "PAYSTACK_SECRET_KEY",

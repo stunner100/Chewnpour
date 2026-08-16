@@ -110,7 +110,7 @@ export default {
                 /* ── ChewnPour Slate redesign system ── */
                 "text-primary": "#0A0A0A",
                 "text-secondary": "#6B6B70",
-                "text-muted": "#8E8E93",
+                "text-muted": "#6B6B70",
                 "surface-soft": "#F2F2F7",
                 "surface-muted": "#E5E5EA",
                 "surface-variant": "#F2F2F7",

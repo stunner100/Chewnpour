@@ -1,6 +1,7 @@
 import { isValidMcq, isNearDuplicatePrompt } from "./questionDedup.js";
 import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { normalizeOrderingQuestion, snippetHasProcess } from "./processOrdering.js";
+import { isTextGroundedInSource } from "./grounding.js";
 import {
     eligibleLessonSectionTitles,
     isSkippedStepperTitle,
@@ -57,7 +58,7 @@ const normalizeTrueFalse = (raw, { sectionTitle = "" } = {}) => {
     return candidate;
 };
 
-const normalizeInLessonMcq = (raw, { sectionTitle = "", title = "" } = {}) => {
+const normalizeInLessonMcq = (raw, { sectionTitle = "", title = "", sourceText = "" } = {}) => {
     const prompt = normalizeWhitespace(raw?.prompt || raw?.question).slice(0, 400);
     const options = (Array.isArray(raw?.options) ? raw.options : [])
         .map((item) => normalizeWhitespace(item))
@@ -78,6 +79,9 @@ const normalizeInLessonMcq = (raw, { sectionTitle = "", title = "" } = {}) => {
         sortOrder: 0,
     };
     if (!isValidMcq(candidate, { title })) return null;
+    if (!isTextGroundedInSource(candidate.options[candidate.correctIndex], sourceText)) {
+        return null;
+    }
     candidate.hint = sanitizeGeneratedHint({
         hint: candidate.hint,
         questionType: "multiple_choice",
@@ -138,7 +142,7 @@ export const normalizeInLessonChecks = (
         } else if (type === "true_false") {
             normalized = normalizeTrueFalse(raw, { sectionTitle: boundTitle });
         } else {
-            normalized = normalizeInLessonMcq(raw, { sectionTitle: boundTitle, title });
+            normalized = normalizeInLessonMcq(raw, { sectionTitle: boundTitle, title, sourceText: content });
         }
         if (!normalized) return;
         const duplicate = kept.some((existing) => isNearDuplicatePrompt(existing.prompt, normalized.prompt))

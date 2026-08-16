@@ -7,13 +7,17 @@ export type LessonScope = {
 
 const asString = (value: unknown) => String(value || "").trim();
 
+type AuthContext = {
+  principalId?: string;
+  principalType?: string;
+  attributes?: Readonly<Record<string, string | readonly string[]>>;
+} | null;
+
 export const getLessonScope = (ctx: {
   session: {
     auth: {
-      current?: {
-        principalId?: string;
-        attributes?: Readonly<Record<string, string | readonly string[]>>;
-      } | null;
+      current?: AuthContext;
+      initiator?: AuthContext;
     };
   };
 }): LessonScope => {
@@ -26,6 +30,14 @@ export const getLessonScope = (ctx: {
 
   if (!userId || !topicId) {
     throw new Error("This study session is missing a signed-in student or lesson.");
+  }
+
+  // Defense in depth: route auth already rejects cross-user session follow-ups.
+  // Fail loud here if a mismatched caller ever reaches a tool, so a durable
+  // session can never be continued by a different student.
+  const initiatorId = asString(ctx.session.auth.initiator?.principalId);
+  if (initiatorId && initiatorId !== userId) {
+    throw new Error("This study session belongs to another student.");
   }
 
   return { userId, topicId, courseId, persona };
