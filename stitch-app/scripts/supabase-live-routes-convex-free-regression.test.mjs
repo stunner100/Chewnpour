@@ -20,6 +20,7 @@ const livePageModules = [
   'src/pages/TopicDetail.jsx',
   'src/pages/PublicSharedCourse.jsx',
   'src/pages/DashboardPodcasts.jsx',
+  'src/pages/admin/AdminDashboard.jsx',
   'src/pages/LandingPage.jsx',
   'src/pages/Login.jsx',
   'src/pages/ResetPassword.jsx',

@@ -5,22 +5,29 @@ import AppIcon from '../AppIcon';
 
 export const TabBar = ({ activeTab, onTabChange }) => (
     <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface p-1 shadow-sm">
-        <div className="flex min-w-max gap-1">
-            {TABS.map((tab) => (
-                <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => onTabChange(tab.key)}
-                    className={`flex items-center gap-2 rounded-lg px-3.5 py-2.5 font-label-md text-label-md transition-colors whitespace-nowrap ${
-                        activeTab === tab.key
-                            ? 'bg-primary-soft text-primary shadow-sm'
-                            : 'text-text-muted hover:bg-surface-soft hover:text-text-primary'
-                    }`}
-                >
-                    <AppIcon name={tab.icon} className="text-[18px]" />
-                    {tab.label}
-                </button>
-            ))}
+        <div role="tablist" aria-label="Admin sections" className="flex min-w-max gap-1">
+            {TABS.map((tab) => {
+                const selected = activeTab === tab.key;
+                return (
+                    <button
+                        key={tab.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={selected}
+                        aria-current={selected ? 'page' : undefined}
+                        id={`admin-tab-${tab.key}`}
+                        onClick={() => onTabChange(tab.key)}
+                        className={`flex items-center gap-2 rounded-lg px-3.5 py-2.5 font-label-md text-label-md transition-colors whitespace-nowrap ${
+                            selected
+                                ? 'bg-primary-soft text-primary shadow-sm'
+                                : 'text-text-muted hover:bg-surface-soft hover:text-text-primary'
+                        }`}
+                    >
+                        <AppIcon name={tab.icon} className="text-[18px]" aria-hidden="true" />
+                        {tab.label}
+                    </button>
+                );
+            })}
         </div>
     </div>
 );
@@ -37,7 +44,7 @@ export const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) =>
         <div className="rounded-xl border border-border-subtle bg-surface p-space-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <p className="font-label-xs text-label-xs uppercase tracking-wider text-text-muted">
+                    <p className="text-sm text-text-secondary">
                         {label}
                     </p>
                     <p className="mt-space-2 font-headline-sm text-headline-sm text-text-primary truncate">

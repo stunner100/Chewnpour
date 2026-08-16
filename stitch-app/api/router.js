@@ -1,5 +1,6 @@
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "../server/auth.js";
+import { handleAdminRequest } from "../server/adminHttp.js";
 import { handleBillingRequest } from "../server/billingHttp.js";
 import {
     handleCoursesRequest,
@@ -87,6 +88,9 @@ export default async function handler(req, res) {
     }
     if (pathname === "/api/progress" || pathname.startsWith("/api/progress/")) {
         return handleProgressRequest(req, res);
+    }
+    if (pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
+        return handleAdminRequest(req, res);
     }
 
     res.statusCode = 404;

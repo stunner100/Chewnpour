@@ -122,6 +122,7 @@ const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' 
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
 const PublicSharedCourse = lazyRoute(() => import('./pages/PublicSharedCourse'), { componentName: 'PublicSharedCourse' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
+const AdminDashboard = lazyRoute(() => import('./pages/admin/AdminDashboard'), { componentName: 'AdminDashboard' });
 
 function RouteChangeTracker() {
   const routerLocation = useLocation();
@@ -387,8 +388,8 @@ function App() {
         <Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />
         <Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />
 
-        {/* Admin Route — parked until Supabase admin cutover */}
-        <Route path="/admin" element={<ParkedDashboardFeature title="Admin dashboard" />} />
+        {/* Admin Route */}
+        <Route path="/admin" element={withSuspense(<ProtectedRoute><DashboardLayout><AdminDashboard /></DashboardLayout></ProtectedRoute>)} />
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />

@@ -47,7 +47,7 @@ for (const snippet of [
   '<Route path="/subscription/callback" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />',
   '<Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />',
-  '<Route path="/admin" element={<ParkedDashboardFeature title="Admin dashboard" />} />',
+  '<Route path="/admin" element={withSuspense(<ProtectedRoute><DashboardLayout><AdminDashboard /></DashboardLayout></ProtectedRoute>)} />',
 ]) {
   if (!appSource.includes(snippet)) {
     throw new Error(`Expected old route cutover redirect: ${snippet}`);
@@ -61,7 +61,6 @@ for (const forbiddenSnippet of [
   "const PastQuestionsComingSoon = lazyRoute",
   "const Profile = lazyRoute",
   "const EditProfile = lazyRoute",
-  "const AdminDashboard = lazyRoute",
   "const DashboardProcessing = lazyRoute",
   "const DashboardCourse = lazyRoute",
   "const DashboardResults = lazyRoute",
