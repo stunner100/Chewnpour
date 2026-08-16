@@ -18,8 +18,8 @@ const TopicQuizPanel = ({
 }) => (
     <>
         <PracticeActionsCard
-            title={topicProgress?.completedAt ? 'Lesson complete — keep the momentum' : 'Ready to test your understanding?'}
-            description={topicProgress?.completedAt ? postLessonPrompt : (isTopicQuizRoute ? 'Pick how you want to practice this lesson.' : practiceDescription)}
+            title={topicProgress?.bestScore != null ? 'Quiz done' : 'Test this lesson'}
+            description={topicProgress?.bestScore != null ? postLessonPrompt : (isTopicQuizRoute ? 'A short quiz on what you just read.' : practiceDescription)}
             primaryActions={practicePrimary}
             secondaryActions={practiceSecondary}
             tertiaryActions={practiceTertiary}
@@ -27,7 +27,7 @@ const TopicQuizPanel = ({
             bestScore={topicProgress?.bestScore ?? null}
         />
 
-        {topicProgress?.completedAt ? (
+        {topicProgress?.bestScore != null ? (
             <div className="border-t border-border-subtle pt-5">
                 <NextStepsGuidance
                     topicId={topicId}
@@ -40,7 +40,7 @@ const TopicQuizPanel = ({
                     onOpenChat={openChat}
                     examLabel={isTopicQuizRoute ? 'Start the objective quiz' : 'Take the final objective quiz'}
                     examDescription={isTopicQuizRoute
-                        ? 'Choose objective, essay, or concept practice for this topic.'
+                        ? 'Retry this quiz, or try essay or concept practice.'
                         : 'This topic is assessed as part of the final exam.'}
                     variant="lesson"
                 />

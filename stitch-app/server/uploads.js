@@ -131,6 +131,7 @@ const toClientUploadWithCourse = async (row) => {
         return {
             ...upload,
             courseId: course?.id || null,
+            firstTopicId: course?.firstTopicId || null,
             topicCount: course?.topicCount || 0,
             quizzesReady: course?.quizzesReady || 0,
         };

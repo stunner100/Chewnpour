@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
-import { isUploadStudyReady } from '../lib/uploadReadiness';
+import { isUploadStudyReady, buildFirstLessonHref } from '../lib/uploadReadiness';
 
 const typeConfig = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -159,6 +159,19 @@ const fetchUploads = async () => {
     return Array.isArray(payload.uploads) ? payload.uploads : [];
 };
 
+const fetchCourses = async () => {
+    const response = await fetch('/api/courses', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Failed to load courses (${response.status})`);
+    }
+    return Array.isArray(payload.courses) ? payload.courses : [];
+};
+
 const initUpload = async ({ fileName, fileType, fileSize, contentType }) => {
     const response = await fetch('/api/uploads/init', {
         method: 'POST',
@@ -199,6 +212,7 @@ const UploadMaterials = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [uploads, setUploads] = useState([]);
+    const [courses, setCourses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -210,18 +224,23 @@ const UploadMaterials = () => {
     const refreshUploads = useCallback(async ({ silent = false } = {}) => {
         if (!userId) {
             setUploads([]);
+            setCourses([]);
             if (!silent) setIsLoading(false);
-            return { uploads: [] };
+            return { uploads: [], courses: [] };
         }
         if (!silent) setIsLoading(true);
         try {
-            const nextUploads = await fetchUploads();
+            const [nextUploads, nextCourses] = await Promise.all([
+                fetchUploads(),
+                fetchCourses(),
+            ]);
             setUploads(nextUploads);
-            return { uploads: nextUploads };
+            setCourses(nextCourses);
+            return { uploads: nextUploads, courses: nextCourses };
         } catch (error) {
             console.error('Failed to load uploads:', error);
             if (!silent) setUploadError(error.message || 'Could not load uploads.');
-            return { uploads: [] };
+            return { uploads: [], courses: [] };
         } finally {
             if (!silent) setIsLoading(false);
         }
@@ -235,6 +254,7 @@ const UploadMaterials = () => {
         enabled: Boolean(userId),
         refresh: refreshUploads,
         uploads,
+        courses,
         onNewlyReady: (readyItems) => {
             const first = readyItems[0];
             if (!first?.lessonsHref) return;
@@ -296,14 +316,11 @@ const UploadMaterials = () => {
                 return [finalized, ...without];
             });
             if (isUploadStudyReady(finalized)) {
-                const lessonsHref = finalized.courseId
-                    ? `/dashboard/lessons?courseId=${encodeURIComponent(finalized.courseId)}`
-                    : '/dashboard/library';
                 watermelonToast(`${finalized.fileName || 'Your material'} is ready. Opening your first lesson.`, {
                     type: 'success',
                     duration: 4000,
                 });
-                navigate(lessonsHref);
+                navigate(buildFirstLessonHref({ upload: finalized }));
             } else {
                 watermelonToast("We'll take you to your first lesson when it's ready.", {
                     type: 'info',

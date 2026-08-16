@@ -61,8 +61,8 @@ if (/WatermelonTabs/.test(topicDetailSource)) {
   throw new Error('TopicDetail study-mode chooser must not render misleading top tabs that disappear after selection.');
 }
 
-if (!/topicProgress\?\.completedAt \? \(/.test(topicQuizPanelSource) || !topicQuizPanelSource.includes('<NextStepsGuidance')) {
-  throw new Error('TopicQuizPanel should only show the post-lesson next-steps card after completion to avoid duplicating practice CTAs.');
+if (!/topicProgress\?\.bestScore != null \? \(/.test(topicQuizPanelSource) || !topicQuizPanelSource.includes('<NextStepsGuidance')) {
+  throw new Error('TopicQuizPanel should only show the post-lesson next-steps card after the first quiz score.');
 }
 
 for (const expected of [

@@ -61,10 +61,23 @@ const newlyReady = findNewlyStudyReadyUploads({
     { id: 'u1', status: 'ready', extractionStatus: 'complete', courseId: 'c1', topicCount: 2, fileName: 'Notes.pdf' },
   ],
   previousCourses: [],
-  nextCourses: [{ id: 'c1', uploadId: 'u1', title: 'Notes', topicCount: 2 }],
+  nextCourses: [{ id: 'c1', uploadId: 'u1', title: 'Notes', topicCount: 2, firstTopicId: 't1' }],
 });
 assert.equal(newlyReady.length, 1);
-assert.match(newlyReady[0].lessonsHref, /\/dashboard\/lessons\?courseId=c1/);
+assert.match(newlyReady[0].lessonsHref, /\/dashboard\/topic\/t1/);
+
+const newlyReadyFallback = findNewlyStudyReadyUploads({
+  previousUploads: [
+    { id: 'u2', status: 'processing', extractionStatus: 'running', courseId: null, topicCount: 0 },
+  ],
+  nextUploads: [
+    { id: 'u2', status: 'ready', extractionStatus: 'complete', courseId: 'c2', topicCount: 1, fileName: 'Slides.pdf' },
+  ],
+  previousCourses: [],
+  nextCourses: [{ id: 'c2', uploadId: 'u2', title: 'Slides', topicCount: 1 }],
+});
+assert.equal(newlyReadyFallback.length, 1);
+assert.match(newlyReadyFallback[0].lessonsHref, /\/dashboard\/lessons\?courseId=c2/);
 
 assert.equal(classifyStudyToolAvailability({ uploads: [], courses: [] }), 'none');
 assert.equal(

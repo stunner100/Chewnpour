@@ -62,6 +62,8 @@ requireIncludes(upload, 'Generate your first lesson', 'UploadMaterials.jsx');
 requireIncludes(upload, "We'll take you to your first lesson when it's ready.", 'UploadMaterials.jsx');
 requireIncludes(upload, 'Opening your first lesson', 'UploadMaterials.jsx');
 requireIncludes(upload, 'navigate(first.lessonsHref)', 'UploadMaterials.jsx');
+requireIncludes(upload, 'buildFirstLessonHref', 'UploadMaterials.jsx');
+requireIncludes(upload, 'fetchCourses', 'UploadMaterials.jsx');
 requireExcludes(upload, 'Add to your workspace', 'UploadMaterials.jsx');
 
 requireIncludes(nav, 'firstRunPrimaryTabs', 'MobileBottomNav.jsx');
