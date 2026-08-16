@@ -63,7 +63,7 @@ const PostQuizSharePrompt = ({ percentage, topicTitle, profile }) => {
                         Nice score! Challenge your friends
                     </p>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                        Share your result and earn a free upload credit when they sign up.
+                        Share your result and invite a friend to study with ChewnPour.
                     </p>
                     <div className="flex gap-3 mt-1">
                         <button

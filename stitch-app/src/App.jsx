@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { LazyMotion, domAnimation } from 'motion/react';
 import { useAuth } from './contexts/AuthContext';
 import {
@@ -121,8 +121,13 @@ const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentNa
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
 const PublicSharedCourse = lazyRoute(() => import('./pages/PublicSharedCourse'), { componentName: 'PublicSharedCourse' });
-const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const AdminDashboard = lazyRoute(() => import('./pages/admin/AdminDashboard'), { componentName: 'AdminDashboard' });
+
+const RedirectOnboardingNameToSignup = () => {
+  const [searchParams] = useSearchParams();
+  const search = searchParams.toString();
+  return <Navigate to={search ? `/signup?${search}` : '/signup'} replace />;
+};
 
 function RouteChangeTracker() {
   const routerLocation = useLocation();
@@ -334,8 +339,8 @@ function App() {
         <Route path="/kids/child" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
         <Route path="/kids/lesson/:lessonId" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
 
-        {/* Onboarding — name is signup; level/department cut over to Settings profile */}
-        <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
+        {/* Onboarding — email signup lives on /signup; level/department cut over to Settings profile */}
+        <Route path="/onboarding/name" element={<RedirectOnboardingNameToSignup />} />
         <Route
           path="/onboarding/level"
           element={withSuspense(<ProtectedRoute><Navigate to="/dashboard/settings#profile" replace /></ProtectedRoute>)}

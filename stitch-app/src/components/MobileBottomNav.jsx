@@ -1,18 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AppIcon from './AppIcon';
+import { useHasUploads } from '../hooks/useHasUploads';
 
-const primaryTabs = [
+const returningPrimaryTabs = [
     { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', matchPaths: ['/dashboard'] },
     { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons', matchPaths: ['/dashboard/lessons', '/dashboard/topic'] },
     { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz', matchPaths: ['/dashboard/quiz'] },
     { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', matchPaths: ['/dashboard/progress'] },
 ];
 
-const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-tutor', '/dashboard/exam', '/dashboard/podcasts', '/dashboard/settings'];
+const firstRunPrimaryTabs = [
+    { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', matchPaths: ['/dashboard'] },
+    { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', matchPaths: ['/dashboard/upload'] },
+    { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons', matchPaths: ['/dashboard/lessons', '/dashboard/topic'] },
+    { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', matchPaths: ['/dashboard/progress'] },
+];
 
-const moreItems = [
+const returningMoreItems = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, or PPTX files' },
+    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Download transformed lessons for every upload' },
+    { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
+    { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
+    { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', description: 'Ask follow-up questions' },
+    { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
+];
+
+const firstRunMoreItems = [
+    { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz', description: 'Practice after your first lesson is ready' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Download transformed lessons for every upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
     { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
@@ -33,6 +48,10 @@ const tabClassName = (active) =>
 
 const MobileBottomNav = () => {
     const location = useLocation();
+    const hasUploads = useHasUploads();
+    const primaryTabs = hasUploads ? returningPrimaryTabs : firstRunPrimaryTabs;
+    const moreItems = hasUploads ? returningMoreItems : firstRunMoreItems;
+    const moreTabPaths = moreItems.map((item) => item.path);
     const [moreState, setMoreState] = useState({ open: false, pathname: location.pathname });
 
     if (moreState.pathname !== location.pathname) {

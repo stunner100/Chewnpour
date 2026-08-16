@@ -389,11 +389,11 @@ const MyMaterialsLibrary = () => {
                             <AppIcon name="search_off" className="text-[28px]" />
                         </div>
                         <h2 className="font-display text-display-sm font-bold text-text-primary">
-                            {materials.length === 0 ? 'No downloads yet' : 'No matching materials'}
+                            {materials.length === 0 ? 'Nothing to study yet' : 'No matching materials'}
                         </h2>
                         <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
                             {materials.length === 0
-                                ? 'Upload a PDF, DOCX, or PPTX. Lessons appear here to download.'
+                                ? 'Upload a lecture PDF or PPTX to generate lessons.'
                                 : 'Try a different search or clear your filters to see more files.'}
                         </p>
                         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

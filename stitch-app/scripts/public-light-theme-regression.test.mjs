@@ -10,12 +10,12 @@ const [
   appSource,
   publicShellSource,
   cssSource,
-  onboardingNameSource,
+  signUpSource,
 ] = await Promise.all([
   read('src/App.jsx'),
   read('src/components/PublicShell.jsx'),
   read('src/index.css'),
-  read('src/pages/OnboardingName.jsx'),
+  read('src/pages/SignUp.jsx'),
 ]);
 
 for (const snippet of [
@@ -42,23 +42,28 @@ if (!routeThemeSource.includes('return preferredTheme;')) {
 
 for (const [label, source] of [
   ['PublicShell', publicShellSource],
-  ['OnboardingName', onboardingNameSource],
+  ['SignUp', signUpSource],
 ]) {
-  if (!source.includes("const PAGE_BG = '#FAFAFB';")) {
-    throw new Error(`${label} should use the light product background.`);
-  }
   if (source.includes("const PAGE_BG = 'rgb(16, 17, 18)'")) {
     throw new Error(`${label} should not hard-code the old dark page background.`);
   }
 }
 
+if (!publicShellSource.includes("const PAGE_BG = '#F9F9F9'") && !publicShellSource.includes("const PAGE_BG = '#FAFAFB'")) {
+  throw new Error('PublicShell should use the light product background.');
+}
+
+if (!signUpSource.includes("import PublicShell from '../components/PublicShell'")) {
+  throw new Error('SignUp should reuse PublicShell so auth stays on the light product theme.');
+}
+
 for (const snippet of [
   '.cp-input',
   'background: #fff;',
-  'color: #1f2933;',
+  'color: #0A0A0A;',
   '.cp-card',
-  'box-shadow: 0 18px 40px rgba(31,41,51,0.08);',
-  '.cp-prose strong { color: #1f2933; }',
+  'box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);',
+  '.cp-prose strong { color: #0A0A0A; }',
 ]) {
   if (!cssSource.includes(snippet)) {
     throw new Error(`Expected light public CSS to include "${snippet}".`);

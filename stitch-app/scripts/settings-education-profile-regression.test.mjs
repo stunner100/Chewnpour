@@ -27,12 +27,12 @@ for (const expectedSnippet of [
   }
 }
 
-if (!dashboardSource.includes('to="/dashboard/settings#profile"')) {
-  throw new Error('Complete profile CTA should deep-link to Settings profile.');
+if (!dashboardSource.includes('isFirstRun')) {
+  throw new Error('Empty dashboard should use a first-run upload coach instead of a profile banner.');
 }
 
-if (!dashboardSource.includes('onboardingCompleted === true')) {
-  throw new Error('Dashboard should hide the complete-profile banner after onboardingCompleted.');
+if (dashboardSource.includes('Finish setting up your profile')) {
+  throw new Error('Dashboard must not nag new users to finish education profile before first value.');
 }
 
 if (settingsSource.includes('AppIcon name="edit"')) {

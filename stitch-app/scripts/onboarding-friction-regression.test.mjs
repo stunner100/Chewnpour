@@ -9,7 +9,7 @@ const read = async (relativePath) => {
 };
 
 const settingsSource = await read('src/pages/AccountStudySettings.jsx');
-const onboardingNameSource = await read('src/pages/OnboardingName.jsx');
+const signUpSource = await read('src/pages/SignUp.jsx');
 
 for (const pattern of [
   'id="settings-education-level"',
@@ -24,18 +24,16 @@ for (const pattern of [
 }
 
 for (const pattern of [
-  "const NAME_FORM_ID = 'onboarding-name-form';",
   'const EMAIL_PATTERN',
-  'form={NAME_FORM_ID}',
-  'fixed bottom-0 left-0 w-full',
-  'isEmailValid',
-  'isPasswordValid',
-  'Valid email address.',
-  'At least 6 characters required.',
+  'id="signup-name"',
+  'id="signup-email"',
+  'id="signup-password"',
   'Create account',
+  "navigate('/dashboard'",
+  '{ name: trimmedName }',
 ]) {
-  if (!onboardingNameSource.includes(pattern)) {
-    throw new Error(`Expected OnboardingName to include "${pattern}" for visible submit support.`);
+  if (!signUpSource.includes(pattern)) {
+    throw new Error(`Expected SignUp to include "${pattern}" for single-screen email signup.`);
   }
 }
 
@@ -43,9 +41,12 @@ for (const retired of [
   'Step 1 of 3',
   'OnboardingProgress',
   'total={3}',
+  '/onboarding/name',
+  'Continue with Email',
+  'free credit',
 ]) {
-  if (onboardingNameSource.includes(retired)) {
-    throw new Error(`OnboardingName still references retired multi-step UI: "${retired}".`);
+  if (signUpSource.includes(retired)) {
+    throw new Error(`SignUp still references retired onboarding: "${retired}".`);
   }
 }
 

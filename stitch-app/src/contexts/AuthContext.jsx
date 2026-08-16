@@ -285,7 +285,10 @@ export const AuthProvider = ({ children }) => {
 
     const signUp = async (email, password, metadata = {}) => {
         try {
-            const name = String(metadata.full_name || metadata.name || email.split('@')[0] || '').trim();
+            const rawName = typeof metadata === 'string' || typeof metadata === 'number'
+                ? metadata
+                : (metadata?.full_name || metadata?.name || '');
+            const name = String(rawName || email.split('@')[0] || '').trim();
             const result = await betterSignUp.email({
                 email,
                 password,

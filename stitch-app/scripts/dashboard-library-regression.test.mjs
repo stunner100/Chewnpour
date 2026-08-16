@@ -46,7 +46,7 @@ requireIncludes(libraryPageSource, "Download original", "MyMaterialsLibrary.jsx"
 requireIncludes(libraryPageSource, "Download lessons", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "Ready to download", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "is ready to download", "MyMaterialsLibrary.jsx");
-requireIncludes(libraryPageSource, "No downloads yet", "MyMaterialsLibrary.jsx");
+requireIncludes(libraryPageSource, "Nothing to study yet", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "filteredMaterials", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "canExport", "MyMaterialsLibrary.jsx");
 

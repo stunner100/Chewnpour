@@ -131,8 +131,8 @@ const getStatusConfig = (status, extractionStatus) => {
 
 const getProcessingText = (upload) => {
     const step = String(upload.processingStep || upload.extractionStatus || '').replaceAll('_', ' ');
-    if (!step) return 'Preparing material...';
-    return `${step.charAt(0).toUpperCase()}${step.slice(1)}...`;
+    if (!step) return "We'll take you to your first lesson when it's ready.";
+    return `${step.charAt(0).toUpperCase()}${step.slice(1)}... We'll take you to your first lesson when it's ready.`;
 };
 
 const isInternalQaUpload = (upload) => {
@@ -237,15 +237,12 @@ const UploadMaterials = () => {
         uploads,
         onNewlyReady: (readyItems) => {
             const first = readyItems[0];
-            if (!first) return;
-            watermelonToast(`${first.title} is ready to study`, {
+            if (!first?.lessonsHref) return;
+            watermelonToast(`${first.title} is ready. Opening your first lesson.`, {
                 type: 'success',
-                duration: 8000,
-                action: {
-                    label: 'Open lessons',
-                    onClick: () => navigate(first.lessonsHref),
-                },
+                duration: 4000,
             });
+            navigate(first.lessonsHref);
         },
     });
 
@@ -299,17 +296,18 @@ const UploadMaterials = () => {
                 return [finalized, ...without];
             });
             if (isUploadStudyReady(finalized)) {
-                watermelonToast(`${finalized.fileName || 'Your material'} is ready to study`, {
+                const lessonsHref = finalized.courseId
+                    ? `/dashboard/lessons?courseId=${encodeURIComponent(finalized.courseId)}`
+                    : '/dashboard/library';
+                watermelonToast(`${finalized.fileName || 'Your material'} is ready. Opening your first lesson.`, {
                     type: 'success',
-                    duration: 8000,
-                    action: {
-                        label: 'Open lessons',
-                        onClick: () => navigate(
-                            finalized.courseId
-                                ? `/dashboard/lessons?courseId=${encodeURIComponent(finalized.courseId)}`
-                                : '/dashboard/library',
-                        ),
-                    },
+                    duration: 4000,
+                });
+                navigate(lessonsHref);
+            } else {
+                watermelonToast("We'll take you to your first lesson when it's ready.", {
+                    type: 'info',
+                    duration: 6000,
                 });
             }
         } catch (err) {
@@ -363,10 +361,10 @@ const UploadMaterials = () => {
             <div className="mx-auto max-w-5xl">
                 <div className="mb-8">
                     <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
-                        Add to your workspace
+                        {uploads.length === 0 ? 'Generate your first lesson' : 'Upload material'}
                     </h1>
                     <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
-                        Upload PDF, DOCX, or PPTX files. ChewnPour extracts text and prepares lessons and quizzes.
+                        PDF, PPTX, or DOCX up to 50MB. We'll take you to your first lesson when it's ready.
                     </p>
                 </div>
 
