@@ -1,10 +1,6 @@
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
-import {
-    getBillingSnapshotForUser,
-    initializeTopUpCheckout,
-    verifyTopUpAfterRedirect,
-} from "./payments.js";
+import { getBillingSnapshotForUser } from "./payments.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -12,23 +8,6 @@ const sendJson = (res, statusCode, payload) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.end(body);
-};
-
-const readJsonBody = async (req) => {
-    if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
-        return req.body;
-    }
-    if (typeof req.body === "string" && req.body.trim()) {
-        return JSON.parse(req.body);
-    }
-    const chunks = [];
-    for await (const chunk of req) {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-    if (chunks.length === 0) return {};
-    const raw = Buffer.concat(chunks).toString("utf8").trim();
-    if (!raw) return {};
-    return JSON.parse(raw);
 };
 
 const requireSessionUser = async (req) => {
@@ -63,40 +42,22 @@ export const handleBillingRequest = async (req, res) => {
                     consumedCredits: snapshot.consumedCredits,
                     totalAllowed: snapshot.totalAllowed,
                     remaining: snapshot.remaining,
-                    canTopUp: snapshot.canTopUp,
+                    canTopUp: false,
                     currency: snapshot.currency,
                     topUpCredits: snapshot.topUpCredits,
                     topUpPriceMajor: snapshot.topUpPriceMajor,
-                    topUpOptions: snapshot.topUpOptions,
+                    topUpOptions: [],
                     checkoutCurrencies: snapshot.checkoutCurrencies,
+                    unlimited: true,
                 },
             });
         }
 
-        if (parts.length === 1 && parts[0] === "checkout" && method === "POST") {
-            const body = await readJsonBody(req);
-            const result = await initializeTopUpCheckout({
-                userId: user.id,
-                email: user.email,
-                topUpPlanId: body.topUpPlanId || body.planId,
-                returnPath: body.returnPath || "/dashboard",
+        if (parts.length === 1 && (parts[0] === "checkout" || parts[0] === "verify") && method === "POST") {
+            return sendJson(res, 410, {
+                error: "ChewnPour is free. Paid top-ups are retired.",
+                code: "BILLING_RETIRED",
             });
-            return sendJson(res, 200, {
-                authorizationUrl: result.authorizationUrl,
-                reference: result.reference,
-                provider: result.provider,
-                plan: result.plan,
-            });
-        }
-
-        if (parts.length === 1 && parts[0] === "verify" && method === "POST") {
-            const body = await readJsonBody(req);
-            const result = await verifyTopUpAfterRedirect({
-                userId: user.id,
-                reference: body.reference,
-                returnPath: body.returnPath || "/dashboard",
-            });
-            return sendJson(res, 200, result);
         }
 
         res.setHeader("Allow", "GET, POST");

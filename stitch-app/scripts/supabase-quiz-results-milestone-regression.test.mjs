@@ -21,8 +21,8 @@ const results = await read('src/pages/DashboardResults.jsx');
 if (/from ['"]convex\/react['"]|api\.exams|api\.subscriptions|api\.profiles|api\.ai/.test(results)) {
   throw new Error('Expected DashboardResults to stop depending on Convex.');
 }
-if (!results.includes('/api/quiz-attempts/') || !results.includes('/api/billing')) {
-  throw new Error('Expected DashboardResults to load attempts and billing from Supabase APIs.');
+if (!results.includes('/api/quiz-attempts/')) {
+  throw new Error('Expected DashboardResults to load attempts from Supabase APIs.');
 }
 
 const quizPlayer = await read('src/pages/TopicQuizPlayer.jsx');

@@ -2,42 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const read = async (relativePath) => {
-  return await fs.readFile(path.join(root, relativePath), 'utf8');
-};
-
-const schemaSource = await read('convex/schema.ts');
-for (const pattern of [
-  'aiMessageUsage: defineTable({',
-  '.index("by_userId_date", ["userId", "date"]),',
-]) {
-  if (!schemaSource.includes(pattern)) {
-    throw new Error(`Expected schema to include "${pattern}" for AI message usage tracking.`);
-  }
-}
-
-const subscriptionsSource = await read('convex/subscriptions.ts');
-for (const pattern of [
-  'const FREE_AI_MESSAGE_DAILY_LIMIT = 2;',
-  'const getAiMessageUsageToday = async (ctx: any, userId: string) => {',
-  'export const getAiMessageQuotaStatus = query({',
-  'export const consumeAiMessageCreditOrThrowInternal = internalMutation({',
-  'code: "AI_MESSAGE_QUOTA_EXCEEDED"',
-  'ctx.db.insert("aiMessageUsage", { userId, date, count: nextCount });',
-]) {
-  if (!subscriptionsSource.includes(pattern)) {
-    throw new Error(`Expected subscriptions.ts to include "${pattern}" for AI message quota.`);
-  }
-}
-
-const aiSource = await read('convex/ai.ts');
-const consumeMatches = aiSource.match(/internal\.subscriptions\.consumeAiMessageCreditOrThrowInternal/g) || [];
-if (consumeMatches.length < 2) {
-  throw new Error('Expected AI message quota to be consumed in both tutor and assignment follow-up actions.');
-}
-if (!aiSource.includes('requestedUserId && requestedUserId !== userId')) {
-  throw new Error('Expected assignment follow-up to validate requested user id against authenticated user id.');
-}
+const read = async (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
 const topicChatPanelSource = await read('src/components/TopicChatPanel.jsx');
 for (const pattern of [
@@ -46,26 +11,22 @@ for (const pattern of [
   "reason: 'ai_message_limit'",
   'Upgrade to premium',
 ]) {
-  if (!topicChatPanelSource.includes(pattern)) {
-    throw new Error(`Expected TopicChatPanel.jsx to include "${pattern}" for AI message quota UX.`);
+  if (topicChatPanelSource.includes(pattern)) {
+    throw new Error(`TopicChatPanel.jsx must not keep AI message quota paywall leftover "${pattern}".`);
   }
+}
+if (!topicChatPanelSource.includes('StudyWorkerChat')) {
+  throw new Error('Expected TopicChatPanel to use the free study worker chat.');
 }
 
 const assignmentSource = await read('src/pages/AssignmentHelper.jsx');
-for (const pattern of [
-  "'AI_MESSAGE_QUOTA_EXCEEDED'",
-  'buildAiMessageLimitSubscriptionPath',
-  "reason: 'ai_message_limit'",
-  'paywallMessage',
-]) {
-  if (!assignmentSource.includes(pattern)) {
-    throw new Error(`Expected AssignmentHelper.jsx to include "${pattern}" for AI message quota handling.`);
-  }
+if (!assignmentSource.includes('ParkedFeatureView')) {
+  throw new Error('Expected AssignmentHelper to stay parked instead of selling a paid follow-up quota.');
 }
 
 const subscriptionSource = await read('src/pages/Subscription.jsx');
-if (!subscriptionSource.includes("reason === 'ai_message_limit'")) {
-  throw new Error('Expected Subscription.jsx to handle reason === ai_message_limit.');
+if (!subscriptionSource.includes('Navigate to="/dashboard"')) {
+  throw new Error('Expected Subscription.jsx to redirect to the dashboard.');
 }
 
 console.log('ai-message-quota-regression.test.mjs passed');

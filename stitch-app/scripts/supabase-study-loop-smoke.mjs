@@ -94,13 +94,9 @@ const session = await api('/api/auth/get-session');
 const userId = session.payload?.user?.id;
 assert(userId, 'Expected session user id after signup');
 
-// 2) Billing starter credits
+// 2) Billing is optional leftover state; uploads are not gated on credits.
 const billingBefore = await api('/api/billing');
 assert(billingBefore.response.ok, `billing GET failed: ${billingBefore.payload?.error || billingBefore.response.status}`);
-assert(
-  billingBefore.payload?.billing?.remainingUploadCredits === 3,
-  `Expected 3 starter credits, got ${billingBefore.payload?.billing?.remainingUploadCredits}`,
-);
 
 // 3) Upload init → signed PUT → finalize
 const init = await api('/api/uploads/init', {
@@ -217,10 +213,7 @@ assert(
 );
 
 const billingFinal = await api('/api/billing');
-assert(
-  billingFinal.payload?.billing?.remainingUploadCredits === 2,
-  `Expected billing to remain at 2 credits, got ${billingFinal.payload?.billing?.remainingUploadCredits}`,
-);
+assert(billingFinal.response.ok, `billing GET failed: ${billingFinal.payload?.error || billingFinal.response.status}`);
 
 console.log('[study-loop-smoke] passed', {
   email,
@@ -229,6 +222,5 @@ console.log('[study-loop-smoke] passed', {
   attemptId,
   questionCount: questions.length,
   score: submit.payload?.attempt?.score,
-  remainingCredits: billingFinal.payload?.billing?.remainingUploadCredits,
   explainBackend: explain.payload?.backend,
 });

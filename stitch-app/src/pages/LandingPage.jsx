@@ -1,14 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
-import { formatPlanPrice, normalizeTopUpOptions } from '../lib/pricingCurrency';
 import BrandLogo from '../components/BrandLogo';
 import AppIcon from '../components/AppIcon';
 
 /**
  * Landing page — Slate redesign (light Apple Notes aesthetic).
- * ChewnPour copy + Free/Basic/Pro GHS pricing + auth/PostHog wiring.
+ * ChewnPour copy. The product is free with no subscription.
  */
 
 const BLUE = '#007AFF';
@@ -17,7 +16,7 @@ const PAGE = '#F9F9F9';
 
 const NAV_LINKS = [
   { href: '#features', label: 'Features' },
-  { href: '#pricing', label: 'Pricing' },
+  { href: '#pricing', label: 'Free' },
   { href: '#faq', label: 'Faq' },
   { href: '#how', label: 'Setup' },
 ];
@@ -135,8 +134,8 @@ const FAQS = [
     a: 'Yes. You can re-explain, change tone, dive deeper into any section, or generate quizzes focused on a specific subtopic.',
   },
   {
-    q: 'Is there a free plan?',
-    a: 'Yes. You get free uploads with access to AI lessons, quizzes, the AI tutor, and progress tracking before deciding to upgrade.',
+    q: 'Is ChewnPour free?',
+    a: 'Yes. The whole platform is free — uploads, AI lessons, quizzes, the AI tutor, and progress tracking. There is no subscription and no credit pack.',
   },
   {
     q: 'How secure is my data?',
@@ -148,13 +147,11 @@ const FAQS = [
   },
 ];
 
-const COMPARISON_ROWS = [
-  { feature: 'Uploads', free: '3 starter credits', basic: 'Starter pack', pro: 'Higher volume' },
-  { feature: 'AI lessons', free: 'Included', basic: 'Advanced', pro: 'Full suite' },
-  { feature: 'AI tutor', free: 'Included', basic: 'Included', pro: 'Priority' },
-  { feature: 'Quizzes', free: 'Standard', basic: 'Premium', pro: 'Custom plans' },
-  { feature: 'Progress tracking', free: 'Basic', basic: 'Real-time', pro: 'Advanced analytics' },
-  { feature: 'Support', free: 'Community', basic: 'Email', pro: '24/7 priority' },
+const FREE_FEATURES = [
+  'Unlimited document uploads',
+  'AI-generated lessons',
+  'AI tutor grounded in your materials',
+  'Quizzes and progress tracking',
 ];
 
 const PillLink = ({ to, onClick, children, className = '' }) => (
@@ -419,7 +416,7 @@ const HeroSection = ({ captureLandingEvent }) => (
             to="/signup"
             onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_start_free' })}
           >
-            Start your free trial
+            Start free
           </PillLink>
           <a
             href="#features"
@@ -821,98 +818,43 @@ const HowSection = ({ captureLandingEvent }) => (
   </section>
 );
 
-const PricingSection = ({
-  billing,
-  onBillingChange,
-  planCards,
-  captureLandingEvent,
-}) => (
+const PricingSection = ({ captureLandingEvent }) => (
   <section id="pricing" className="mx-auto max-w-[1120px] px-5 py-16 sm:px-6 sm:py-24">
     <div className="mx-auto max-w-2xl text-center">
-      <h2 className="text-3xl font-bold tracking-[-0.02em] sm:text-4xl">Honest pricing, no dark patterns</h2>
+      <h2 className="text-3xl font-bold tracking-[-0.02em] sm:text-4xl">Free forever, no subscription</h2>
       <p className="mt-4 text-[#6B6B70]">
-        No hidden limits, no sudden paywalls mid-sentence. Start free, upgrade when it clicks.
+        No credit packs, no paywalls mid-lesson. Create an account and study.
       </p>
-      <div className="mt-6 inline-flex items-center gap-3 rounded-full bg-[#F2F2F7] p-1">
-        <button
-          type="button"
-          onClick={() => onBillingChange('monthly')}
-          className={`rounded-full px-4 py-2 text-sm font-semibold ${billing === 'monthly' ? 'bg-white shadow-sm' : 'text-[#6B6B70]'}`}
-        >
-          Monthly
-        </button>
-        <button
-          type="button"
-          onClick={() => onBillingChange('yearly')}
-          className={`rounded-full px-4 py-2 text-sm font-semibold ${billing === 'yearly' ? 'bg-white shadow-sm' : 'text-[#6B6B70]'}`}
-        >
-          Billed yearly
-        </button>
-      </div>
     </div>
 
-    <div className="mt-12 grid gap-5 lg:grid-cols-3">
-      {planCards.map((plan) => (
-        <article
-          key={plan.tier}
-          className={`relative flex flex-col rounded-[24px] border bg-white p-7 shadow-sm ${
-            plan.popular ? 'border-[#0A0A0A]' : 'border-[#E5E5EA]'
-          }`}
-        >
-          {plan.popular && (
-            <span className="absolute right-5 top-5 rounded-full bg-[#F2F2F7] px-3 py-1 text-xs font-semibold">
-              Most Popular
-            </span>
-          )}
-          <div className="flex items-center gap-2">
-            <AppIcon name={plan.icon} className="text-[22px]" style={{ color: BLUE }} aria-hidden="true" />
-            <h3 className="text-lg font-bold">{plan.tier}</h3>
-          </div>
-          <p className="mt-5 text-4xl font-extrabold tracking-[-0.03em]">
-            {plan.price}
-            <span className="ml-1 text-sm font-semibold text-[#6B6B70]">/ {plan.suffix}</span>
-          </p>
-          <p className="mt-3 text-sm leading-relaxed text-[#6B6B70]">{plan.description}</p>
-          <ul className="mt-6 flex-1 space-y-3">
-            {plan.features.map((feature) => (
-              <li key={feature} className="flex items-start gap-3 text-sm text-[#0A0A0A]">
-                <CheckIcon />
-                <span>{feature}</span>
-              </li>
-            ))}
-          </ul>
-          <PillLink
-            to="/signup"
-            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: plan.ctaName })}
-            className="mt-8 w-full"
-          >
-            {plan.ctaLabel}
-          </PillLink>
-        </article>
-      ))}
-    </div>
-
-    <div className="mt-12 overflow-hidden rounded-[24px] border border-[#E5E5EA] bg-white shadow-sm">
-      <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 border-b border-[#E5E5EA] px-5 py-4 text-sm font-bold sm:px-8">
-        <span>Feature Comparison</span>
-        <span className="text-center">Free</span>
-        <span className="text-center">Basic</span>
-        <span className="text-center">Pro</span>
+    <article className="mx-auto mt-12 max-w-xl rounded-[24px] border border-[#0A0A0A] bg-white p-7 shadow-sm">
+      <div className="flex items-center gap-2">
+        <AppIcon name="groups" className="text-[22px]" style={{ color: BLUE }} aria-hidden="true" />
+        <h3 className="text-lg font-bold">Free Plan</h3>
       </div>
-      {COMPARISON_ROWS.map((row, index) => (
-        <div
-          key={row.feature}
-          className={`grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-2 px-5 py-3.5 text-sm sm:px-8 ${
-            index % 2 === 0 ? 'bg-[#F9F9F9]' : 'bg-white'
-          }`}
-        >
-          <span className="font-semibold">{row.feature}</span>
-          <span className="text-center text-[#6B6B70]">{row.free}</span>
-          <span className="text-center text-[#6B6B70]">{row.basic}</span>
-          <span className="text-center text-[#6B6B70]">{row.pro}</span>
-        </div>
-      ))}
-    </div>
+      <p className="mt-5 text-4xl font-extrabold tracking-[-0.03em]">
+        GHS 0
+        <span className="ml-1 text-sm font-semibold text-[#6B6B70]">/ forever</span>
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-[#6B6B70]">
+        Uploads, lessons, quizzes, and the AI tutor are included. There is no paid tier.
+      </p>
+      <ul className="mt-6 space-y-3">
+        {FREE_FEATURES.map((feature) => (
+          <li key={feature} className="flex items-start gap-3 text-sm text-[#0A0A0A]">
+            <CheckIcon />
+            <span>{feature}</span>
+          </li>
+        ))}
+      </ul>
+      <PillLink
+        to="/signup"
+        onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'pricing_free' })}
+        className="mt-8 w-full"
+      >
+        Get Started Free
+      </PillLink>
+    </article>
   </section>
 );
 
@@ -1089,37 +1031,9 @@ const LandingFooter = () => (
 const LandingPage = () => {
   const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [billing, setBilling] = useState('monthly');
   const [openFaq, setOpenFaq] = useState(0);
   const [workflowTab, setWorkflowTab] = useState('model');
   const [testimonialIndex, setTestimonialIndex] = useState(0);
-
-  const pricing = useMemo(
-    () => ({
-      freeLimit: 3,
-      currency: 'GHS',
-      topUpPriceMajor: 20,
-      topUpCredits: 5,
-      topUpOptions: normalizeTopUpOptions([
-        { id: 'first-time-starter', amountMajor: 15, credits: 5, currency: 'GHS' },
-        { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' },
-        { id: 'max', amountMajor: 40, credits: 12, currency: 'GHS' },
-        { id: 'semester', amountMajor: 60, credits: 20, currency: 'GHS', validityDays: 120, unlimitedAiChat: true },
-      ]),
-      checkoutCurrencies: ['GHS'],
-    }),
-    [],
-  );
-
-  const topUpOptions = pricing.topUpOptions;
-  const starterPlan =
-    topUpOptions.find((plan) => plan.id === 'starter') ||
-    topUpOptions[0] ||
-    { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' };
-  const maxPlan =
-    topUpOptions.find((plan) => plan.id === 'max') ||
-    topUpOptions[topUpOptions.length - 1] ||
-    { id: 'max', amountMajor: 40, credits: 12, currency: starterPlan.currency || 'GHS' };
 
   const captureLandingEvent = (eventName, properties = {}) =>
     capturePostHogEvent(eventName, {
@@ -1129,62 +1043,6 @@ const LandingPage = () => {
     });
 
   if (user) return <Navigate to="/dashboard" replace />;
-
-  const billingMultiplier = billing === 'yearly' ? 10 : 1;
-  const planCards = [
-    {
-      tier: 'Free Plan',
-      icon: 'groups',
-      price: formatPlanPrice(0, starterPlan.currency),
-      suffix: 'per month',
-      description: 'For students who want smarter study without a subscription.',
-      features: [
-        'Basic AI-generated lessons',
-        'Access to AI tutor',
-        'Standard quiz library',
-        '3 starter upload credits',
-      ],
-      ctaName: 'pricing_free',
-      ctaLabel: 'Get Started Free',
-      popular: false,
-    },
-    {
-      tier: 'Basic Plan',
-      icon: 'workspace_premium',
-      price: formatPlanPrice(starterPlan.amountMajor * billingMultiplier, starterPlan.currency),
-      suffix: billing === 'yearly' ? 'per year' : 'per month',
-      description: 'For students who revise every week and want more uploads.',
-      features: [
-        'Advanced AI-generated lessons',
-        'Full access to study tools',
-        'Premium quiz library',
-        `${starterPlan.credits * billingMultiplier} document uploads`,
-        'Real-time progress tracking',
-        'Priority email support',
-      ],
-      ctaName: 'pricing_basic',
-      ctaLabel: 'Join Basic',
-      popular: false,
-    },
-    {
-      tier: 'Pro Plan',
-      icon: 'military_tech',
-      price: formatPlanPrice(maxPlan.amountMajor * billingMultiplier, maxPlan.currency),
-      suffix: billing === 'yearly' ? 'per year' : 'per month',
-      description: 'For power users who live inside their materials and want full AI.',
-      features: [
-        'All features in Basic plan',
-        'Dedicated study coach',
-        'Custom AI revision plans',
-        'Onboarding session',
-        '24/7 priority support',
-        'Advanced analytics & reporting',
-      ],
-      ctaName: 'pricing_pro',
-      ctaLabel: 'Join Pro',
-      popular: true,
-    },
-  ];
 
   return (
     <div className="slate-root relative min-h-screen overflow-x-hidden">
@@ -1202,12 +1060,7 @@ const LandingPage = () => {
         <WorkflowSection activeTab={workflowTab} onTabChange={setWorkflowTab} />
         <AiSection />
         <HowSection captureLandingEvent={captureLandingEvent} />
-        <PricingSection
-          billing={billing}
-          onBillingChange={setBilling}
-          planCards={planCards}
-          captureLandingEvent={captureLandingEvent}
-        />
+        <PricingSection captureLandingEvent={captureLandingEvent} />
         <TestimonialsSection
           index={testimonialIndex}
           onPrev={() => setTestimonialIndex((i) => (i - 1 + TESTIMONIALS.length) % TESTIMONIALS.length)}

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
     DropdownMenu,
@@ -25,8 +25,6 @@ const NOTIFICATION_OPTIONS = [
     { key: 'processingAlerts', title: 'Material Processing Alerts', desc: 'Notify me when my uploads are ready to review.' },
     { key: 'weeklyProgressReport', title: 'Weekly Progress Report', desc: 'Receive an email summary of your learning stats.' },
 ];
-
-const BILLING_SUPPORT_MAILTO = 'mailto:info@chewnpour.com?subject=ChewnPour%20Billing%20Support';
 
 const TUTOR_STYLE_OPTIONS = [
     { value: 'coach', icon: 'school', title: 'Coach', desc: 'Practical, exam-ready help.' },
@@ -106,12 +104,6 @@ const normalizeStudyPreferences = (value = {}) => ({
         : DEFAULT_STUDY_PREFERENCES.preferredPersona,
 });
 
-const formatPlanLabel = (plan) => {
-    const value = String(plan || 'free').trim().toLowerCase();
-    if (!value) return 'Free';
-    return value.charAt(0).toUpperCase() + value.slice(1);
-};
-
 const AccountStudySettings = () => {
     const { user, profile, updateProfile, signOut } = useAuth();
     const navigate = useNavigate();
@@ -128,8 +120,6 @@ const AccountStudySettings = () => {
     const [draftNotifications, setDraftNotifications] = useState(null);
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
-    const [billing, setBilling] = useState(null);
-    const [billingStatus, setBillingStatus] = useState('loading');
     const fullName = draftFullName ?? profile?.fullName ?? user?.name ?? '';
     const educationLevel = draftEducationLevel ?? normalizeEducationLevel(profile?.educationLevel);
     const department = draftDepartment ?? normalizeDepartment(profile?.department);
@@ -141,52 +131,6 @@ const AccountStudySettings = () => {
         weeklyProgressReport: Boolean(profileStudyPreferences.weeklyProgressReport),
     };
     const aiTone = draftAiTone ?? profileStudyPreferences.preferredPersona;
-    const subscriptionPlanLabel = formatPlanLabel(billing?.plan);
-    const remainingCredits = Math.max(0, Number(billing?.remainingUploadCredits || 0));
-    const subscriptionSummary = billing
-        ? `${subscriptionPlanLabel} plan · ${remainingCredits} upload credit${remainingCredits === 1 ? '' : 's'} remaining.`
-        : billingStatus === 'error'
-            ? 'Could not load upload credits right now.'
-            : 'Loading upload credits…';
-
-    useEffect(() => {
-        if (!user?.id) {
-            setBilling(null);
-            setBillingStatus('idle');
-            return undefined;
-        }
-
-        let cancelled = false;
-        setBillingStatus('loading');
-
-        (async () => {
-            try {
-                const response = await fetch('/api/billing', {
-                    method: 'GET',
-                    credentials: 'include',
-                    headers: { Accept: 'application/json' },
-                });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(payload?.error || `Failed to load billing (${response.status})`);
-                }
-                if (!cancelled) {
-                    setBilling(payload?.billing || null);
-                    setBillingStatus('ready');
-                }
-            } catch (error) {
-                console.error('Failed to load billing:', error);
-                if (!cancelled) {
-                    setBilling(null);
-                    setBillingStatus('error');
-                }
-            }
-        })();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [user?.id]);
     const selectedSessionLength = SESSION_LENGTH_OPTIONS.find((option) => option.value === sessionLength) || SESSION_LENGTH_OPTIONS[1];
     const emailAddress = user?.email || '';
     const initials = useMemo(() => {
@@ -380,31 +324,19 @@ const AccountStudySettings = () => {
                         <section id="subscription" className="scroll-mt-20 relative flex flex-col gap-5 overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
                             <div className="pointer-events-none absolute right-0 top-0 size-32 rounded-bl-full bg-primary-subtle opacity-70" />
                             <div className="relative z-10 flex items-center gap-3 border-b border-border-subtle pb-4">
-                                <AppIcon name="workspace_premium" className="text-text-muted" />
-                                <h2 className="font-display text-display-sm font-bold text-text-primary">Subscription</h2>
+                                <AppIcon name="favorite" className="text-text-muted" />
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Access</h2>
                             </div>
                             <div className="relative z-10">
                                 <div className="mb-2 flex items-center justify-between gap-3">
-                                    <span className="text-body-sm text-text-secondary">Current Plan</span>
+                                    <span className="text-body-sm text-text-secondary">Plan</span>
                                     <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-bold uppercase tracking-wider text-success">
-                                        {subscriptionPlanLabel}
+                                        Free
                                     </span>
                                 </div>
-                                <p className="mb-5 text-body-sm text-text-muted">{subscriptionSummary}</p>
-                                <div className="flex flex-col gap-3">
-                                    <Link
-                                        to="/subscription?from=%2Fdashboard%2Fsettings%23subscription"
-                                        className="btn-primary inline-flex min-h-11 w-full items-center justify-center text-body-sm"
-                                    >
-                                        Buy upload credits
-                                    </Link>
-                                    <a
-                                        href={BILLING_SUPPORT_MAILTO}
-                                        className="btn-secondary inline-flex min-h-11 w-full items-center justify-center text-body-sm"
-                                    >
-                                        Contact Billing Support
-                                    </a>
-                                </div>
+                                <p className="text-body-sm text-text-muted">
+                                    ChewnPour is free. Upload materials, generate lessons, take quizzes, and use the AI tutor with no subscription or credit pack.
+                                </p>
                             </div>
                         </section>
 

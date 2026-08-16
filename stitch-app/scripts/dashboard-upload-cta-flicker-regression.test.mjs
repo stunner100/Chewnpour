@@ -1,22 +1,20 @@
 import fs from "node:fs/promises";
 
-const dashboardSource = await fs.readFile(
-  new URL("../src/pages/DashboardAnalysis.jsx", import.meta.url),
+const heroSource = await fs.readFile(
+  new URL("../src/components/dashboard/DashboardHero.jsx", import.meta.url),
+  "utf8"
+);
+const uploadSource = await fs.readFile(
+  new URL("../src/pages/UploadMaterials.jsx", import.meta.url),
   "utf8"
 );
 
-for (const pattern of [
-  "const normalizedRemaining = Number(remaining);",
-  "!Number.isFinite(normalizedRemaining) || normalizedRemaining > 1 || !profile",
-  "remaining={uploadQuota?.remaining}",
-]) {
-  if (!dashboardSource.includes(pattern)) {
-    throw new Error(`Expected DashboardAnalysis.jsx to include \"${pattern}\" to prevent upload CTA flicker.`);
-  }
+if (heroSource.includes("Top up") || heroSource.includes("uploads remaining")) {
+  throw new Error("DashboardHero should not show an upload credit meter.");
 }
 
-if (dashboardSource.includes("remaining={uploadQuota?.remaining ?? 0}")) {
-  throw new Error("DashboardAnalysis.jsx should not coerce unresolved upload quota to 0.");
+if (uploadSource.includes("UPLOAD_CREDITS_EXHAUSTED") || uploadSource.includes("paywallMessage")) {
+  throw new Error("UploadMaterials should not send users to a paywall.");
 }
 
 console.log("dashboard-upload-cta-flicker-regression.test.mjs passed");

@@ -27,10 +27,6 @@ import {
 } from "./supabase.js";
 import { ensureCourseFromUpload } from "./courses.js";
 import { buildTransformedExportZip } from "./materialExport.js";
-import {
-    assertUploadCreditsAvailable,
-    chargeUploadIfNeeded,
-} from "./billing.js";
 
 const EXTRACTION_FAILED_MESSAGE =
     "Could not extract text from this file. Upload a text-based PDF, DOCX, or PPTX, a scanned PDF with OCR configured, or an audio lecture for transcription.";
@@ -530,11 +526,10 @@ const tryOcrSpaceFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
     }
 };
 
-const finishReadyIfComplete = async ({ userId, uploadId, readyRow }) => {
+const finishReadyIfComplete = async ({ readyRow }) => {
     if (!hasCompleteExtract(readyRow)) {
         return toClientUpload(readyRow);
     }
-    await chargeUploadIfNeeded({ userId, uploadId });
     return toClientUploadWithCourse(readyRow);
 };
 
@@ -559,8 +554,6 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
         );
         return toClientUpload(failed);
     }
-
-    await assertUploadCreditsAvailable(userId);
 
     const claimed = await getPool().query(
         `UPDATE uploads
