@@ -70,10 +70,6 @@ assert(signup.response.ok, `sign-up failed: ${signup.payload?.message || signup.
 
 const billingAfterSignup = await api('/api/billing');
 assert(billingAfterSignup.response.ok, `billing GET failed: ${billingAfterSignup.payload?.error || billingAfterSignup.response.status}`);
-assert(
-  billingAfterSignup.payload?.billing?.remainingUploadCredits === 3,
-  `Expected 3 starter credits, got ${billingAfterSignup.payload?.billing?.remainingUploadCredits}`,
-);
 
 const { consumeUploadCredit, assertUploadCreditsAvailable, getBillingForUser } = await import(
   pathToFileURL(path.join(root, 'server', 'billing.js')).href
@@ -82,57 +78,31 @@ const { consumeUploadCredit, assertUploadCreditsAvailable, getBillingForUser } =
 const userId = billingAfterSignup.payload.billing.userId;
 assert(userId, 'Expected billing payload to include userId');
 
+const before = await getBillingForUser(userId);
 const afterSpend = await consumeUploadCredit({
   userId,
   uploadId: null,
 });
 assert(
-  afterSpend.remainingUploadCredits === 2,
-  `Expected 2 credits after spend, got ${afterSpend.remainingUploadCredits}`,
+  afterSpend.remainingUploadCredits === before.remainingUploadCredits,
+  'Expected consumeUploadCredit to be a no-op after the free cutover.',
 );
 
-const billingAfterSpend = await api('/api/billing');
-assert(
-  billingAfterSpend.payload?.billing?.remainingUploadCredits === 2,
-  `Expected billing API to report 2 remaining, got ${billingAfterSpend.payload?.billing?.remainingUploadCredits}`,
-);
+const stillAllowed = await assertUploadCreditsAvailable(userId);
+assert(stillAllowed?.userId === userId, 'Expected assertUploadCreditsAvailable to allow uploads.');
 
-await consumeUploadCredit({ userId, uploadId: null });
-await consumeUploadCredit({ userId, uploadId: null });
-
-const exhausted = await getBillingForUser(userId);
-assert(
-  exhausted.remainingUploadCredits === 0,
-  `Expected 0 credits after exhausting starter pack, got ${exhausted.remainingUploadCredits}`,
-);
-
-let blocked = null;
-try {
-  await assertUploadCreditsAvailable(userId);
-} catch (error) {
-  blocked = error;
-}
-assert(blocked?.status === 402, 'Expected assertUploadCreditsAvailable to throw 402 when exhausted');
-assert(blocked?.code === 'UPLOAD_CREDITS_EXHAUSTED', 'Expected UPLOAD_CREDITS_EXHAUSTED code');
-
-const initBlocked = await api('/api/uploads/init', {
+const init = await api('/api/uploads/init', {
   method: 'POST',
   body: {
-    fileName: 'credits-exhausted.txt',
-    fileType: 'txt',
+    fileName: 'free-upload.pdf',
+    fileType: 'pdf',
     fileSize: 32,
-    contentType: 'text/plain',
+    contentType: 'application/pdf',
   },
 });
-assert(initBlocked.response.status === 402, `Expected upload init 402, got ${initBlocked.response.status}`);
-assert(
-  initBlocked.payload?.code === 'UPLOAD_CREDITS_EXHAUSTED',
-  `Expected exhausted code on init, got ${initBlocked.payload?.code}`,
-);
+assert(init.response.status !== 402, `Upload init must not return 402, got ${init.response.status}`);
 
 console.log('[billing-smoke] passed', {
   email,
-  remainingAfterSignup: 3,
-  remainingAfterOneSpend: 2,
-  remainingAfterExhaust: 0,
+  remaining: afterSpend.remainingUploadCredits,
 });

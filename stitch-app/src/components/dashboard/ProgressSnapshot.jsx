@@ -46,7 +46,7 @@ const StatCard = ({ icon, label, value, hint, accent = 'primary', animateNumeric
     );
 };
 
-const ProgressSnapshot = ({ insights, userStats, uploadQuota }) => {
+const ProgressSnapshot = ({ insights, userStats }) => {
     if (!insights && !userStats) return null;
 
     const overall = Number(insights?.overallPreparedness ?? 0);
@@ -123,13 +123,6 @@ const ProgressSnapshot = ({ insights, userStats, uploadQuota }) => {
                         subtitle="Strong concepts"
                         icon="workspace_premium"
                         accent="emerald"
-                    />
-                    <WatermelonWidget
-                        title="Uploads left"
-                        value={uploadQuota?.remaining ?? '—'}
-                        subtitle={uploadQuota ? `of ${uploadQuota.totalAllowed}` : 'Quota loading'}
-                        icon="cloud_upload"
-                        accent="teal"
                     />
                 </WatermelonWidgetsGrid>
             </div>

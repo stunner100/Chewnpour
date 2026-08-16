@@ -109,7 +109,6 @@ const QuizResults = lazyRoute(() => import('./pages/DashboardResults'), { compon
 const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { componentName: 'AIStudyTutor' });
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
 const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySettings'), { componentName: 'AccountStudySettings' });
-const Subscription = lazyRoute(() => import('./pages/Subscription'), { componentName: 'Subscription' });
 const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
 const FlashcardStudySession = lazyRoute(() => import('./pages/FlashcardStudySession'), { componentName: 'FlashcardStudySession' });
 const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
@@ -123,7 +122,6 @@ const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' 
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
 const PublicSharedCourse = lazyRoute(() => import('./pages/PublicSharedCourse'), { componentName: 'PublicSharedCourse' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
-const SubscriptionCallback = lazyRoute(() => import('./pages/SubscriptionCallback'), { componentName: 'SubscriptionCallback' });
 
 function RouteChangeTracker() {
   const routerLocation = useLocation();
@@ -382,9 +380,8 @@ function App() {
         <Route path="/dashboard/concept" element={<ParkedDashboardFeature title="Concept builder" />} />
         <Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
 
-        {/* Subscription Route */}
-        <Route path="/subscription" element={withSuspense(<ProtectedRoute><DashboardLayout><Subscription /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/subscription/callback" element={withSuspense(<ProtectedRoute><SubscriptionCallback /></ProtectedRoute>)} />
+        <Route path="/subscription" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/subscription/callback" element={<Navigate to="/dashboard" replace />} />
 
         {/* Profile Routes */}
         <Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />

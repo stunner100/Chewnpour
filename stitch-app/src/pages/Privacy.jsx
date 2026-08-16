@@ -44,9 +44,7 @@ const Privacy = () => (
             </p>
             <h3>Payment Information</h3>
             <p>
-                Payment transactions are processed by our third-party payment provider. We do not store your full
-                credit card or mobile money details on our servers. We retain transaction records (amount, date, plan
-                purchased) for billing and support purposes.
+                ChewnPour does not charge for the Service and does not collect payment card or mobile money details.
             </p>
 
             <h2>3. How We Use Your Information</h2>
@@ -54,7 +52,6 @@ const Privacy = () => (
                 <li>To provide, maintain, and improve the Service</li>
                 <li>To process your uploaded materials and generate personalised study content</li>
                 <li>To power AI tutor conversations tailored to your course materials</li>
-                <li>To process payments and manage your account credits</li>
                 <li>To send you important service updates and notifications</li>
                 <li>To analyse usage patterns and improve our AI models and features</li>
                 <li>To detect and prevent fraud, abuse, and security incidents</li>

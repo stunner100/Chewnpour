@@ -11,7 +11,6 @@ import {
     listUploadsForUser,
 } from "./uploads.js";
 import { asciiDownloadFilename } from "./materialExport.js";
-import { assertUploadCreditsAvailable } from "./billing.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -99,8 +98,6 @@ export const handleUploadsRequest = async (req, res) => {
                     code: "UNSUPPORTED_FILE_TYPE",
                 });
             }
-
-            await assertUploadCreditsAvailable(user.id);
 
             const result = await initUploadForUser({
                 userId: user.id,

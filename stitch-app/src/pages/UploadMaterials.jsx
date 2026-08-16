@@ -314,14 +314,6 @@ const UploadMaterials = () => {
             }
         } catch (err) {
             console.error('Upload failed:', err);
-            if (err?.status === 402 || err?.code === 'UPLOAD_CREDITS_EXHAUSTED') {
-                navigate('/subscription?from=%2Fdashboard%2Fupload&reason=upload_limit', {
-                    state: {
-                        paywallMessage: err.message || 'No upload credits remaining. Top up to continue.',
-                    },
-                });
-                return;
-            }
             setUploadError(String(err?.message || 'Upload failed. Please try again.'));
         } finally {
             setIsUploading(false);

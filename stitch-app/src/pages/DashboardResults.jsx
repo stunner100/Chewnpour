@@ -13,86 +13,29 @@ import AppIcon from '../components/AppIcon';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
-const PostExamUpgradeCard = () => {
-    const [uploadQuota, setUploadQuota] = useState(undefined);
-
-    useEffect(() => {
-        let cancelled = false;
-        fetch('/api/billing', { credentials: 'include' })
-            .then(async (response) => {
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.error || 'Billing unavailable');
-                return payload;
-            })
-            .then((payload) => {
-                if (cancelled) return;
-                setUploadQuota({
-                    remaining: Number(payload?.billing?.remainingUploadCredits ?? 0),
-                });
-            })
-            .catch(() => {
-                if (!cancelled) setUploadQuota(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    // Don't render while loading or if query fails
-    if (uploadQuota === undefined || uploadQuota === null) return null;
-
-    const hasRemaining = (uploadQuota.remaining ?? 0) > 0;
-
-    if (hasRemaining) {
-        return (
-            <section className="w-full max-w-2xl mx-auto">
-                <div className="rounded-[24px] border border-primary/20 bg-primary-subtle p-5 shadow-sm">
-                    <div className="flex flex-col items-center gap-4 sm:flex-row">
-                        <div className="flex-1 text-center sm:text-left">
-                            <h3 className="mb-1 font-display text-display-sm font-bold text-text-primary">
-                                Ready for your next course?
-                            </h3>
-                            <p className="text-body-sm text-text-secondary">
-                                Keep the momentum going and upload another course to study.
-                            </p>
-                        </div>
-                        <Link
-                            to="/dashboard"
-                            className="btn-primary inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-body-sm"
-                        >
-                            Upload Another Course
-                            <AppIcon name="arrow_forward" className="text-[18px]" />
-                        </Link>
-                    </div>
+const PostExamUpgradeCard = () => (
+    <section className="w-full max-w-2xl mx-auto">
+        <div className="rounded-[24px] border border-primary/20 bg-primary-subtle p-5 shadow-sm">
+            <div className="flex flex-col items-center gap-4 sm:flex-row">
+                <div className="flex-1 text-center sm:text-left">
+                    <h3 className="mb-1 font-display text-display-sm font-bold text-text-primary">
+                        Ready for your next course?
+                    </h3>
+                    <p className="text-body-sm text-text-secondary">
+                        Keep the momentum going and upload another course to study.
+                    </p>
                 </div>
-            </section>
-        );
-    }
-
-    return (
-        <section className="w-full max-w-2xl mx-auto">
-            <div className="rounded-[24px] border border-warning/30 bg-warning-soft p-5 shadow-sm">
-                <div className="flex flex-col items-center gap-4 sm:flex-row">
-                    <div className="flex-1 text-center sm:text-left">
-                        <h3 className="mb-1 font-display text-display-sm font-bold text-text-primary">
-                            Want to study more courses?
-                        </h3>
-                        <p className="text-body-sm text-text-secondary">
-                            Get 5 more uploads starting at GHS 20
-                        </p>
-                    </div>
-                    <Link
-                        to="/subscription?reason=post_exam"
-                        className="btn-primary inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-body-sm"
-                    >
-                        Upgrade Now
-                        <AppIcon name="arrow_forward" className="text-[18px]" />
-                    </Link>
-                </div>
+                <Link
+                    to="/dashboard"
+                    className="btn-primary inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-body-sm"
+                >
+                    Upload Another Course
+                    <AppIcon name="arrow_forward" className="text-[18px]" />
+                </Link>
             </div>
-        </section>
-    );
-};
+        </div>
+    </section>
+);
 
 // ─── Post-quiz share prompt ──────────────────────────────────────────────────
 
