@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
 import BrandLogo from '../components/BrandLogo';
 import AppIcon from '../components/AppIcon';
+import { LandingDashboardPreview, LandingLessonPreview } from '../components/landing/LandingProductPreviews';
 
 /**
  * Landing page — Slate redesign (light Apple Notes aesthetic).
@@ -232,6 +233,16 @@ const LandingPageStyles = () => (
     @media (prefers-reduced-motion: reduce) {
       .slate-float, .slate-float-delay, .slate-float-slow { animation: none; }
     }
+    .landing-product-stage {
+      container-type: inline-size;
+      aspect-ratio: 1120 / 700;
+    }
+    .landing-product-stage__inner {
+      width: 1120px;
+      height: 700px;
+      transform: scale(0.77);
+      transform: scale(calc(100cqi / 1120px));
+    }
   `}</style>
 );
 
@@ -428,24 +439,7 @@ const HeroSection = ({ captureLandingEvent }) => (
       </div>
 
       <div className="relative z-10 mx-auto mt-14 w-full max-w-[860px] lg:mt-16">
-        <div className="overflow-hidden rounded-[22px] border border-[#E5E5EA] bg-white shadow-[0_40px_100px_rgba(15,23,42,0.12)] ring-1 ring-[#BFDBFE]/35">
-          <div className="flex items-center gap-2 border-b border-[#E5E5EA] bg-[#F9F9F9] px-4 py-2.5">
-            <span className="size-2.5 rounded-full bg-[#FF5F57]" />
-            <span className="size-2.5 rounded-full bg-[#FEBC2E]" />
-            <span className="size-2.5 rounded-full bg-[#28C840]" />
-            <span className="ml-3 text-xs font-medium text-[#8E8E93]">ChewnPour Study Workspace</span>
-          </div>
-          <picture>
-            <source srcSet="/redesign/product-mockup.avif" type="image/avif" />
-            <img
-              src="/redesign/product-mockup.jpg"
-              alt="ChewnPour study workspace with courses, notes, and lesson detail"
-              className="block w-full"
-              width={1600}
-              height={1000}
-            />
-          </picture>
-        </div>
+        <LandingDashboardPreview />
       </div>
     </div>
   </section>
@@ -468,28 +462,26 @@ const PreviewSidebar = () => (
       <span className="size-1.5 rounded-full bg-[#FF5F57]" />
       <span className="size-1.5 rounded-full bg-[#FEBC2E]" />
       <span className="size-1.5 rounded-full bg-[#28C840]" />
-      <span className="ml-1 text-[10px] font-semibold text-[#8E8E93]">Courses</span>
+      <span className="ml-1 text-[10px] font-semibold text-[#8E8E93]">Study</span>
     </div>
     <div className="space-y-1.5 px-3 py-3">
-      <div className="flex items-center gap-2 rounded-lg bg-[#E5F0FF] px-2 py-1.5 text-[11px] font-semibold text-[#0A0A0A]">
-        <AppIcon name="star" className="text-[12px] text-[#FF9F0A]" />
-        Pinned
-        <span className="ml-auto text-[#8E8E93]">3</span>
+      <div className="flex items-center gap-2 rounded-lg bg-[#E5E5EA] px-2 py-1.5 text-[11px] font-semibold text-[#0A0A0A]">
+        <AppIcon name="dashboard" className="text-[12px]" />
+        Dashboard
       </div>
       {[
-        ['folder', 'Psychology 101', '12'],
-        ['folder', 'Organic Chem', '8'],
-        ['description', 'Exam prep', '5'],
-      ].map(([icon, label, count]) => (
+        ['cloud_upload', 'Upload'],
+        ['menu_book', 'Lessons'],
+        ['quiz', 'Quizzes'],
+      ].map(([icon, label]) => (
         <div key={label} className="flex items-center gap-2 px-2 py-1 text-[11px] text-[#6B6B70]">
           <AppIcon name={icon} className="text-[12px]" style={{ color: BLUE }} />
           {label}
-          <span className="ml-auto">{count}</span>
         </div>
       ))}
       <div className="mt-2 flex items-center gap-2 rounded-lg bg-[#F2F2F7] px-2 py-1.5 text-[10px] text-[#8E8E93]">
         <AppIcon name="search" className="text-[12px]" />
-        Search courses…
+        Search materials, lessons, or topics...
       </div>
     </div>
   </div>
@@ -711,20 +703,8 @@ const AiSection = () => (
       </p>
     </div>
 
-    <div className="mt-12 overflow-hidden rounded-[24px] border border-[#E5E5EA] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
-      <div className="flex items-center gap-2 border-b border-[#E5E5EA] bg-[#F9F9F9] px-4 py-3">
-        <span className="size-3 rounded-full bg-[#FF5F57]" />
-        <span className="size-3 rounded-full bg-[#FEBC2E]" />
-        <span className="size-3 rounded-full bg-[#28C840]" />
-      </div>
-      <picture>
-        <source srcSet="/redesign/product-mockup.avif" type="image/avif" />
-        <img
-          src="/redesign/product-mockup.jpg"
-          alt="AI panel reading across study materials"
-          className="block max-h-[520px] w-full object-cover object-top"
-        />
-      </picture>
+    <div className="mt-12">
+      <LandingLessonPreview />
     </div>
 
     <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
