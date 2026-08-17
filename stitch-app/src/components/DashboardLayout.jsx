@@ -180,10 +180,10 @@ const DashboardLayout = ({ children }) => {
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">
                     <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:px-4">
-                        <SidebarTrigger className="-ml-1 min-h-11 min-w-11" />
+                        <SidebarTrigger className="-ml-1 hidden min-h-11 min-w-11 md:inline-flex" />
                         <Separator
                             orientation="vertical"
-                            className="mr-1 data-[orientation=vertical]:h-4"
+                            className="mr-1 hidden data-[orientation=vertical]:h-4 md:block"
                         />
                         <button
                             type="button"
