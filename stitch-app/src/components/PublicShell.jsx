@@ -32,20 +32,26 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
     >
         <header className="sticky top-0 z-50 border-b border-[#E5E5EA]/80 bg-white/90 backdrop-blur-md">
             <div className="mx-auto flex h-16 max-w-[1120px] items-center justify-between px-5 sm:px-6">
-                <Link to="/" className="flex items-center gap-2" aria-label="ChewnPour home">
+                <Link to="/" className="inline-flex min-h-11 items-center gap-2" aria-label="ChewnPour home">
                     <BrandLogo size={28} decorative />
                 </Link>
                 {showAuthNav && (
-                    <nav className="flex items-center gap-5 text-sm">
-                        <Link to="/" className="font-medium text-[#6B6B70] transition-colors hover:text-[#0A0A0A]">
+                    <nav className="flex items-center gap-2 text-sm sm:gap-4">
+                        <Link
+                            to="/"
+                            className="inline-flex min-h-11 items-center rounded-full px-2 font-medium text-[#6B6B70] transition-colors hover:text-[#0A0A0A]"
+                        >
                             Home
                         </Link>
-                        <Link to="/login" className="font-medium text-[#6B6B70] transition-colors hover:text-[#0A0A0A]">
+                        <Link
+                            to="/login"
+                            className="inline-flex min-h-11 items-center rounded-full px-2 font-medium text-[#6B6B70] transition-colors hover:text-[#0A0A0A]"
+                        >
                             Sign In
                         </Link>
                         <Link
                             to="/signup"
-                            className="inline-flex h-9 items-center justify-center rounded-full bg-[#111] px-4 text-[13px] font-semibold text-white transition hover:bg-black"
+                            className="inline-flex h-11 items-center justify-center rounded-full bg-[#111] px-4 text-[13px] font-semibold text-white transition hover:bg-black"
                         >
                             Get Started
                         </Link>
@@ -66,13 +72,13 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
                     </Link>
                     <p className="mt-2 text-sm text-[#6B6B70]">The smartest study workspace.</p>
                 </div>
-                <nav className="flex flex-wrap items-center gap-5 text-sm text-[#6B6B70]">
-                    <Link to="/" className="hover:text-[#0A0A0A]">Home</Link>
-                    <Link to="/login" className="hover:text-[#0A0A0A]">Sign In</Link>
-                    <Link to="/signup" className="hover:text-[#0A0A0A]">Sign Up</Link>
-                    <Link to="/privacy" className="hover:text-[#0A0A0A]">Privacy</Link>
-                    <Link to="/terms" className="hover:text-[#0A0A0A]">Terms</Link>
-                    <a href="mailto:info@chewnpour.com" className="hover:text-[#0A0A0A]">Contact</a>
+                <nav className="flex flex-wrap items-center gap-2 text-sm text-[#6B6B70] sm:gap-4">
+                    <Link to="/" className="inline-flex min-h-11 items-center rounded-full px-2 hover:text-[#0A0A0A]">Home</Link>
+                    <Link to="/login" className="inline-flex min-h-11 items-center rounded-full px-2 hover:text-[#0A0A0A]">Sign In</Link>
+                    <Link to="/signup" className="inline-flex min-h-11 items-center rounded-full px-2 hover:text-[#0A0A0A]">Sign Up</Link>
+                    <Link to="/privacy" className="inline-flex min-h-11 items-center rounded-full px-2 hover:text-[#0A0A0A]">Privacy</Link>
+                    <Link to="/terms" className="inline-flex min-h-11 items-center rounded-full px-2 hover:text-[#0A0A0A]">Terms</Link>
+                    <a href="mailto:info@chewnpour.com" className="inline-flex min-h-11 items-center rounded-full px-2 hover:text-[#0A0A0A]">Contact</a>
                 </nav>
             </div>
             <div className="border-t border-[#E5E5EA] py-4 text-center text-xs" style={{ color: SUBTEXT }}>

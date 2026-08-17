@@ -154,7 +154,7 @@ const AIStudyTutor = () => {
     if (topicOptions.length === 0) return <EmptyTutorState />;
 
     return (
-        <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-background-light px-4 py-6 md:px-8 md:py-8">
+        <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-6 md:px-8 md:pb-0 md:py-8">
             <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
                 <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -211,7 +211,7 @@ const AIStudyTutor = () => {
                                     <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
                                 </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[320px] rounded-[16px] p-2">
+                            <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[min(320px,calc(100vw-2rem))] rounded-[16px] p-2">
                                 <div className="px-2 py-2">
                                     <p className="text-body-sm font-semibold text-text-primary">Tutor context</p>
                                     <p className="mt-1 text-caption text-text-muted">Choose the lesson this chat should use.</p>
