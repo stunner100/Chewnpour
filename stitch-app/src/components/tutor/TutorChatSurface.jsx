@@ -129,7 +129,7 @@ export function TutorChatComposer({
   };
 
   const composer = (
-    <div className={cn('flex shrink-0 flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)}>
+    <div className={cn('flex shrink-0 flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)} style={{ paddingBottom: 'calc(1rem + var(--keyboard-inset, 0px))' }}>
       {suggestedPrompts.length > 0 ? (
         <Suggestions>
           {suggestedPrompts.map((prompt) => (

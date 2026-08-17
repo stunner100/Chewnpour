@@ -15,6 +15,8 @@ import { captureSentryException } from '../lib/sentry.js';
 import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
 import { DARK_THEME } from '../lib/theme.js';
 import useThemeMode from '../lib/useThemeMode.js';
+import { MobileChromeProvider, useMobileChrome } from '../contexts/MobileChromeContext';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { Separator } from '@/components/ui/separator';
 import {
   SidebarInset,
@@ -78,7 +80,7 @@ class DashboardContentErrorBoundary extends Component {
     render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-[calc(100vh-4rem)] bg-background-light px-space-6 py-space-10 flex items-center justify-center">
+                <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-space-6 py-space-10 flex items-center justify-center">
                     <section
                         role="alert"
                         className="max-w-lg rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm"
@@ -108,13 +110,21 @@ class DashboardContentErrorBoundary extends Component {
     }
 }
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children }) => (
+    <MobileChromeProvider>
+        <DashboardLayoutShell>{children}</DashboardLayoutShell>
+    </MobileChromeProvider>
+);
+
+const DashboardLayoutShell = ({ children }) => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
     const { profile, user } = useAuth();
     const { mode: themeMode, toggle: toggleTheme } = useThemeMode();
+    const { immersive } = useMobileChrome();
     const isDarkMode = themeMode === DARK_THEME;
-    const hideMobileBottomNav = /^\/dashboard\/(?:quiz\/(?!results\/)|topic\/)[^/]+/.test(routerLocation.pathname);
+    const hideMobileBottomNav = immersive || /^\/dashboard\/(?:quiz\/(?!results\/)|topic\/)[^/]+/.test(routerLocation.pathname);
+    useKeyboardInset();
 
     useEffect(() => {
         const incomingToast = routerLocation.state?.watermelonToast;
@@ -189,7 +199,15 @@ const DashboardLayout = ({ children }) => {
                             type="button"
                             onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
                             aria-label="Open command palette to search pages and actions"
-                            className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:max-w-md"
+                            className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:hidden"
+                        >
+                            <AppIcon name="search" aria-hidden="true" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
+                            aria-label="Open command palette to search pages and actions"
+                            className="relative hidden min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-surface-soft py-2.5 pl-10 pr-3 text-left font-body-sm text-body-sm text-text-muted transition-[color,background-color] hover:bg-surface-variant hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:flex md:max-w-md"
                         >
                             <AppIcon name="search" className="absolute left-3 text-text-muted" aria-hidden="true" />
                             <span className="truncate">Search materials, lessons, or topics...</span>
@@ -205,7 +223,7 @@ const DashboardLayout = ({ children }) => {
                             aria-label={isDarkMode ? 'Switch dashboard to light mode' : 'Switch dashboard to dark mode'}
                             aria-pressed={isDarkMode}
                             title={isDarkMode ? 'Light mode' : 'Dark mode'}
-                            className="relative inline-flex h-11 w-16 shrink-0 items-center rounded-full border border-border-subtle bg-surface-soft p-1 text-text-secondary transition-colors hover:bg-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2"
+                            className="relative hidden h-11 w-16 shrink-0 items-center rounded-full border border-border-subtle bg-surface-soft p-1 text-text-secondary transition-colors hover:bg-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 md:inline-flex"
                         >
                             <span
                                 aria-hidden="true"
@@ -218,7 +236,7 @@ const DashboardLayout = ({ children }) => {
                             href={SUPPORT_MAILTO}
                             aria-label={`Email support at ${SUPPORT_EMAIL}`}
                             title={`Email support at ${SUPPORT_EMAIL}`}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
+                            className="hidden min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:inline-flex"
                         >
                             <AppIcon name="help_outline" aria-hidden="true" />
                         </a>
@@ -227,7 +245,7 @@ const DashboardLayout = ({ children }) => {
                             onClick={handleNotificationSettingsClick}
                             aria-label="Open notification settings"
                             title="Open notification settings"
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
+                            className="hidden min-h-11 min-w-11 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-soft hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft md:inline-flex"
                         >
                             <AppIcon name="notifications" aria-hidden="true" />
                         </Link>
@@ -246,7 +264,10 @@ const DashboardLayout = ({ children }) => {
                     </div>
                 </header>
 
-                <main id="dashboard-main" className="flex flex-1 flex-col overflow-y-auto overflow-x-clip">
+                <main
+                    id="dashboard-main"
+                    className={`flex flex-1 flex-col overflow-y-auto overflow-x-clip ${hideMobileBottomNav ? '' : 'mobile-safe-bottom md:!pb-0'}`}
+                >
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
                         <BlurFade duration={0.35} yOffset={0} blur="0px">
                             {children}
@@ -255,7 +276,10 @@ const DashboardLayout = ({ children }) => {
                 </main>
             </SidebarInset>
 
-            <WatermelonToaster position="bottom-center" />
+            <WatermelonToaster
+                position="bottom-center"
+                className={hideMobileBottomNav ? undefined : 'max-md:!bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+0.75rem)]'}
+            />
             <CommandPalette />
             {!hideMobileBottomNav && <MobileBottomNav />}
         </SidebarProvider>

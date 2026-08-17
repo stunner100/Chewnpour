@@ -22,7 +22,7 @@ if (!dashboardLayoutSource.includes('(?:quiz\\/(?!results\\/)|topic\\/)')) {
 
 for (const pattern of [
   'MobileLessonActions',
-  'FloatingStudyTools',
+  'LessonTOC',
   'TopicStudyAssistantCard',
 ]) {
   if (!viewsSource.includes(pattern)) {

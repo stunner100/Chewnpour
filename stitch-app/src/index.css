@@ -325,7 +325,7 @@ html.is-safari .safari-backdrop {
 
 /* ── Mobile Utilities ── */
 .mobile-safe-bottom {
-    padding-bottom: 5.5rem;
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 0.75rem);
 }
 .safe-area-bottom {
     padding-bottom: clamp(0px, env(safe-area-inset-bottom, 0px), 34px);

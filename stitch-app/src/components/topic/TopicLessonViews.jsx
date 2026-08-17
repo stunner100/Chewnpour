@@ -4,7 +4,6 @@ import TopicNotesPanel from '../TopicNotesPanel';
 import TopicChatPanel from '../TopicChatPanel';
 import HighlightExplainPopover from '../HighlightExplainPopover';
 import MobileLessonActions from '../lesson/MobileLessonActions';
-import FloatingStudyTools from '../lesson/FloatingStudyTools';
 import LessonTOC from '../lesson/LessonTOC';
 import StudyModeSelector from '../StudyModeSelector';
 import SourcePanel from '../SourcePanel';
@@ -36,30 +35,25 @@ export const TopicLoadingState = () => (
 );
 
 export const TopicStudyModeView = ({
-    courseId,
     headerTopicTitle,
     onSelect,
     onSkip,
     onStartExam,
     timedExamAvailable = false,
 }) => (
-    <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden">
-        <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
-            <div className="flex items-center gap-2 min-w-0">
-                <Link
-                    to={courseId ? `/dashboard/course/${courseId}` : '/dashboard'}
-                    aria-label="Go back"
-                    className="btn-icon size-8 shrink-0"
-                >
-                    <AppIcon name="arrow_back" className="text-[18px]" />
-                </Link>
-                <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark truncate max-w-[200px] sm:max-w-sm">
-                    {headerTopicTitle}
-                </span>
-            </div>
-        </header>
+    <div className="flex min-h-dvh flex-col overflow-x-hidden bg-background-light font-body text-text-primary antialiased">
+        <div className="px-4 pt-4">
+            <Link
+                to="/dashboard/lessons"
+                aria-label="Back to lessons"
+                className="inline-flex min-h-11 items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary-hover"
+            >
+                <AppIcon name="arrow_back" className="text-[18px]" />
+                Back to lessons
+            </Link>
+        </div>
 
-        <main className="flex-1 pt-14">
+        <main className="flex-1">
             <StudyModeSelector
                 topicTitle={headerTopicTitle}
                 onSelect={onSelect}
@@ -169,6 +163,7 @@ export const TopicLessonMainColumn = ({ controller }) => {
 
 export const TopicLessonPanels = ({ controller }) => {
     const {
+        activeSectionId,
         chatInitialPrompt,
         chatOpen,
         clearSelection,
@@ -180,6 +175,7 @@ export const TopicLessonPanels = ({ controller }) => {
         notesAppendText,
         notesOpen,
         openNotes,
+        parsed,
         playVoice,
         reExplainError,
         reExplainLoading,
@@ -206,6 +202,25 @@ export const TopicLessonPanels = ({ controller }) => {
         handleReExplain,
         scrollToTop,
     } = controller;
+    const [tocOpen, setTocOpen] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
+    const toc = Array.isArray(parsed?.toc) ? parsed.toc : [];
+
+    const barItems = [
+        ...mobileActionItems.slice(0, 3),
+        {
+            id: 'm-toc',
+            icon: 'list',
+            label: 'Contents',
+            onClick: () => { setMoreOpen(false); setTocOpen(true); },
+        },
+        {
+            id: 'm-more',
+            icon: moreOpen ? 'close' : 'more_horiz',
+            label: 'More',
+            onClick: () => { setTocOpen(false); setMoreOpen((value) => !value); },
+        },
+    ];
 
     return (
         <>
@@ -231,13 +246,58 @@ export const TopicLessonPanels = ({ controller }) => {
             />
 
             {user && !chatOpen && !notesOpen && (
-                <MobileLessonActions items={mobileActionItems} />
+                <MobileLessonActions items={barItems} />
             )}
 
-            <FloatingStudyTools
-                hidden={chatOpen || notesOpen}
-                tools={studyToolSecondary.map((tool) => ({ ...tool }))}
-            />
+            {tocOpen && (
+                <>
+                    <button
+                        type="button"
+                        className="fixed inset-0 z-[55] border-0 bg-black/40 lg:hidden"
+                        aria-label="Close lesson contents"
+                        onClick={() => setTocOpen(false)}
+                    />
+                    <div
+                        role="dialog"
+                        aria-label="Lesson contents"
+                        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] max-h-[70dvh] overflow-y-auto rounded-t-2xl border-t border-border-subtle bg-surface px-4 py-4 shadow-lg lg:hidden"
+                    >
+                        <LessonTOC toc={toc} activeId={activeSectionId} onNavigate={() => setTocOpen(false)} />
+                    </div>
+                </>
+            )}
+
+            {moreOpen && (
+                <>
+                    <button
+                        type="button"
+                        className="fixed inset-0 z-[55] border-0 bg-black/40 lg:hidden"
+                        aria-label="Close study tools"
+                        onClick={() => setMoreOpen(false)}
+                    />
+                    <div
+                        role="menu"
+                        aria-label="More lesson tools"
+                        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] rounded-t-2xl border-t border-border-subtle bg-surface px-3 py-3 shadow-lg lg:hidden"
+                    >
+                        {mobileActionItems.slice(3).concat(studyToolSecondary).map((tool) => (
+                            <button
+                                key={tool.id}
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                    tool.onClick?.();
+                                    setMoreOpen(false);
+                                }}
+                                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body-sm font-medium text-text-primary hover:bg-surface-soft"
+                            >
+                                <AppIcon name={tool.icon} className="text-[20px] text-primary" />
+                                {tool.label}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
 
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
@@ -477,7 +537,7 @@ export const TopicLessonShell = ({ controller }) => {
     const toc = Array.isArray(parsed?.toc) ? parsed.toc : [];
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-background-light pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-text-primary lg:pb-0">
+        <div className="min-h-[calc(100dvh-4rem)] bg-background-light pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-text-primary lg:pb-0">
             <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 lg:px-8 lg:py-8">
                 <div className="min-w-0 space-y-5">
                     <TopicLessonBreadcrumbs
