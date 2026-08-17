@@ -82,79 +82,6 @@ const applyNetworkHints = () => {
   appendResourceHint('preconnect', window.location.origin, true);
 };
 
-const LEGACY_PWA_CLEANUP_KEY = '__legacy_pwa_cleanup_ts';
-const LEGACY_PWA_CLEANUP_WINDOW_MS = 30_000;
-
-const canRunLegacyPwaCleanup = () => {
-  if (typeof window === 'undefined') return false;
-  const now = Date.now();
-  try {
-    const lastRaw = window.sessionStorage.getItem(LEGACY_PWA_CLEANUP_KEY);
-    const last = Number(lastRaw);
-    if (Number.isFinite(last) && now - last < LEGACY_PWA_CLEANUP_WINDOW_MS) {
-      return false;
-    }
-    window.sessionStorage.setItem(LEGACY_PWA_CLEANUP_KEY, String(now));
-    return true;
-  } catch {
-    return true;
-  }
-};
-
-const clearLegacyPwaRuntime = () => {
-  if (!import.meta.env.PROD || typeof window === 'undefined') return;
-  if (!canRunLegacyPwaCleanup()) return;
-
-  const unregisterServiceWorkers = async () => {
-    if (!('serviceWorker' in navigator)) return false;
-    try {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      const hadRegistrations = registrations.length > 0;
-      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
-      return hadRegistrations;
-    } catch {
-      // Ignore cleanup failures so the app can continue booting.
-      return false;
-    }
-  };
-
-  const clearBrowserCaches = async () => {
-    if (!('caches' in window)) return false;
-    try {
-      const cacheKeys = await window.caches.keys();
-      const hadCaches = cacheKeys.length > 0;
-      await Promise.allSettled(cacheKeys.map((key) => window.caches.delete(key)));
-      return hadCaches;
-    } catch {
-      // Ignore cleanup failures so the app can continue booting.
-      return false;
-    }
-  };
-
-  void Promise.allSettled([unregisterServiceWorkers(), clearBrowserCaches()]).then((results) => {
-    const clearedStaleRuntime = results.some((result) => result.status === 'fulfilled' && result.value === true);
-    if (clearedStaleRuntime) {
-      window.setTimeout(() => {
-        window.location.replace(window.location.href);
-      }, 120);
-    }
-  });
-};
-
-const removeManifestLink = () => {
-  if (typeof document === 'undefined') return;
-  const manifestLink = document.querySelector('link[rel="manifest"]');
-  if (manifestLink) {
-    manifestLink.remove();
-  }
-};
-
-const applyPwaCutover = () => {
-  if (!import.meta.env.PROD || typeof window === 'undefined') return;
-  clearLegacyPwaRuntime();
-  removeManifestLink();
-};
-
 const scheduleObservabilityInit = () => {
   const startObservability = () => {
     void Promise.all([
@@ -274,7 +201,6 @@ ensureSocialMetaDefaults();
 
 applyBrowserHints();
 installChunkLoadRecovery();
-applyPwaCutover();
 
 if (maintenanceModeEnabled) {
   renderMaintenanceApp();
