@@ -102,7 +102,7 @@ const ActiveQuizSession = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+      <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
         <div className="mx-auto max-w-5xl space-y-5">
           <div className="h-16 rounded-[20px] bg-surface-soft" />
           <div className="grid gap-4 md:grid-cols-2">
@@ -116,7 +116,7 @@ const ActiveQuizSession = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
       <div className="mx-auto max-w-5xl">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
