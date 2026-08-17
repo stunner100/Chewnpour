@@ -26,8 +26,8 @@ const suggestedPrompts = [
 const EMPTY_LIST = [];
 
 const TutorSkeleton = () => (
-    <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
-        <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-5xl flex-col">
+    <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-5xl flex-col">
             <div className="mb-6 h-16 rounded-[20px] bg-surface-soft" />
             <div className="flex flex-1 items-center justify-center rounded-[28px] bg-surface-soft">
                 <p className="text-body-sm text-text-muted" role="status" aria-live="polite">Loading AI Tutor...</p>
@@ -37,7 +37,7 @@ const TutorSkeleton = () => (
 );
 
 const EmptyTutorState = () => (
-    <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
         <div className="mx-auto flex max-w-xl flex-col items-center rounded-[28px] border border-dashed border-border-default bg-surface px-6 py-12 text-center shadow-sm">
             <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary-subtle text-primary">
                 <AppIcon name="smart_toy" className="text-[28px]" />
@@ -154,7 +154,7 @@ const AIStudyTutor = () => {
     if (topicOptions.length === 0) return <EmptyTutorState />;
 
     return (
-        <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-6 md:px-8 md:pb-0 md:py-8">
+        <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-6 md:px-8 md:pb-0 md:py-8">
             <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
                 <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>

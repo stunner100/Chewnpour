@@ -807,9 +807,9 @@ export const PromptInputTextarea = ({
       if (isComposing || e.nativeEvent.isComposing) {
         return;
       }
-      if (e.shiftKey) {
-        return;
-      }
+      if (e.shiftKey) return;
+      // Mobile: Enter inserts a newline; the Send button is the only send path.
+      if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 768px)").matches) return;
       e.preventDefault();
 
       // Check if the submit button is disabled before submitting

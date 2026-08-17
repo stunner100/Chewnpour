@@ -158,14 +158,14 @@ export function TutorChatComposer({
             aria-label={inputAriaLabel}
             placeholder={placeholder}
             disabled={sending || disabled}
-            className="min-h-12 text-body-sm text-text-primary placeholder:text-text-muted"
+            className="min-h-12 text-base md:text-sm text-text-primary placeholder:text-text-muted"
           />
         </PromptInputBody>
         <PromptInputFooter className="justify-end">
           <PromptInputSubmit
             disabled={sending || disabled}
             status={sending ? 'submitted' : undefined}
-            className="size-9 shrink-0 rounded-full bg-cta text-cta-foreground hover:bg-cta-hover"
+            className="size-11 shrink-0 rounded-full bg-cta text-cta-foreground hover:bg-cta-hover"
             aria-label="Send message to AI Tutor"
           />
         </PromptInputFooter>
