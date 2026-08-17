@@ -37,8 +37,8 @@ const requireExcludes = (source, snippet, label) => {
 
 requireIncludes(dashboard, 'const FirstRunHome', 'StudentDashboard.jsx');
 requireIncludes(dashboard, 'const isFirstRun', 'StudentDashboard.jsx');
-requireIncludes(dashboard, 'Drop a lecture PDF or slide deck', 'StudentDashboard.jsx');
-requireIncludes(dashboard, "We'll take you to your first lesson when it's ready.", 'StudentDashboard.jsx');
+requireIncludes(dashboard, 'Drop a lecture PDF, slide deck, or recording', 'StudentDashboard.jsx');
+requireIncludes(dashboard, 'Screenshots and camera photos are not supported.', 'StudentDashboard.jsx');
 requireExcludes(dashboard, 'Finish setting up your profile', 'StudentDashboard.jsx');
 requireExcludes(dashboard, 'Complete profile', 'StudentDashboard.jsx');
 requireExcludes(dashboard, 'onboardingCompleted === true', 'StudentDashboard.jsx');
