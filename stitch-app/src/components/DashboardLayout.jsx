@@ -1,5 +1,5 @@
 import React, { Component, useEffect, useLayoutEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 import { WatermelonToaster } from './watermelon/WatermelonSonner';
 import { watermelonToast } from './watermelon/watermelonToast';
@@ -112,7 +112,7 @@ class DashboardContentErrorBoundary extends Component {
 
 const DashboardLayout = ({ children }) => (
     <MobileChromeProvider>
-        <DashboardLayoutShell>{children}</DashboardLayoutShell>
+        <DashboardLayoutShell>{children ?? <Outlet />}</DashboardLayoutShell>
     </MobileChromeProvider>
 );
 

@@ -20,7 +20,7 @@ assert.match(
 );
 assert.match(
   app,
-  /path="\/dashboard\/exam" element=\{withSuspense\(<ProtectedRoute><DashboardLayout><ExamMode \/>/,
+  /path="\/dashboard\/exam" element=\{withSuspense\(<ExamMode \/>/,
   'Exam hub must be a live protected dashboard route',
 );
 assert.match(
