@@ -2,6 +2,7 @@ import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
 import {
     getExamAttemptForUser,
+    saveExamAnswers,
     startExamForCourse,
     submitExamAttempt,
 } from "./exams.js";
@@ -70,6 +71,16 @@ export const handleExamsRequest = async (req, res) => {
         if (method === "GET" && parts.length === 1) {
             const exam = await getExamAttemptForUser(String(user.id), parts[0]);
             return sendJson(res, 200, { exam });
+        }
+
+        if (method === "PATCH" && parts.length === 2 && parts[1] === "answers") {
+            const body = await readJsonBody(req);
+            const saved = await saveExamAnswers({
+                userId: String(user.id),
+                examId: parts[0],
+                answers: body.answers || {},
+            });
+            return sendJson(res, 200, saved);
         }
 
         if (method === "POST" && parts.length === 2 && parts[1] === "submit") {

@@ -18,14 +18,16 @@ const css = read('src/index.css');
 
 assert.match(
   layout,
-  /hideMobileBottomNav = \/\^\\\/dashboard\\\/\(\?:quiz\\\/\(\?!results\\\/\)\|topic\\\/\)\[\^\/]\+\//,
+  /\/\^\\\/dashboard\\\/\(\?:quiz\\\/\(\?!results\\\/\)\|topic\\\/\)\[\^\/]\+\//,
   'Expected DashboardLayout to hide app bottom nav on quiz and topic lesson routes.',
 );
+assert.match(layout, /immersive \|\|/, 'Live exams must also hide the tab bar via immersive chrome.');
 
 assert.match(mobileActions, /lg:hidden/, 'Lesson action bar should hide on desktop.');
 assert.match(mobileActions, /text-caption/, 'Lesson action labels should use caption scale.');
 assert.match(fab, /lg:hidden/, 'Study tools FAB should hide on desktop.');
 assert.match(fab, /aria-expanded/, 'FAB should expose expanded state.');
+assert.match(views, /id: 'm-toc'/, 'Mobile lesson bar must expose a contents sheet.');
 
 assert.match(views, /masteryLabel/, 'Meta should be status-only, not a pill cluster.');
 assert.doesNotMatch(views, /parts\.join\(' · '\)/, 'Meta should not restate course + status.');
@@ -80,7 +82,7 @@ assert.match(chatPanel, /role=\{isDesktop \? 'complementary' : 'dialog'\}/, 'Des
 assert.match(chatPanel, /trapFocus: !isDesktop/, 'Desktop tutor must leave the lesson interactive.');
 assert.match(chatPanel, /lg:hidden/, 'Tutor backdrop must only cover the lesson on small screens.');
 assert.match(chatPanel, /suggestedPrompts=\{suggestedPrompts\}/, 'Welcome chips must live next to the greeting.');
-assert.match(chatPanel, /suggestedPrompts=\{\[\]\}/, 'Composer must not duplicate welcome chips.');
+assert.match(chatPanel, /showComposerSuggestions=\{false\}/, 'Composer must not duplicate welcome chips.');
 assert.match(chatPanel, /Tutor style/, 'Persona control must use a visible Tutor style label.');
 assert.match(hook, /label: 'AI Tutor'/, 'Mobile lesson actions must use AI Tutor, not a shortened Tutor label.');
 assert.match(chatPanel, /shrink-0/, 'Tutor composer must stay pinned and not get pushed off-screen.');

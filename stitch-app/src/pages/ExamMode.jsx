@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useMobileChrome } from '../contexts/MobileChromeContext';
 import AppIcon from '../components/AppIcon';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
@@ -147,6 +148,7 @@ const ExamReviewPanel = ({ result, onRetry, onBack }) => {
 
 const ExamMode = () => {
   const { user } = useAuth();
+  const { setImmersiveMobile } = useMobileChrome();
   const [searchParams] = useSearchParams();
   const preferredCourseId = String(searchParams.get('courseId') || '').trim();
   const shouldResume = searchParams.get('resume') === '1';
@@ -225,6 +227,48 @@ const ExamMode = () => {
     [uploads, courses],
   );
 
+  const saveExamAnswers = useCallback(async (nextAnswers = answersRef.current, { keepalive = false } = {}) => {
+    if (!exam?.id) return;
+    try {
+      await fetch(`/api/exams/${exam.id}/answers`, {
+        method: 'PATCH',
+        credentials: 'include',
+        keepalive,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ answers: nextAnswers }),
+      });
+    } catch {
+      // Submit still sends the latest answers; ignore transient save failures.
+    }
+  }, [exam?.id]);
+
+  useEffect(() => {
+    if (!exam?.id) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      void saveExamAnswers(answers);
+    }, 400);
+    return () => window.clearTimeout(timeoutId);
+  }, [answers, exam?.id, saveExamAnswers]);
+
+  useEffect(() => {
+    if (!exam?.id) return undefined;
+    const flush = () => {
+      void saveExamAnswers(answersRef.current, { keepalive: true });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [exam?.id, saveExamAnswers]);
+
   const submitExam = useCallback(async (nextAnswers = answersRef.current, { timedOut = false } = {}) => {
     if (!exam?.id || submittingRef.current) return;
     submittingRef.current = true;
@@ -276,7 +320,7 @@ const ExamMode = () => {
     setTimeRemaining(nextSeconds);
   }, [exam?.id, exam?.endsAt, exam?.durationSeconds, setTimeRemaining]);
 
-  const startExam = async (courseId) => {
+  const startExam = useCallback(async (courseId) => {
     setStartingCourseId(courseId);
     setError('');
     setResult(null);
@@ -315,17 +359,22 @@ const ExamMode = () => {
     } finally {
       setStartingCourseId('');
     }
-  };
+  }, [setTimeRemaining]);
 
   useEffect(() => {
     if (resumeAttemptedRef.current) return;
     if (!shouldResume || !preferredCourseId || loading || exam || startingCourseId) return;
     resumeAttemptedRef.current = true;
     void startExam(preferredCourseId);
-  }, [shouldResume, preferredCourseId, loading, exam, startingCourseId]);
+  }, [shouldResume, preferredCourseId, loading, exam, startingCourseId, startExam]);
 
   const questions = exam?.questions || [];
   const currentQuestion = questions[currentIndex] || null;
+
+  useEffect(() => {
+    setImmersiveMobile(questions.length > 0);
+    return () => setImmersiveMobile(false);
+  }, [questions.length, setImmersiveMobile]);
   const answeredCount = questions.filter(
     (question) => answers[question.id] != null && answers[question.id] !== '',
   ).length;
@@ -346,112 +395,122 @@ const ExamMode = () => {
       ? Math.round((answeredCount / questions.length) * 100)
       : 0;
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-space-6 px-space-4 py-space-8">
-        <header className="flex items-center justify-between gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-4">
-          <div>
-            <p className="text-caption text-text-secondary">Timed course exam</p>
-            <h1 className="font-headline-sm text-headline-sm font-bold text-text-primary">
-              {formatCourseTitle(exam.courseTitle) || exam.courseTitle || 'Exam'}
-            </h1>
-            <p className="mt-1 text-caption text-text-secondary">
-              {answeredCount}/{questions.length} answered
-            </p>
+      <div className="flex min-h-dvh flex-col bg-background-light">
+        <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface/95 backdrop-blur">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-space-3 px-space-4 py-2">
+            <Link
+              to="/dashboard/exam"
+              aria-label="Exit exam"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl font-label-md text-text-primary hover:bg-surface-soft"
+            >
+              <AppIcon name="close" className="text-[20px]" />
+              <span className="hidden sm:inline">Exit</span>
+            </Link>
+            <div className="min-w-0 text-center">
+              <p className="truncate font-label-md text-text-primary">
+                {formatCourseTitle(exam.courseTitle) || exam.courseTitle || 'Exam'}
+              </p>
+              <p className="text-caption text-text-secondary">
+                {answeredCount}/{questions.length} answered
+              </p>
+            </div>
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label={`${timeRemaining} seconds remaining`}
+              className={`inline-flex min-h-11 items-center rounded-xl px-space-3 font-mono text-body-sm font-bold ${isLowTime ? 'bg-error-soft text-error' : 'bg-primary-soft text-primary'}`}
+            >
+              {formattedTime}
+            </div>
           </div>
-          <div
-            role="status"
-            aria-live="polite"
-            aria-label={`${timeRemaining} seconds remaining`}
-            className={`rounded-xl px-space-4 py-space-2 font-mono text-lg font-bold ${isLowTime ? 'bg-error-soft text-error' : 'bg-primary-soft text-primary'}`}
-          >
-            {formattedTime}
+          <div className="h-1.5 overflow-hidden bg-surface-soft">
+            <div
+              className="h-full bg-primary transition-[width] duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
         </header>
 
-        <div className="h-2 overflow-hidden rounded-full bg-surface-soft">
-          <div
-            className="h-full rounded-full bg-primary transition-[width] duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {questions.map((question, index) => {
-            const answered = answers[question.id] != null && answers[question.id] !== '';
-            const active = index === currentIndex;
-            return (
-              <button
-                key={question.id}
-                type="button"
-                aria-label={`Question ${index + 1}${answered ? ', answered' : ''}`}
-                onClick={() => setCurrentIndex(index)}
-                className={`inline-flex size-9 items-center justify-center rounded-lg text-caption font-semibold transition-colors ${
-                  active
-                    ? 'bg-primary text-on-primary'
-                    : answered
-                      ? 'bg-primary-soft text-primary'
-                      : 'border border-border-subtle bg-surface text-text-secondary'
-                }`}
-              >
-                {index + 1}
-              </button>
-            );
-          })}
-        </div>
-
-        <section className="rounded-2xl border border-border-subtle bg-surface p-space-6 shadow-sm ph-mask">
-          <p className="text-caption text-text-secondary">
-            Question {currentIndex + 1} of {questions.length}
-          </p>
-          <h2 className="mt-space-3 font-body-lg text-body-lg font-semibold text-text-primary">
-            {currentQuestion?.prompt}
-          </h2>
-          <div className="mt-space-5 space-y-space-3">
-            {(currentQuestion?.options || []).map((option, optionIndex) => {
-              const selected = answers[currentQuestion.id] === optionIndex;
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-space-6 px-space-4 py-space-6 pb-28">
+          <div className="flex flex-wrap gap-2">
+            {questions.map((question, index) => {
+              const answered = answers[question.id] != null && answers[question.id] !== '';
+              const active = index === currentIndex;
               return (
                 <button
-                  key={`${currentQuestion.id}-${optionIndex}`}
+                  key={question.id}
                   type="button"
-                  onClick={() =>
-                    setAnswers((prev) => {
-                      const next = {
-                        ...prev,
-                        [currentQuestion.id]: optionIndex,
-                      };
-                      answersRef.current = next;
-                      return next;
-                    })
-                  }
-                  className={`flex w-full items-start gap-space-3 rounded-xl border px-space-4 py-space-3 text-left transition-colors ${
-                    selected
-                      ? 'border-primary bg-primary-soft text-text-primary'
-                      : 'border-border-subtle bg-surface text-text-primary hover:border-primary/40'
+                  aria-label={`Question ${index + 1}${answered ? ', answered' : ''}`}
+                  onClick={() => setCurrentIndex(index)}
+                  className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-caption font-semibold transition-colors ${
+                    active
+                      ? 'bg-primary text-on-primary'
+                      : answered
+                        ? 'bg-primary-soft text-primary'
+                        : 'border border-border-subtle bg-surface text-text-secondary'
                   }`}
                 >
-                  <span className="mt-0.5 inline-flex size-6 items-center justify-center rounded-full border border-current text-caption font-bold">
-                    {String.fromCharCode(65 + optionIndex)}
-                  </span>
-                  <span className="font-body-base text-body-base">{option}</span>
+                  {index + 1}
                 </button>
               );
             })}
           </div>
-        </section>
 
-        <div className="flex flex-wrap items-center justify-between gap-space-3">
-          <button
-            type="button"
-            className="rounded-xl border border-border-subtle px-space-4 py-space-3 font-label-md text-text-primary disabled:opacity-50"
-            disabled={currentIndex === 0}
-            onClick={() => setCurrentIndex((value) => Math.max(0, value - 1))}
-          >
-            Previous
-          </button>
-          <div className="flex gap-space-3">
+          <section className="rounded-2xl border border-border-subtle bg-surface p-space-6 shadow-sm ph-mask">
+            <p className="text-caption text-text-secondary">
+              Question {currentIndex + 1} of {questions.length}
+            </p>
+            <h2 className="mt-space-3 font-body-lg text-body-lg font-semibold text-text-primary">
+              {currentQuestion?.prompt}
+            </h2>
+            <div className="mt-space-5 space-y-space-3">
+              {(currentQuestion?.options || []).map((option, optionIndex) => {
+                const selected = answers[currentQuestion.id] === optionIndex;
+                return (
+                  <button
+                    key={`${currentQuestion.id}-${optionIndex}`}
+                    type="button"
+                    onClick={() =>
+                      setAnswers((prev) => {
+                        const next = {
+                          ...prev,
+                          [currentQuestion.id]: optionIndex,
+                        };
+                        answersRef.current = next;
+                        return next;
+                      })
+                    }
+                    className={`flex min-h-11 w-full items-start gap-space-3 rounded-xl border px-space-4 py-space-3 text-left transition-colors ${
+                      selected
+                        ? 'border-primary bg-primary-soft text-text-primary'
+                        : 'border-border-subtle bg-surface text-text-primary hover:border-primary/40'
+                    }`}
+                  >
+                    <span className="mt-0.5 inline-flex size-6 items-center justify-center rounded-full border border-current text-caption font-bold">
+                      {String.fromCharCode(65 + optionIndex)}
+                    </span>
+                    <span className="font-body-base text-body-base">{option}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        <div className="sticky bottom-0 z-40 border-t border-border-subtle bg-surface/95 px-space-4 py-3 backdrop-blur safe-area-bottom">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-space-3">
+            <button
+              type="button"
+              className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-space-4 font-label-md text-text-primary disabled:opacity-50"
+              disabled={currentIndex === 0}
+              onClick={() => setCurrentIndex((value) => Math.max(0, value - 1))}
+            >
+              Previous
+            </button>
             {currentIndex < questions.length - 1 ? (
               <button
                 type="button"
-                className="rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-on-primary"
+                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-space-5 font-label-md text-on-primary"
                 onClick={() =>
                   setCurrentIndex((value) =>
                     Math.min(questions.length - 1, value + 1),
@@ -463,7 +522,7 @@ const ExamMode = () => {
             ) : (
               <button
                 type="button"
-                className="rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-on-primary disabled:opacity-50"
+                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-space-5 font-label-md text-on-primary disabled:opacity-50"
                 disabled={submitting}
                 onClick={requestSubmit}
               >

@@ -154,7 +154,7 @@ const AIStudyTutor = () => {
     if (topicOptions.length === 0) return <EmptyTutorState />;
 
     return (
-        <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-6 md:px-8 md:pb-0 md:py-8">
+        <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+var(--keyboard-inset,0px))] pt-6 md:px-8 md:pb-0 md:py-8">
             <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
                 <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>

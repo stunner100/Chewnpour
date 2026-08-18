@@ -41,6 +41,7 @@ assert.match(examUi, /Skipped/, 'review must distinguish skipped answers');
 assert.match(examUi, /dark:bg-red-950/, 'review cards need dark-mode contrast');
 assert.match(examUi, /unansweredCount/, 'submit must warn on unanswered');
 assert.match(examUi, /\/api\/exams/, 'exam UI must call exam APIs');
+assert.match(examUi, /method: 'PATCH'/, 'exam UI must persist answers before submit');
 assert.doesNotMatch(examUi, /Exam practice/, 'practice-only copy must be removed');
 assert.match(examTimer, /timeUpFiredRef/, 'timer must fire onTimeUp once');
 assert.match(examTimer, /setTimeRemaining/, 'timer must expose resume setter');

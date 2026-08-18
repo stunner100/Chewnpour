@@ -100,7 +100,7 @@ const TopicQuizPlayer = () => {
 
     if (loading) {
         return (
-            <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+            <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
                 <div className="mx-auto max-w-3xl space-y-4">
                     <div className="h-8 w-40 rounded-full bg-surface-soft" />
                     <div className="h-48 rounded-[24px] bg-surface-soft" />
@@ -110,15 +110,31 @@ const TopicQuizPlayer = () => {
     }
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="min-h-dvh bg-background-light px-4 pb-28 pt-0 md:px-8 md:pb-10 md:pt-8">
             <div className="mx-auto max-w-3xl">
-                <Link
-                    to="/dashboard/quiz"
-                    className="inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary-hover"
-                >
-                    <AppIcon name="arrow_back" className="text-[16px]" />
-                    All quizzes
-                </Link>
+                <header className="sticky top-0 z-30 -mx-4 bg-background-light/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+                    <Link
+                        to="/dashboard/quiz"
+                        className="inline-flex min-h-11 items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary-hover"
+                    >
+                        <AppIcon name="arrow_back" className="text-[16px]" />
+                        All quizzes
+                    </Link>
+                    {questions.length > 0 && !result && (
+                        <div className="mt-3">
+                            <div className="mb-2 flex items-center justify-between text-caption font-semibold text-text-secondary">
+                                <span>Progress</span>
+                                <span>{progressPct}%</span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-surface-soft">
+                                <div
+                                    className="h-full rounded-full bg-cta transition-all"
+                                    style={{ width: `${Math.max(progressPct, answeredCount > 0 ? 8 : 0)}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </header>
 
                 <div className="mt-5 flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -138,21 +154,6 @@ const TopicQuizPlayer = () => {
                         </span>
                     )}
                 </div>
-
-                {questions.length > 0 && !result && (
-                    <div className="mt-5">
-                        <div className="mb-2 flex items-center justify-between text-caption font-semibold text-text-secondary">
-                            <span>Progress</span>
-                            <span>{progressPct}%</span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                            <div
-                                className="h-full rounded-full bg-cta transition-all"
-                                style={{ width: `${Math.max(progressPct, answeredCount > 0 ? 8 : 0)}%` }}
-                            />
-                        </div>
-                    </div>
-                )}
 
                 {error && (
                     <div role="alert" className="mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
@@ -240,7 +241,7 @@ const TopicQuizPlayer = () => {
                                 </div>
                             </fieldset>
                         ))}
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-5">
+                        <div className="sticky bottom-0 z-30 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-background-light/95 px-4 py-4 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:backdrop-blur-none">
                             <p className="text-body-sm text-text-secondary">
                                 {answeredCount}/{questions.length} answered
                             </p>
