@@ -87,7 +87,7 @@ export const WatermelonToaster = ({ position = 'bottom-center', className }) => 
                             exit={{ opacity: 0, x: toast.position === 'top-right' || toast.position === 'bottom-right' ? 20 : toast.position === 'top-left' || toast.position === 'bottom-left' ? -20 : 0, scale: 0.95 }}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                             className={cn(
-                                'pointer-events-auto min-w-[320px] max-w-[420px] rounded-2xl border px-4 py-3.5 shadow-elevated flex items-start gap-3',
+                                'pointer-events-auto min-w-[min(320px,calc(100vw-2rem))] max-w-[420px] rounded-2xl border px-4 py-3.5 shadow-elevated flex items-start gap-3',
                                 COLORS[toast.type] || COLORS.info,
                                 className,
                             )}

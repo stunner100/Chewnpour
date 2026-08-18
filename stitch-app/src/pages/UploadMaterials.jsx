@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
-import { isUploadStudyReady } from '../lib/uploadReadiness';
+import { isUploadStudyReady, buildFirstLessonHref } from '../lib/uploadReadiness';
 
 const typeConfig = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -22,6 +22,7 @@ const SUPPORTED_STUDY_MIME_TYPES = new Map([
     ['audio/mpeg', 'mp3'],
     ['audio/mp3', 'mp3'],
     ['audio/mp4', 'm4a'],
+    ['video/mp4', 'mp4'],
     ['audio/x-m4a', 'm4a'],
     ['audio/wav', 'wav'],
     ['audio/x-wav', 'wav'],
@@ -37,6 +38,7 @@ const SUPPORTED_STUDY_EXTENSIONS = new Set([
     'docx',
     'mp3',
     'm4a',
+    'mp4',
     'wav',
     'webm',
     'ogg',
@@ -44,8 +46,8 @@ const SUPPORTED_STUDY_EXTENSIONS = new Set([
     'flac',
 ]);
 
-const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.wav,.webm,.ogg,.aac,.flac';
-const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, MP3, M4A, WAV, WEBM, OGG, AAC, FLAC';
+const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.aac,.flac';
+const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, or audio (MP3, M4A, MP4, WAV, and similar)';
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const resolveStudyUploadFileType = (file) => {
@@ -129,12 +131,6 @@ const getStatusConfig = (status, extractionStatus) => {
     };
 };
 
-const getProcessingText = (upload) => {
-    const step = String(upload.processingStep || upload.extractionStatus || '').replaceAll('_', ' ');
-    if (!step) return 'Preparing material...';
-    return `${step.charAt(0).toUpperCase()}${step.slice(1)}...`;
-};
-
 const isInternalQaUpload = (upload) => {
     const normalized = `${upload?.fileName || ''} ${upload?.title || ''}`
         .toLowerCase()
@@ -157,6 +153,19 @@ const fetchUploads = async () => {
         throw new Error(payload?.error || `Failed to load uploads (${response.status})`);
     }
     return Array.isArray(payload.uploads) ? payload.uploads : [];
+};
+
+const fetchCourses = async () => {
+    const response = await fetch('/api/courses', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(payload?.error || `Failed to load courses (${response.status})`);
+    }
+    return Array.isArray(payload.courses) ? payload.courses : [];
 };
 
 const initUpload = async ({ fileName, fileType, fileSize, contentType }) => {
@@ -199,6 +208,7 @@ const UploadMaterials = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [uploads, setUploads] = useState([]);
+    const [courses, setCourses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -210,18 +220,23 @@ const UploadMaterials = () => {
     const refreshUploads = useCallback(async ({ silent = false } = {}) => {
         if (!userId) {
             setUploads([]);
+            setCourses([]);
             if (!silent) setIsLoading(false);
-            return { uploads: [] };
+            return { uploads: [], courses: [] };
         }
         if (!silent) setIsLoading(true);
         try {
-            const nextUploads = await fetchUploads();
+            const [nextUploads, nextCourses] = await Promise.all([
+                fetchUploads(),
+                fetchCourses(),
+            ]);
             setUploads(nextUploads);
-            return { uploads: nextUploads };
+            setCourses(nextCourses);
+            return { uploads: nextUploads, courses: nextCourses };
         } catch (error) {
             console.error('Failed to load uploads:', error);
             if (!silent) setUploadError(error.message || 'Could not load uploads.');
-            return { uploads: [] };
+            return { uploads: [], courses: [] };
         } finally {
             if (!silent) setIsLoading(false);
         }
@@ -235,17 +250,15 @@ const UploadMaterials = () => {
         enabled: Boolean(userId),
         refresh: refreshUploads,
         uploads,
+        courses,
         onNewlyReady: (readyItems) => {
             const first = readyItems[0];
-            if (!first) return;
-            watermelonToast(`${first.title} is ready to study`, {
+            if (!first?.lessonsHref) return;
+            watermelonToast(`${first.title} is ready. Opening your first lesson.`, {
                 type: 'success',
-                duration: 8000,
-                action: {
-                    label: 'Open lessons',
-                    onClick: () => navigate(first.lessonsHref),
-                },
+                duration: 4000,
             });
+            navigate(first.lessonsHref);
         },
     });
 
@@ -299,17 +312,15 @@ const UploadMaterials = () => {
                 return [finalized, ...without];
             });
             if (isUploadStudyReady(finalized)) {
-                watermelonToast(`${finalized.fileName || 'Your material'} is ready to study`, {
+                watermelonToast(`${finalized.fileName || 'Your material'} is ready. Opening your first lesson.`, {
                     type: 'success',
-                    duration: 8000,
-                    action: {
-                        label: 'Open lessons',
-                        onClick: () => navigate(
-                            finalized.courseId
-                                ? `/dashboard/lessons?courseId=${encodeURIComponent(finalized.courseId)}`
-                                : '/dashboard/library',
-                        ),
-                    },
+                    duration: 4000,
+                });
+                navigate(buildFirstLessonHref({ upload: finalized }));
+            } else {
+                watermelonToast("We'll take you to your first lesson when it's ready.", {
+                    type: 'info',
+                    duration: 6000,
                 });
             }
         } catch (err) {
@@ -359,14 +370,14 @@ const UploadMaterials = () => {
     }, [openFilePicker]);
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
             <div className="mx-auto max-w-5xl">
                 <div className="mb-8">
                     <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
-                        Add to your workspace
+                        {uploads.length === 0 ? 'Generate your first lesson' : 'Upload material'}
                     </h1>
                     <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
-                        Upload PDF, DOCX, or PPTX files. ChewnPour extracts text and prepares lessons and quizzes.
+                        {ACCEPTED_FILE_TYPE_COPY} up to 50MB. Screenshots and camera photos are not supported.
                     </p>
                 </div>
 
@@ -402,7 +413,7 @@ const UploadMaterials = () => {
                             ? 'Uploading your material...'
                             : isDragging
                                 ? 'Drop to upload'
-                                : 'Drop PDF, DOCX, or PPTX files here'}
+                                : 'Drop a PDF, DOCX, PPTX, or audio file here'}
                     </h3>
                     <p className="mt-2 max-w-md text-body-sm text-text-secondary md:text-body-md">
                         {isUploading
@@ -415,8 +426,13 @@ const UploadMaterials = () => {
                         disabled={isUploading}
                         className="btn-primary z-10 mt-8 inline-flex min-h-11 items-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                        <AppIcon name={isUploading ? 'sync' : 'add'} className="text-[18px]" />
-                        {isUploading ? 'Uploading…' : 'Upload Material'}
+                        <AppIcon name={isUploading ? 'sync' : 'upload_file'} className="text-[18px]" />
+                        {isUploading ? 'Uploading…' : (
+                            <>
+                                <span className="md:hidden">Choose file</span>
+                                <span className="hidden md:inline">Upload Material</span>
+                            </>
+                        )}
                     </button>
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                         {[
@@ -491,10 +507,15 @@ const UploadMaterials = () => {
                                                 )}
                                                 {statusConfig.isProcessing && (
                                                     <div className="mt-3 max-w-xs">
-                                                        <div className="h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                                                            <div className="h-full w-[55%] rounded-full bg-info animate-pulse" />
+                                                        <div
+                                                            className="h-1.5 overflow-hidden rounded-full bg-surface-soft"
+                                                            role="progressbar"
+                                                            aria-label="Uploading / processing"
+                                                            aria-valuetext="Uploading / processing"
+                                                        >
+                                                            <div className="h-full w-full animate-pulse rounded-full bg-info/80" />
                                                         </div>
-                                                        <p className="mt-1 text-caption text-text-muted">{getProcessingText(upload)}</p>
+                                                        <p className="mt-1 text-caption text-text-muted">Uploading / processing</p>
                                                     </div>
                                                 )}
                                             </div>

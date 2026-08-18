@@ -407,21 +407,15 @@ let summary = {
 try {
   recordStep('open-signup', 'started');
   await page.goto(`${baseUrl}/signup`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await page.getByRole('link', { name: /continue with email/i }).waitFor({ timeout: 120_000 });
+  await page.getByRole('button', { name: /create account/i }).waitFor({ timeout: 120_000 });
   await screenshot('01-signup');
   recordStep('open-signup', 'passed', { url: page.url() });
-
-  recordStep('open-email-signup', 'started');
-  await page.getByRole('link', { name: /continue with email/i }).click({ timeout: 20_000 });
-  await page.waitForURL(/\/onboarding\/name/, { timeout: 45_000 });
-  await screenshot('02-onboarding-name');
-  recordStep('open-email-signup', 'passed', { url: page.url() });
 
   recordStep('create-account', 'started', { email: uniqueEmail });
   await page.getByPlaceholder('What should we call you?').fill('Playwright Gate');
   await page.getByPlaceholder('student@university.edu').fill(uniqueEmail);
-  await page.getByPlaceholder('Create a strong password').fill(password);
-  await page.getByRole('button', { name: /^continue$/i }).click();
+  await page.getByPlaceholder(/at least 6 characters|create a strong password/i).fill(password);
+  await page.getByRole('button', { name: /create account/i }).click();
   const postSignupRoute = await waitFor(
     'post-signup route advance',
     async () => {

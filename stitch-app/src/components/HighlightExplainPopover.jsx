@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AppIcon from './AppIcon';
+import { getBottomChromeLimit } from '../lib/bottomChrome';
 
 const PRIMARY_ACTIONS = [
     { key: 'explain', label: 'Explain', icon: 'lightbulb', busy: 'Explaining' },
@@ -13,10 +14,10 @@ const SECONDARY_ACTIONS = [
 const ALL_ACTIONS = [...PRIMARY_ACTIONS, ...SECONDARY_ACTIONS];
 
 const controlClass =
-    'inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-text-primary transition-[background-color,color,transform] duration-150 hover:bg-surface-soft active:scale-[0.96]';
+    'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-body-sm font-medium text-text-primary transition-[background-color,color,transform] duration-150 hover:bg-surface-soft active:scale-[0.96]';
 
 const primaryClass =
-    'inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 text-[12.5px] font-medium text-white transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96]';
+    'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-primary px-3 text-body-sm font-medium text-white transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.96]';
 
 const explainSelectionRequest = async ({ topicId, selectedText, style }) => {
     const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/explain`, {
@@ -138,9 +139,12 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         const centerX = left + width / 2;
         const gap = 8;
         const popoverHeight = popoverRef.current.getBoundingClientRect().height || 44;
-        const above = bottom + gap + popoverHeight > window.innerHeight - 16 && top - gap - popoverHeight > 16;
+        const chromeLimit = getBottomChromeLimit() - gap;
+        const above = bottom + gap + popoverHeight > chromeLimit && top - gap - popoverHeight > 16;
         const nextLeft = Math.max(16, Math.min(centerX, window.innerWidth - 16));
-        const nextTop = above ? top - gap : bottom + gap;
+        const nextTop = above
+            ? top - gap
+            : Math.min(bottom + gap, Math.max(16, chromeLimit - popoverHeight));
         setPlacement((current) => {
             if (
                 current.ready
@@ -163,9 +167,13 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         const onResize = () => updatePlacement();
         window.addEventListener('resize', onResize);
         window.addEventListener('scroll', onResize, true);
+        window.visualViewport?.addEventListener('resize', onResize);
+        window.visualViewport?.addEventListener('scroll', onResize);
         return () => {
             window.removeEventListener('resize', onResize);
             window.removeEventListener('scroll', onResize, true);
+            window.visualViewport?.removeEventListener('resize', onResize);
+            window.visualViewport?.removeEventListener('scroll', onResize);
         };
     }, [selection, updatePlacement]);
 
@@ -223,7 +231,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                 >
                     <div ref={contentRef} className="flex w-fit shrink-0 items-center justify-center gap-0.5">
                         {loading ? (
-                            <span className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap px-2.5 text-[12.5px] text-text-secondary">
+                            <span className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 text-body-sm text-text-secondary">
                                 <span className="size-3 shrink-0 animate-spin rounded-full border-[1.5px] border-border-subtle border-t-text-secondary" />
                                 <span className="shimmer text-[12.5px] font-medium">
                                     {activeAction.busy}…

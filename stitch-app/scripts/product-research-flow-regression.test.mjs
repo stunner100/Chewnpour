@@ -38,27 +38,16 @@ for (const forbiddenPattern of ['Product Research', "handleEmailPrefToggle('prod
 }
 
 const adminPage = await read('src/pages/admin/AdminDashboard.jsx');
-for (const pattern of [
-  'recentProductResearchResponses',
-]) {
-  if (!adminPage.includes(pattern)) {
-    throw new Error(`Expected admin/AdminDashboard.jsx to include "${pattern}".`);
-  }
-}
-
-const feedbackPanel = await read('src/pages/admin/panels/FeedbackPanel.jsx');
-for (const pattern of [
-  'Product Research Responses',
-  'additionalNotes',
-]) {
-  if (!feedbackPanel.includes(pattern)) {
-    throw new Error(`Expected FeedbackPanel.jsx to include "${pattern}".`);
-  }
+if (adminPage.includes('recentProductResearchResponses')) {
+  throw new Error('Admin dashboard should not keep Convex product-research leftovers.');
 }
 
 const appSourceForAdmin = await read('src/App.jsx');
-if (!appSourceForAdmin.includes('<Route path="/admin" element={<Navigate to="/dashboard" replace />} />')) {
-  throw new Error('Expected /admin to stay parked during Supabase cutover.');
+if (appSourceForAdmin.includes('ParkedDashboardFeature title="Admin dashboard"')) {
+  throw new Error('Expected /admin to be live after the Supabase admin rebuild.');
+}
+if (!appSourceForAdmin.includes('<Route path="/admin" element={withSuspense(<ProtectedRoute><DashboardLayout><AdminDashboard /></DashboardLayout></ProtectedRoute>)} />')) {
+  throw new Error('Expected /admin to render the Supabase admin dashboard.');
 }
 
 const schemaSource = await read('convex/schema.ts');

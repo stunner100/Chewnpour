@@ -1,18 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AppIcon from './AppIcon';
+import { useHasUploads } from '../hooks/useHasUploads';
 
-const primaryTabs = [
+const returningPrimaryTabs = [
     { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', matchPaths: ['/dashboard'] },
     { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons', matchPaths: ['/dashboard/lessons', '/dashboard/topic'] },
+    { label: 'Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', matchPaths: ['/dashboard/ai-tutor'] },
     { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz', matchPaths: ['/dashboard/quiz'] },
+];
+
+const firstRunPrimaryTabs = [
+    { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', matchPaths: ['/dashboard'] },
+    { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', matchPaths: ['/dashboard/upload'] },
+    { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons', matchPaths: ['/dashboard/lessons', '/dashboard/topic'] },
     { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', matchPaths: ['/dashboard/progress'] },
 ];
 
-const moreTabPaths = ['/dashboard/upload', '/dashboard/library', '/dashboard/ai-tutor', '/dashboard/exam', '/dashboard/podcasts', '/dashboard/settings'];
+const returningMoreItems = [
+    { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, PPTX, or audio files' },
+    { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', description: 'Study plan and mastery' },
+    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Download transformed lessons for every upload' },
+    { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
+    { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
+    { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
+];
 
-const moreItems = [
-    { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, or PPTX files' },
+const firstRunMoreItems = [
+    { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz', description: 'Practice after your first lesson is ready' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Download transformed lessons for every upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
     { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
@@ -33,6 +48,10 @@ const tabClassName = (active) =>
 
 const MobileBottomNav = () => {
     const location = useLocation();
+    const hasUploads = useHasUploads();
+    const primaryTabs = hasUploads ? returningPrimaryTabs : firstRunPrimaryTabs;
+    const moreItems = hasUploads ? returningMoreItems : firstRunMoreItems;
+    const moreTabPaths = moreItems.map((item) => item.path);
     const [moreState, setMoreState] = useState({ open: false, pathname: location.pathname });
 
     if (moreState.pathname !== location.pathname) {
@@ -67,6 +86,7 @@ const MobileBottomNav = () => {
                        bg-surface/90 backdrop-blur-xl
                        border-t border-border-subtle"
                 aria-label="Main navigation"
+                data-cp-bottom-chrome="tabs"
             >
                 <div className="flex items-stretch min-h-16 max-w-md mx-auto px-1">
                     {primaryTabs.map((tab) => {
@@ -123,14 +143,14 @@ const MobileBottomNav = () => {
             {moreOpen && (
                 <>
                     <div
-                        className="fixed inset-0 z-40 bg-black/40 md:hidden"
+                        className="fixed inset-0 z-[60] bg-black/40 md:hidden"
                         onClick={closeMore}
                         aria-hidden="true"
                     />
                     <div
                         role="menu"
                         aria-label="More navigation options"
-                        className="fixed bottom-16 inset-x-0 z-50 md:hidden bg-surface border-t border-border-subtle shadow-lg rounded-t-2xl pt-space-3 pb-space-4 safe-area-bottom"
+                        className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] md:hidden bg-surface border-t border-border-subtle shadow-lg rounded-t-2xl pt-space-3 pb-space-4"
                     >
                         <div className="mx-auto h-1 w-10 rounded-full bg-border-default mb-space-3" />
                         <ul className="px-space-3 grid grid-cols-1 divide-y divide-border-subtle">

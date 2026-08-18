@@ -12,6 +12,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AppIcon from '../components/AppIcon';
+import { DARK_THEME } from '../lib/theme.js';
+import useThemeMode from '../lib/useThemeMode.js';
 
 const SESSION_LENGTH_OPTIONS = [
     { value: '25', title: 'Pomodoro', detail: '25m focus sprint', triggerDetail: '25m', icon: 'timer' },
@@ -107,6 +109,8 @@ const normalizeStudyPreferences = (value = {}) => ({
 const AccountStudySettings = () => {
     const { user, profile, updateProfile, signOut } = useAuth();
     const navigate = useNavigate();
+    const { mode: themeMode, toggle: toggleTheme } = useThemeMode();
+    const isDarkMode = themeMode === DARK_THEME;
     const profileStudyPreferences = useMemo(
         () => normalizeStudyPreferences(profile?.studyPreferences),
         [profile?.studyPreferences],
@@ -218,7 +222,7 @@ const AccountStudySettings = () => {
     };
 
     return (
-        <form className="min-h-[calc(100vh-4rem)] bg-background-light" onSubmit={handleSave}>
+        <form className="min-h-[calc(100dvh-4rem)] bg-background-light" onSubmit={handleSave}>
             <div className="mx-auto max-w-5xl px-4 py-8 pb-28 md:px-8 md:py-10">
                 <div className="mb-8">
                     <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
@@ -231,6 +235,40 @@ const AccountStudySettings = () => {
 
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
                     <div className="flex flex-col gap-5 lg:col-span-5">
+                        <section id="appearance" className="scroll-mt-20 flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
+                                <AppIcon name="palette" className="text-text-muted" />
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Appearance</h2>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <h3 className="text-body-sm font-semibold text-text-primary">Dark mode</h3>
+                                    <p className="mt-1 text-body-sm text-text-muted">Switch between light and dark themes.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={isDarkMode}
+                                    aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                                    onClick={toggleTheme}
+                                    className="inline-flex min-h-11 min-w-11 items-center justify-center"
+                                >
+                                    <span className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isDarkMode ? 'bg-primary' : 'bg-border-default'}`}>
+                                        <span
+                                            aria-hidden="true"
+                                            className={`inline-block size-4 transform rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-6' : 'translate-x-1'}`}
+                                        />
+                                    </span>
+                                </button>
+                            </div>
+                            <a
+                                href="mailto:info@chewnpour.com?subject=ChewnPour%20Support"
+                                className="inline-flex min-h-11 items-center gap-2 text-body-sm font-semibold text-primary"
+                            >
+                                <AppIcon name="help_outline" className="text-[18px]" />
+                                Email support
+                            </a>
+                        </section>
                         <section id="profile" className="scroll-mt-20 flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
                             <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="person" className="text-text-muted" />
@@ -479,6 +517,7 @@ const AccountStudySettings = () => {
                             </div>
                         </section>
 
+                        {/* Notifications */}
                         <section id="notifications" className="scroll-mt-20 flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
                             <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
                                 <AppIcon name="notifications" className="text-text-muted" />
@@ -500,16 +539,20 @@ const AccountStudySettings = () => {
                                                 const current = prev ?? notifications;
                                                 return { ...current, [toggle.key]: !current[toggle.key] };
                                             })}
-                                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                                                notifications[toggle.key] ? 'bg-primary' : 'bg-border-default'
-                                            }`}
+                                            className="inline-flex min-h-11 min-w-11 items-center justify-center"
                                         >
                                             <span
                                                 aria-hidden="true"
-                                                className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
-                                                    notifications[toggle.key] ? 'translate-x-6' : 'translate-x-1'
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                    notifications[toggle.key] ? 'bg-primary' : 'bg-border-default'
                                                 }`}
-                                            />
+                                            >
+                                                <span
+                                                    className={`inline-block size-4 transform rounded-full bg-white transition-transform ${
+                                                        notifications[toggle.key] ? 'translate-x-6' : 'translate-x-1'
+                                                    }`}
+                                                />
+                                            </span>
                                         </button>
                                     </div>
                                 ))}

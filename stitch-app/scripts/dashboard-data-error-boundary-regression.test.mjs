@@ -29,6 +29,8 @@ const requiredSnippets = [
   'captureSentryException',
   'key={routerLocation.pathname}',
   'cloud_off',
+  'isChunkLoadError(error)',
+  "attemptChunkRecoveryReload('dashboard-chunk-load')",
 ];
 
 for (const snippet of requiredSnippets) {

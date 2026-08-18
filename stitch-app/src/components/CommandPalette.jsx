@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect, useEffectEvent, useRef, useMemo, useCallback } from 'react';
+import React, { useReducer, useEffect, useEffectEvent, useRef, useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -62,6 +62,7 @@ export const CommandPalette = () => {
     const navigate = useNavigate();
     const inputRef = useRef(null);
     const listRef = useRef(null);
+    const [adminAvailable, setAdminAvailable] = useState(false);
 
     const handleGlobalKeyDown = useEffectEvent((e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -88,15 +89,51 @@ export const CommandPalette = () => {
         return () => cancelAnimationFrame(frameId);
     }, [open]);
 
+    useEffect(() => {
+        if (!open) return undefined;
+        let cancelled = false;
+        fetch('/api/admin', {
+            credentials: 'include',
+            headers: { Accept: 'application/json' },
+        })
+            .then((response) => {
+                if (!cancelled) setAdminAvailable(response.ok);
+            })
+            .catch(() => {
+                if (!cancelled) setAdminAvailable(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [open]);
+
+    const navOptions = useMemo(() => {
+        if (!adminAvailable) return NAV_OPTIONS;
+        const options = [...NAV_OPTIONS];
+        const signOutIndex = options.findIndex((option) => option.value === '__signout');
+        const adminOption = {
+            label: 'Admin',
+            value: '/admin',
+            icon: 'admin_panel_settings',
+            keywords: ['ops', 'metrics', 'students'],
+        };
+        if (signOutIndex >= 0) {
+            options.splice(signOutIndex, 0, adminOption);
+        } else {
+            options.push(adminOption);
+        }
+        return options;
+    }, [adminAvailable]);
+
     const filtered = useMemo(() => {
-        if (!query.trim()) return NAV_OPTIONS;
+        if (!query.trim()) return navOptions;
         const q = query.toLowerCase();
-        return NAV_OPTIONS.filter(
+        return navOptions.filter(
             (o) =>
                 o.label.toLowerCase().includes(q) ||
                 o.keywords?.some((k) => k.toLowerCase().includes(q)),
         );
-    }, [query]);
+    }, [query, navOptions]);
 
     const handleSelect = useCallback(
         (value) => {
@@ -152,11 +189,11 @@ export const CommandPalette = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -10 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="fixed z-[201] top-[20%] left-1/2 -translate-x-1/2 w-[90vw] max-w-lg"
+                        className="fixed z-[201] inset-x-0 bottom-0 mx-auto w-full max-w-lg md:top-[20%] md:bottom-auto md:left-1/2 md:w-[90vw] md:-translate-x-1/2"
                         role="dialog"
                         aria-label="Command palette"
                     >
-                        <div className="rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-elevated overflow-hidden">
+                        <div className="overflow-hidden rounded-t-2xl border border-border-subtle bg-surface-light shadow-elevated dark:border-border-subtle-dark dark:bg-surface-dark md:rounded-2xl">
                             <div className="flex items-center gap-3 px-4 border-b border-border-subtle dark:border-border-subtle-dark">
                                 <AppIcon name="search" className="text-[20px] text-text-faint-light dark:text-text-faint-dark" />
                                 <input

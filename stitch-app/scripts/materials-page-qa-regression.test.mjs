@@ -83,7 +83,12 @@ requireIncludes(
 );
 requireIncludes(
   mobileBottomNavSource,
-  "const moreTabPaths = ['/dashboard/upload', '/dashboard/library'",
+  'const moreTabPaths = moreItems.map((item) => item.path);',
+  'MobileBottomNav.jsx',
+);
+requireIncludes(
+  mobileBottomNavSource,
+  "path: '/dashboard/library'",
   'MobileBottomNav.jsx',
 );
 

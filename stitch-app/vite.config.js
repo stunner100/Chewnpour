@@ -3,6 +3,7 @@ import process from 'node:process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url))
 
@@ -103,6 +104,43 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        injectRegister: 'auto',
+        manifest: {
+          name: 'ChewnPour',
+          short_name: 'ChewnPour',
+          description: 'Turn your slides into smart lessons and quizzes.',
+          lang: 'en',
+          start_url: '/',
+          scope: '/',
+          display: 'standalone',
+          orientation: 'portrait',
+          background_color: '#F9F9F9',
+          theme_color: '#F9F9F9',
+          icons: [
+            { src: '/icons/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icons/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icons/pwa-512x512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ],
+        },
+        includeAssets: [
+          'favicon.svg',
+          'icons/favicon-32x32.png',
+          'icons/apple-touch-icon.png',
+          'icons/pwa-192x192.png',
+          'icons/pwa-512x512.png',
+          'icons/pwa-512x512-maskable.png',
+        ],
+        workbox: {
+          // Precache the app shell (hashed JS/CSS + html/svg/woff2/ico + small icons).
+          // Large media (hero/screenshots/brand) is intentionally excluded so the
+          // install stays small; it loads from the network when online.
+          globPatterns: ['**/*.{js,css,html,svg,woff2,ico}'],
+          navigateFallback: 'index.html',
+          cleanupOutdatedCaches: true,
+        },
+      }),
     ],
   }
 })

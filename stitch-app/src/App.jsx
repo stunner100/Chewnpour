@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { LazyMotion, domAnimation } from 'motion/react';
 import { useAuth } from './contexts/AuthContext';
 import {
@@ -110,7 +110,6 @@ const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { component
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
 const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySettings'), { componentName: 'AccountStudySettings' });
 const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
-const FlashcardStudySession = lazyRoute(() => import('./pages/FlashcardStudySession'), { componentName: 'FlashcardStudySession' });
 const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
 const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
@@ -121,7 +120,13 @@ const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentNa
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
 const PublicSharedCourse = lazyRoute(() => import('./pages/PublicSharedCourse'), { componentName: 'PublicSharedCourse' });
-const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
+const AdminDashboard = lazyRoute(() => import('./pages/admin/AdminDashboard'), { componentName: 'AdminDashboard' });
+
+const RedirectOnboardingNameToSignup = () => {
+  const [searchParams] = useSearchParams();
+  const search = searchParams.toString();
+  return <Navigate to={search ? `/signup?${search}` : '/signup'} replace />;
+};
 
 function RouteChangeTracker() {
   const routerLocation = useLocation();
@@ -264,7 +269,7 @@ const RedirectLegacyFlashcardsRoute = () => {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <FlashcardStudySession />
+        <ParkedFeatureView title="Flashcards" />
       </DashboardLayout>
     </ProtectedRoute>
   );
@@ -333,8 +338,8 @@ function App() {
         <Route path="/kids/child" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
         <Route path="/kids/lesson/:lessonId" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
 
-        {/* Onboarding — name is signup; level/department cut over to Settings profile */}
-        <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
+        {/* Onboarding — email signup lives on /signup; level/department cut over to Settings profile */}
+        <Route path="/onboarding/name" element={<RedirectOnboardingNameToSignup />} />
         <Route
           path="/onboarding/level"
           element={withSuspense(<ProtectedRoute><Navigate to="/dashboard/settings#profile" replace /></ProtectedRoute>)}
@@ -353,8 +358,8 @@ function App() {
         <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/exam" element={withSuspense(<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
-        <Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />
+        <Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/progress" element={withSuspense(<ProtectedRoute><DashboardLayout><StudyProgressMastery /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
@@ -387,8 +392,8 @@ function App() {
         <Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />
         <Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />
 
-        {/* Admin Route — parked until Supabase admin cutover */}
-        <Route path="/admin" element={<ParkedDashboardFeature title="Admin dashboard" />} />
+        {/* Admin Route */}
+        <Route path="/admin" element={withSuspense(<ProtectedRoute><DashboardLayout><AdminDashboard /></DashboardLayout></ProtectedRoute>)} />
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />

@@ -10,6 +10,7 @@ assert.doesNotMatch(source, /from ['"]convex\/react['"]/, 'Must stay Convex-free
 assert.match(source, /rounded-full/, 'Selection actions bar should be a pill.');
 assert.match(source, /Show more actions/, 'Overflow actions should collapse behind a more control.');
 assert.match(source, /Keep in notes/, 'Result mode should offer Keep in notes.');
+assert.match(source, /getBottomChromeLimit/, 'Popover must stay above the lesson action bar.');
 assert.match(source, /aria-expanded=\{expanded\}/, 'More control must expose expanded state.');
 assert.match(source, /key: 'explain'/, 'Explain action must remain.');
 assert.match(source, /key: 'breakdown'/, 'Break down action must remain.');

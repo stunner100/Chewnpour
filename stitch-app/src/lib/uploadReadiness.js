@@ -51,6 +51,18 @@ export const listNeedsReadinessPoll = (uploads = [], courses = []) => {
   });
 };
 
+export const buildFirstLessonHref = ({ course, upload } = {}) => {
+  const topicId = course?.firstTopicId || upload?.firstTopicId || null;
+  if (topicId) {
+    return `/dashboard/topic/${encodeURIComponent(topicId)}`;
+  }
+  const courseId = course?.id || upload?.courseId || null;
+  if (courseId) {
+    return `/dashboard/lessons?courseId=${encodeURIComponent(courseId)}`;
+  }
+  return '/dashboard/lessons';
+};
+
 export const findNewlyStudyReadyUploads = ({
   previousUploads = [],
   nextUploads = [],
@@ -99,7 +111,7 @@ export const findNewlyStudyReadyUploads = ({
       uploadId: upload.id,
       courseId: course?.id || upload.courseId,
       title: course?.title || upload.fileName || 'Your material',
-      lessonsHref: `/dashboard/lessons?courseId=${encodeURIComponent(course?.id || upload.courseId)}`,
+      lessonsHref: buildFirstLessonHref({ course, upload }),
     };
   });
 };

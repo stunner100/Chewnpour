@@ -890,11 +890,14 @@ export const useTopicDetail = () => {
     const essayExamActionLabel = isTopicQuizRoute
         ? 'Start essay'
         : (examTopicId ? 'Start essay' : 'Essay preparing');
+    const hasQuizScore = topicProgress?.bestScore != null;
     const practiceDescription = isTopicQuizRoute
-        ? 'Choose the format that fits how you want to test this lesson.'
+        ? 'A short quiz on what you just read.'
         : 'This topic is assessed in the course quiz for better question quality.';
     const postLessonPrompt = isTopicQuizRoute
-        ? 'Pick the next practice format for this topic.'
+        ? (hasQuizScore
+            ? 'Try another format if you want more practice.'
+            : 'A short quiz on what you just read.')
         : 'This topic will be assessed in the course quiz.';
 
     const { progress: readingProgress, activeId: activeSectionId } = useReadingProgress({
@@ -993,7 +996,7 @@ export const useTopicDetail = () => {
                 if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
             },
         },
-        examTopicId && {
+        hasQuizScore && examTopicId && {
             id: 'essay-rail',
             icon: 'edit_note',
             label: 'Take Essay',
@@ -1031,7 +1034,7 @@ export const useTopicDetail = () => {
         examTopicId
             ? { id: 'p-start-quiz', icon: 'quiz', label: objectiveExamActionLabel, href: objectiveExamRoute }
             : { id: 'p-quiz-pending', icon: 'hourglass_top', label: 'Quiz preparing', disabled: true },
-        examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
+        hasQuizScore && examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
     ].filter(Boolean);
 
     const practiceTertiary = topicProgress?.completedAt ? [] : [{

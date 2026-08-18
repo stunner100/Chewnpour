@@ -5,22 +5,25 @@ const root = process.cwd();
 const filePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
 const source = await fs.readFile(filePath, 'utf8');
 
-const firstGuardIndex = source.indexOf('if (!routeTopicId) {');
-if (firstGuardIndex === -1) {
-  throw new Error('Could not locate the first guard return in ExamMode.jsx');
+const firstReturnIndex = source.indexOf('if (questions.length) {');
+if (firstReturnIndex === -1) {
+  throw new Error('Could not locate the live-exam return in ExamMode.jsx');
 }
 
-const useMemoIndex = source.indexOf('const finalOptions = useMemo(');
-if (useMemoIndex === -1) {
-  throw new Error('Expected finalOptions to be memoized with useMemo in ExamMode.jsx');
+const lastHookIndex = Math.max(
+  source.lastIndexOf('useEffect(', firstReturnIndex),
+  source.lastIndexOf('useCallback(', firstReturnIndex),
+  source.lastIndexOf('useMemo(', firstReturnIndex),
+  source.lastIndexOf('useExamTimer(', firstReturnIndex),
+  source.lastIndexOf('useMobileChrome(', firstReturnIndex),
+);
+
+if (lastHookIndex > firstReturnIndex) {
+  throw new Error('Regression: a hook appears after the live-exam return and can break hook order.');
 }
 
-if (useMemoIndex > firstGuardIndex) {
-  throw new Error('Regression: useMemo for finalOptions appears after conditional return guards and can break hook order.');
-}
-
-if (!source.includes('const progress = questions.length > 0')) {
-  throw new Error('Expected progress calculation to guard against zero questions.');
+if (!source.includes('setImmersiveMobile(questions.length > 0)')) {
+  throw new Error('Expected immersive chrome to follow question availability without an extra early return.');
 }
 
 console.log('exam-mode-hook-order-regression.test.mjs passed');

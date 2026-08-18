@@ -103,6 +103,53 @@ const PodcastWaveformPlayer = ({
         dispatchPlayer({ type: 'reset', durationSeconds });
     }, [audioUrl, durationSeconds]);
 
+    useEffect(() => {
+        if (typeof navigator === 'undefined' || !navigator.mediaSession) return undefined;
+        const audio = audioRef.current;
+        if (typeof window.MediaMetadata === 'function') {
+            navigator.mediaSession.metadata = new window.MediaMetadata({
+                title: title || 'Study podcast',
+                artist: subtitle || 'ChewnPour',
+                album: 'ChewnPour',
+            });
+        }
+        const seekBy = (offsetSeconds) => {
+            if (!audio) return;
+            const nextTime = clamp((audio.currentTime || 0) + offsetSeconds, 0, audio.duration || effectiveDuration || 0);
+            audio.currentTime = nextTime;
+            dispatchPlayer({ type: 'seek', currentTime: nextTime });
+        };
+        navigator.mediaSession.setActionHandler('play', () => {
+            void audio?.play();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+            audio?.pause();
+        });
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+            seekBy(-(details?.seekOffset || 10));
+        });
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+            seekBy(details?.seekOffset || 10);
+        });
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (!audio || details?.seekTime == null) return;
+            audio.currentTime = details.seekTime;
+            dispatchPlayer({ type: 'seek', currentTime: details.seekTime });
+        });
+        return () => {
+            navigator.mediaSession.setActionHandler('play', null);
+            navigator.mediaSession.setActionHandler('pause', null);
+            navigator.mediaSession.setActionHandler('seekbackward', null);
+            navigator.mediaSession.setActionHandler('seekforward', null);
+            navigator.mediaSession.setActionHandler('seekto', null);
+        };
+    }, [audioUrl, effectiveDuration, subtitle, title]);
+
+    useEffect(() => {
+        if (typeof navigator === 'undefined' || !navigator.mediaSession) return;
+        navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+    }, [playing]);
+
     const seekToRatio = (ratio) => {
         const audio = audioRef.current;
         if (!audio || effectiveDuration <= 0) return;
@@ -181,6 +228,8 @@ const PodcastWaveformPlayer = ({
                     ref={audioRef}
                     src={audioUrl}
                     preload="metadata"
+                    playsInline
+                    webkit-playsinline="true"
                     onLoadedMetadata={(event) => {
                         const nextDuration = Number(event.currentTarget.duration);
                         if (Number.isFinite(nextDuration) && nextDuration > 0) {

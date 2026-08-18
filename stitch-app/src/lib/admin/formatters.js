@@ -19,10 +19,22 @@ export const formatRatioPercent = (value) => {
     return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
 };
 
-export const formatDateTime = (timestampMs) => {
-    const parsed = Number(timestampMs);
-    if (!Number.isFinite(parsed) || parsed <= 0) return 'N/A';
+export const formatDateTime = (value) => {
+    if (value == null || value === '') return 'N/A';
+    const parsed = value instanceof Date
+        ? value
+        : typeof value === 'number'
+            ? new Date(value)
+            : new Date(String(value));
+    if (Number.isNaN(parsed.getTime())) return 'N/A';
     return DATE_TIME_FORMATTER.format(parsed);
+};
+
+export const formatBytes = (value) => {
+    const bytes = Number(value) || 0;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round((bytes / 1024) * 10) / 10} KB`;
+    return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`;
 };
 
 export const formatRelativeHours = (value) => {

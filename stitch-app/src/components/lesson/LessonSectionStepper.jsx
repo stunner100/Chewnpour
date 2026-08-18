@@ -92,14 +92,14 @@ export default function LessonSectionStepper({
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                     <button
                         type="button"
-                        className="btn-secondary inline-flex min-h-10 items-center gap-1.5 text-body-sm"
+                        className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm"
                         onClick={() => goTo(total - 1)}
                     >
                         <AppIcon name="arrow_back" className="text-[16px]" />
                         Back to last section
                     </button>
                     {quizHref ? (
-                        <Link to={quizHref} className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm">
+                        <Link to={quizHref} className="btn-primary inline-flex min-h-11 items-center gap-1.5 text-body-sm">
                             <AppIcon name="quiz" className="text-[16px]" />
                             {quizLabel}
                         </Link>
@@ -168,7 +168,7 @@ export default function LessonSectionStepper({
             <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
                 <button
                     type="button"
-                    className="btn-secondary inline-flex min-h-10 items-center gap-1.5 text-body-sm disabled:opacity-40"
+                    className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm disabled:opacity-40"
                     disabled={clampedIndex === 0}
                     onClick={() => goTo(clampedIndex - 1)}
                 >
@@ -177,7 +177,7 @@ export default function LessonSectionStepper({
                 </button>
                 <button
                     type="button"
-                    className="btn-primary inline-flex min-h-10 items-center gap-1.5 text-body-sm disabled:opacity-50"
+                    className="btn-primary inline-flex min-h-11 items-center gap-1.5 text-body-sm disabled:opacity-50"
                     disabled={!canContinue}
                     onClick={() => goTo(clampedIndex + 1)}
                 >

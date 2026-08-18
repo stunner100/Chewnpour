@@ -34,10 +34,38 @@ const StatCard = ({ label, value, icon }) => (
   </div>
 );
 
+const FirstRunHome = ({ greeting, displayName }) => (
+  <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="mx-auto max-w-3xl">
+      <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+        {greeting}, {displayName}.
+      </h1>
+      <p className="mt-2 max-w-2xl text-body-md text-text-secondary">
+        Upload a lecture PDF, slide deck, Word doc, or class recording. We generate lessons you can study.
+      </p>
+
+      <section className="mt-8 rounded-[28px] border border-dashed border-border-default bg-surface px-6 py-12 text-center shadow-sm md:px-12 md:py-16">
+        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary-subtle text-primary md:size-20">
+          <AppIcon name="cloud_upload" className="text-[32px] md:text-[40px]" aria-hidden="true" />
+        </div>
+        <h2 className="mt-5 font-display text-display-sm font-bold text-text-primary md:text-display-md">
+          Drop a lecture PDF, slide deck, or recording
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-body-md text-text-secondary">
+          PDF, PPTX, DOCX, or audio up to 50MB. Screenshots and camera photos are not supported.
+        </p>
+        <Link to="/dashboard/upload" className="btn-primary mt-8 inline-flex min-h-11 text-body-sm">
+          <AppIcon name="upload" className="text-[18px]" aria-hidden="true" />
+          Choose file
+        </Link>
+      </section>
+    </div>
+  </div>
+);
+
 const StudentDashboard = () => {
   const { user, profile } = useAuth();
   const displayName = firstName(profile?.fullName || user?.name || user?.email);
-  const onboardingDone = profile?.onboardingCompleted === true;
   const greeting = greetingForHour(new Date().getHours());
 
   const [courses, setCourses] = useState([]);
@@ -111,9 +139,14 @@ const StudentDashboard = () => {
     100,
     Math.max(0, Math.round(Number(resumeTarget?.progressPercent ?? continueCourse?.progressPercent ?? 0))),
   );
+  const isFirstRun = !loading && uploads.length === 0 && courses.length === 0 && !resumeTarget;
+
+  if (isFirstRun) {
+    return <FirstRunHome greeting={greeting} displayName={displayName} />;
+  }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -130,20 +163,6 @@ const StudentDashboard = () => {
             Upload material
           </Link>
         </div>
-
-        {!onboardingDone && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-border-subtle bg-primary-subtle px-5 py-4">
-            <div>
-              <p className="font-semibold text-text-primary">Finish setting up your profile</p>
-              <p className="mt-1 text-body-sm text-text-secondary">
-                Add your education details so recommendations stay relevant.
-              </p>
-            </div>
-            <Link to="/dashboard/settings#profile" className="btn-secondary inline-flex min-h-11 text-body-sm">
-              Complete profile
-            </Link>
-          </div>
-        )}
 
         {error && (
           <div className="mt-6 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
@@ -210,7 +229,7 @@ const StudentDashboard = () => {
             ) : (
               <>
                 <p className="mt-3 text-body-md text-text-secondary">
-                  Upload a PDF, deck, or notes file to generate your first lesson set.
+                  Upload a PDF, deck, Word doc, or class recording to generate your first lesson set.
                 </p>
                 <Link to="/dashboard/upload" className="btn-primary mt-6 inline-flex min-h-11 text-body-sm">
                   Upload material
@@ -225,10 +244,10 @@ const StudentDashboard = () => {
             </div>
             <h2 className="mt-4 text-center font-display text-display-sm font-bold text-text-primary">Upload material</h2>
             <p className="mt-2 text-center text-body-sm text-text-secondary">
-              Drag & drop PDFs, docs, or images — or browse from your device.
+              PDF, PPTX, DOCX, or audio — not screenshots or camera photos.
             </p>
             <Link to="/dashboard/upload" className="btn-secondary mt-auto inline-flex min-h-11 justify-center text-body-sm">
-              Browse files
+              Choose file
             </Link>
           </section>
         </div>

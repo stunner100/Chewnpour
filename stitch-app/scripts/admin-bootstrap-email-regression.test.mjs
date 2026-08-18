@@ -3,8 +3,8 @@ import path from 'node:path';
 
 const root = process.cwd();
 
-const adminSource = await fs.readFile(path.join(root, 'convex', 'admin.ts'), 'utf8');
-const adminDashboardSource = await fs.readFile(path.join(root, 'src', 'pages', 'AdminDashboard.jsx'), 'utf8');
+const adminSource = await fs.readFile(path.join(root, 'server', 'adminAccess.js'), 'utf8');
+const adminDashboardSource = await fs.readFile(path.join(root, 'src', 'pages', 'admin', 'AdminDashboard.jsx'), 'utf8');
 
 if (!adminSource.includes('const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];')) {
   throw new Error('Expected bootstrap admin email to be patrickannor35@gmail.com.');

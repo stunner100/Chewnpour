@@ -41,13 +41,13 @@ for (const snippet of [
   '<Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
   '<Route path="/dashboard/concept" element={<ParkedDashboardFeature title="Concept builder" />} />',
   '<Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
-  '<Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />',
-  '<Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />',
+  '<Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />',
+  '<Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />',
   '<Route path="/subscription" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/subscription/callback" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />',
   '<Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />',
-  '<Route path="/admin" element={<ParkedDashboardFeature title="Admin dashboard" />} />',
+  '<Route path="/admin" element={withSuspense(<ProtectedRoute><DashboardLayout><AdminDashboard /></DashboardLayout></ProtectedRoute>)} />',
 ]) {
   if (!appSource.includes(snippet)) {
     throw new Error(`Expected old route cutover redirect: ${snippet}`);
@@ -61,7 +61,6 @@ for (const forbiddenSnippet of [
   "const PastQuestionsComingSoon = lazyRoute",
   "const Profile = lazyRoute",
   "const EditProfile = lazyRoute",
-  "const AdminDashboard = lazyRoute",
   "const DashboardProcessing = lazyRoute",
   "const DashboardCourse = lazyRoute",
   "const DashboardResults = lazyRoute",

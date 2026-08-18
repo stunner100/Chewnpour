@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 
 const EMPTY_ARRAY = [];
 
-const LessonTOC = ({ toc = EMPTY_ARRAY, activeId }) => {
+const LessonTOC = ({ toc = EMPTY_ARRAY, activeId, onNavigate }) => {
     const navRef = useRef(null);
     const listRef = useRef(null);
 
@@ -43,6 +43,7 @@ const LessonTOC = ({ toc = EMPTY_ARRAY, activeId }) => {
         if (typeof window !== 'undefined' && window.history?.replaceState) {
             window.history.replaceState(null, '', `#${id}`);
         }
+        onNavigate?.();
     };
 
     return (
