@@ -5,7 +5,7 @@ import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
 
 const LessonsSkeleton = () => (
-    <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
         <div className="mx-auto max-w-4xl space-y-5">
             <div className="h-16 rounded-[20px] bg-surface-soft" />
             {[0, 1, 2].map((item) => (
@@ -170,7 +170,7 @@ const LessonMemoryNeuralBasis = () => {
     }
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
             <div className="mx-auto max-w-4xl">
                 <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
                     Lessons

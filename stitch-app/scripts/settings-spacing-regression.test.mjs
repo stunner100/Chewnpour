@@ -19,13 +19,12 @@ for (const forbiddenSnippet of [
 }
 
 for (const expectedSnippet of [
-  'ml-0 md:ml-0 min-h-[calc(100vh-64px)]',
+  'min-h-[calc(100dvh-4rem)]',
   'Manage your workspace preferences and profile.',
   'Study Preferences',
   'AI Tutor Personality',
-  'settings-tutor-card bg-ai-subtle dark:!bg-[#161719]',
-  "selected ? 'border-primary bg-primary-soft dark:!bg-[#2a241c]'",
-  "'border-border-default bg-surface dark:!bg-[#111214] hover:bg-surface-soft dark:hover:!bg-[#212226]'",
+  'id="appearance"',
+  'inline-flex min-h-11 min-w-11 items-center justify-center',
 ]) {
   if (!settingsSource.includes(expectedSnippet)) {
     throw new Error(`Expected AccountStudySettings.jsx to include "${expectedSnippet}".`);
