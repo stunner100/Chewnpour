@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
+let cachedHasUploads = false;
+
 export const useHasUploads = () => {
     const { user } = useAuth();
-    const [hasUploads, setHasUploads] = useState(false);
+    const [hasUploads, setHasUploads] = useState(cachedHasUploads);
 
     useEffect(() => {
         if (!user?.id) {
+            cachedHasUploads = false;
             setHasUploads(false);
             return undefined;
         }
@@ -20,9 +23,11 @@ export const useHasUploads = () => {
                 });
                 const payload = await response.json().catch(() => ({}));
                 if (cancelled) return;
-                setHasUploads(Array.isArray(payload.uploads) && payload.uploads.length > 0);
+                const next = Array.isArray(payload.uploads) && payload.uploads.length > 0;
+                cachedHasUploads = next;
+                setHasUploads(next);
             } catch {
-                if (!cancelled) setHasUploads(false);
+                if (!cancelled) setHasUploads(cachedHasUploads);
             }
         };
         load();

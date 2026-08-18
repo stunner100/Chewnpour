@@ -42,7 +42,11 @@ if (!/path=\"\/signup\"\s+element=\{withSuspense\(<SignUpPage\s*\/>\)\}/.test(ap
   throw new Error('Expected /signup route to render SignUpPage.');
 }
 
-if (!/path=\"\/dashboard\"\s+element=\{withSuspense\(<ProtectedRoute><DashboardLayout><StudentDashboard\s*\/><\/DashboardLayout><\/ProtectedRoute>\)\}/.test(appSource)) {
+if (!appSource.includes('<Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>')) {
+  throw new Error('Expected dashboard routes to share one ProtectedRoute + DashboardLayout shell.');
+}
+
+if (!/path=\"\/dashboard\"\s+element=\{withSuspense\(<StudentDashboard\s*\/>\)\}/.test(appSource)) {
   throw new Error('Expected /dashboard route to render the new StudentDashboard.');
 }
 

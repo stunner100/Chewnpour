@@ -49,7 +49,7 @@ assert.match(app, /path="\/c\/:token"/, 'public share route must be live');
 assert.doesNotMatch(app, /ParkedDashboardFeature title="Study podcasts"/, 'podcasts route must be live');
 assert.match(
   app,
-  /path="\/dashboard\/podcasts" element=\{withSuspense\(<ProtectedRoute><DashboardLayout><DashboardPodcasts \/>/,
+  /path="\/dashboard\/podcasts" element=\{withSuspense\(<DashboardPodcasts \/>/,
   'podcasts hub must be a live protected dashboard route',
 );
 assert.match(app, /ParkedDashboardFeature title="Kids mode"/, 'dashboard kids route must be parked honestly');

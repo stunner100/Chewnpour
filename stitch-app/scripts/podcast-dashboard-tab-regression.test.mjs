@@ -21,7 +21,7 @@ const requireIncludes = (source, snippet, label) => {
 
 requireIncludes(
   appSource,
-  '<Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />',
+  '<Route path="/dashboard/podcasts" element={withSuspense(<DashboardPodcasts />)} />',
   'App.jsx',
 );
 requireIncludes(appSource, "import('./pages/DashboardPodcasts')", 'App.jsx');

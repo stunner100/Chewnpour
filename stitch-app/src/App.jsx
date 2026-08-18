@@ -266,21 +266,11 @@ const RedirectLegacyQuizRoute = () => {
 };
 
 const RedirectLegacyFlashcardsRoute = () => {
-  return (
-    <ProtectedRoute>
-      <DashboardLayout>
-        <ParkedFeatureView title="Flashcards" />
-      </DashboardLayout>
-    </ProtectedRoute>
-  );
+  return <ParkedFeatureView title="Flashcards" />;
 };
 
 const ParkedDashboardFeature = ({ title }) => (
-  <ProtectedRoute>
-    <DashboardLayout>
-      <ParkedFeatureView title={title} />
-    </DashboardLayout>
-  </ProtectedRoute>
+  <ParkedFeatureView title={title} />
 );
 
 const RedirectCourseToLessonsRoute = () => {
@@ -293,26 +283,14 @@ const RedirectCourseToLessonsRoute = () => {
 
 const TopicDetailRoute = () => {
   const { topicId } = useParams();
-  return (
-    <ProtectedRoute>
-      <DashboardLayout>
-        <TopicDetail key={topicId || 'topic'} />
-      </DashboardLayout>
-    </ProtectedRoute>
-  );
+  return <TopicDetail key={topicId || 'topic'} />;
 };
 
 const QuizPlayerRoute = () => {
   const { topicId } = useParams();
   const routerLocation = useLocation();
   const routeKey = `${topicId || 'quiz'}:${routerLocation.search || ''}`;
-  return (
-    <ProtectedRoute>
-      <DashboardLayout>
-        <QuizPlayer key={routeKey} />
-      </DashboardLayout>
-    </ProtectedRoute>
-  );
+  return <QuizPlayer key={routeKey} />;
 };
 
 function App() {
@@ -349,23 +327,24 @@ function App() {
           element={withSuspense(<ProtectedRoute><Navigate to="/dashboard/settings#profile" replace /></ProtectedRoute>)}
         />
 
-        {/* Protected Dashboard Routes — wrapped in DashboardLayout for mobile nav */}
-        <Route path="/dashboard" element={withSuspense(<ProtectedRoute><DashboardLayout><StudentDashboard /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/library" element={withSuspense(<ProtectedRoute><DashboardLayout><MyMaterialsLibrary /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/upload" element={withSuspense(<ProtectedRoute><DashboardLayout><UploadMaterials /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/quiz/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizResults /></DashboardLayout></ProtectedRoute>)} />
+        {/* Protected Dashboard Routes — one shell so mobile tabs stay put */}
+        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+        <Route path="/dashboard" element={withSuspense(<StudentDashboard />)} />
+        <Route path="/dashboard/library" element={withSuspense(<MyMaterialsLibrary />)} />
+        <Route path="/dashboard/upload" element={withSuspense(<UploadMaterials />)} />
+        <Route path="/dashboard/quiz/results/:attemptId" element={withSuspense(<QuizResults />)} />
         <Route path="/dashboard/quiz/:topicId" element={withSuspense(<QuizPlayerRoute />)} />
-        <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/exam" element={withSuspense(<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/quiz" element={withSuspense(<ActiveQuizSession />)} />
+        <Route path="/dashboard/exam" element={withSuspense(<ExamMode />)} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
         <Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />
         <Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />
-        <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/progress" element={withSuspense(<ProtectedRoute><DashboardLayout><StudyProgressMastery /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/ai-tutor" element={withSuspense(<AIStudyTutor />)} />
+        <Route path="/dashboard/progress" element={withSuspense(<StudyProgressMastery />)} />
+        <Route path="/dashboard/settings" element={withSuspense(<AccountStudySettings />)} />
+        <Route path="/dashboard/lessons" element={withSuspense(<LessonMemoryNeuralBasis />)} />
         <Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />
-        <Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/podcasts" element={withSuspense(<DashboardPodcasts />)} />
         <Route path="/dashboard/kids" element={<ParkedDashboardFeature title="Kids mode" />} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
@@ -384,6 +363,7 @@ function App() {
         <Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
         <Route path="/dashboard/concept" element={<ParkedDashboardFeature title="Concept builder" />} />
         <Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
+        </Route>
 
         <Route path="/subscription" element={<Navigate to="/dashboard" replace />} />
         <Route path="/subscription/callback" element={<Navigate to="/dashboard" replace />} />

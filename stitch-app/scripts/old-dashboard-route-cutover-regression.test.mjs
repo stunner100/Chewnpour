@@ -19,6 +19,7 @@ const quizSource = await read('src/pages/ActiveQuizSession.jsx');
 const commandPaletteSource = await read('src/components/CommandPalette.jsx');
 
 for (const snippet of [
+  '<Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>',
   '<Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />',
   '<Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />',
   '<Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />',
@@ -27,12 +28,12 @@ for (const snippet of [
   'const TopicDetailRoute = () => {',
   '<Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />',
   '<Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />',
-  '<Route path="/dashboard/exam" element={withSuspense(<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>)} />',
+  '<Route path="/dashboard/exam" element={withSuspense(<ExamMode />)} />',
   '<Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />',
   '<Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />',
-  '<Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />',
+  '<Route path="/dashboard/podcasts" element={withSuspense(<DashboardPodcasts />)} />',
   '<Route path="/dashboard/assignment-helper" element={<ParkedDashboardFeature title="Assignment helper" />} />',
   '<Route path="/dashboard/humanizer" element={<ParkedDashboardFeature title="AI humanizer" />} />',
   '<Route path="/dashboard/community" element={<ParkedDashboardFeature title="Community" />} />',

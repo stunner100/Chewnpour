@@ -28,7 +28,7 @@ assert.match(
 );
 assert.match(
   app,
-  /path="\/dashboard\/podcasts" element=\{withSuspense\(<ProtectedRoute><DashboardLayout><DashboardPodcasts \/>/,
+  /path="\/dashboard\/podcasts" element=\{withSuspense\(<DashboardPodcasts \/>/,
   'Podcasts hub must be a live protected dashboard route',
 );
 assert.doesNotMatch(
