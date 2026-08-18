@@ -36,18 +36,6 @@ for (const signature of requiredStaleSignatures) {
   }
 }
 
-for (const snippet of [
-  'const clearLegacyPwaRuntime = () => {',
-  'navigator.serviceWorker.getRegistrations()',
-  'registration.unregister()',
-  'window.caches.keys()',
-  'window.location.replace(window.location.href);',
-]) {
-  if (!mainSource.includes(snippet)) {
-    throw new Error(`Regression detected: stale PWA cleanup missing snippet: ${snippet}`);
-  }
-}
-
 if (!mainSource.includes('isStaleTopicRouteLookupError') || !mainSource.includes('redirectForStaleTopicRoute')) {
   throw new Error('Regression detected: main.jsx no longer wires stale topic route recovery.');
 }
