@@ -21,6 +21,9 @@
     --sidebar-ring: 0 122 255;
     --popover: 255 255 255;
     --popover-foreground: 10 10 10;
+    --cp-mobile-tab-bar: 4rem;
+    --cp-mobile-lesson-bar: 3.5rem;
+    --cp-mobile-chrome-gap: 1.25rem;
 }
 
 .dark {
@@ -325,7 +328,10 @@ html.is-safari .safari-backdrop {
 
 /* ── Mobile Utilities ── */
 .mobile-safe-bottom {
-    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 0.75rem);
+    padding-bottom: calc(var(--cp-mobile-tab-bar) + env(safe-area-inset-bottom, 0px) + 0.75rem + var(--keyboard-inset, 0px));
+}
+.mobile-lesson-safe-bottom {
+    padding-bottom: calc(var(--cp-mobile-lesson-bar) + env(safe-area-inset-bottom, 0px) + var(--cp-mobile-chrome-gap) + var(--keyboard-inset, 0px));
 }
 .safe-area-bottom {
     padding-bottom: clamp(0px, env(safe-area-inset-bottom, 0px), 34px);

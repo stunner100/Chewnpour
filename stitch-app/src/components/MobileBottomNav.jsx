@@ -86,6 +86,7 @@ const MobileBottomNav = () => {
                        bg-surface/90 backdrop-blur-xl
                        border-t border-border-subtle"
                 aria-label="Main navigation"
+                data-cp-bottom-chrome="tabs"
             >
                 <div className="flex items-stretch min-h-16 max-w-md mx-auto px-1">
                     {primaryTabs.map((tab) => {

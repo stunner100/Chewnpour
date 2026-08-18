@@ -260,7 +260,7 @@ export const TopicLessonPanels = ({ controller }) => {
                     <div
                         role="dialog"
                         aria-label="Lesson contents"
-                        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] max-h-[70dvh] overflow-y-auto rounded-t-2xl border-t border-border-subtle bg-surface px-4 py-4 shadow-lg lg:hidden"
+                        className="fixed bottom-[calc(var(--cp-mobile-lesson-bar)+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] max-h-[70dvh] overflow-y-auto rounded-t-2xl border-t border-border-subtle bg-surface px-4 py-4 shadow-lg lg:hidden"
                     >
                         <LessonTOC toc={toc} activeId={activeSectionId} onNavigate={() => setTocOpen(false)} />
                     </div>
@@ -278,7 +278,7 @@ export const TopicLessonPanels = ({ controller }) => {
                     <div
                         role="menu"
                         aria-label="More lesson tools"
-                        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] rounded-t-2xl border-t border-border-subtle bg-surface px-3 py-3 shadow-lg lg:hidden"
+                        className="fixed bottom-[calc(var(--cp-mobile-lesson-bar)+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] rounded-t-2xl border-t border-border-subtle bg-surface px-3 py-3 shadow-lg lg:hidden"
                     >
                         {mobileActionItems.slice(3).concat(studyToolSecondary).map((tool) => (
                             <button
@@ -302,7 +302,7 @@ export const TopicLessonPanels = ({ controller }) => {
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="btn-icon fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-4 z-30 size-10 border border-border-subtle bg-surface shadow-sm md:bottom-6"
+                    className="btn-icon fixed bottom-[calc(var(--cp-mobile-lesson-bar)+env(safe-area-inset-bottom)+0.75rem+var(--keyboard-inset,0px))] left-4 z-30 size-10 border border-border-subtle bg-surface shadow-sm md:bottom-6"
                     aria-label="Scroll to top"
                 >
                     <AppIcon name="arrow_upward" className="text-[18px]" />
@@ -537,7 +537,7 @@ export const TopicLessonShell = ({ controller }) => {
     const toc = Array.isArray(parsed?.toc) ? parsed.toc : [];
 
     return (
-        <div className="min-h-[calc(100dvh-4rem)] bg-background-light pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-text-primary lg:pb-0">
+        <div className="min-h-[calc(100dvh-4rem)] bg-background-light mobile-lesson-safe-bottom text-text-primary lg:!pb-0">
             <div className="mx-auto grid w-full max-w-[1320px] grid-cols-1 gap-6 px-4 py-6 md:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8 lg:px-8 lg:py-8">
                 <div className="min-w-0 space-y-5">
                     <TopicLessonBreadcrumbs

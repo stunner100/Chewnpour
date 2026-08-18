@@ -27,12 +27,17 @@ assert.equal(
 
 assert.match(
   css,
-  /padding-bottom: calc\(4rem \+ env\(safe-area-inset-bottom, 0px\) \+ 0\.75rem\)/,
-  'Dashboard main padding must clear the tab bar plus inset',
+  /padding-bottom: calc\(var\(--cp-mobile-tab-bar\) \+ env\(safe-area-inset-bottom, 0px\) \+ 0\.75rem \+ var\(--keyboard-inset, 0px\)\)/,
+  'Dashboard bottom padding token must clear the tab bar, inset, and visual viewport chrome',
 );
 assert.match(
   layout,
-  /max-md:!bottom-\[calc\(4rem\+env\(safe-area-inset-bottom,0px\)\+0\.75rem\)\]/,
+  /data-cp-tab-bar-spacer/,
+  'Dashboard must reserve an in-flow spacer so first-paint content is not under the tab bar',
+);
+assert.match(
+  layout,
+  /max-md:!bottom-\[calc\(var\(--cp-mobile-tab-bar\)\+env\(safe-area-inset-bottom,0px\)\+0\.75rem\+var\(--keyboard-inset,0px\)\)\]/,
   'Toasts must sit above the tab bar on mobile',
 );
 

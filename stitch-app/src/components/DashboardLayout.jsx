@@ -124,6 +124,7 @@ const DashboardLayoutShell = ({ children }) => {
     const { immersive } = useMobileChrome();
     const isDarkMode = themeMode === DARK_THEME;
     const hideMobileBottomNav = immersive || /^\/dashboard\/(?:quiz\/(?!results\/)|topic\/)[^/]+/.test(routerLocation.pathname);
+    const hideAppHeader = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
     useKeyboardInset();
 
     useEffect(() => {
@@ -188,6 +189,7 @@ const DashboardLayoutShell = ({ children }) => {
         <SidebarProvider className="dashboard-shell cp-theme text-text-primary">
             <AppSidebar />
             <SidebarInset>
+                {!hideAppHeader && (
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">
                     <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:px-4">
                         <SidebarTrigger className="-ml-1 hidden min-h-11 min-w-11 md:inline-flex" />
@@ -263,10 +265,11 @@ const DashboardLayoutShell = ({ children }) => {
                         </Link>
                     </div>
                 </header>
+                )}
 
                 <main
                     id="dashboard-main"
-                    className={`flex flex-1 flex-col overflow-y-auto overflow-x-clip ${hideMobileBottomNav ? '' : 'mobile-safe-bottom md:!pb-0'}`}
+                    className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip"
                 >
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
                         <BlurFade duration={0.35} yOffset={0} blur="0px">
@@ -274,11 +277,19 @@ const DashboardLayoutShell = ({ children }) => {
                         </BlurFade>
                     </DashboardContentErrorBoundary>
                 </main>
+                {!hideMobileBottomNav && (
+                    <div
+                        className="pointer-events-none shrink-0 md:hidden"
+                        style={{ height: 'calc(var(--cp-mobile-tab-bar) + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px))' }}
+                        aria-hidden="true"
+                        data-cp-tab-bar-spacer="true"
+                    />
+                )}
             </SidebarInset>
 
             <WatermelonToaster
                 position="bottom-center"
-                className={hideMobileBottomNav ? undefined : 'max-md:!bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+0.75rem)]'}
+                className={hideMobileBottomNav ? undefined : 'max-md:!bottom-[calc(var(--cp-mobile-tab-bar)+env(safe-area-inset-bottom,0px)+0.75rem+var(--keyboard-inset,0px))]'}
             />
             <CommandPalette />
             {!hideMobileBottomNav && <MobileBottomNav />}

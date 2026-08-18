@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AppIcon from './AppIcon';
+import { getBottomChromeLimit } from '../lib/bottomChrome';
 
 const PRIMARY_ACTIONS = [
     { key: 'explain', label: 'Explain', icon: 'lightbulb', busy: 'Explaining' },
@@ -138,9 +139,12 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         const centerX = left + width / 2;
         const gap = 8;
         const popoverHeight = popoverRef.current.getBoundingClientRect().height || 44;
-        const above = bottom + gap + popoverHeight > window.innerHeight - 16 && top - gap - popoverHeight > 16;
+        const chromeLimit = getBottomChromeLimit() - gap;
+        const above = bottom + gap + popoverHeight > chromeLimit && top - gap - popoverHeight > 16;
         const nextLeft = Math.max(16, Math.min(centerX, window.innerWidth - 16));
-        const nextTop = above ? top - gap : bottom + gap;
+        const nextTop = above
+            ? top - gap
+            : Math.min(bottom + gap, Math.max(16, chromeLimit - popoverHeight));
         setPlacement((current) => {
             if (
                 current.ready
@@ -163,9 +167,13 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         const onResize = () => updatePlacement();
         window.addEventListener('resize', onResize);
         window.addEventListener('scroll', onResize, true);
+        window.visualViewport?.addEventListener('resize', onResize);
+        window.visualViewport?.addEventListener('scroll', onResize);
         return () => {
             window.removeEventListener('resize', onResize);
             window.removeEventListener('scroll', onResize, true);
+            window.visualViewport?.removeEventListener('resize', onResize);
+            window.visualViewport?.removeEventListener('scroll', onResize);
         };
     }, [selection, updatePlacement]);
 
