@@ -138,6 +138,9 @@ export default defineConfig(({ mode }) => {
           // install stays small; it loads from the network when online.
           globPatterns: ['**/*.{js,css,html,svg,woff2,ico}'],
           navigateFallback: 'index.html',
+          // Google OAuth returns as a document navigation to /api/auth/callback/*.
+          // Without this denylist, Workbox serves index.html and the SPA 404s.
+          navigateFallbackDenylist: [/^\/api\//, /^\/ingest\//, /^\/eve\//],
           cleanupOutdatedCaches: true,
         },
       }),

@@ -4,48 +4,19 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [mainSource, viteConfigSource, swSource, vercelSource] = await Promise.all([
-  read('src/main.jsx'),
+const [viteConfigSource, vercelSource] = await Promise.all([
   read('vite.config.js'),
-  read('public/sw.js'),
   read('vercel.json'),
 ]);
 
-if (mainSource.includes('registerSW(') || mainSource.includes("from 'virtual:pwa-register'")) {
-  throw new Error('Regression detected: src/main.jsx still registers a production service worker.');
+if (!viteConfigSource.includes('VitePWA(') || !viteConfigSource.includes("from 'vite-plugin-pwa'")) {
+  throw new Error('Expected vite.config.js to keep vite-plugin-pwa for installability.');
 }
 
-for (const snippet of [
-  'const clearLegacyPwaRuntime = () => {',
-  'navigator.serviceWorker.getRegistrations()',
-  'registration.unregister()',
-  'window.caches.keys()',
-  'const clearedStaleRuntime = results.some',
-  "result.value === true",
-  'window.location.replace(window.location.href);',
-  'removeManifestLink()',
-]) {
-  if (!mainSource.includes(snippet)) {
-    throw new Error(`Regression detected: main.jsx missing legacy PWA cleanup snippet: ${snippet}`);
-  }
-}
-
-if (viteConfigSource.includes('VitePWA(') || viteConfigSource.includes("from 'vite-plugin-pwa'")) {
-  throw new Error('Regression detected: vite.config.js still enables vite-plugin-pwa.');
-}
-
-for (const snippet of [
-  "self.addEventListener('install'",
-  'self.skipWaiting()',
-  "self.addEventListener('activate'",
-  'self.clients.claim()',
-  'self.registration.unregister()',
-  'clients.matchAll',
-  'client.navigate(client.url)',
-]) {
-  if (!swSource.includes(snippet)) {
-    throw new Error(`Regression detected: public/sw.js missing cleanup snippet: ${snippet}`);
-  }
+if (!/navigateFallbackDenylist:\s*\[/.test(viteConfigSource) || !viteConfigSource.includes('/^\\/api\\//')) {
+  throw new Error(
+    'Expected workbox.navigateFallbackDenylist to exclude /api/ so OAuth callbacks are not served as index.html.',
+  );
 }
 
 for (const snippet of [
