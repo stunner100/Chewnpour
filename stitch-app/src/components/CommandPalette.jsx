@@ -189,11 +189,11 @@ export const CommandPalette = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -10 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="fixed z-[201] top-[20%] left-1/2 -translate-x-1/2 w-[90vw] max-w-lg"
+                        className="fixed z-[201] inset-x-0 bottom-0 mx-auto w-full max-w-lg md:top-[20%] md:bottom-auto md:left-1/2 md:w-[90vw] md:-translate-x-1/2"
                         role="dialog"
                         aria-label="Command palette"
                     >
-                        <div className="rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-elevated overflow-hidden">
+                        <div className="overflow-hidden rounded-t-2xl border border-border-subtle bg-surface-light shadow-elevated dark:border-border-subtle-dark dark:bg-surface-dark md:rounded-2xl">
                             <div className="flex items-center gap-3 px-4 border-b border-border-subtle dark:border-border-subtle-dark">
                                 <AppIcon name="search" className="text-[20px] text-text-faint-light dark:text-text-faint-dark" />
                                 <input

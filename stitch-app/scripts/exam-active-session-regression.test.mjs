@@ -5,43 +5,23 @@ import process from 'node:process';
 const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [
-    examModeSource,
-    useExamAttemptSource,
-    examActiveSessionSource,
-    examGradingOverlaySource,
-    examModeStateSource,
-] = await Promise.all([
-    read('src/pages/ExamMode.jsx'),
-    read('src/hooks/useExamAttempt.js'),
-    read('src/components/ExamActiveSession.jsx'),
-    read('src/components/ExamGradingOverlay.jsx'),
-    read('src/lib/examModeState.js'),
-]);
+const examModeSource = await read('src/pages/ExamMode.jsx');
+const examActiveSessionSource = await read('src/components/ExamActiveSession.jsx');
 
-const examModeLines = examModeSource.split('\n').length;
-if (examModeLines > 500) {
-    throw new Error(`Expected ExamMode.jsx to stay under 500 lines, got ${examModeLines}.`);
+if (examModeSource.includes("from '../components/ExamActiveSession'")) {
+    throw new Error('ExamMode must not import unused ExamActiveSession chrome.');
 }
 
-for (const [label, source, snippet] of [
-    ['ExamMode', examModeSource, 'useExamAttempt'],
-    ['ExamMode', examModeSource, 'ExamActiveSession'],
-    ['ExamMode', examModeSource, 'ExamGradingOverlay'],
-    ['ExamMode', examModeSource, 'examModeReducer'],
-    ['useExamAttempt', useExamAttemptSource, 'beginExamAttempt'],
-    ['useExamAttempt', useExamAttemptSource, 'handleSubmit'],
-    ['ExamActiveSession', examActiveSessionSource, 'ExamQuestionCard'],
-    ['ExamGradingOverlay', examGradingOverlaySource, 'Grading Your Answers'],
-    ['examModeState', examModeStateSource, 'preparationSucceeded'],
+for (const snippet of [
+    'sticky top-0',
+    'sticky bottom-0',
+    'to="/dashboard/exam"',
+    'min-h-11',
+    'setImmersiveMobile',
 ]) {
-    if (!source.includes(snippet)) {
-        throw new Error(`Expected ${label} to include "${snippet}".`);
+    if (!examModeSource.includes(snippet)) {
+        throw new Error(`Expected ExamMode live chrome to include "${snippet}".`);
     }
-}
-
-if (examModeSource.includes('const examModeReducer =')) {
-    throw new Error('ExamMode should not define examModeReducer inline.');
 }
 
 if (examActiveSessionSource.includes('useExamTimer')) {

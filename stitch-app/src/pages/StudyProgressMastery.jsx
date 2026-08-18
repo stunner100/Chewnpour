@@ -24,7 +24,7 @@ const buildCourseProgressItems = (courses) => {
 };
 
 const ProgressSkeleton = () => (
-    <div className="min-h-[calc(100vh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
         <div className="mx-auto max-w-6xl space-y-6">
             <div className="h-20 rounded-[20px] bg-surface-soft" />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -114,7 +114,7 @@ const StudyProgressMastery = () => {
     if (loading) return <ProgressSkeleton />;
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
             <div className="mx-auto max-w-6xl">
                 <header>
                     <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">

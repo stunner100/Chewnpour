@@ -247,6 +247,30 @@ export const getExamAttemptForUser = async (userId, examId) => {
     return payload;
 };
 
+export const saveExamAnswers = async ({ userId, examId, answers = {} }) => {
+    const db = getPool();
+    const payload =
+        answers && typeof answers === "object" && !Array.isArray(answers)
+            ? answers
+            : {};
+    const result = await db.query(
+        `UPDATE exam_attempts
+         SET answers = $3::jsonb, updated_at = NOW()
+         WHERE id = $1
+           AND user_id = $2
+           AND status = 'in_progress'
+           AND ends_at > NOW()
+         RETURNING id`,
+        [examId, userId, JSON.stringify(payload)],
+    );
+    if (!result.rows[0]?.id) {
+        const error = new Error("Exam not found or no longer in progress");
+        error.status = 404;
+        throw error;
+    }
+    return { saved: true, examId };
+};
+
 export const submitExamAttempt = async ({ userId, examId, answers = {} }) => {
     const db = getPool();
     const attemptResult = await db.query(

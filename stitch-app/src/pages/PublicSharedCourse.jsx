@@ -89,7 +89,7 @@ const PublicSharedCourse = () => {
                                     key={entry.id || entry.title}
                                     type="button"
                                     onClick={() => setActiveTopicIndex(index)}
-                                    className={`rounded-full px-3 py-1.5 text-sm ${
+                                    className={`min-h-11 rounded-full px-3 py-2.5 text-sm ${
                                         index === activeTopicIndex
                                             ? 'bg-[#111] text-white'
                                             : 'bg-white text-[#3A3A3C] border border-[#E5E5EA]'
