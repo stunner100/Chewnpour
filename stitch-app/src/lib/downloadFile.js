@@ -15,14 +15,34 @@ export const parseFilenameFromContentDisposition = (header, fallback = "download
     return fallback;
 };
 
-export const triggerBrowserDownload = (blob, filename) => {
+export const triggerBrowserDownload = async (blob, filename) => {
     if (typeof document === "undefined") return;
+    const safeName = filename || "download.zip";
+    const file = typeof File === "function"
+        ? new File([blob], safeName, { type: blob.type || "application/octet-stream" })
+        : null;
+    const canShareFiles = Boolean(
+        file
+        && typeof navigator !== "undefined"
+        && typeof navigator.canShare === "function"
+        && typeof navigator.share === "function"
+        && navigator.canShare({ files: [file] }),
+    );
+    if (canShareFiles) {
+        try {
+            await navigator.share({ files: [file], title: safeName });
+            return;
+        } catch (error) {
+            if (error?.name === "AbortError") return;
+        }
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = filename || "download.zip";
+    link.download = safeName;
     document.body.appendChild(link);
     link.click();
+    window.open(url, "_blank", "noopener,noreferrer");
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
 };
@@ -41,6 +61,6 @@ export const downloadAuthenticatedFile = async (url, fallbackName) => {
         response.headers.get("Content-Disposition"),
         fallbackName,
     );
-    triggerBrowserDownload(blob, filename);
+    await triggerBrowserDownload(blob, filename);
     return filename;
 };
