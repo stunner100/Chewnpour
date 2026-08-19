@@ -272,7 +272,7 @@ const DashboardLayoutShell = ({ children }) => {
                     className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip"
                 >
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
-                        <BlurFade duration={0.35} yOffset={0} blur="0px">
+                        <BlurFade className="min-w-0 w-full" duration={0.35} yOffset={0} blur="0px">
                             {children}
                         </BlurFade>
                     </DashboardContentErrorBoundary>
