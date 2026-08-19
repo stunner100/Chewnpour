@@ -105,8 +105,8 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
-        injectRegister: 'auto',
+        registerType: 'prompt',
+        injectRegister: false,
         manifest: {
           name: 'ChewnPour',
           short_name: 'ChewnPour',
