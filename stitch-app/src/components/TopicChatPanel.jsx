@@ -9,7 +9,7 @@ import AppIcon from './AppIcon';
 
 const EXIT_ANIMATION_MS = 250;
 
-const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose, initialPrompt }) {
+const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, courseId, open, onClose, initialPrompt }) {
     const { profile, updateProfile } = useAuth();
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
@@ -241,6 +241,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     key={`${topicId}:${selectedPersona}`}
                     topicId={topicId}
                     topicTitle={topicTitle}
+                    courseId={courseId}
                     persona={selectedPersona}
                     compact
                     initialPrompt={open ? (initialPrompt || '') : ''}

@@ -108,11 +108,21 @@ requireIncludesIn(surfaceSource, 'await (onSuggestedPrompt || onSubmit)(question
 requireIncludesIn(source, 'suggestedPrompts={suggestedPrompts}', 'dedicated tutor welcome must show prompt chips');
 requireIncludesIn(workerSource, 'showComposerSuggestions && messageList.length > 0 ? suggestedPrompts : []', 'dedicated tutor composer chips only after the first turn');
 requireIncludesIn(surfaceSource, 'void Promise.resolve(onSubmit(question))', 'composer must clear before the tutor stream finishes');
+requireIncludesIn(surfaceSource, 'controller.textInput.clear()', 'explicit send path must clear the draft immediately');
 requireExcludesIn(surfaceSource, 'await onSubmit(question)', 'composer must not hold the draft until the tutor turn completes');
 requireIncludesIn(surfaceSource, 'align="inline-end"', 'send control must sit in the same row as the draft');
+requireIncludesIn(surfaceSource, 'type="button"', 'tutor send must not rely on native form submit');
+requireIncludesIn(surfaceSource, 'submitText(event.currentTarget.value)', 'Enter must send the textarea DOM value');
+requireIncludesIn(surfaceSource, 'readComposerDraft(controller, event.currentTarget)', 'send button must read the visible draft');
+requireIncludesIn(surfaceSource, '[content-visibility:visible]', 'tutor rows must paint even when the scroller uses content-visibility');
+requireIncludesIn(workerSource, 'mergePendingTutorMessages', 'local pending user bubbles until eve echoes them');
+requireIncludesIn(sessionSource, 'export const mergePendingTutorMessages', 'pending user messages merge helper');
+requireIncludesIn(topicPanelSource, 'courseId={courseId}', 'lesson tutor must pass the course id to the study worker');
 requireExcludesIn(surfaceSource, "paddingBottom: 'calc(1rem + var(--keyboard-inset, 0px))'", 'composer must not double-count the keyboard inset already applied by the panel');
 requireIncludesIn(topicPanelSource, 'disclaimer="Enter to send · Shift+Enter for new line"', 'lesson tutor still documents Enter-to-send');
 requireIncludesIn(promptInputSource, 'enterKeyHint = "send"', 'mobile keyboards must expose a Send action');
+requireIncludesIn(promptInputSource, 'e.currentTarget.form || e.currentTarget.closest("form")', 'Enter must find the composer form even when textarea.form is missing');
+requireIncludesIn(promptInputSource, 'controller.textInput.value || nativeText', 'submit must fall back to the textarea DOM value');
 requireExcludesIn(promptInputSource, 'max-width: 768px', 'Enter must send on mobile viewports, not only the send button');
 requireIncludesIn(promptInputSource, 'Chat composers send on Enter on every viewport', 'Enter-to-send must stay viewport-agnostic');
 

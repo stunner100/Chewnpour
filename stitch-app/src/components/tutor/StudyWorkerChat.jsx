@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEveAgent } from 'eve/react';
 import { TutorChatComposer, TutorChatMessages } from '@/components/tutor/TutorChatSurface';
 import { TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
@@ -6,9 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
     clearStudyWorkerSession,
     loadStudyWorkerSession,
+    mergePendingTutorMessages,
     pendingInputRequestsFromEve,
     saveStudyWorkerSession,
-    tutorMessagesFromEve,
 } from '@/lib/studyWorkerSession';
 import { getEveHost, getStudyWorkerToken } from '@/lib/studyWorkerToken';
 
@@ -43,6 +43,8 @@ export default function StudyWorkerChat({
 }) {
     const { user } = useAuth();
     const [error, setError] = useState('');
+    const [pendingUserMessages, setPendingUserMessages] = useState([]);
+    const sendLockRef = useRef(false);
     const saved = useMemo(
         () => loadStudyWorkerSession(user?.id, topicId),
         [topicId, user?.id],
@@ -81,21 +83,50 @@ export default function StudyWorkerChat({
         () => agent.data?.messages || [],
         [agent.data?.messages],
     );
-    const messageList = useMemo(() => tutorMessagesFromEve(eveMessages), [eveMessages]);
+    const messageList = useMemo(
+        () => mergePendingTutorMessages(eveMessages, pendingUserMessages),
+        [eveMessages, pendingUserMessages],
+    );
     const pendingRequests = useMemo(
         () => pendingInputRequestsFromEve(eveMessages),
         [eveMessages],
     );
 
+    useEffect(() => {
+        const confirmed = new Set(
+            mergePendingTutorMessages(eveMessages, [])
+                .filter((message) => message.role === 'user')
+                .map((message) => message.content),
+        );
+        setPendingUserMessages((prev) => {
+            if (prev.length === 0) return prev;
+            const next = prev.filter((message) => !confirmed.has(message.content));
+            return next.length === prev.length ? prev : next;
+        });
+    }, [eveMessages]);
+
     const handleSend = useCallback(async (questionInput) => {
         const question = String(questionInput || '').trim();
-        if (!question || isBusy || !topicId) return;
+        if (!question) return;
+        if (!topicId) {
+            setError('This lesson is not ready for chat yet.');
+            return;
+        }
+        if (isBusy || sendLockRef.current) return;
+        sendLockRef.current = true;
+        const pendingId = `pending-${Date.now()}`;
+        setPendingUserMessages((prev) => [
+            ...prev,
+            { id: pendingId, _id: pendingId, role: 'user', content: question },
+        ]);
         setError('');
         try {
             await agent.send(question);
         } catch (err) {
             setError(toFriendlyError(err));
             throw err;
+        } finally {
+            sendLockRef.current = false;
         }
     }, [agent, isBusy, topicId]);
 
@@ -110,6 +141,7 @@ export default function StudyWorkerChat({
 
     const handleClear = useCallback(async () => {
         clearStudyWorkerSession(user?.id, topicId);
+        setPendingUserMessages([]);
         agent.reset();
         setError('');
     }, [agent, topicId, user?.id]);
@@ -129,6 +161,7 @@ export default function StudyWorkerChat({
                 className="min-h-0 flex-1 overflow-hidden"
                 messages={messageList}
                 isTyping={isBusy}
+                error={error}
                 emptyState={
                     showWelcome ? (
                         <TutorWelcomeMessage
