@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useReducer, useRef } from 'react';
+import React, { useEffect, useReducer, useRef } from 'react';
 import AppIcon from '../AppIcon';
+
+const SKIP_SECONDS = 15;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -9,39 +11,6 @@ const formatTime = (seconds) => {
     const minutes = Math.floor(total / 60);
     const remainingSeconds = total % 60;
     return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
-};
-
-const hashSeed = (value) => {
-    const text = String(value || 'chewnpour-podcast');
-    let hash = 2166136261;
-    for (let i = 0; i < text.length; i += 1) {
-        hash ^= text.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-};
-
-const seededRandom = (seed) => {
-    let state = seed || 1;
-    return () => {
-        state = (state * 1664525 + 1013904223) >>> 0;
-        return state / 4294967296;
-    };
-};
-
-const buildWaveform = (seedValue, barCount = 84) => {
-    const random = seededRandom(hashSeed(seedValue));
-    return Array.from({ length: barCount }, (_, index) => {
-        const position = index / Math.max(1, barCount - 1);
-        const phraseEnvelope = 0.55 + Math.sin(position * Math.PI * 5.5) * 0.18;
-        const breath = Math.sin(position * Math.PI * 17) * 0.08;
-        const noise = random() * 0.36;
-        return {
-            id: `waveform-bar-${String(index).padStart(2, '0')}`,
-            level: clamp(0.18 + phraseEnvelope * 0.42 + breath + noise, 0.18, 1),
-            position,
-        };
-    });
 };
 
 const createInitialPlayerState = (durationSeconds) => ({
@@ -75,6 +44,9 @@ const playerReducer = (state, action) => {
     }
 };
 
+const controlButtonClass =
+    'inline-flex min-h-11 min-w-11 shrink-0 select-none items-center justify-center rounded-full text-text-secondary outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-soft disabled:cursor-not-allowed disabled:opacity-50 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-surface-soft [@media(hover:hover)_and_(pointer:fine)]:hover:text-text-primary';
+
 const PodcastWaveformPlayer = ({
     audioUrl,
     title,
@@ -92,12 +64,9 @@ const PodcastWaveformPlayer = ({
         createInitialPlayerState,
     );
 
-    const waveform = useMemo(
-        () => buildWaveform(`${audioUrl || ''}:${title || ''}`),
-        [audioUrl, title],
-    );
     const effectiveDuration = duration > 0 ? duration : Number(durationSeconds) || 0;
     const progress = effectiveDuration > 0 ? clamp(currentTime / effectiveDuration, 0, 1) : 0;
+    const timeLabel = `${formatTime(currentTime)} of ${formatTime(effectiveDuration)}`;
 
     useEffect(() => {
         dispatchPlayer({ type: 'reset', durationSeconds });
@@ -126,10 +95,10 @@ const PodcastWaveformPlayer = ({
             audio?.pause();
         });
         navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-            seekBy(-(details?.seekOffset || 10));
+            seekBy(-(details?.seekOffset || SKIP_SECONDS));
         });
         navigator.mediaSession.setActionHandler('seekforward', (details) => {
-            seekBy(details?.seekOffset || 10);
+            seekBy(details?.seekOffset || SKIP_SECONDS);
         });
         navigator.mediaSession.setActionHandler('seekto', (details) => {
             if (!audio || details?.seekTime == null) return;
@@ -158,6 +127,11 @@ const PodcastWaveformPlayer = ({
         dispatchPlayer({ type: 'seek', currentTime: nextTime });
     };
 
+    const seekBySeconds = (offsetSeconds) => {
+        if (effectiveDuration <= 0) return;
+        seekToRatio((currentTime + offsetSeconds) / effectiveDuration);
+    };
+
     const seekFromClientX = (clientX) => {
         const node = scrubberRef.current;
         if (!node) return;
@@ -183,7 +157,7 @@ const PodcastWaveformPlayer = ({
 
     const handleKeyDown = (event) => {
         if (effectiveDuration <= 0) return;
-        const step = event.shiftKey ? 15 : 5;
+        const step = event.shiftKey ? SKIP_SECONDS : 5;
         if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
             event.preventDefault();
             seekToRatio((currentTime + step) / effectiveDuration);
@@ -221,109 +195,107 @@ const PodcastWaveformPlayer = ({
     };
 
     return (
-        <div className={`relative overflow-hidden rounded-2xl border border-white/10 bg-[#130d24] text-white shadow-soft ${className}`}>
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.32),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_45%)]" />
-            <div className="relative p-4 md:p-5">
-                <audio
-                    ref={audioRef}
-                    src={audioUrl}
-                    preload="metadata"
-                    playsInline
-                    webkit-playsinline="true"
-                    onLoadedMetadata={(event) => {
-                        const nextDuration = Number(event.currentTarget.duration);
-                        if (Number.isFinite(nextDuration) && nextDuration > 0) {
-                            dispatchPlayer({ type: 'duration', value: nextDuration });
-                        }
-                    }}
-                    onTimeUpdate={(event) => dispatchPlayer({ type: 'seek', currentTime: event.currentTarget.currentTime || 0 })}
-                    onWaiting={() => dispatchPlayer({ type: 'buffering', value: true })}
-                    onCanPlay={() => dispatchPlayer({ type: 'buffering', value: false })}
-                    onPlay={() => dispatchPlayer({ type: 'playback', playing: true })}
-                    onPause={() => dispatchPlayer({ type: 'playback', playing: false })}
-                    onEnded={() => {
-                        dispatchPlayer({ type: 'ended', currentTime: effectiveDuration || 0 });
-                    }}
+        <div className={`min-w-0 ${className}`.trim()}>
+            <audio
+                ref={audioRef}
+                src={audioUrl}
+                preload="metadata"
+                playsInline
+                webkit-playsinline="true"
+                onLoadedMetadata={(event) => {
+                    const nextDuration = Number(event.currentTarget.duration);
+                    if (Number.isFinite(nextDuration) && nextDuration > 0) {
+                        dispatchPlayer({ type: 'duration', value: nextDuration });
+                    }
+                }}
+                onTimeUpdate={(event) => dispatchPlayer({ type: 'seek', currentTime: event.currentTarget.currentTime || 0 })}
+                onWaiting={() => dispatchPlayer({ type: 'buffering', value: true })}
+                onCanPlay={() => dispatchPlayer({ type: 'buffering', value: false })}
+                onPlay={() => dispatchPlayer({ type: 'playback', playing: true })}
+                onPause={() => dispatchPlayer({ type: 'playback', playing: false })}
+                onEnded={() => {
+                    dispatchPlayer({ type: 'ended', currentTime: effectiveDuration || 0 });
+                }}
+            />
+
+            <div className="flex items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => seekBySeconds(-SKIP_SECONDS)}
+                    disabled={!audioUrl || effectiveDuration <= 0}
+                    className={controlButtonClass}
+                    aria-label={`Back ${SKIP_SECONDS} seconds`}
                 >
-                    <track kind="captions" />
-                </audio>
+                    <AppIcon name="skip_previous" size={24} aria-hidden="true" />
+                </button>
 
-                <div className="flex items-center gap-4">
-                    <button
-                        type="button"
-                        onClick={togglePlayback}
-                        disabled={!audioUrl}
-                        className="group inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[#22143d] shadow-lg transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                        aria-label={playing ? 'Pause podcast' : 'Play podcast'}
+                <button
+                    type="button"
+                    onClick={togglePlayback}
+                    disabled={!audioUrl}
+                    className="inline-flex size-12 shrink-0 select-none items-center justify-center rounded-full bg-cta text-cta-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-soft focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-cta-hover"
+                    aria-label={playing ? 'Pause podcast' : 'Play podcast'}
+                >
+                    <AppIcon
+                        name={buffering ? 'hourglass_top' : playing ? 'pause' : 'play_arrow'}
+                        size={28}
+                        fill={buffering ? 'none' : 'currentColor'}
+                        strokeWidth={buffering ? 2 : 2.25}
+                        aria-hidden="true"
+                    />
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => seekBySeconds(SKIP_SECONDS)}
+                    disabled={!audioUrl || effectiveDuration <= 0}
+                    className={controlButtonClass}
+                    aria-label={`Forward ${SKIP_SECONDS} seconds`}
+                >
+                    <AppIcon name="skip_next" size={24} aria-hidden="true" />
+                </button>
+
+                <div className="min-w-0 flex-1">
+                    <div
+                        ref={scrubberRef}
+                        role="slider"
+                        tabIndex={0}
+                        aria-label="Podcast progress"
+                        aria-valuemin={0}
+                        aria-valuemax={Math.max(0, Math.round(effectiveDuration))}
+                        aria-valuenow={Math.max(0, Math.round(currentTime))}
+                        aria-valuetext={timeLabel}
+                        className="relative h-11 cursor-pointer touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerUp}
+                        onKeyDown={handleKeyDown}
                     >
-                        <AppIcon name={buffering ? 'hourglass_top' : playing ? 'pause' : 'play_arrow'} className="text-[30px]" />
-                    </button>
-
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                                {title && (
-                                    <p className="truncate text-body-sm font-semibold text-white">
-                                        {title}
-                                    </p>
-                                )}
-                                {subtitle && (
-                                    <p className="truncate text-caption text-white/55">
-                                        {subtitle}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="shrink-0 text-caption font-semibold tabular-nums text-white/70">
-                                {formatTime(currentTime)} / {formatTime(effectiveDuration)}
-                            </div>
-                        </div>
-
-                        <div
-                            ref={scrubberRef}
-                            role="slider"
-                            tabIndex={0}
-                            aria-label="Podcast progress"
-                            aria-valuemin={0}
-                            aria-valuemax={Math.max(0, Math.round(effectiveDuration))}
-                            aria-valuenow={Math.max(0, Math.round(currentTime))}
-                            className="group relative mt-3 h-16 cursor-pointer touch-none select-none rounded-2xl border border-white/10 bg-white/[0.06] p-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/70"
-                            onPointerDown={handlePointerDown}
-                            onPointerMove={handlePointerMove}
-                            onPointerUp={handlePointerUp}
-                            onPointerCancel={handlePointerUp}
-                            onKeyDown={handleKeyDown}
-                        >
-                            <div className="flex h-full items-center gap-[3px]">
-                                {waveform.map(({ id, level, position }) => {
-                                    const active = position <= progress;
-                                    return (
-                                        <span
-                                            key={id}
-                                            className={`flex-1 rounded-full transition-colors duration-150 ${
-                                                active
-                                                    ? 'bg-gradient-to-t from-[#8B5CF6] to-[#34D399]'
-                                                    : 'bg-white/20 group-hover:bg-white/28'
-                                            }`}
-                                            style={{ height: `${Math.round(12 + level * 34)}px` }}
-                                        />
-                                    );
-                                })}
-                            </div>
-                            <span
-                                className="pointer-events-none absolute top-2 h-[calc(100%-1rem)] w-1 rounded-full bg-white shadow-[0_0_24px_rgba(139,92,246,0.9)] transition-[left]"
-                                style={{ left: `calc(${progress * 100}% - 2px)` }}
-                                aria-hidden="true"
+                        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-surface-muted dark:bg-surface-variant">
+                            <div
+                                className="h-full rounded-full bg-primary"
+                                style={{ width: `${progress * 100}%` }}
                             />
                         </div>
+                        <span
+                            className="pointer-events-none absolute top-1/2 size-3.5 -translate-y-1/2 rounded-full bg-primary"
+                            style={{ left: `calc(${progress * 100}% - 7px)` }}
+                            aria-hidden="true"
+                        />
+                    </div>
+                    <div className="flex items-center justify-between text-caption font-semibold tabular-nums text-text-secondary">
+                        <span>{formatTime(currentTime)}</span>
+                        <span>{formatTime(effectiveDuration)}</span>
                     </div>
                 </div>
-
-                {error && (
-                    <div className="mt-3 rounded-xl border border-red-300/30 bg-red-500/15 px-3 py-2 text-body-sm text-red-100">
-                        {error}
-                    </div>
-                )}
             </div>
+
+            {error && (
+                <div className="mt-3 rounded-xl border border-error/30 bg-error-soft px-3 py-2 text-body-sm text-error" role="alert">
+                    {error}
+                </div>
+            )}
         </div>
     );
 };
