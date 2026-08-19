@@ -12,6 +12,7 @@ const messageRowSource = await fs.readFile(path.join(root, 'src/components/tutor
 const tutorAvatarSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorAvatar.jsx'), 'utf8');
 const peepsSpriteSource = await fs.readFile(path.join(root, 'src/lib/peepsSprite.js'), 'utf8');
 const typingIndicatorSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorTypingIndicator.jsx'), 'utf8');
+const promptInputSource = await fs.readFile(path.join(root, 'src/components/ai-elements/prompt-input.jsx'), 'utf8');
 const combinedSource = `${source}\n${surfaceSource}\n${workerSource}\n${sessionSource}\n${topicPanelSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
 
 const requireIncludes = (snippet, label) => {
@@ -106,5 +107,13 @@ requireIncludesIn(messageRowSource, 'await onSuggestedPrompt?.(question)', 'welc
 requireIncludesIn(surfaceSource, 'await (onSuggestedPrompt || onSubmit)(question)', 'composer chips must reuse the submit path');
 requireIncludesIn(source, 'suggestedPrompts={suggestedPrompts}', 'dedicated tutor welcome must show prompt chips');
 requireIncludesIn(workerSource, 'showComposerSuggestions && messageList.length > 0 ? suggestedPrompts : []', 'dedicated tutor composer chips only after the first turn');
+requireIncludesIn(surfaceSource, 'void Promise.resolve(onSubmit(question))', 'composer must clear before the tutor stream finishes');
+requireExcludesIn(surfaceSource, 'await onSubmit(question)', 'composer must not hold the draft until the tutor turn completes');
+requireIncludesIn(surfaceSource, 'align="inline-end"', 'send control must sit in the same row as the draft');
+requireExcludesIn(surfaceSource, "paddingBottom: 'calc(1rem + var(--keyboard-inset, 0px))'", 'composer must not double-count the keyboard inset already applied by the panel');
+requireIncludesIn(topicPanelSource, 'disclaimer="Enter to send · Shift+Enter for new line"', 'lesson tutor still documents Enter-to-send');
+requireIncludesIn(promptInputSource, 'enterKeyHint = "send"', 'mobile keyboards must expose a Send action');
+requireExcludesIn(promptInputSource, 'max-width: 768px', 'Enter must send on mobile viewports, not only the send button');
+requireIncludesIn(promptInputSource, 'Chat composers send on Enter on every viewport', 'Enter-to-send must stay viewport-agnostic');
 
 console.log('ai-tutor-chat-ux-regression.test.mjs passed');
