@@ -788,6 +788,7 @@ export const PromptInputTextarea = ({
   onKeyDown,
   className,
   placeholder = "What would you like to know?",
+  enterKeyHint = "send",
   ...props
 }) => {
   const controller = useOptionalPromptInputController();
@@ -808,8 +809,7 @@ export const PromptInputTextarea = ({
         return;
       }
       if (e.shiftKey) return;
-      // Mobile: Enter inserts a newline; the Send button is the only send path.
-      if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 768px)").matches) return;
+      // Chat composers send on Enter on every viewport. Shift+Enter still inserts a newline.
       e.preventDefault();
 
       // Check if the submit button is disabled before submitting
@@ -878,6 +878,7 @@ export const PromptInputTextarea = ({
   return (
     <InputGroupTextarea
       className={cn("field-sizing-content max-h-48 min-h-16", className)}
+      enterKeyHint={enterKeyHint}
       name="message"
       onCompositionEnd={handleCompositionEnd}
       onCompositionStart={handleCompositionStart}
@@ -901,10 +902,11 @@ export const PromptInputHeader = ({
 
 export const PromptInputFooter = ({
   className,
+  align = "block-end",
   ...props
 }) => (
   <InputGroupAddon
-    align="block-end"
+    align={align}
     className={cn("justify-between gap-1", className)}
     {...props} />
 );

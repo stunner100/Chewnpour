@@ -112,10 +112,14 @@ export function TutorChatComposer({
   initialInput = '',
   className,
 }) {
-  const handleSubmit = async ({ text }) => {
+  const handleSubmit = ({ text }) => {
     const question = String(text || '').trim();
     if (!question || sending || disabled) return;
-    await onSubmit(question);
+    // Do not await the tutor turn. PromptInput only clears after a returned
+    // promise settles, and agent.send() waits for the full stream.
+    void Promise.resolve(onSubmit(question)).catch(() => {
+      // Parent owns error state.
+    });
   };
 
   const handleSuggested = async (value) => {
@@ -129,7 +133,7 @@ export function TutorChatComposer({
   };
 
   const composer = (
-    <div className={cn('flex shrink-0 flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)} style={{ paddingBottom: 'calc(1rem + var(--keyboard-inset, 0px))' }}>
+    <div className={cn('flex shrink-0 flex-col gap-3 border-t border-border-subtle bg-surface p-4 md:p-5', className)}>
       {suggestedPrompts.length > 0 ? (
         <Suggestions>
           {suggestedPrompts.map((prompt) => (
@@ -161,7 +165,7 @@ export function TutorChatComposer({
             className="min-h-12 text-base md:text-sm text-text-primary placeholder:text-text-muted"
           />
         </PromptInputBody>
-        <PromptInputFooter className="justify-end">
+        <PromptInputFooter align="inline-end" className="self-end justify-end">
           <PromptInputSubmit
             disabled={sending || disabled}
             status={sending ? 'submitted' : undefined}
