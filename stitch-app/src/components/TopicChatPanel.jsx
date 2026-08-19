@@ -14,6 +14,9 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
     const [clearChat, setClearChat] = useState(null);
+    const handleClearAvailable = useCallback((nextClear) => {
+        setClearChat(() => nextClear || null);
+    }, []);
     const [selectedPersona, setSelectedPersona] = useState(
         profile?.studyPreferences?.preferredPersona || DEFAULT_TUTOR_PERSONA,
     );
@@ -250,7 +253,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                     placeholder="Ask about this lesson..."
                     inputAriaLabel="Send message to AI Tutor"
                     disclaimer="Enter to send · Shift+Enter for new line"
-                    onClearAvailable={setClearChat}
+                    onClearAvailable={handleClearAvailable}
                 />
                 </div>
             </div>
