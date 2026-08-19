@@ -35,8 +35,8 @@ const StatCard = ({ label, value, icon }) => (
 );
 
 const FirstRunHome = ({ greeting, displayName }) => (
-  <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
-    <div className="mx-auto max-w-3xl">
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="mx-auto w-full min-w-0 max-w-3xl">
       <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
         {greeting}, {displayName}.
       </h1>
@@ -146,9 +146,9 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
-      <div className="mx-auto max-w-6xl">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 bg-background-light px-4 py-8 md:px-8 md:py-10">
+      <div className="mx-auto w-full min-w-0 max-w-6xl">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-body-sm font-medium text-text-secondary">Study home</p>
             <h1 className="mt-1 font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
@@ -170,7 +170,7 @@ const StudentDashboard = () => {
           </div>
         )}
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid min-w-0 gap-4 sm:grid-cols-3">
           <StatCard label="Uploads" value={loading ? '—' : uploads.length} icon="cloud_upload" />
           <StatCard label="Courses ready" value={loading ? '—' : readyCourses} icon="menu_book" />
           <StatCard
@@ -180,9 +180,9 @@ const StudentDashboard = () => {
           />
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1.45fr_1fr]">
-          <section className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm md:p-7">
-            <div className="flex items-start justify-between gap-3">
+        <div className="mt-6 grid min-w-0 gap-4 lg:grid-cols-[1.45fr_1fr]">
+          <section className="min-w-0 rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm md:p-7">
+            <div className="flex min-w-0 items-start justify-between gap-3">
               <div>
                 <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">Continue learning</p>
                 <h2 className="mt-2 font-display-sm text-display-sm text-text-primary leading-tight line-clamp-2 [overflow-wrap:anywhere] font-bold">
@@ -238,7 +238,7 @@ const StudentDashboard = () => {
             )}
           </section>
 
-          <section className="flex flex-col rounded-[24px] border border-dashed border-border-default bg-surface p-6 shadow-sm md:p-7">
+          <section className="flex min-w-0 flex-col rounded-[24px] border border-dashed border-border-default bg-surface p-6 shadow-sm md:p-7">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary-subtle text-primary">
               <AppIcon name="cloud_upload" className="text-[28px]" aria-hidden="true" />
             </div>
@@ -252,11 +252,11 @@ const StudentDashboard = () => {
           </section>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <section className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display text-display-sm font-bold text-text-primary">Recent materials</h2>
-              <Link to="/dashboard/library" className="text-body-sm font-semibold text-primary hover:text-primary-hover">
+        <div className="mt-6 grid min-w-0 gap-4 lg:grid-cols-2">
+          <section className="min-w-0 overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <h2 className="min-w-0 font-display text-display-sm font-bold text-text-primary">Recent materials</h2>
+              <Link to="/dashboard/library" className="shrink-0 text-body-sm font-semibold text-primary hover:text-primary-hover">
                 View library
               </Link>
             </div>
@@ -269,13 +269,15 @@ const StudentDashboard = () => {
             ) : (
               <ul className="mt-4 divide-y divide-border-subtle">
                 {recentUploads.map((upload) => (
-                  <li key={upload.id} className="flex min-h-14 items-center justify-between gap-3 py-3">
+                  <li key={upload.id} className="flex min-h-14 min-w-0 items-center justify-between gap-3 py-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-error-soft text-error">
                         <AppIcon name="description" className="text-[20px]" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-text-primary">{upload.fileName || 'Untitled upload'}</p>
+                        <p className="truncate font-semibold text-text-primary" title={upload.fileName || 'Untitled upload'}>
+                          {upload.fileName || 'Untitled upload'}
+                        </p>
                         <p className="mt-0.5 text-caption text-text-secondary">{upload.status || 'processing'}</p>
                       </div>
                     </div>
@@ -291,7 +293,7 @@ const StudentDashboard = () => {
             )}
           </section>
 
-          <section className="rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
+          <section className="min-w-0 rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
             <h2 className="font-display text-display-sm font-bold text-text-primary">Quick actions</h2>
             <div className="mt-4 grid grid-cols-2 gap-2">
               {[
