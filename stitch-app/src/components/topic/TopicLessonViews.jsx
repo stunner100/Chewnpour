@@ -234,6 +234,7 @@ export const TopicLessonPanels = ({ controller }) => {
             <TopicChatPanel
                 topicId={topicId}
                 topicTitle={topic?.title || ''}
+                courseId={topic?.courseId}
                 open={chatOpen}
                 onClose={closeChat}
                 initialPrompt={chatInitialPrompt}

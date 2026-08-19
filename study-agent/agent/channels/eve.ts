@@ -127,6 +127,10 @@ export default eveChannel({
       "content-type",
       "x-chewnpour-topic-id",
       "x-chewnpour-course-id",
+      "x-eve-session-id",
+      "x-eve-stream-format",
+      "x-eve-stream-tail-index",
+      "x-eve-stream-version",
     ],
   },
   onMessage(ctx) {

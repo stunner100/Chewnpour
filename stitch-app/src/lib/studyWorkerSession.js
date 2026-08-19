@@ -61,6 +61,18 @@ export const tutorMessagesFromEve = (messages) => {
         .filter(Boolean);
 };
 
+export const mergePendingTutorMessages = (eveMessages, pendingUserMessages) => {
+    const fromEve = tutorMessagesFromEve(eveMessages);
+    const seen = new Set(
+        fromEve.filter((message) => message.role === 'user').map((message) => message.content),
+    );
+    const extras = (pendingUserMessages || []).filter((message) => {
+        const content = String(message?.content || '').trim();
+        return content && !seen.has(content);
+    });
+    return extras.length === 0 ? fromEve : [...fromEve, ...extras];
+};
+
 export const pendingInputRequestsFromEve = (messages) => {
     if (!Array.isArray(messages)) return [];
     const seen = new Set();

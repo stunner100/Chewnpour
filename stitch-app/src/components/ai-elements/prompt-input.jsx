@@ -688,11 +688,12 @@ export const PromptInput = ({
     event.preventDefault();
 
     const form = event.currentTarget;
+    const nativeText = String(form?.querySelector?.('[name="message"]')?.value || "");
     const text = usingProvider
-      ? controller.textInput.value
+      ? (controller.textInput.value || nativeText)
       : (() => {
           const formData = new FormData(form);
-          return (formData.get("message")) || "";
+          return (formData.get("message")) || nativeText;
         })();
 
     // Reset form immediately after capturing text to avoid race condition
@@ -813,7 +814,7 @@ export const PromptInputTextarea = ({
       e.preventDefault();
 
       // Check if the submit button is disabled before submitting
-      const { form } = e.currentTarget;
+      const form = e.currentTarget.form || e.currentTarget.closest("form");
       const submitButton = form?.querySelector('button[type="submit"]');
       if (submitButton?.disabled) {
         return;
