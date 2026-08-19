@@ -118,6 +118,37 @@ requireIncludesIn(surfaceSource, '[content-visibility:visible]', 'tutor rows mus
 requireIncludesIn(workerSource, 'mergePendingTutorMessages', 'local pending user bubbles until eve echoes them');
 requireIncludesIn(sessionSource, 'export const mergePendingTutorMessages', 'pending user messages merge helper');
 requireIncludesIn(topicPanelSource, 'courseId={courseId}', 'lesson tutor must pass the course id to the study worker');
+requireIncludesIn(topicPanelSource, 'setClearChat(() => nextClear || null)', 'clear-chat setter must store the handler as a value');
+requireExcludesIn(topicPanelSource, 'onClearAvailable={setClearChat}', 'must not pass setState a function handler React would invoke as an updater');
+
+{
+  let stored;
+  let cleared = false;
+  const setClearChat = (next) => {
+    stored = typeof next === 'function' ? next(stored) : next;
+  };
+  const handleClear = () => {
+    cleared = true;
+  };
+
+  setClearChat(handleClear);
+  if (!cleared) {
+    throw new Error('React setState function-updater simulation should invoke a raw handler');
+  }
+
+  stored = undefined;
+  cleared = false;
+  const handleClearAvailable = (nextClear) => {
+    setClearChat(() => nextClear || null);
+  };
+  handleClearAvailable(handleClear);
+  if (stored !== handleClear) {
+    throw new Error('clear-chat setter must store the handler instead of invoking it');
+  }
+  if (cleared) {
+    throw new Error('storing the clear handler must not clear the chat');
+  }
+}
 requireExcludesIn(surfaceSource, "paddingBottom: 'calc(1rem + var(--keyboard-inset, 0px))'", 'composer must not double-count the keyboard inset already applied by the panel');
 requireIncludesIn(topicPanelSource, 'disclaimer="Enter to send · Shift+Enter for new line"', 'lesson tutor still documents Enter-to-send');
 requireIncludesIn(promptInputSource, 'enterKeyHint = "send"', 'mobile keyboards must expose a Send action');
