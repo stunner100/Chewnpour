@@ -18,13 +18,23 @@ const requireIncludes = (source, snippet, label) => {
 
 requireIncludes(
   sidebarSource,
-  '"relative flex w-full min-w-0 flex-1 flex-col bg-background',
+  '"relative flex w-full min-w-0 max-w-full flex-1 flex-col bg-background',
   'SidebarInset must shrink below intrinsic content width on mobile',
 );
 requireIncludes(
+  sidebarSource,
+  'max-w-full min-w-0 overflow-x-hidden',
+  'Dashboard shell must not grow past the phone viewport',
+);
+requireIncludes(
   layoutSource,
-  'className="min-w-0 w-full"',
+  'className="min-w-0 w-full max-w-full"',
   'Dashboard BlurFade wrapper must not force the page wider than the viewport',
+);
+requireIncludes(
+  layoutSource,
+  'overflow-x-hidden overflow-y-auto',
+  'Dashboard main must clip horizontal overflow instead of widening the page',
 );
 requireIncludes(
   dashboardSource,
@@ -46,5 +56,23 @@ requireIncludes(
   'shrink-0 text-body-sm font-semibold text-primary hover:text-primary-hover',
   'View library must stay visible instead of being clipped off the right edge',
 );
+requireIncludes(
+  dashboardSource,
+  'flex min-h-12 min-w-0 items-center gap-2 rounded-2xl bg-surface-soft',
+  'Quick action tiles must shrink instead of overflowing the card',
+);
+requireIncludes(
+  dashboardSource,
+  '<span className="min-w-0 truncate">{action.label}</span>',
+  'Quick action labels must truncate instead of stretching the grid',
+);
+requireIncludes(
+  dashboardSource,
+  'Active recall beats re-reading. Five minutes now surfaces what still needs work.',
+  'Recommended copy must remain in the Quick actions card',
+);
+if (!dashboardSource.includes('[overflow-wrap:anywhere]')) {
+  throw new Error('Recommended copy must wrap instead of clipping at the card edge');
+}
 
 console.log('dashboard-mobile-overflow-regression.test.mjs passed');
