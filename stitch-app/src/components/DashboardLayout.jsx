@@ -186,9 +186,9 @@ const DashboardLayoutShell = ({ children }) => {
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <SidebarProvider className="dashboard-shell cp-theme text-text-primary">
+        <SidebarProvider className="dashboard-shell cp-theme max-w-full overflow-x-hidden text-text-primary">
             <AppSidebar />
-            <SidebarInset>
+            <SidebarInset className="max-w-full">
                 {!hideAppHeader && (
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">
                     <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:px-4">
@@ -269,10 +269,10 @@ const DashboardLayoutShell = ({ children }) => {
 
                 <main
                     id="dashboard-main"
-                    className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip"
+                    className="flex min-h-0 max-w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
                 >
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
-                        <BlurFade className="min-w-0 w-full" duration={0.35} yOffset={0} blur="0px">
+                        <BlurFade className="min-w-0 w-full max-w-full" duration={0.35} yOffset={0} blur="0px">
                             {children}
                         </BlurFade>
                     </DashboardContentErrorBoundary>

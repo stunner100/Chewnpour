@@ -20,4 +20,10 @@ for (const pattern of ['/^\\/api\\//', '/^\\/ingest\\//', '/^\\/eve\\//']) {
   }
 }
 
+if (!viteConfigSource.includes('navigateFallbackAllowlist: [/^\\/$/]')) {
+  throw new Error(
+    'Expected navigateFallbackAllowlist to cover only / so /dashboard is not served from a stale precached index.html.',
+  );
+}
+
 console.log('pwa-google-oauth-navigation-denylist-regression.test.mjs passed');

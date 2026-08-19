@@ -19,6 +19,12 @@ if (!/navigateFallbackDenylist:\s*\[/.test(viteConfigSource) || !viteConfigSourc
   );
 }
 
+if (!viteConfigSource.includes('navigateFallbackAllowlist: [/^\\/$/]')) {
+  throw new Error(
+    'Expected navigateFallbackAllowlist to cover only / so dashboard navigations fetch a fresh index.html after deploys.',
+  );
+}
+
 for (const snippet of [
   '"source": "/sw.js"',
   '"value": "no-store, no-cache, must-revalidate"',

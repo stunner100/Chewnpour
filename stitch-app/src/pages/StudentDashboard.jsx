@@ -23,19 +23,19 @@ const greetingForHour = (hour) => {
 };
 
 const StatCard = ({ label, value, icon }) => (
-  <div className="rounded-[20px] border border-border-subtle bg-surface px-5 py-4 shadow-sm">
+  <div className="min-w-0 overflow-hidden rounded-[20px] border border-border-subtle bg-surface px-5 py-4 shadow-sm">
     <div className="flex items-center justify-between gap-3">
       <p className="text-body-sm font-medium text-text-secondary">{label}</p>
       <span className="inline-flex size-9 items-center justify-center rounded-xl bg-primary-subtle text-primary">
         <AppIcon name={icon} className="text-[18px]" aria-hidden="true" />
       </span>
     </div>
-    <p className="mt-3 font-display text-display-sm font-bold text-text-primary">{value}</p>
+    <p className="mt-3 min-w-0 font-display text-display-sm font-bold text-text-primary [overflow-wrap:anywhere]">{value}</p>
   </div>
 );
 
 const FirstRunHome = ({ greeting, displayName }) => (
-    <div className="min-h-[calc(100dvh-4rem)] min-w-0 bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
     <div className="mx-auto w-full min-w-0 max-w-3xl">
       <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
         {greeting}, {displayName}.
@@ -146,7 +146,7 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] min-w-0 bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
       <div className="mx-auto w-full min-w-0 max-w-6xl">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -293,9 +293,9 @@ const StudentDashboard = () => {
             )}
           </section>
 
-          <section className="min-w-0 rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
+          <section className="min-w-0 max-w-full overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-6 shadow-sm">
             <h2 className="font-display text-display-sm font-bold text-text-primary">Quick actions</h2>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid min-w-0 grid-cols-2 gap-2">
               {[
                 { to: '/dashboard/upload', label: 'Upload', icon: 'cloud_upload' },
                 { to: '/dashboard/library', label: 'Materials', icon: 'folder' },
@@ -307,18 +307,18 @@ const StudentDashboard = () => {
                 <Link
                   key={action.to}
                   to={action.to}
-                  className="flex min-h-12 items-center gap-3 rounded-2xl bg-surface-soft px-3 py-2.5 text-body-sm font-semibold text-text-primary transition-colors hover:bg-primary-subtle"
+                  className="flex min-h-12 min-w-0 items-center gap-2 rounded-2xl bg-surface-soft px-3 py-2.5 text-body-sm font-semibold text-text-primary transition-colors hover:bg-primary-subtle"
                 >
-                  <AppIcon name={action.icon} className="text-[20px] text-primary" aria-hidden="true" />
-                  {action.label}
+                  <AppIcon name={action.icon} className="shrink-0 text-[20px] text-primary" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{action.label}</span>
                 </Link>
               ))}
             </div>
 
-            <div className="mt-5 rounded-[18px] bg-primary-subtle p-4">
+            <div className="mt-5 min-w-0 rounded-[18px] bg-primary-subtle p-4">
               <p className="text-caption font-semibold uppercase tracking-[0.06em] text-primary">Recommended</p>
-              <p className="mt-1 font-semibold text-text-primary">Take a short quiz on your latest course</p>
-              <p className="mt-1 text-body-sm text-text-secondary">
+              <p className="mt-1 font-semibold text-text-primary [overflow-wrap:anywhere]">Take a short quiz on your latest course</p>
+              <p className="mt-1 text-body-sm text-text-secondary [overflow-wrap:anywhere]">
                 Active recall beats re-reading. Five minutes now surfaces what still needs work.
               </p>
               <Link to="/dashboard/quiz" className="btn-secondary mt-4 inline-flex min-h-11 text-body-sm">
