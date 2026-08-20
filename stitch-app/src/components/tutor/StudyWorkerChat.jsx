@@ -146,6 +146,11 @@ export default function StudyWorkerChat({
         setError('');
     }, [agent, topicId, user?.id]);
 
+    const handleCancel = useCallback(() => {
+        agent.cancel();
+        sendLockRef.current = false;
+    }, [agent]);
+
     useEffect(() => {
         onClearAvailable?.(messageList.length > 0 ? handleClear : null);
         return () => onClearAvailable?.(null);
@@ -216,7 +221,9 @@ export default function StudyWorkerChat({
                 suggestedPrompts={showComposerSuggestions && messageList.length > 0 ? suggestedPrompts : []}
                 onSuggestedPrompt={handleSend}
                 onSubmit={handleSend}
+                onStop={handleCancel}
                 sending={isBusy}
+                status={agent.status}
                 error={error}
                 disabled={!topicId}
                 initialInput={initialPrompt || ''}
