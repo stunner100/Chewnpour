@@ -114,6 +114,12 @@ requireIncludesIn(surfaceSource, 'controller.textInput.clear()', 'explicit send 
 requireExcludesIn(surfaceSource, 'await onSubmit(question)', 'composer must not hold the draft until the tutor turn completes');
 requireIncludesIn(surfaceSource, 'align="inline-end"', 'send control must sit in the same row as the draft');
 requireIncludesIn(surfaceSource, 'type="button"', 'tutor send must not rely on native form submit');
+requireExcludesIn(surfaceSource, "status={sending ? 'submitted' : undefined}", 'send must not keep a spinner for the whole tutor reply');
+requireIncludesIn(surfaceSource, "status={isStreaming ? 'streaming' : undefined}", 'send must become stop while the tutor is streaming');
+requireIncludesIn(surfaceSource, 'onStop={onStop}', 'streaming send control must stop the in-flight reply');
+requireIncludesIn(surfaceSource, "aria-label={isStreaming ? 'Stop tutor reply' : 'Send message to AI Tutor'}", 'stop control must have an accessible name');
+requireIncludesIn(workerSource, 'onStop={handleCancel}', 'study worker must cancel the in-flight tutor turn');
+requireIncludesIn(workerSource, 'agent.cancel()', 'stop must cancel the eve agent request');
 requireIncludesIn(surfaceSource, 'submitText(event.currentTarget.value)', 'Enter must send the textarea DOM value');
 requireIncludesIn(surfaceSource, 'readComposerDraft(controller, event.currentTarget)', 'send button must read the visible draft');
 requireIncludesIn(surfaceSource, '[content-visibility:visible]', 'tutor rows must paint even when the scroller uses content-visibility');

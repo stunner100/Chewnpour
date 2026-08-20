@@ -116,7 +116,9 @@ export function TutorChatComposer({
   suggestedPrompts = [],
   onSuggestedPrompt,
   onSubmit,
+  onStop,
   sending = false,
+  status,
   error = '',
   placeholder,
   inputAriaLabel,
@@ -160,9 +162,11 @@ export function TutorChatComposer({
       <TutorChatComposerFields
         disabled={disabled}
         inputAriaLabel={inputAriaLabel}
+        onStop={onStop}
         onSubmit={onSubmit}
         placeholder={placeholder}
         sending={sending}
+        status={status}
       />
 
       {disclaimer ? (
@@ -191,11 +195,15 @@ function readComposerDraft(controller, eventTarget) {
 function TutorChatComposerFields({
   disabled,
   inputAriaLabel,
+  onStop,
   onSubmit,
   placeholder,
   sending,
+  status,
 }) {
   const controller = usePromptInputController();
+  const isStreaming = status === 'streaming';
+  const isWaiting = status === 'submitted';
 
   const submitText = (raw) => {
     const question = String(raw || '').trim();
@@ -226,10 +234,11 @@ function TutorChatComposerFields({
       <PromptInputFooter align="inline-end" className="relative z-20 self-end justify-end">
         <PromptInputSubmit
           type="button"
-          disabled={sending || disabled}
-          status={sending ? 'submitted' : undefined}
+          disabled={disabled || isWaiting}
+          status={isStreaming ? 'streaming' : undefined}
+          onStop={onStop}
           className="size-11 shrink-0 rounded-full bg-cta text-cta-foreground hover:bg-cta-hover"
-          aria-label="Send message to AI Tutor"
+          aria-label={isStreaming ? 'Stop tutor reply' : 'Send message to AI Tutor'}
           onClick={(event) => {
             event.preventDefault();
             submitText(readComposerDraft(controller, event.currentTarget));
