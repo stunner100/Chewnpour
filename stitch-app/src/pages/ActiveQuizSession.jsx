@@ -102,10 +102,10 @@ const ActiveQuizSession = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
-        <div className="mx-auto max-w-5xl space-y-5">
+      <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto w-full min-w-0 max-w-5xl space-y-5">
           <div className="h-16 rounded-[20px] bg-surface-soft" />
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
             {[0, 1].map((item) => (
               <div key={item} className="h-40 rounded-[24px] bg-surface-soft" />
             ))}
@@ -116,10 +116,10 @@ const ActiveQuizSession = () => {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
+      <div className="mx-auto w-full min-w-0 max-w-5xl">
+        <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
               Quizzes
             </h1>
@@ -145,7 +145,7 @@ const ActiveQuizSession = () => {
           {quizReadyCourses.length === 0 ? (
             <EmptyStudyToolState availability={emptyAvailability} />
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
               {quizReadyCourses.map((course) => {
                 const quizTopics = Array.isArray(course.quizTopics) && course.quizTopics.length > 0
                   ? course.quizTopics
@@ -161,7 +161,7 @@ const ActiveQuizSession = () => {
                 return (
                   <article
                     key={course.id}
-                    className="flex h-full flex-col rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6"
+                    className="flex h-full min-w-0 max-w-full flex-col overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="flex size-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
@@ -171,23 +171,23 @@ const ActiveQuizSession = () => {
                         Ready
                       </span>
                     </div>
-                    <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
+                    <p className="min-w-0 truncate text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
                       {formatCourseTitle(course.title) || course.title}
                     </p>
-                    <h2 className="mt-2 font-display text-display-sm font-bold text-text-primary">
+                    <h2 className="mt-2 min-w-0 font-display text-display-sm font-bold text-text-primary">
                       Practice quizzes
                     </h2>
                     <p className="mt-2 text-body-sm text-text-secondary">
                       {quizCount} quiz-ready topic{quizCount === 1 ? '' : 's'}
                     </p>
-                    <ul className="mt-4 space-y-2">
+                    <ul className="mt-4 min-w-0 space-y-2">
                       {quizTopics.map((topic) => (
-                        <li key={topic.topicId}>
+                        <li key={topic.topicId} className="min-w-0">
                           <Link
                             to={`/dashboard/quiz/${encodeURIComponent(topic.topicId)}`}
-                            className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-soft px-3 py-2.5 text-body-sm font-semibold text-text-primary transition-colors hover:border-primary/40 hover:bg-surface"
+                            className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-soft px-3 py-2.5 text-body-sm font-semibold text-text-primary transition-colors hover:border-primary/40 hover:bg-surface"
                           >
-                            <span className="min-w-0 truncate">{topic.title}</span>
+                            <span className="min-w-0 truncate" title={topic.title}>{topic.title}</span>
                             <span className="shrink-0 text-caption font-medium text-text-muted">
                               {Number(topic.questionCount || 0) > 0
                                 ? `${topic.questionCount} Q`
