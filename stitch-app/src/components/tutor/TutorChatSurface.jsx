@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import {
   PromptInput,
   PromptInputBody,
@@ -14,12 +15,41 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
+  useMessageScroller,
 } from '@/components/ui/message-scroller';
 import { TutorMessageRow, TutorWelcomeMessage } from '@/components/tutor/TutorMessageRow';
 import { TutorTypingIndicator } from '@/components/tutor/TutorTypingIndicator';
 import { cn } from '@/lib/utils';
 
 const TUTOR_MESSAGE_ITEM_CLASS = '[content-visibility:visible] [contain-intrinsic-size:none]';
+
+function latestUserMessageId(messages) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'user' && messages[index]?._id != null) {
+      return String(messages[index]._id);
+    }
+  }
+  return null;
+}
+
+function TutorLatestTurnFocus({ messageId }) {
+  const { scrollToMessage } = useMessageScroller();
+  const previousIdRef = useRef(null);
+  const isFirstPassRef = useRef(true);
+
+  useLayoutEffect(() => {
+    if (isFirstPassRef.current) {
+      isFirstPassRef.current = false;
+      previousIdRef.current = messageId || null;
+      return;
+    }
+    if (!messageId || previousIdRef.current === messageId) return;
+    previousIdRef.current = messageId;
+    scrollToMessage(messageId, { align: 'start' });
+  }, [messageId, scrollToMessage]);
+
+  return null;
+}
 
 export function TutorChatMessages({
   messages,
@@ -37,14 +67,16 @@ export function TutorChatMessages({
   const showTranscript = !loadingState && messages.length > 0;
   const hasUserScrollAnchor = messages.some((message) => message.role === 'user');
   const defaultScrollPosition = hasUserScrollAnchor ? 'last-anchor' : 'start';
+  const latestUserTurnId = latestUserMessageId(messages);
+  const hideWelcome = Boolean(loadingState) || messages.length > 0;
 
   return (
     <MessageScrollerProvider
       key={scrollerKey}
-      autoScroll
       defaultScrollPosition={defaultScrollPosition}
       scrollPreviousItemPeek={64}
     >
+      <TutorLatestTurnFocus messageId={latestUserTurnId} />
       <MessageScroller
         className={cn('min-h-0 w-full flex-1 ph-mask', className)}
         aria-label={ariaLabel}
@@ -66,8 +98,12 @@ export function TutorChatMessages({
               </MessageScrollerItem>
             ) : null}
 
-            {!loadingState && messages.length === 0 && emptyState ? (
-              <MessageScrollerItem className={TUTOR_MESSAGE_ITEM_CLASS} messageId="welcome-state">
+            {emptyState ? (
+              <MessageScrollerItem
+                className={cn(TUTOR_MESSAGE_ITEM_CLASS, hideWelcome && 'hidden')}
+                messageId="welcome-state"
+                inert={hideWelcome || undefined}
+              >
                 {emptyState}
               </MessageScrollerItem>
             ) : null}
@@ -80,7 +116,7 @@ export function TutorChatMessages({
                       key={message._id}
                       className={TUTOR_MESSAGE_ITEM_CLASS}
                       messageId={String(message._id)}
-                      scrollAnchor={message.role === 'user'}
+                      scrollAnchor={String(message._id) === latestUserTurnId}
                     >
                       <TutorMessageRow
                         message={message}
