@@ -44,6 +44,8 @@ requireIncludes('useEveAgent', 'durable study-worker session');
 requireIncludes("role: message.role === 'user' ? 'user' : 'assistant'", 'user and assistant transcript roles');
 requireIncludes("agent.status === 'submitted' || agent.status === 'streaming'", 'derived tutor busy state');
 requireIncludes("'AI Tutor conversation'", 'conversation region label');
+requireIncludesIn(surfaceSource, "messageId=\"course-badge\"", 'course badge stays available on desktop');
+requireIncludesIn(surfaceSource, "'max-md:hidden'", 'course badge must not steal phone transcript height');
 
 requireIncludes('MessageScrollerProvider', 'message scroller provider');
 requireIncludes('autoScroll', 'live-edge follow output');
