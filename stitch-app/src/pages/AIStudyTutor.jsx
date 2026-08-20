@@ -25,6 +25,9 @@ const suggestedPrompts = [
 
 const EMPTY_LIST = [];
 
+const pickerTriggerClassName =
+    'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-border-default bg-surface px-3 py-0 text-left shadow-sm outline-none transition-all hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-primary-soft md:min-h-0 md:flex-none md:gap-3 md:py-2';
+
 const TutorSkeleton = () => (
     <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
         <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-5xl flex-col">
@@ -154,10 +157,10 @@ const AIStudyTutor = () => {
     if (topicOptions.length === 0) return <EmptyTutorState />;
 
     return (
-        <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+var(--keyboard-inset,0px))] pt-6 md:px-8 md:pb-0 md:py-8">
+        <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+var(--keyboard-inset,0px))] pt-3 md:px-8 md:pb-0 md:py-8">
             <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
-                <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
+                <div className="mb-3 flex min-w-0 shrink-0 flex-col gap-2 md:mb-5 md:flex-row md:items-end md:justify-between md:gap-4">
+                    <div className="max-md:sr-only">
                         <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
                             AI Tutor
                         </h1>
@@ -165,21 +168,21 @@ const AIStudyTutor = () => {
                             Ask questions grounded in your generated lessons and source material.
                         </p>
                     </div>
-                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <div className="flex w-full min-w-0 gap-2 md:w-auto">
                         {safeCourses.length > 1 && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <button
                                         type="button"
                                         aria-label="AI tutor course"
-                                        className="flex w-full min-w-[220px] items-center gap-3 rounded-full border border-border-default bg-surface px-3 py-2 text-left shadow-sm outline-none transition-all hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-primary-soft sm:w-[240px]"
+                                        className={`${pickerTriggerClassName} md:w-[240px] md:min-w-[220px]`}
                                     >
-                                        <AppIcon name="folder" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-[18px] text-primary" />
+                                        <AppIcon name="folder" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-[16px] text-primary md:size-8 md:text-[18px]" />
                                         <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                                            <span className="truncate text-body-sm font-semibold text-text-primary">{selectedCourse?.title}</span>
-                                            <span className="truncate text-caption text-text-muted">Course</span>
+                                            <span className="truncate text-body-sm font-semibold text-text-primary">{formatCourseTitle(selectedCourse?.title) || selectedCourse?.title}</span>
+                                            <span className="hidden truncate text-caption text-text-muted md:inline">Course</span>
                                         </span>
-                                        <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
+                                        <AppIcon name="unfold_more" className="shrink-0 text-[18px] text-text-muted md:text-[20px]" />
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[260px] rounded-[16px] p-2">
@@ -201,14 +204,14 @@ const AIStudyTutor = () => {
                                 <button
                                     type="button"
                                     aria-label="AI tutor material"
-                                    className="flex w-full min-w-[220px] items-center gap-3 rounded-full border border-border-default bg-surface px-3 py-2 text-left shadow-sm outline-none transition-all hover:bg-surface-soft focus-visible:ring-2 focus-visible:ring-primary-soft sm:w-[320px]"
+                                    className={`${pickerTriggerClassName} md:w-[320px]`}
                                 >
-                                    <AppIcon name={selectedTopicOption?.icon || 'auto_stories'} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-[18px] text-primary" />
+                                    <AppIcon name={selectedTopicOption?.icon || 'auto_stories'} className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-[16px] text-primary md:size-8 md:text-[18px]" />
                                     <span className="flex min-w-0 flex-1 flex-col leading-tight">
                                         <span className="truncate text-body-sm font-semibold text-text-primary">{selectedTopicOption?.title}</span>
-                                        <span className="truncate text-caption text-text-muted">{selectedTopicOption?.courseTitle}</span>
+                                        <span className="hidden truncate text-caption text-text-muted md:inline">{selectedTopicOption?.courseTitle}</span>
                                     </span>
-                                    <AppIcon name="unfold_more" className="text-[20px] text-text-muted" />
+                                    <AppIcon name="unfold_more" className="shrink-0 text-[18px] text-text-muted md:text-[20px]" />
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[min(320px,calc(100vw-2rem))] rounded-[16px] p-2">

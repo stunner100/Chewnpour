@@ -55,7 +55,7 @@ export function TutorChatMessages({
             aria-busy={isTyping || undefined}
           >
             {courseBadge ? (
-              <MessageScrollerItem className={TUTOR_MESSAGE_ITEM_CLASS} messageId="course-badge">
+              <MessageScrollerItem className={cn(TUTOR_MESSAGE_ITEM_CLASS, 'max-md:hidden')} messageId="course-badge">
                 <div className="text-center">{courseBadge}</div>
               </MessageScrollerItem>
             ) : null}
