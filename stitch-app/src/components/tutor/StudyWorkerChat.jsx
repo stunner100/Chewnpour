@@ -156,8 +156,6 @@ export default function StudyWorkerChat({
         return () => onClearAvailable?.(null);
     }, [handleClear, messageList.length, onClearAvailable]);
 
-    const showWelcome = messageList.length === 0 && !isBusy;
-
     return (
         <>
             <TutorChatMessages
@@ -168,15 +166,13 @@ export default function StudyWorkerChat({
                 isTyping={isBusy}
                 error={error}
                 emptyState={
-                    showWelcome ? (
-                        <TutorWelcomeMessage
-                            topicTitle={topicTitle}
-                            compact={compact}
-                            suggestedPrompts={suggestedPrompts}
-                            onSuggestedPrompt={handleSend}
-                            sending={isBusy}
-                        />
-                    ) : null
+                    <TutorWelcomeMessage
+                        topicTitle={topicTitle}
+                        compact={compact}
+                        suggestedPrompts={suggestedPrompts}
+                        onSuggestedPrompt={handleSend}
+                        sending={isBusy}
+                    />
                 }
                 courseBadge={courseTitle ? (
                     <span className="rounded-full bg-surface-soft px-3 py-1 text-caption font-semibold text-text-muted">

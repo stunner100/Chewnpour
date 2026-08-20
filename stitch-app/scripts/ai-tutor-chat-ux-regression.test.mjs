@@ -48,13 +48,17 @@ requireIncludesIn(surfaceSource, "messageId=\"course-badge\"", 'course badge sta
 requireIncludesIn(surfaceSource, "'max-md:hidden'", 'course badge must not steal phone transcript height');
 
 requireIncludes('MessageScrollerProvider', 'message scroller provider');
-requireIncludes('autoScroll', 'live-edge follow output');
+requireExcludesIn(surfaceSource, 'autoScroll', 'live-edge follow that hides the new user turn under a long reply');
 requireIncludes('defaultScrollPosition={defaultScrollPosition}', 'context-aware opening scroll position');
 requireIncludes('const hasUserScrollAnchor = messages.some((message) => message.role === \'user\');', 'detect user turn anchors');
 requireIncludes("const defaultScrollPosition = hasUserScrollAnchor ? 'last-anchor' : 'start';", 'start at top without user anchors');
 requireIncludes('scrollPreviousItemPeek={64}', 'previous turn context peek');
 requireIncludes('MessageScrollerItem', 'transcript row boundaries');
-requireIncludes('scrollAnchor={message.role === \'user\'}', 'user-turn scroll anchors');
+requireIncludes('scrollAnchor={String(message._id) === latestUserTurnId}', 'only the latest user turn is a scroll anchor');
+requireIncludes('TutorLatestTurnFocus', 'focus the latest user turn when a new message is sent');
+requireIncludes('scrollToMessage(messageId, { align: \'start\' })', 'bring the new user message to the top of the viewport');
+requireIncludes("messageId=\"welcome-state\"", 'keep the welcome row mounted so a first send appends after it');
+requireIncludes('hideWelcome && \'hidden\'', 'hide welcome without unmounting it when the transcript starts');
 requireExcludes('MessageScrollerButton', 'clipped jump-to-latest control over the composer');
 requireIncludes('scrollerKey={topicId}', 'topic-scoped scroller reset');
 requireIncludes('aria-busy={isTyping || undefined}', 'streaming busy state on transcript');
@@ -109,6 +113,7 @@ requireIncludesIn(messageRowSource, 'await onSuggestedPrompt?.(question)', 'welc
 requireIncludesIn(surfaceSource, 'await (onSuggestedPrompt || onSubmit)(question)', 'composer chips must reuse the submit path');
 requireIncludesIn(source, 'suggestedPrompts={suggestedPrompts}', 'dedicated tutor welcome must show prompt chips');
 requireIncludesIn(workerSource, 'showComposerSuggestions && messageList.length > 0 ? suggestedPrompts : []', 'dedicated tutor composer chips only after the first turn');
+requireExcludesIn(workerSource, 'showWelcome ? (', 'welcome row must stay mounted so send can append after it');
 requireIncludesIn(surfaceSource, 'void Promise.resolve(onSubmit(question))', 'composer must clear before the tutor stream finishes');
 requireIncludesIn(surfaceSource, 'controller.textInput.clear()', 'explicit send path must clear the draft immediately');
 requireExcludesIn(surfaceSource, 'await onSubmit(question)', 'composer must not hold the draft until the tutor turn completes');
