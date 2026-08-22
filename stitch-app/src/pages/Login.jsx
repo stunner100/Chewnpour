@@ -11,6 +11,9 @@ import {
     stashPendingCampaignAttribution,
 } from '../lib/campaignAttribution';
 import {
+    claimOAuthRecoveryAttempt,
+    clearOAuthRecoveryAttempt,
+    isRecoverableOAuthErrorCode,
     messageForOAuthErrorCode,
     oauthErrorCodeFromSearchParams,
     stripOAuthErrorParams,
@@ -93,15 +96,24 @@ const Login = () => {
     }, [routerLocation.state]);
 
     useEffect(() => {
-        if (consumedOAuthError.current) return;
         const errorCode = oauthErrorCodeFromSearchParams(searchParams);
-        if (!errorCode) return;
+        if (!errorCode) {
+            clearOAuthRecoveryAttempt();
+            return;
+        }
+        if (consumedOAuthError.current) return;
         consumedOAuthError.current = true;
+        if (isRecoverableOAuthErrorCode(errorCode) && claimOAuthRecoveryAttempt()) {
+            dispatchLogin({ type: 'authStarted' });
+            void signInWithGoogle(redirectTarget);
+            return;
+        }
+        clearOAuthRecoveryAttempt();
         const msg = messageForOAuthErrorCode(errorCode);
         dispatchLogin({ type: 'authFailed', error: msg });
         watermelonToast(msg, { type: 'error' });
         setSearchParams(stripOAuthErrorParams(searchParams), { replace: true });
-    }, [searchParams, setSearchParams]);
+    }, [redirectTarget, searchParams, setSearchParams, signInWithGoogle]);
 
     const resolveGoogleErrorMessage = (authError) => {
         const fallbackMessage = 'Failed to sign in with Google';
@@ -116,6 +128,7 @@ const Login = () => {
     };
 
     const handleGoogleSignIn = async () => {
+        clearOAuthRecoveryAttempt();
         dispatchLogin({ type: 'authStarted' });
         try {
             const { error: signInError } = await signInWithGoogle(redirectTarget);

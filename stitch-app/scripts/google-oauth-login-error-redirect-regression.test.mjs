@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  isRecoverableOAuthErrorCode,
   messageForOAuthErrorCode,
   oauthErrorCodeFromSearchParams,
   stripOAuthErrorParams,
@@ -50,6 +51,9 @@ assert.equal(
   'Google sign-in was interrupted. Please try again.',
 );
 assert.equal(messageForOAuthErrorCode('access_denied'), 'Google sign-in was cancelled.');
+assert.equal(isRecoverableOAuthErrorCode('please_restart_the_process'), true);
+assert.equal(isRecoverableOAuthErrorCode('state_mismatch'), true);
+assert.equal(isRecoverableOAuthErrorCode('access_denied'), false);
 assert.equal(stripOAuthErrorParams(params).get('ref'), 'ABC');
 assert.equal(stripOAuthErrorParams(params).get('error'), null);
 
@@ -80,11 +84,13 @@ assert.doesNotMatch(authContextSource, /betterSignIn\.social/, 'Google sign-in m
 
 const loginSource = await read('src/pages/Login.jsx');
 assert.match(loginSource, /oauthErrorCodeFromSearchParams/, 'Login must read OAuth error query params');
+assert.match(loginSource, /claimOAuthRecoveryAttempt/, 'Login must retry recoverable OAuth callbacks once');
 assert.match(loginSource, /watermelonToast\(msg, \{ type: 'error' \}\)/, 'Login must toast OAuth callback errors');
 assert.match(loginSource, /signInWithGoogle\(redirectTarget\)/, 'Login must keep campaign redirectTarget for Google');
 
 const signUpSource = await read('src/pages/SignUp.jsx');
 assert.match(signUpSource, /oauthErrorCodeFromSearchParams/, 'SignUp must read OAuth error query params');
+assert.match(signUpSource, /claimOAuthRecoveryAttempt/, 'SignUp must retry recoverable OAuth callbacks once');
 assert.match(signUpSource, /const \{ error: signInError \} = await signInWithGoogle\(\);/, 'SignUp must still call signInWithGoogle');
 
 console.log('google-oauth-login-error-redirect-regression.test.mjs passed');
