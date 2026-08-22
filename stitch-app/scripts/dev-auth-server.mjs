@@ -16,6 +16,9 @@ if (!process.env.BETTER_AUTH_URL) {
 }
 
 const { auth } = await import(pathToFileURL(path.join(root, "server", "auth.js")).href);
+const { handleGoogleOAuthStart } = await import(
+    pathToFileURL(path.join(root, "server", "googleOAuthStart.js")).href
+);
 const { handleProfileRequest } = await import(
     pathToFileURL(path.join(root, "server", "profileHttp.js")).href
 );
@@ -60,6 +63,9 @@ const server = http.createServer((req, res) => {
     }
     if (url.startsWith("/api/progress")) {
         return handleProgressRequest(req, res);
+    }
+    if (url.split("?")[0] === "/api/auth/google-start") {
+        return handleGoogleOAuthStart(req, res);
     }
     if (url.startsWith("/api/auth")) {
         return authHandler(req, res);

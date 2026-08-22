@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer } from 'react';
+import React, { useEffect, useMemo, useReducer, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { m as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +6,11 @@ import PublicShell from '../components/PublicShell';
 import { BlurFade } from '../components/magicui/BlurFade';
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import {
+    messageForOAuthErrorCode,
+    oauthErrorCodeFromSearchParams,
+    stripOAuthErrorParams,
+} from '../lib/oauthErrorMessage';
 import AppIcon from '../components/AppIcon';
 
 const ACCENT = '#007AFF';
@@ -92,7 +97,8 @@ const SignUp = () => {
     );
     const { signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const consumedOAuthError = useRef(false);
     const busy = loading || googleLoading;
 
     const referralCode = useMemo(
@@ -104,6 +110,17 @@ const SignUp = () => {
         if (authLoading) return;
         if (user) navigate('/dashboard', { replace: true });
     }, [authLoading, user, navigate]);
+
+    useEffect(() => {
+        if (consumedOAuthError.current) return;
+        const errorCode = oauthErrorCodeFromSearchParams(searchParams);
+        if (!errorCode) return;
+        consumedOAuthError.current = true;
+        const msg = messageForOAuthErrorCode(errorCode);
+        dispatchSignUp({ type: 'submitFailed', error: msg });
+        watermelonToast(msg, { type: 'error' });
+        setSearchParams(stripOAuthErrorParams(searchParams), { replace: true });
+    }, [searchParams, setSearchParams]);
 
     const resolveGoogleErrorMessage = (authError) => {
         const fallbackMessage = 'Failed to continue with Google';

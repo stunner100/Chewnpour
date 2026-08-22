@@ -1,0 +1,34 @@
+const OAUTH_ERROR_MESSAGES = {
+    please_restart_the_process: 'Google sign-in was interrupted. Please try again.',
+    state_mismatch: 'Google sign-in was interrupted. Please try again.',
+    state_not_found: 'Google sign-in was interrupted. Please try again.',
+    access_denied: 'Google sign-in was cancelled.',
+    no_code: 'Google did not return an authorization code. Please try again.',
+    invalid_code: 'Google sign-in expired. Please try again.',
+    invalid_callback_request: 'Google sign-in was interrupted. Please try again.',
+    oauth_provider_not_found: 'Google sign-in is not available right now.',
+    unable_to_get_user_info: 'Could not read your Google account. Please try again.',
+    unable_to_link_account: 'Could not link this Google account. Please try again.',
+};
+
+export const messageForOAuthErrorCode = (code) => {
+    const key = String(code || '').trim();
+    if (!key) return '';
+    return OAUTH_ERROR_MESSAGES[key] || 'Google sign-in failed. Please try again.';
+};
+
+export const oauthErrorCodeFromSearchParams = (searchParams) => {
+    if (!searchParams || typeof searchParams.get !== 'function') return '';
+    const error = String(searchParams.get('error') || '').trim();
+    if (error) return error;
+    if (searchParams.get('state') === 'state_not_found') return 'state_not_found';
+    return '';
+};
+
+export const stripOAuthErrorParams = (searchParams) => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('error');
+    next.delete('error_description');
+    if (next.get('state') === 'state_not_found') next.delete('state');
+    return next;
+};

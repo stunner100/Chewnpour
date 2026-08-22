@@ -1,5 +1,6 @@
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "../server/auth.js";
+import { handleGoogleOAuthStart } from "../server/googleOAuthStart.js";
 import { handleAdminRequest } from "../server/adminHttp.js";
 import { handleBillingRequest } from "../server/billingHttp.js";
 import {
@@ -53,6 +54,9 @@ export default async function handler(req, res) {
     restoreOriginalUrl(req);
     const pathname = String(req.url || "").split("?")[0];
 
+    if (pathname === "/api/auth/google-start") {
+        return handleGoogleOAuthStart(req, res);
+    }
     if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) {
         return authHandler(req, res);
     }

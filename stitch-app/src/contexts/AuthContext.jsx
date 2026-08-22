@@ -11,11 +11,6 @@ import { resetPostHogUser, setPostHogUser } from '../lib/posthog';
 
 const AuthContext = createContext({});
 
-const absoluteUrl = (path = '/') => {
-    if (typeof window === 'undefined') return path;
-    return new URL(path, window.location.origin).toString();
-};
-
 const getErrorMessage = (error, fallback = 'Unknown error') => {
     if (!error) return fallback;
     if (typeof error === 'string') return error;
@@ -55,11 +50,6 @@ const isTransientSessionError = (error) => {
     );
 };
 
-const wait = (durationMs) =>
-    new Promise((resolve) => {
-        setTimeout(resolve, durationMs);
-    });
-
 const readCachedSessionUser = () => {
     if (typeof window === 'undefined') return null;
     try {
@@ -72,9 +62,6 @@ const readCachedSessionUser = () => {
         return null;
     }
 };
-
-const SOCIAL_SIGN_IN_MAX_RETRIES = 2;
-const SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS = 400;
 
 const syncAuthAnalyticsUser = (sessionUser) => {
     const activeUserId = sessionUser?.id;
@@ -347,65 +334,30 @@ export const AuthProvider = ({ children }) => {
             typeof callbackPath === 'string' && callbackPath.trim().startsWith('/')
                 ? callbackPath.trim()
                 : '/dashboard';
-        const callbackURL = absoluteUrl(normalizedCallbackPath);
-        const provider = 'google';
+        const startURL = `/api/auth/google-start?${new URLSearchParams({
+            callbackURL: normalizedCallbackPath,
+        }).toString()}`;
 
-        const runGoogleSignInAttempt = async (attempt) => {
-            try {
-                const result = await betterSignIn.social({
-                    provider,
-                    callbackURL,
-                });
-
-                if (result.error) {
-                    const transient = isTransientSessionError(result.error);
-                    if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
-                        const nextAttempt = attempt + 1;
-                        await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * nextAttempt);
-                        return runGoogleSignInAttempt(nextAttempt);
-                    }
-
-                    captureAuthFailure({
-                        error: result.error,
-                        operation: 'sign_in_google',
-                        callbackURL,
-                        provider,
-                        extras: {
-                            phase: 'result_error',
-                            transient,
-                            attempt,
-                        },
-                        level: transient ? 'warning' : 'error',
-                    });
-                    return { data: null, error: result.error };
-                }
-
-                return { data: result.data, error: null };
-            } catch (error) {
-                const transient = isTransientSessionError(error);
-                if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
-                    const nextAttempt = attempt + 1;
-                    await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * nextAttempt);
-                    return runGoogleSignInAttempt(nextAttempt);
-                }
-
-                captureAuthFailure({
-                    error,
-                    operation: 'sign_in_google',
-                    callbackURL,
-                    provider,
-                    extras: {
-                        phase: 'exception',
-                        transient,
-                        attempt,
-                    },
-                    level: transient ? 'warning' : 'error',
-                });
-                return { data: null, error };
+        try {
+            if (typeof window === 'undefined') {
+                return {
+                    data: null,
+                    error: { message: 'Google sign-in requires a browser window' },
+                };
             }
-        };
-
-        return runGoogleSignInAttempt(0);
+            window.location.assign(startURL);
+            return { data: { redirect: true }, error: null };
+        } catch (error) {
+            captureAuthFailure({
+                error,
+                operation: 'sign_in_google',
+                callbackURL: startURL,
+                provider: 'google',
+                extras: { phase: 'navigation_start' },
+                level: isTransientSessionError(error) ? 'warning' : 'error',
+            });
+            return { data: null, error };
+        }
     };
 
     const signOut = async () => {

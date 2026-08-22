@@ -1,5 +1,5 @@
-import React, { useEffect, useReducer } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useReducer, useRef } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { m as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import PublicShell, { ArrowBadge } from '../components/PublicShell';
@@ -10,6 +10,11 @@ import {
     readCampaignAttributionFromSearch,
     stashPendingCampaignAttribution,
 } from '../lib/campaignAttribution';
+import {
+    messageForOAuthErrorCode,
+    oauthErrorCodeFromSearchParams,
+    stripOAuthErrorParams,
+} from '../lib/oauthErrorMessage';
 import AppIcon from '../components/AppIcon';
 
 const initialLoginState = {
@@ -62,6 +67,8 @@ const Login = () => {
     const { signIn, signInWithGoogle } = useAuth();
     const routerLocation = useLocation();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const consumedOAuthError = useRef(false);
     const redirectTarget = (() => {
         const from = routerLocation.state?.from;
         if (!from || typeof from !== 'object') return '/dashboard';
@@ -84,6 +91,17 @@ const Login = () => {
             stashPendingCampaignAttribution(pendingAttribution);
         }
     }, [routerLocation.state]);
+
+    useEffect(() => {
+        if (consumedOAuthError.current) return;
+        const errorCode = oauthErrorCodeFromSearchParams(searchParams);
+        if (!errorCode) return;
+        consumedOAuthError.current = true;
+        const msg = messageForOAuthErrorCode(errorCode);
+        dispatchLogin({ type: 'authFailed', error: msg });
+        watermelonToast(msg, { type: 'error' });
+        setSearchParams(stripOAuthErrorParams(searchParams), { replace: true });
+    }, [searchParams, setSearchParams]);
 
     const resolveGoogleErrorMessage = (authError) => {
         const fallbackMessage = 'Failed to sign in with Google';
