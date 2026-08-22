@@ -20,9 +20,9 @@ if (!/BETTER_AUTH_SECRET/.test(authServerSource) || !/BETTER_AUTH_URL/.test(auth
   throw new Error('Expected server/auth.js to read BETTER_AUTH_SECRET and BETTER_AUTH_URL.');
 }
 
-const apiRouteSource = await fs.readFile(path.join(root, 'api', 'auth', '[...all].js'), 'utf8');
-if (!/toNodeHandler\(auth\)/.test(apiRouteSource)) {
-  throw new Error('Expected api/auth/[...all].js to mount toNodeHandler(auth).');
+const apiRouteSource = await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8');
+if (!/toNodeHandler\(auth\)/.test(apiRouteSource) || !/handleGoogleOAuthStart/.test(apiRouteSource)) {
+  throw new Error('Expected api/router.js to mount toNodeHandler(auth) and intercept google-start.');
 }
 
 console.log('better-auth-convex-token-regression.test.mjs passed');

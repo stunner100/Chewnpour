@@ -33,9 +33,9 @@ if (!/DATABASE_URL/.test(dbSource) || !/export const getPool/.test(dbSource)) {
   throw new Error('Expected server/db.js to expose getPool backed by DATABASE_URL.');
 }
 
-const apiRouteSource = await fs.readFile(path.join(root, 'api', 'auth', '[...all].js'), 'utf8');
-if (!/toNodeHandler\(auth\)/.test(apiRouteSource)) {
-  throw new Error('Expected api/auth/[...all].js to export toNodeHandler(auth).');
+const apiRouteSource = await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8');
+if (!/toNodeHandler\(auth\)/.test(apiRouteSource) || !/handleGoogleOAuthStart/.test(apiRouteSource)) {
+  throw new Error('Expected api/router.js to export toNodeHandler(auth) and intercept google-start.');
 }
 
 const migrationSource = await fs.readFile(
@@ -52,8 +52,8 @@ const dashboardSource = await fs.readFile(path.join(root, 'src', 'pages', 'Stude
 if (/convex\/react|from ['"].*convex/.test(dashboardSource)) {
   throw new Error('Expected StudentDashboard to be Convex-free for the auth milestone.');
 }
-if (!/Study workspace|Workspace coming next|Empty dashboard/.test(dashboardSource)) {
-  throw new Error('Expected StudentDashboard to render the empty/workspace milestone shell.');
+if (!/useAuth/.test(dashboardSource)) {
+  throw new Error('Expected StudentDashboard to read the Better Auth session via useAuth.');
 }
 
 const authContextSource = await fs.readFile(path.join(root, 'src', 'contexts', 'AuthContext.jsx'), 'utf8');
@@ -63,8 +63,8 @@ if (/useConvexAuth|api\.profiles|crossDomain\.oneTimeToken|buildMilestoneProfile
 if (!/fetch\('\/api\/profile'/.test(authContextSource)) {
   throw new Error('Expected AuthContext to fetch profiles from /api/profile.');
 }
-if (!/signInWithGoogle/.test(authContextSource) || !/betterSignIn\.social/.test(authContextSource)) {
-  throw new Error('Expected AuthContext to keep Google social sign-in.');
+if (!/signInWithGoogle/.test(authContextSource) || !/\/api\/auth\/google-start/.test(authContextSource)) {
+  throw new Error('Expected AuthContext to keep Google social sign-in via google-start.');
 }
 
 console.log('supabase-auth-milestone-regression.test.mjs passed');

@@ -3,42 +3,18 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-
-const authConfigPath = path.join(root, 'convex', 'authConfig.ts');
-const authConfigSource = await fs.readFile(authConfigPath, 'utf8');
-
-if (!/process\.env\.FRONTEND_URLS/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to support FRONTEND_URLS for explicit trusted origins.');
-}
-
-if (!/process\.env\.APP_BASE_URL/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to support APP_BASE_URL as the primary frontend URL.');
-}
-
-if (!/const\s+resolveFrontendUrl\s*=\s*\(\)\s*=>/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to derive frontendUrl through resolveFrontendUrl().');
-}
-
-if (!/const\s+isLocalhostOrigin\s*=\s*\(origin:\s*string\)\s*=>/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to declare an isLocalhostOrigin helper.');
-}
-
-if (!/isLocalhostOrigin\(dynamicOrigin\)/.test(authConfigSource)) {
-  throw new Error('Expected convex/authConfig.ts to trust dynamic localhost origins.');
-}
-
 const signUpPath = path.join(root, 'src', 'pages', 'SignUp.jsx');
 const signUpSource = await fs.readFile(signUpPath, 'utf8');
 
-if (!/const\s+\[error,\s*setError\]\s*=\s*React\.useState\(''\);/.test(signUpSource)) {
-  throw new Error('Expected SignUp page to track google sign-in errors.');
+if (!/oauthErrorCodeFromSearchParams/.test(signUpSource)) {
+  throw new Error('Expected SignUp page to consume Google OAuth error query params.');
 }
 
 if (!/const\s+\{\s*error:\s*signInError\s*\}\s*=\s*await\s+signInWithGoogle\(\);/.test(signUpSource)) {
   throw new Error('Expected SignUp page to read signInWithGoogle error responses.');
 }
 
-if (!/if\s*\(signInError\)\s*(?:\{\s*setError\(|setError\()/.test(signUpSource)) {
+if (!/if\s*\(signInError\)\s*\{[\s\S]*resolveGoogleErrorMessage\(signInError\)[\s\S]*submitFailed/.test(signUpSource)) {
   throw new Error('Expected SignUp page to surface sign-in errors to users.');
 }
 
@@ -46,12 +22,16 @@ if (!/normalized\s*===\s*'load failed'\s*\|\|\s*normalized\s*===\s*'failed to fe
   throw new Error('Expected SignUp page to map network auth failures to a user-friendly error message.');
 }
 
-if (!/finally\s*\{\s*setLoading\(false\);\s*\}/s.test(signUpSource)) {
-  throw new Error('Expected SignUp page to always reset loading state.');
+if (!/finally\s*\{[\s\S]*googleFinished[\s\S]*\}/.test(signUpSource)) {
+  throw new Error('Expected SignUp page to always reset Google loading state.');
 }
 
 const loginPath = path.join(root, 'src', 'pages', 'Login.jsx');
 const loginSource = await fs.readFile(loginPath, 'utf8');
+
+if (!/oauthErrorCodeFromSearchParams/.test(loginSource)) {
+  throw new Error('Expected Login page to consume Google OAuth error query params.');
+}
 
 if (!/const\s+resolveGoogleErrorMessage\s*=\s*\(authError\)\s*=>/.test(loginSource)) {
   throw new Error('Expected Login page to define resolveGoogleErrorMessage for Google sign-in errors.');
@@ -73,7 +53,7 @@ if (!/Unable to reach authentication right now\. Please try again\./.test(loginS
   throw new Error('Expected Login page to handle thrown Google sign-in network errors.');
 }
 
-if (!/finally\s*\{[\s\S]*authFinished[\s\S]*\}/.test(loginSource) && !/finally\s*\{\s*setLoading\(false\);\s*\}/s.test(loginSource)) {
+if (!/finally\s*\{[\s\S]*authFinished[\s\S]*\}/.test(loginSource)) {
   throw new Error('Expected Login page to always reset loading state after Google sign-in attempts.');
 }
 

@@ -51,6 +51,11 @@ const googleConfigured =
     Boolean(process.env.GOOGLE_CLIENT_ID) &&
     Boolean(process.env.GOOGLE_CLIENT_SECRET);
 
+const oauthErrorURL = (() => {
+    const base = String(process.env.BETTER_AUTH_URL || "").trim().replace(/\/$/, "");
+    return base ? `${base}/login` : "/login";
+})();
+
 export const auth = betterAuth({
     database: getPool(),
     secret: process.env.BETTER_AUTH_SECRET,
@@ -88,6 +93,13 @@ export const auth = betterAuth({
             createdAt: "created_at",
             updatedAt: "updated_at",
         },
+        storeStateStrategy: "database",
+        // WebKit bounce tracking can drop the OAuth state cookie on return from
+        // Google. State still has to match a verification row in Postgres.
+        skipStateCookieCheck: true,
+    },
+    onAPIError: {
+        errorURL: oauthErrorURL,
     },
     verification: {
         fields: {

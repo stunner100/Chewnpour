@@ -28,8 +28,12 @@ if (/betterSignIn\.email\(\{[\s\S]*callbackURL/s.test(signInBlock)) {
   throw new Error('Email sign-in should not send callbackURL to Better Auth.');
 }
 
-if (!/betterSignIn\.social\(\{[\s\S]*callbackURL/s.test(socialBlock)) {
-  throw new Error('Google social sign-in should still send callbackURL.');
+if (/betterSignIn\.social\(/.test(socialBlock)) {
+  throw new Error('Google social sign-in must not use XHR betterSignIn.social.');
+}
+
+if (!/\/api\/auth\/google-start/.test(socialBlock) || !/callbackURL/.test(socialBlock)) {
+  throw new Error('Google social sign-in should still send callbackURL through google-start.');
 }
 
 console.log('email-auth-callback-regression.test.mjs passed');
