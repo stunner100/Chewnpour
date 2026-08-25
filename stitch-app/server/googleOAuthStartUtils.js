@@ -120,12 +120,16 @@ const escapeHtmlAttr = (value) =>
 export const buildGoogleContinueHtml = (googleUrl) => {
     const href = escapeHtmlAttr(googleUrl);
     const jsUrl = JSON.stringify(googleUrl);
+    // Do not pair an immediate meta-refresh with location.replace. Both fire
+    // with the same OAuth state; Better Auth deletes the verification row on
+    // the first callback, so the second comes back as please_restart_the_process.
+    // Keep meta-refresh only inside noscript so a JS browser takes one trip.
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="0;url=${href}">
+  <noscript><meta http-equiv="refresh" content="0;url=${href}"></noscript>
   <title>Continue to Google</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; min-height: 100vh; display: grid; place-items: center; background: #fff; color: #0A0A0A; }

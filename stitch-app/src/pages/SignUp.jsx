@@ -7,6 +7,9 @@ import { BlurFade } from '../components/magicui/BlurFade';
 import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 import {
+    claimOAuthRecoveryAttempt,
+    clearOAuthRecoveryAttempt,
+    isRecoverableOAuthErrorCode,
     messageForOAuthErrorCode,
     oauthErrorCodeFromSearchParams,
     stripOAuthErrorParams,
@@ -112,15 +115,24 @@ const SignUp = () => {
     }, [authLoading, user, navigate]);
 
     useEffect(() => {
-        if (consumedOAuthError.current) return;
         const errorCode = oauthErrorCodeFromSearchParams(searchParams);
-        if (!errorCode) return;
+        if (!errorCode) {
+            clearOAuthRecoveryAttempt();
+            return;
+        }
+        if (consumedOAuthError.current) return;
         consumedOAuthError.current = true;
+        if (isRecoverableOAuthErrorCode(errorCode) && claimOAuthRecoveryAttempt()) {
+            dispatchSignUp({ type: 'googleStarted' });
+            void signInWithGoogle();
+            return;
+        }
+        clearOAuthRecoveryAttempt();
         const msg = messageForOAuthErrorCode(errorCode);
         dispatchSignUp({ type: 'submitFailed', error: msg });
         watermelonToast(msg, { type: 'error' });
         setSearchParams(stripOAuthErrorParams(searchParams), { replace: true });
-    }, [searchParams, setSearchParams]);
+    }, [searchParams, setSearchParams, signInWithGoogle]);
 
     const resolveGoogleErrorMessage = (authError) => {
         const fallbackMessage = 'Failed to continue with Google';
@@ -135,6 +147,7 @@ const SignUp = () => {
     };
 
     const handleGoogleSignIn = async () => {
+        clearOAuthRecoveryAttempt();
         dispatchSignUp({ type: 'googleStarted' });
         stashReferralCode(referralCode);
         try {

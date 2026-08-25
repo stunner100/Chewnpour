@@ -11,10 +11,43 @@ const OAUTH_ERROR_MESSAGES = {
     unable_to_link_account: 'Could not link this Google account. Please try again.',
 };
 
+const OAUTH_RECOVERY_STORAGE_KEY = 'chewnpour:google-oauth-recovery-attempted';
+const RECOVERABLE_OAUTH_ERROR_CODES = new Set([
+    'please_restart_the_process',
+    'state_mismatch',
+    'state_not_found',
+    'invalid_callback_request',
+    'invalid_code',
+    'no_code',
+]);
+
 export const messageForOAuthErrorCode = (code) => {
     const key = String(code || '').trim();
     if (!key) return '';
     return OAUTH_ERROR_MESSAGES[key] || 'Google sign-in failed. Please try again.';
+};
+
+export const isRecoverableOAuthErrorCode = (code) =>
+    RECOVERABLE_OAUTH_ERROR_CODES.has(String(code || '').trim());
+
+export const claimOAuthRecoveryAttempt = () => {
+    if (typeof window === 'undefined') return false;
+    try {
+        if (window.sessionStorage.getItem(OAUTH_RECOVERY_STORAGE_KEY)) return false;
+        window.sessionStorage.setItem(OAUTH_RECOVERY_STORAGE_KEY, '1');
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+export const clearOAuthRecoveryAttempt = () => {
+    if (typeof window === 'undefined') return;
+    try {
+        window.sessionStorage.removeItem(OAUTH_RECOVERY_STORAGE_KEY);
+    } catch {
+        void 0;
+    }
 };
 
 export const oauthErrorCodeFromSearchParams = (searchParams) => {
