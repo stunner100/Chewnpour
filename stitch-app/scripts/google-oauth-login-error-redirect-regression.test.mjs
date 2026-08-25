@@ -42,7 +42,17 @@ assert.equal(isGoogleAuthorizationUrl('javascript:alert(1)'), false);
 
 const html = buildGoogleContinueHtml('https://accounts.google.com/o/oauth2/v2/auth?state=abc');
 assert.match(html, /window\.location\.replace\("https:\/\/accounts\.google.com\/o\/oauth2\/v2\/auth\?state=abc"\)/);
-assert.match(html, /meta http-equiv="refresh"/);
+assert.match(html, /<noscript><meta http-equiv="refresh" content="0;url=https:\/\/accounts\.google.com\/o\/oauth2\/v2\/auth\?state=abc"><\/noscript>/);
+assert.equal(
+  (html.match(/<meta http-equiv="refresh"/g) || []).length,
+  1,
+  'google-start must not auto-redirect twice with the same OAuth state',
+);
+assert.doesNotMatch(
+  html.replace(/<noscript>[\s\S]*?<\/noscript>/g, ''),
+  /http-equiv="refresh"/,
+  'meta-refresh must not run in JS browsers (keep it inside noscript)',
+);
 
 const params = new URLSearchParams('error=please_restart_the_process&ref=ABC');
 assert.equal(oauthErrorCodeFromSearchParams(params), 'please_restart_the_process');
