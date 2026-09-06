@@ -31,8 +31,7 @@ import {
     explainTopicSelection,
     reExplainTopicContent,
 } from "./topicExplain.js";
-import { signStudyWorkerToken } from "./studyWorkerToken.js";
-import { DEFAULT_TUTOR_PERSONA, normalizeTutorPersona } from "./tutorPersonas.js";
+import { handleTutorStream } from "./tutorStream.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -226,28 +225,18 @@ export const handleTopicsRequest = async (req, res) => {
             return sendJson(res, 200, { result });
         }
 
-        if (parts.length === 2 && parts[1] === "study-worker-token" && method === "POST") {
-            const payload = await getTopicForUser(user.id, parts[0]);
-            if (!payload?.topic) {
-                return sendJson(res, 404, { error: "Topic not found" });
-            }
-            const body = await readJsonBody(req).catch(() => ({}));
-            const signed = signStudyWorkerToken({
-                userId: user.id,
-                topicId: payload.topic.id,
-                courseId: payload.topic.courseId || payload.course?.id || "",
-                persona: normalizeTutorPersona(body.persona || DEFAULT_TUTOR_PERSONA),
-            });
-            return sendJson(res, 200, signed);
-        }
-
         if (parts.length === 2 && parts[1] === "chat" && method === "GET") {
             const messages = await listTopicChatMessages(user.id, parts[0]);
             return sendJson(res, 200, { messages });
         }
 
         if (parts.length === 2 && parts[1] === "chat" && method === "POST") {
-            const body = await readJsonBody(req);
+            const body = await readJsonBody(req).catch(() => ({}));
+            const acceptHeader = String(req.headers?.accept || "").toLowerCase();
+            if (acceptHeader.includes("text/event-stream")) {
+                req.body = body;
+                return handleTutorStream(req, res, { userId: user.id, topicId: parts[0] });
+            }
             const result = await askTopicTutor({
                 userId: user.id,
                 topicId: parts[0],
@@ -255,6 +244,12 @@ export const handleTopicsRequest = async (req, res) => {
                 persona: body.persona,
             });
             return sendJson(res, 200, result);
+        }
+
+        if (parts.length === 3 && parts[1] === "chat" && parts[2] === "stream" && method === "POST") {
+            const body = await readJsonBody(req).catch(() => ({}));
+            req.body = body;
+            return handleTutorStream(req, res, { userId: user.id, topicId: parts[0] });
         }
 
         if (parts.length === 2 && parts[1] === "chat" && method === "DELETE") {

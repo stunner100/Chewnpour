@@ -39,10 +39,10 @@ const requireExcludes = (snippet, label) => {
   }
 };
 
-requireIncludes("from 'eve/react'", 'eve React study-worker hook');
-requireIncludes('useEveAgent', 'durable study-worker session');
-requireIncludes("role: message.role === 'user' ? 'user' : 'assistant'", 'user and assistant transcript roles');
-requireIncludes("agent.status === 'submitted' || agent.status === 'streaming'", 'derived tutor busy state');
+requireIncludes('useTutorChat', 'custom streaming tutor hook');
+requireExcludes("from 'eve/react'", 'eve import must be removed');
+requireExcludes('useEveAgent', 'eve agent hook must be removed');
+requireIncludes("status === 'streaming'", 'derived tutor busy state');
 requireIncludes("'AI Tutor conversation'", 'conversation region label');
 requireIncludesIn(surfaceSource, "messageId=\"course-badge\"", 'course badge stays available on desktop');
 requireIncludesIn(surfaceSource, "'max-md:hidden'", 'course badge must not steal phone transcript height');
@@ -112,7 +112,7 @@ requireIncludesIn(messageRowSource, 'prompt.label || prompt.text || prompt.promp
 requireIncludesIn(messageRowSource, 'await onSuggestedPrompt?.(question)', 'welcome chips must send through the tutor submit path');
 requireIncludesIn(surfaceSource, 'await (onSuggestedPrompt || onSubmit)(question)', 'composer chips must reuse the submit path');
 requireIncludesIn(source, 'suggestedPrompts={suggestedPrompts}', 'dedicated tutor welcome must show prompt chips');
-requireIncludesIn(workerSource, 'showComposerSuggestions && messageList.length > 0 ? suggestedPrompts : []', 'dedicated tutor composer chips only after the first turn');
+requireIncludesIn(workerSource, 'showComposerSuggestions && messages.length > 0 ? suggestedPrompts : []', 'dedicated tutor composer chips only after the first turn');
 requireExcludesIn(workerSource, 'showWelcome ? (', 'welcome row must stay mounted so send can append after it');
 requireIncludesIn(surfaceSource, 'void Promise.resolve(onSubmit(question))', 'composer must clear before the tutor stream finishes');
 requireIncludesIn(surfaceSource, 'controller.textInput.clear()', 'explicit send path must clear the draft immediately');
@@ -124,44 +124,12 @@ requireIncludesIn(surfaceSource, "status={isStreaming ? 'streaming' : undefined}
 requireIncludesIn(surfaceSource, 'onStop={onStop}', 'streaming send control must stop the in-flight reply');
 requireIncludesIn(surfaceSource, "aria-label={isStreaming ? 'Stop tutor reply' : 'Send message to AI Tutor'}", 'stop control must have an accessible name');
 requireIncludesIn(workerSource, 'onStop={handleCancel}', 'study worker must cancel the in-flight tutor turn');
-requireIncludesIn(workerSource, 'agent.cancel()', 'stop must cancel the eve agent request');
+requireIncludesIn(workerSource, 'cancel()', 'stop must cancel the streaming request');
 requireIncludesIn(surfaceSource, 'submitText(event.currentTarget.value)', 'Enter must send the textarea DOM value');
 requireIncludesIn(surfaceSource, 'readComposerDraft(controller, event.currentTarget)', 'send button must read the visible draft');
 requireIncludesIn(surfaceSource, '[content-visibility:visible]', 'tutor rows must paint even when the scroller uses content-visibility');
-requireIncludesIn(workerSource, 'mergePendingTutorMessages', 'local pending user bubbles until eve echoes them');
-requireIncludesIn(sessionSource, 'export const mergePendingTutorMessages', 'pending user messages merge helper');
-requireIncludesIn(topicPanelSource, 'courseId={courseId}', 'lesson tutor must pass the course id to the study worker');
-requireIncludesIn(topicPanelSource, 'setClearChat(() => nextClear || null)', 'clear-chat setter must store the handler as a value');
-requireExcludesIn(topicPanelSource, 'onClearAvailable={setClearChat}', 'must not pass setState a function handler React would invoke as an updater');
-
-{
-  let stored;
-  let cleared = false;
-  const setClearChat = (next) => {
-    stored = typeof next === 'function' ? next(stored) : next;
-  };
-  const handleClear = () => {
-    cleared = true;
-  };
-
-  setClearChat(handleClear);
-  if (!cleared) {
-    throw new Error('React setState function-updater simulation should invoke a raw handler');
-  }
-
-  stored = undefined;
-  cleared = false;
-  const handleClearAvailable = (nextClear) => {
-    setClearChat(() => nextClear || null);
-  };
-  handleClearAvailable(handleClear);
-  if (stored !== handleClear) {
-    throw new Error('clear-chat setter must store the handler instead of invoking it');
-  }
-  if (cleared) {
-    throw new Error('storing the clear handler must not clear the chat');
-  }
-}
+requireExcludesIn(workerSource, 'mergePendingTutorMessages', 'eve pending message merge is no longer needed');
+requireExcludesIn(workerSource, 'pendingInputRequestsFromEve', 'eve HITL input requests are no longer needed');
 requireExcludesIn(surfaceSource, "paddingBottom: 'calc(1rem + var(--keyboard-inset, 0px))'", 'composer must not double-count the keyboard inset already applied by the panel');
 requireIncludesIn(topicPanelSource, 'disclaimer="Enter to send · Shift+Enter for new line"', 'lesson tutor still documents Enter-to-send');
 requireIncludesIn(promptInputSource, 'enterKeyHint = "send"', 'mobile keyboards must expose a Send action');

@@ -63,10 +63,6 @@ export default defineConfig(({ mode }) => {
           target: `http://127.0.0.1:${authDevPort}`,
           changeOrigin: true,
         },
-        '/eve': {
-          target: String(env.VITE_EVE_DEV_ORIGIN || 'http://127.0.0.1:2000').trim(),
-          changeOrigin: true,
-        },
       },
     },
     build: {
@@ -143,7 +139,7 @@ export default defineConfig(({ mode }) => {
           // behind a precached index.html. /api/ is also denylisted so Google
           // OAuth callbacks are not served as the SPA 404.
           navigateFallbackAllowlist: [/^\/$/],
-          navigateFallbackDenylist: [/^\/api\//, /^\/ingest\//, /^\/eve\//],
+          navigateFallbackDenylist: [/^\/api\//, /^\/ingest\//],
           cleanupOutdatedCaches: true,
         },
       }),

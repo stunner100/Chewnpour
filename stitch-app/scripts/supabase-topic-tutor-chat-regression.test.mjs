@@ -20,8 +20,8 @@ for (const symbol of ['listTopicChatMessages', 'askTopicTutor', 'clearTopicChat'
 }
 
 const courseHttp = await fs.readFile(path.join(root, 'server', 'courseHttp.js'), 'utf8');
-if (!/parts\[1\] === "study-worker-token"/.test(courseHttp) || !/signStudyWorkerToken/.test(courseHttp)) {
-  throw new Error('Expected topics HTTP handler to mint study-worker tokens.');
+if (!/handleTutorStream/.test(courseHttp)) {
+  throw new Error('Expected topics HTTP handler to wire the streaming tutor endpoint.');
 }
 
 for (const relativePath of [
@@ -41,7 +41,7 @@ if (!/Open AI Tutor/.test(lessonViews) || !/onAsk=\{handleAskTutor\}/.test(lesso
   throw new Error('Expected TopicStudyAssistantCard to open the shared TopicChatPanel tutor entry.');
 }
 if (!/StudyWorkerChat/.test(topicChatPanel)) {
-  throw new Error('Expected TopicChatPanel to use the eve study worker.');
+  throw new Error('Expected TopicChatPanel to use the streaming tutor chat.');
 }
 
 console.log('supabase-topic-tutor-chat-regression.test.mjs passed');
