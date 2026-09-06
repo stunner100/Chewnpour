@@ -5,6 +5,7 @@ import { capturePostHogEvent } from '../lib/posthog';
 import BrandLogo from '../components/BrandLogo';
 import AppIcon from '../components/AppIcon';
 import { LandingDashboardPreview, LandingLessonPreview } from '../components/landing/LandingProductPreviews';
+import HeroDashboardStage from '../components/landing/HeroDashboardStage';
 
 /**
  * Landing page — Slate redesign (light Apple Notes aesthetic).
@@ -230,8 +231,32 @@ const LandingPageStyles = () => (
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-10px); }
     }
+    @keyframes heroDashboardFloat {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, -7px, 0); }
+    }
+    @keyframes heroDashboardShimmer {
+      0%, 4% { transform: translate3d(-130%, 0, 0) skewX(-18deg); }
+      18% { transform: translate3d(230%, 0, 0) skewX(-18deg); }
+      18.01%, 100% { transform: translate3d(230%, 0, 0) skewX(-18deg); }
+    }
+    .hero-dashboard-float {
+      animation: heroDashboardFloat 6.2s ease-in-out infinite;
+    }
+    .hero-dashboard-shimmer__band {
+      position: absolute;
+      top: -12%;
+      bottom: -12%;
+      left: 0;
+      width: 28%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+      transform: translate3d(-130%, 0, 0) skewX(-18deg);
+      animation: heroDashboardShimmer 7.2s linear infinite;
+      mix-blend-mode: soft-light;
+    }
     @media (prefers-reduced-motion: reduce) {
-      .slate-float, .slate-float-delay, .slate-float-slow { animation: none; }
+      .slate-float, .slate-float-delay, .slate-float-slow,
+      .hero-dashboard-float, .hero-dashboard-shimmer__band { animation: none; }
     }
     .landing-product-stage {
       container-type: inline-size;
@@ -439,7 +464,9 @@ const HeroSection = ({ captureLandingEvent }) => (
       </div>
 
       <div className="relative z-10 mx-auto mt-14 w-full max-w-[860px] lg:mt-16">
-        <LandingDashboardPreview />
+        <HeroDashboardStage>
+          <LandingDashboardPreview />
+        </HeroDashboardStage>
       </div>
     </div>
   </section>
