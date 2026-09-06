@@ -33,6 +33,7 @@ import {
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
 import { splitBlocksIntoSections, buildLessonSteps } from '../lib/lessonSections';
+import { useStudyProgress } from './useStudyProgress';
 
 const fetchTopicPayload = async (topicId) => {
     const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}`, {
@@ -52,29 +53,6 @@ const fetchTopicPayload = async (topicId) => {
         assessmentRoute: topic.assessmentRoute || 'topic_quiz',
         inLessonChecks: Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : [],
     };
-};
-
-const fetchTopicProgress = async (topicId) => {
-    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/progress`, {
-        credentials: 'include',
-    });
-    if (!response.ok) return null;
-    const payload = await response.json();
-    return payload?.progress || null;
-};
-
-const upsertTopicProgressRequest = async (topicId, patch) => {
-    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/progress`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch || {}),
-    });
-    if (!response.ok) {
-        throw new Error(`Failed to save progress (${response.status})`);
-    }
-    const payload = await response.json();
-    return payload?.progress || null;
 };
 
 const reExplainTopicRequest = async (topicId, style) => {
@@ -112,8 +90,6 @@ export const useTopicDetail = () => {
     const [chatOpen, setChatOpen] = useState(false);
     const [sourceOpen, setSourceOpen] = useState(false);
     const [topicQueryResult, setTopicQueryResult] = useState(undefined);
-    const [topicProgress, setTopicProgress] = useState(null);
-    const [currentStepSpeech, setCurrentStepSpeech] = useState('');
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
         // Default to full lesson so direct links (e.g. lesson cards) open readable content
@@ -128,7 +104,6 @@ export const useTopicDetail = () => {
     }, [routeTopicId]);
 
     const [chatInitialPrompt, setChatInitialPrompt] = useState('');
-    const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const sidePanelScrollYRef = useRef(0);
     const captureLessonScrollForSidePanel = useCallback(() => {
         if (typeof window === 'undefined') return;
@@ -243,38 +218,7 @@ export const useTopicDetail = () => {
     const finalAssessmentTopic = null;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const podcastEnabled = true;
-    const sourcePassages = [];
-    const hasSourcePassages = sourcePassages.length > 0;
     const isVoicePremium = false;
-
-    useEffect(() => {
-        if (!topicId || !user?.id) {
-            setTopicProgress(null);
-            return undefined;
-        }
-        let cancelled = false;
-        fetchTopicProgress(topicId)
-            .then((progress) => {
-                if (!cancelled) setTopicProgress(progress);
-            })
-            .catch(() => {
-                if (!cancelled) setTopicProgress(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [topicId, user?.id]);
-
-    const upsertProgress = useCallback(async (patch) => {
-        if (!topicId) return null;
-        try {
-            const progress = await upsertTopicProgressRequest(topicId, patch);
-            setTopicProgress(progress);
-            return progress;
-        } catch {
-            return null;
-        }
-    }, [topicId]);
 
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
     const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
@@ -367,12 +311,6 @@ export const useTopicDetail = () => {
         }
     }, [contentCacheKey, topic?.content]);
 
-    // Track topic study progress on mount
-    useEffect(() => {
-        if (!topicId || !user?.id) return;
-        upsertProgress({ topicId, lastStudiedAt: Date.now(), lastActivityKind: 'lesson' }).catch(() => {});
-    }, [topicId, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
     const content = overrideContent || topic?.content || cachedContent;
     const normalizedContent = useMemo(() => {
         if (!content || typeof content !== 'string') return content;
@@ -411,17 +349,6 @@ export const useTopicDetail = () => {
     const contentLines = typeof normalizedContent === 'string'
         ? normalizedContent.split(/\\n|\n/).filter(Boolean)
         : null;
-    const speechText = useMemo(() => {
-        if (!currentStepSpeech) return '';
-        return currentStepSpeech
-            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
-            .replace(/\*\*(.*?)\*\*/g, '$1')
-            .replace(/\*(.*?)\*/g, '$1')
-            .replace(/[#>`_~-]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }, [currentStepSpeech]);
-    const previousSpeechTextRef = useRef(speechText);
     const previousVoiceModeRef = useRef(voiceModeEnabled);
 
     useEffect(() => {
@@ -430,23 +357,6 @@ export const useTopicDetail = () => {
         }
         previousVoiceModeRef.current = voiceModeEnabled;
     }, [voiceModeEnabled, stopVoice]);
-
-    useEffect(() => {
-        if (
-            previousSpeechTextRef.current !== speechText &&
-            (isPlaying || isPaused)
-        ) {
-            stopVoice();
-        }
-        previousSpeechTextRef.current = speechText;
-    }, [speechText, isPlaying, isPaused, stopVoice]);
-
-    useEffect(() => {
-        if (!voiceModeEnabled) return;
-        if (!isVoicePremium) return;
-        if (!speechText) return;
-        primeVoicePlayback(speechText);
-    }, [voiceModeEnabled, isVoicePremium, speechText, primeVoicePlayback]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -845,16 +755,52 @@ export const useTopicDetail = () => {
         });
     }, [filteredBlocks, resolvedTopicTitle, topic?.inLessonChecks, wordBankTerms, studyMode]);
 
-    const handleLessonStepChange = useCallback((payload) => {
-        setCurrentStepSpeech(payload?.speechText || '');
-        setCurrentStepIndex(Number.isFinite(payload?.index) ? payload.index : 0);
-    }, []);
+    const {
+        currentStepIndex,
+        currentStepSpeech,
+        currentStepTitle,
+        handleFinishLesson,
+        handleLessonStepChange,
+        hasSourcePassages,
+        progressLoaded,
+        sourcePassages,
+        studyContext,
+        topicProgress,
+        upsertProgress,
+    } = useStudyProgress({
+        topicId,
+        userId: user?.id,
+        lessonSteps,
+    });
 
-    // Finish lesson = the existing persisted completion path (completed_at).
-    const handleFinishLesson = useCallback(() => {
-        if (topicProgress?.completedAt) return;
-        upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {});
-    }, [topicProgress?.completedAt, upsertProgress, topicId]);
+    const speechText = useMemo(() => {
+        if (!currentStepSpeech) return '';
+        return currentStepSpeech
+            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .replace(/[#>`_~-]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }, [currentStepSpeech]);
+    const previousSpeechTextRef = useRef(speechText);
+
+    useEffect(() => {
+        if (
+            previousSpeechTextRef.current !== speechText &&
+            (isPlaying || isPaused)
+        ) {
+            stopVoice();
+        }
+        previousSpeechTextRef.current = speechText;
+    }, [speechText, isPlaying, isPaused, stopVoice]);
+
+    useEffect(() => {
+        if (!voiceModeEnabled) return;
+        if (!isVoicePremium) return;
+        if (!speechText) return;
+        primeVoicePlayback(speechText);
+    }, [voiceModeEnabled, isVoicePremium, speechText, primeVoicePlayback]);
 
     // Save a text selection straight into the learner's existing notes.
     const handleSaveSelectionToNotes = useCallback((text) => {
@@ -981,7 +927,9 @@ export const useTopicDetail = () => {
         }).catch(() => {});
     }, [upsertProgress]);
 
-    const courseHref = courseId ? `/dashboard/course/${courseId}` : '/dashboard';
+    const courseHref = courseId
+        ? `/dashboard/lessons?courseId=${encodeURIComponent(courseId)}`
+        : '/dashboard/lessons';
     const cleanedDescription = cleanLine(topic?.description || '');
 
     const headerPrimaryAction = examTopicId
@@ -1082,6 +1030,7 @@ export const useTopicDetail = () => {
         activeSectionLabel,
         chatInitialPrompt,
         currentStepIndex,
+        currentStepTitle,
         handleFinishLesson,
         handleSaveSelectionToNotes,
         hasQuizCta,
@@ -1133,6 +1082,7 @@ export const useTopicDetail = () => {
         playVoice,
         podcastEnabled,
         postLessonPrompt,
+        progressLoaded,
         practiceDescription,
         practicePrimary,
         practiceSecondary,
@@ -1160,6 +1110,7 @@ export const useTopicDetail = () => {
         sourcePassages,
         speechText,
         stopVoice,
+        studyContext,
         studyMode,
         studyToolActions,
         studyToolSecondary,

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TopicNotesPanel from '../TopicNotesPanel';
 import TopicChatPanel from '../TopicChatPanel';
+import SourcePanel from '../SourcePanel';
 import HighlightExplainPopover from '../HighlightExplainPopover';
 import MobileLessonActions from '../lesson/MobileLessonActions';
 import StudyModeSelector from '../StudyModeSelector';
@@ -84,6 +85,7 @@ export const TopicLessonMainColumn = ({ controller }) => {
         pauseVoice,
         playVoice,
         podcastEnabled,
+        progressLoaded,
         resolvedTopicTitle,
         resumeVoice,
         shouldAnimateBlocks,
@@ -121,6 +123,7 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 pauseVoice={pauseVoice}
                 playVoice={playVoice}
                 podcastEnabled={podcastEnabled}
+                progressLoaded={progressLoaded}
                 resolvedTopicTitle={resolvedTopicTitle}
                 resumeVoice={resumeVoice}
                 shouldAnimateBlocks={shouldAnimateBlocks}
@@ -146,8 +149,10 @@ export const TopicLessonPanels = ({ controller }) => {
         clearSelection,
         closeChat,
         closeNotes,
+        closeSource,
         handleSaveSelectionToNotes,
         hasQuizCta,
+        hasSourcePassages,
         isVoiceSupported,
         mobileActionItems,
         notesAppendText,
@@ -166,6 +171,9 @@ export const TopicLessonPanels = ({ controller }) => {
         setSettingsOpen,
         settingsOpen,
         showScrollTop,
+        sourceOpen,
+        sourcePassages,
+        studyContext,
         stopVoice,
         topic,
         topicId,
@@ -188,6 +196,14 @@ export const TopicLessonPanels = ({ controller }) => {
                 appendText={notesAppendText}
             />
 
+            {hasSourcePassages ? (
+                <SourcePanel
+                    open={sourceOpen}
+                    onClose={closeSource}
+                    passages={sourcePassages}
+                />
+            ) : null}
+
             {/* Mobile tutor sheet (desktop uses the in-flow study rail) */}
             <div className="lg:hidden">
                 <TopicChatPanel
@@ -196,6 +212,7 @@ export const TopicLessonPanels = ({ controller }) => {
                     open={chatOpen}
                     onClose={closeChat}
                     initialPrompt={chatInitialPrompt}
+                    studyContext={studyContext}
                 />
             </div>
 
@@ -316,6 +333,7 @@ export const TopicLessonShell = ({ controller }) => {
         openChat,
         openNotes,
         resolvedTopicTitle,
+        studyContext,
         topic,
         topicId,
     } = controller;
@@ -383,6 +401,7 @@ export const TopicLessonShell = ({ controller }) => {
                         open={chatOpen}
                         onClose={closeChat}
                         initialPrompt={chatInitialPrompt}
+                        studyContext={studyContext}
                     />
                 )}
             >

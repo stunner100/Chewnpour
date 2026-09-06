@@ -2,6 +2,11 @@ import { nanoid } from "nanoid";
 import { getPool } from "./db.js";
 import { getTopicForUser } from "./courses.js";
 import { normalizeActivityKind } from "./resumeTarget.js";
+import {
+    mergeStudyPositionIntoChecks,
+    normalizeStudyPosition,
+    splitLessonChecks,
+} from "./studyPosition.js";
 
 const TOPIC_ACTIVITY_KINDS = new Set(["lesson", "quiz", "podcast"]);
 
@@ -24,6 +29,7 @@ const toClientNote = (row) => {
 
 const toClientProgress = (row) => {
     if (!row) return null;
+    const split = splitLessonChecks(row.lesson_checks);
     return {
         id: row.id,
         _id: row.id,
@@ -35,10 +41,8 @@ const toClientProgress = (row) => {
             : null,
         lastActivityKind: normalizeTopicActivityKind(row.last_activity_kind, "lesson"),
         termsStarred: Array.isArray(row.terms_starred) ? row.terms_starred : [],
-        lessonChecks:
-            row.lesson_checks && typeof row.lesson_checks === "object" && !Array.isArray(row.lesson_checks)
-                ? row.lesson_checks
-                : {},
+        lessonChecks: split.lessonChecks,
+        studyPosition: split.studyPosition,
         bestScore:
             row.best_score == null || Number.isNaN(Number(row.best_score))
                 ? null
@@ -140,12 +144,11 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
     const nextTerms = Array.isArray(patch.termsStarred)
         ? patch.termsStarred
         : existing.rows[0]?.terms_starred || [];
+    const existingSplit = splitLessonChecks(existing.rows[0]?.lesson_checks);
     const nextLessonChecks =
         patch.lessonChecks && typeof patch.lessonChecks === "object" && !Array.isArray(patch.lessonChecks)
-            ? patch.lessonChecks
-            : existing.rows[0]?.lesson_checks && typeof existing.rows[0].lesson_checks === "object"
-                ? existing.rows[0].lesson_checks
-                : {};
+            ? splitLessonChecks(patch.lessonChecks).lessonChecks
+            : existingSplit.lessonChecks;
     const nextCompletedAt =
         patch.completedAt === undefined
             ? existing.rows[0]?.completed_at || null
@@ -174,6 +177,10 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
                 if (previous == null) return incoming;
                 return Math.max(previous, incoming);
             })();
+    const nextStudyPosition = patch.studyPosition !== undefined
+        ? normalizeStudyPosition(patch.studyPosition)
+        : existingSplit.studyPosition;
+    const storedLessonChecks = mergeStudyPositionIntoChecks(nextLessonChecks, nextStudyPosition);
 
     if (existing.rows[0]) {
         const updated = await db.query(
@@ -194,7 +201,7 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
                 nextLastStudiedAt,
                 nextActivityKind,
                 JSON.stringify(nextTerms),
-                JSON.stringify(nextLessonChecks),
+                JSON.stringify(storedLessonChecks),
                 nextBestScore,
                 existing.rows[0].id,
             ],
@@ -216,7 +223,7 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
             nextLastStudiedAt,
             nextActivityKind,
             JSON.stringify(nextTerms),
-            JSON.stringify(nextLessonChecks),
+            JSON.stringify(storedLessonChecks),
             nextBestScore,
         ],
     );

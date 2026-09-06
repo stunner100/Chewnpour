@@ -31,6 +31,7 @@ export default function StudyWorkerChat({
     inputAriaLabel,
     disclaimer,
     onClearAvailable,
+    studyContext = null,
 }) {
     const {
         messages,
@@ -39,7 +40,7 @@ export default function StudyWorkerChat({
         send,
         cancel,
         clear,
-    } = useTutorChat({ topicId, persona });
+    } = useTutorChat({ topicId, persona, studyContext });
 
     const isBusy = status === 'streaming';
     const error = chatError ? toFriendlyError(chatError) : '';

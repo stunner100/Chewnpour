@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { parseTutorStreamError } from '@/lib/tutorStreamError';
 
-export default function useTutorChat({ topicId, persona = 'coach' }) {
+export default function useTutorChat({ topicId, persona = 'coach', studyContext = null }) {
     const [messages, setMessages] = useState([]);
     const [status, setStatus] = useState('ready');
     const [error, setError] = useState(null);
     const abortControllerRef = useRef(null);
+    const studyContextRef = useRef(studyContext);
+    studyContextRef.current = studyContext;
 
     const loadMessages = useCallback(async () => {
         if (!topicId) return;
@@ -82,7 +84,11 @@ export default function useTutorChat({ topicId, persona = 'coach' }) {
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream'
                 },
-                body: JSON.stringify({ question: text, persona }),
+                body: JSON.stringify({
+                    question: text,
+                    persona,
+                    studyContext: studyContextRef.current || undefined,
+                }),
                 signal: abortController.signal
             });
 

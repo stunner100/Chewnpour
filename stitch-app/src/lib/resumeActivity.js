@@ -31,10 +31,34 @@ export const resumeActivityCopy = (target) => {
             nextStep: 'Finish your exam',
         };
     }
+    const sectionCount = Number(target?.sectionCount);
+    const sectionIndex = Number(target?.sectionIndex);
+    const sectionTitle = String(target?.sectionTitle || '').trim();
+    const hasSection = Number.isFinite(sectionCount) && sectionCount > 0 && Number.isFinite(sectionIndex);
+    const sectionHint = hasSection
+        ? (sectionTitle
+            ? `Section ${sectionIndex + 1} of ${sectionCount} · ${sectionTitle}`
+            : `Section ${sectionIndex + 1} of ${sectionCount}`)
+        : '';
+
+    if (target?.finished || target?.completedAt) {
+        return {
+            badge: title ? 'Lesson complete' : 'Ready',
+            heading,
+            hint: title
+                ? `You finished ${title}. Ready to test what you remember?`
+                : 'This lesson is complete. Start the quiz when you are ready.',
+            cta: 'Review lesson',
+            nextStep: 'Review the lesson or start the quiz',
+        };
+    }
+
     return {
         badge: title ? 'In progress' : 'Ready',
         heading,
-        hint: title ? `Pick up ${title}` : 'Open the latest course and keep moving through lessons and quizzes.',
+        hint: title
+            ? (sectionHint ? `Pick up ${title} · ${sectionHint}` : `Pick up ${title}`)
+            : 'Open the latest course and keep moving through lessons and quizzes.',
         cta: 'Continue studying',
         nextStep: 'Continue a lesson',
     };

@@ -9,7 +9,7 @@ import AppIcon from './AppIcon';
 
 const EXIT_ANIMATION_MS = 250;
 
-const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, courseId, open, onClose, initialPrompt, inline = false }) {
+const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, courseId, open, onClose, initialPrompt, inline = false, studyContext = null }) {
     const { profile, updateProfile } = useAuth();
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
@@ -64,14 +64,20 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
         [selectedPersona],
     );
 
+    const sectionTitle = String(studyContext?.sectionTitle || '').trim();
     const suggestedPrompts = useMemo(
         () => [
             { label: 'Explain this simply', prompt: `Explain ${topicTitle || 'this lesson'} in simple terms.` },
             { label: 'Give me an example', prompt: `Give me a real-world example that illustrates ${topicTitle || 'this lesson'}.` },
             { label: 'Quiz me', prompt: 'Quiz me on the most important ideas from this lesson.' },
-            { label: 'Summarise this section', prompt: 'Summarise the key points of this lesson in a short list.' },
+            {
+                label: 'Summarise this section',
+                prompt: sectionTitle
+                    ? `Summarise the key points of the current section "${sectionTitle}" in a short list.`
+                    : 'Summarise the key points of this lesson in a short list.',
+            },
         ],
-        [topicTitle],
+        [topicTitle, sectionTitle],
     );
 
     const handleClose = useCallback(() => {
@@ -154,7 +160,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                         <div className="min-w-0">
                             <h3 id="topic-chat-title" className="text-body-sm lg:text-body-base font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
                             <p className="hidden lg:block text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[300px]">
-                                Ask about this lesson.
+                                {sectionTitle ? `Ask about ${sectionTitle}.` : 'Ask about this lesson.'}
                             </p>
                         </div>
                     </div>
@@ -259,6 +265,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                     inputAriaLabel="Send message to AI Tutor"
                     disclaimer="Enter to send · Shift+Enter for new line"
                     onClearAvailable={handleClearAvailable}
+                    studyContext={studyContext}
                 />
                 </div>
             </div>

@@ -2,6 +2,7 @@ import { getPool } from "./db.js";
 import { getProfileForUser } from "./profiles.js";
 import { listCoursesForUser } from "./courses.js";
 import { buildResumeTarget } from "./resumeTarget.js";
+import { splitLessonChecks } from "./studyPosition.js";
 
 const toDayIndex = (timestampMs) => Math.floor(Number(timestampMs) / (1000 * 60 * 60 * 24));
 
@@ -205,6 +206,7 @@ export const getProgressSnapshotForUser = async (userId) => {
                 inLessonTotal: latestProgressRow.in_lesson_total,
                 bestScore: latestProgressRow.best_score,
                 courseProgress: resumeCourseProgress,
+                studyPosition: splitLessonChecks(latestProgressRow.lesson_checks).studyPosition,
             }
             : null,
         latestQuizAttempt: attempts[0]

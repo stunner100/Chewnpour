@@ -85,6 +85,24 @@ const lessonWithCourseProgress = buildResumeTarget({
 });
 assert.equal(lessonWithCourseProgress.progressPercent, 40);
 
+const lessonWithSection = buildResumeTarget({
+  latestProgress: {
+    topicId: 'topic-hre',
+    topicTitle: 'Working Memory',
+    lastStudiedAt: '2026-09-06T15:00:00.000Z',
+    lastActivityKind: 'lesson',
+    studyPosition: {
+      sectionIndex: 1,
+      sectionCount: 5,
+      sectionTitle: 'Capacity limits',
+    },
+  },
+});
+assert.equal(lessonWithSection.progressPercent, 40);
+assert.equal(lessonWithSection.sectionIndex, 1);
+assert.equal(lessonWithSection.sectionCount, 5);
+assert.equal(lessonWithSection.sectionTitle, 'Capacity limits');
+
 assert.equal(
   hrefForResumeTarget({ kind: 'lesson', topicId: 'abc' }),
   '/dashboard/topic/abc',

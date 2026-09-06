@@ -29,11 +29,16 @@ export default function LessonSectionStepper({
     contentRef,
     onFinishLesson,
     lessonCompleted = false,
+    initialIndex = 0,
+    initialFinished = false,
 }) {
     const reduceMotion = useReducedMotion();
     const safeSteps = Array.isArray(steps) ? steps : [];
-    const [index, setIndex] = useState(0);
-    const [finished, setFinished] = useState(false);
+    const [index, setIndex] = useState(() => {
+        const next = Number(initialIndex);
+        return Number.isFinite(next) && next > 0 ? Math.round(next) : 0;
+    });
+    const [finished, setFinished] = useState(() => Boolean(initialFinished));
     const [sessionAttemptedIds, setSessionAttemptedIds] = useState([]);
     const attemptedIds = useMemo(() => {
         const next = new Set(Object.keys(lessonChecks || {}));

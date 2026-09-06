@@ -32,6 +32,7 @@ import {
     reExplainTopicContent,
 } from "./topicExplain.js";
 import { handleTutorStream } from "./tutorStream.js";
+import { listTopicPassagesForUser } from "./topicPassages.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -242,6 +243,7 @@ export const handleTopicsRequest = async (req, res) => {
                 topicId: parts[0],
                 question: body.question || body.content,
                 persona: body.persona,
+                studyContext: body.studyContext,
             });
             return sendJson(res, 200, result);
         }
@@ -281,6 +283,18 @@ export const handleTopicsRequest = async (req, res) => {
             const body = await readJsonBody(req);
             const progress = await upsertTopicProgressForUser(user.id, parts[0], body || {});
             return sendJson(res, 200, { progress });
+        }
+
+        if (parts.length === 2 && parts[1] === "passages" && method === "GET") {
+            const payload = await getTopicForUser(user.id, parts[0]);
+            if (!payload?.topic) {
+                return sendJson(res, 404, { error: "Topic not found" });
+            }
+            const passages = await listTopicPassagesForUser({
+                topicId: parts[0],
+                userId: user.id,
+            });
+            return sendJson(res, 200, { passages });
         }
 
         if (parts.length === 2 && parts[1] === "explain" && method === "POST") {

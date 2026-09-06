@@ -75,6 +75,9 @@ requireIncludes(tutorStream, 'text-delta', 'streaming text delta events');
 requireIncludes(tutorStream, 'message-complete', 'completion event');
 requireIncludes(tutorStream, 'isCourseAiEnabled', 'AI feature flag check');
 requireIncludes(tutorStream, 'toOutline', 'lesson outline in context');
+requireIncludes(tutorStream, 'formatTutorStudyBlock', 'section and quiz snapshot in tutor context');
+requireIncludes(tutorStream, 'CURRENT SECTION', 'tutor is told to use the current section');
+requireIncludes(tutorStream, 'LEARNER PERFORMANCE', 'tutor is told not to invent quiz scores');
 
 // Server tools ported from study-agent
 requireIncludes(tutorTools, 'splitMarkdownIntoSections', 'markdown section splitter');
