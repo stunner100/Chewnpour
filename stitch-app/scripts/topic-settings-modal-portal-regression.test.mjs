@@ -22,8 +22,9 @@ assert.match(reExplain, /bg-surface-light/, 'Re-explain dialog must use an opaqu
 assert.match(reExplain, /dark:bg-surface-dark/, 'Re-explain dialog must stay opaque in dark mode.');
 assert.match(reExplain, /z-\[80\]/, 'Re-explain must stay above lesson chrome.');
 assert.match(hook, /Boolean\(profile\?\.voiceModeEnabled\)/, 'Voice mode must read from the user profile.');
+assert.match(hook, /id: 'settings',/, 'More study tools must include voice settings.');
 assert.doesNotMatch(hook, /const voiceModeEnabled = false/, 'Voice mode must not be hard-disabled.');
-assert.match(views, /setSettingsOpen\(true\)/, 'Header settings icon must open the settings modal.');
+assert.match(views, /studyToolSecondary/, 'More study tools must own the settings entry point.');
 assert.match(views, /<TopicSettingsModal/, 'Lesson shell must render the settings modal.');
 
 console.log('topic-settings-modal-portal-regression: ok');

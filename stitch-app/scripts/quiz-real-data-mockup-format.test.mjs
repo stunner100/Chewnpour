@@ -3,42 +3,39 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const quizSource = await fs.readFile(
-  path.join(root, 'src', 'pages', 'ActiveQuizSession.jsx'),
-  'utf8',
-);
+const read = (rel) => fs.readFile(path.join(root, rel), 'utf8');
+
+// The topic quiz player renders real question data from the REST API — the
+// prompt, the plain-string options array, and the answer map — not a mock.
+const quizPlayer = await read('src/pages/TopicQuizPlayer.jsx');
 
 for (const expectedSnippet of [
-  'const QuizMockupPanel',
-  'api.courses.getCourseWithTopics',
-  'api.topics.getTopicWithQuestions',
-  'Array.isArray(options.choices)',
-  'parseOptionJson',
-  'Sample question',
-  'Objective review',
-  'Start quiz',
-  'FRESH_OBJECTIVE_QUIZ_DISPLAY_COUNT',
-  'resolveObjectiveAttemptQuestionCount',
-  'Fresh {attemptQuestionCount}-question quiz',
-  'Starts a fresh {attemptQuestionCount}-question attempt from this topic.',
-  "topic${quizzesReady === 1 ? '' : 's'} ready",
+  '/api/topics/${encodeURIComponent(topicId)}/quiz',
+  'Array.isArray(quiz?.questions)',
+  'answers[question.id]',
+  'questionId: question.id',
 ]) {
-  if (!quizSource.includes(expectedSnippet)) {
-    throw new Error(`Expected quiz page to keep mockup-style real-data format (${expectedSnippet}).`);
+  if (!quizPlayer.includes(expectedSnippet)) {
+    throw new Error(`Expected quiz player to render real question data (${expectedSnippet}).`);
   }
 }
 
 for (const forbiddenSnippet of [
-  'Practice from your generated topics',
-  'Continue practice',
-  'Start an objective quiz from the topic you last studied.',
-  '/dashboard/exam',
-  '<Navigate',
-  '{totalQuestions} generated question',
-  "quiz${quizzesReady === 1 ? '' : 'zes'} ready",
+  "from 'convex/react'",
+  'api.topics.getTopicWithQuestions',
+  'Sample question',
+  'Lorem ipsum',
 ]) {
-  if (quizSource.includes(forbiddenSnippet)) {
-    throw new Error(`Quiz page reintroduced list/resume copy instead of the mockup format (${forbiddenSnippet}).`);
+  if (quizPlayer.includes(forbiddenSnippet)) {
+    throw new Error(`Quiz player reintroduced mock/Convex data (${forbiddenSnippet}).`);
+  }
+}
+
+// The single-question component renders the real prompt and option list.
+const quizQuestion = await read('src/components/quiz/QuizQuestion.jsx');
+for (const expectedSnippet of ['question?.prompt', 'question.id', 'option']) {
+  if (!quizQuestion.includes(expectedSnippet)) {
+    throw new Error(`Expected QuizQuestion to render real options (${expectedSnippet}).`);
   }
 }
 

@@ -29,7 +29,7 @@ for (const [label, source, snippet] of [
     ['TopicDetail', topicDetailSource, 'TopicLessonShell'],
     ['useTopicDetail', useTopicDetailSource, 'export const useTopicDetail'],
     ['TopicLessonViews', topicViewsSource, 'TopicContentPanel'],
-    ['TopicLessonViews', topicViewsSource, 'TopicQuizPanel'],
+    ['TopicLessonViews', topicViewsSource, 'StudyShell'],
     ['AdminDashboard re-export', adminDashboardSource, "./admin/AdminDashboard"],
     ['AdminDashboard shell', adminShellSource, './panels/OverviewPanel'],
     ['AdminDashboard shell', adminShellSource, './panels/ContentPanel'],

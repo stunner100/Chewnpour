@@ -3,29 +3,37 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const quizSource = await fs.readFile(
-  path.join(root, 'src', 'pages', 'ActiveQuizSession.jsx'),
-  'utf8',
-);
+const read = (rel) => fs.readFile(path.join(root, rel), 'utf8');
+
+// Focus-mode player: a quiet, centered single-column layout with no oversized
+// top chrome and no dashboard spacing regressions.
+const quizPlayer = await read('src/pages/TopicQuizPlayer.jsx');
 
 for (const forbiddenSnippet of [
   'min-h-screen pt-16',
   'w-full max-w-[800px] flex flex-col gap-space-8 mt-space-8',
   'md:p-space-10',
 ]) {
-  if (quizSource.includes(forbiddenSnippet)) {
+  if (quizPlayer.includes(forbiddenSnippet)) {
     throw new Error(`Regression detected: quiz reintroduced oversized top spacing (${forbiddenSnippet}).`);
   }
 }
 
 for (const expectedSnippet of [
-  'h-[calc(100vh-64px)] overflow-hidden',
-  'flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto',
-  'api.courses.getUserCourses',
-  'api.topics.getResumeTarget',
+  'mx-auto max-w-2xl',
+  'sticky top-0',
+  'sticky bottom-0',
 ]) {
-  if (!quizSource.includes(expectedSnippet)) {
-    throw new Error(`Expected ActiveQuizSession.jsx to include "${expectedSnippet}".`);
+  if (!quizPlayer.includes(expectedSnippet)) {
+    throw new Error(`Expected focus-mode player to include "${expectedSnippet}".`);
+  }
+}
+
+// Results page keeps the quiet centered shell.
+const results = await read('src/pages/DashboardResults.jsx');
+for (const expectedSnippet of ['mx-auto flex w-full max-w-5xl', 'sticky top-0 z-30']) {
+  if (!results.includes(expectedSnippet)) {
+    throw new Error(`Expected results page to include "${expectedSnippet}".`);
   }
 }
 

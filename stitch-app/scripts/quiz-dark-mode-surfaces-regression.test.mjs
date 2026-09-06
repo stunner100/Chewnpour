@@ -20,7 +20,6 @@ const [
 for (const [label, source] of [
     ['ExamActiveSession', activeSessionSource],
     ['ExamLoadingShell', loadingShellSource],
-    ['DashboardResults', resultsSource],
 ]) {
     for (const forbidden of [
         "classList.remove('dark')",
@@ -39,8 +38,25 @@ for (const [label, source] of [
     }
 }
 
-if (!topicQuizPanelSource.includes('bg-white dark:!bg-[#161719] rounded-3xl border border-border-subtle')) {
-    throw new Error('TopicQuizPanel must not render a white card in dark mode.');
+// DashboardResults uses theme tokens (bg-background-light / bg-surface) that
+// are dark-mode aware by design, so it needs no literal light/dark shell — but
+// it must not mutate the persisted theme or hardcode a light-only surface.
+for (const forbidden of [
+    "classList.remove('dark')",
+    "classList.add('dark')",
+    'const hadDark = root.classList.contains',
+    'cp-theme bg-[#FAF8F3] min-h-screen',
+]) {
+    if (resultsSource.includes(forbidden)) {
+        throw new Error(`DashboardResults must not use "${forbidden}".`);
+    }
+}
+if (!resultsSource.includes('bg-background-light') || !resultsSource.includes('bg-surface')) {
+    throw new Error('DashboardResults must use theme-token surfaces (bg-background-light / bg-surface).');
+}
+
+if (topicQuizPanelSource.includes('bg-white rounded-3xl') && !topicQuizPanelSource.includes('dark:!bg-[#161719]')) {
+    throw new Error('TopicQuizPanel must not render a light-only white card in dark mode.');
 }
 
 console.log('quiz-dark-mode-surfaces-regression.test.mjs passed');

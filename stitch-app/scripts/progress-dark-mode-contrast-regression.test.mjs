@@ -1,40 +1,61 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import process from 'node:process';
+/**
+ * Regression: /dashboard/progress keeps readable dark-mode contrast.
+ *
+ * The redesigned progress page (journey-first layout) relies on the shared
+ * .cp-theme dark overrides in index.css: it uses only semantic token classes
+ * (bg-surface, bg-surface-soft, bg-surface-variant, bg-background-light,
+ * text-text-primary/secondary/muted, border-border-subtle, *-soft tones),
+ * which .dark .cp-theme remaps to high-contrast dark values. Hardcoded light
+ * hex colors in the progress components would break that contract.
+ *
+ * Run: node scripts/progress-dark-mode-contrast-regression.test.mjs
+ */
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = process.cwd();
-const source = await fs.readFile(path.join(root, 'src/pages/StudyProgressMastery.jsx'), 'utf8');
-const cssSource = await fs.readFile(path.join(root, 'src/index.css'), 'utf8');
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const page = readFileSync(join(root, 'src/pages/StudyProgressMastery.jsx'), 'utf8');
+const cssSource = readFileSync(join(root, 'src/index.css'), 'utf8');
+const componentsDir = join(root, 'src/components/progress');
+const componentSources = readdirSync(componentsDir)
+    .filter((file) => file.endsWith('.jsx'))
+    .map((file) => readFileSync(join(componentsDir, file), 'utf8'));
 
-const requireIncludes = (snippet, label) => {
-    if (!source.includes(snippet)) {
-        throw new Error(`Expected StudyProgressMastery.jsx to include ${label}.`);
-    }
-};
+const allSources = [page, ...componentSources];
 
-requireIncludes(
-    'progress-next-card bg-ai-subtle dark:!bg-[#161719] shadow-sm rounded-xl',
-    'explicit dark next-up card surface classes',
-);
-requireIncludes(
-    'progress-course-row rounded-xl border border-border-subtle bg-surface-soft/60 dark:!bg-[#212226] p-space-4',
-    'explicit dark course progress row surface classes',
-);
-requireIncludes(
-    'font-label-md text-label-md text-text-primary line-clamp-1',
-    'high-contrast course progress title text',
-);
-requireIncludes(
-    'font-body-base text-body-base text-text-secondary mb-6',
-    'readable next-up body text',
-);
-
-if (!cssSource.includes('.dark .cp-theme .progress-next-card')) {
-    throw new Error('Expected index.css to include a dark Progress next-up selector.');
+// ── Dark surfaces come from the shared .cp-theme override system ──
+for (const selector of [
+    '.dark .cp-theme .bg-surface',
+    '.dark .cp-theme .bg-surface-soft',
+    '.dark .cp-theme .bg-surface-variant',
+    '.dark .cp-theme .text-text-primary',
+    '.dark .cp-theme .text-text-secondary',
+    '.dark .cp-theme .text-text-muted',
+    '.dark .cp-theme .border-border-subtle',
+]) {
+    assert.ok(
+        cssSource.includes(selector),
+        `index.css must include the ${selector} dark override used by the progress page`,
+    );
 }
 
-if (!cssSource.includes('.dark .cp-theme .progress-course-row')) {
-    throw new Error('Expected index.css to include a dark Progress course row selector.');
+// ── The page and its components use the semantic surface/text tokens ──
+for (const token of ['bg-surface', 'border-border-subtle', 'text-text-primary', 'text-text-secondary']) {
+    assert.ok(
+        allSources.some((source) => source.includes(token)),
+        `progress UI must use the semantic token ${token}`,
+    );
+}
+
+// ── No hardcoded light-theme hex colors that would break dark contrast ──
+for (const [index, source] of allSources.entries()) {
+    assert.doesNotMatch(
+        source,
+        /(?:text|bg|border)-\[#[0-9A-Fa-f]{3,8}\]/,
+        `progress source #${index} must not hardcode hex colors (breaks .cp-theme dark remapping)`,
+    );
 }
 
 console.log('progress-dark-mode-contrast-regression.test.mjs passed');

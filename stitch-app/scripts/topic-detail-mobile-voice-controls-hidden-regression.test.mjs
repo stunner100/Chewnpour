@@ -22,8 +22,8 @@ if (!dashboardLayoutSource.includes('(?:quiz\\/(?!results\\/)|topic\\/)')) {
 
 for (const pattern of [
   'MobileLessonActions',
-  'LessonTOC',
-  'TopicStudyAssistantCard',
+  'StudyTopBar',
+  'TopicChatPanel',
 ]) {
   if (!viewsSource.includes(pattern)) {
     throw new Error(`Expected topic lesson chrome to include "${pattern}".`);

@@ -1,17 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import LessonContentRenderer from '../LessonContentRenderer';
 import LessonInlineCheck from './LessonInlineCheck';
+import LessonCompletion from '../study/LessonCompletion';
 import AppIcon from '../AppIcon';
 import { blocksToSpeechText } from '../../lib/lessonSections';
+
+const scrollLessonToTop = (reduceMotion) => {
+    if (typeof window === 'undefined') return;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+};
 
 export default function LessonSectionStepper({
     steps,
     topicId,
+    topicTitle,
     shareToken,
     lessonChecks,
     quizHref,
-    quizLabel = 'Start topic quiz',
+    quizLabel = 'Start quiz',
     onStepChange,
     cleanInline,
     onViewSource,
@@ -20,7 +27,10 @@ export default function LessonSectionStepper({
     onTermsStarred,
     shouldAnimateBlocks = false,
     contentRef,
+    onFinishLesson,
+    lessonCompleted = false,
 }) {
+    const reduceMotion = useReducedMotion();
     const safeSteps = Array.isArray(steps) ? steps : [];
     const [index, setIndex] = useState(0);
     const [finished, setFinished] = useState(false);
@@ -67,10 +77,14 @@ export default function LessonSectionStepper({
         if (nextIndex < 0) return;
         if (nextIndex >= total) {
             setFinished(true);
+            // Persist completion through the existing topic-progress mechanism.
+            onFinishLesson?.();
+            scrollLessonToTop(reduceMotion);
             return;
         }
         setFinished(false);
         setIndex(nextIndex);
+        scrollLessonToTop(reduceMotion);
     };
 
     if (total === 0) {
@@ -83,89 +97,69 @@ export default function LessonSectionStepper({
 
     if (finished) {
         return (
-            <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-8 text-center shadow-sm">
-                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Lesson complete</p>
-                <h2 className="mt-2 font-display text-display-sm font-bold text-text-primary">You finished every section</h2>
-                <p className="mt-2 text-body-sm text-text-secondary">
-                    Take the topic quiz when you are ready. It uses different questions from the ones in this lesson.
-                </p>
-                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                    <button
-                        type="button"
-                        className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm"
-                        onClick={() => goTo(total - 1)}
-                    >
-                        <AppIcon name="arrow_back" className="text-[16px]" />
-                        Back to last section
-                    </button>
-                    {quizHref ? (
-                        <Link to={quizHref} className="btn-primary inline-flex min-h-11 items-center gap-1.5 text-body-sm">
-                            <AppIcon name="quiz" className="text-[16px]" />
-                            {quizLabel}
-                        </Link>
-                    ) : null}
-                </div>
-            </div>
+            <LessonCompletion
+                topicTitle={topicTitle || step?.title || 'Lesson'}
+                sectionTitles={safeSteps.map((entry) => entry?.title)}
+                quizHref={quizHref}
+                quizLabel={quizLabel}
+                onReview={() => goTo(0)}
+                onReviewLabel="Review lesson"
+                onComplete={onFinishLesson}
+                completed={lessonCompleted}
+            />
         );
     }
 
     const headingId = 'lesson-reading-heading';
+    const sectionTransition = reduceMotion
+        ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.18 } }
+        : {
+            initial: { opacity: 0, y: 10 },
+            animate: { opacity: 1, y: 0 },
+            exit: { opacity: 0, y: -10 },
+            transition: { duration: 0.22, ease: 'easeOut' },
+        };
 
     return (
         <div className="space-y-8">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">
-                    Section {clampedIndex + 1} of {total}
-                </p>
-                <div
-                    className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-soft md:w-32"
-                    role="progressbar"
-                    aria-valuemin={1}
-                    aria-valuemax={total}
-                    aria-valuenow={clampedIndex + 1}
-                    aria-label={`Section ${clampedIndex + 1} of ${total}`}
-                >
-                    <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${Math.round(((clampedIndex + 1) / total) * 100)}%` }}
-                    />
-                </div>
-            </div>
+            <AnimatePresence mode="wait" initial={false}>
+                <Motion.div key={clampedIndex} {...sectionTransition} className="space-y-8">
+                    <article
+                        ref={contentRef}
+                        aria-labelledby={headingId}
+                        className="lesson-reading-stage lesson-prose ph-mask"
+                    >
+                        <h2
+                            id={headingId}
+                            className="font-display text-display-sm font-bold tracking-[-0.02em] text-text-primary md:text-display-md"
+                        >
+                            {step.title}
+                        </h2>
+                        <LessonContentRenderer
+                            blocks={renderBlocks}
+                            shouldAnimateBlocks={shouldAnimateBlocks}
+                            cleanInline={cleanInline}
+                            onViewSource={onViewSource}
+                            wordBankTerms={wordBankTerms}
+                            topicId={topicId}
+                            starredTerms={starredTerms}
+                            onTermsStarred={onTermsStarred}
+                        />
+                    </article>
 
-            <article
-                ref={contentRef}
-                aria-labelledby={headingId}
-                className="lesson-reading-stage lesson-prose ph-mask"
-            >
-                <h2
-                    id={headingId}
-                    className="font-display text-xl font-bold tracking-[-0.02em] text-text-primary md:text-2xl"
-                >
-                    {step.title}
-                </h2>
-                <LessonContentRenderer
-                    blocks={renderBlocks}
-                    shouldAnimateBlocks={shouldAnimateBlocks}
-                    cleanInline={cleanInline}
-                    onViewSource={onViewSource}
-                    wordBankTerms={wordBankTerms}
-                    topicId={topicId}
-                    starredTerms={starredTerms}
-                    onTermsStarred={onTermsStarred}
-                />
-            </article>
+                    {step.check ? (
+                        <LessonInlineCheck
+                            key={step.check.id}
+                            check={step.check}
+                            topicId={topicId}
+                            shareToken={shareToken}
+                            onAttempted={markAttempted}
+                        />
+                    ) : null}
+                </Motion.div>
+            </AnimatePresence>
 
-            {step.check ? (
-                <LessonInlineCheck
-                    key={step.check.id}
-                    check={step.check}
-                    topicId={topicId}
-                    shareToken={shareToken}
-                    onAttempted={markAttempted}
-                />
-            ) : null}
-
-            <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
+            <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-5">
                 <button
                     type="button"
                     className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm disabled:opacity-40"
@@ -181,7 +175,7 @@ export default function LessonSectionStepper({
                     disabled={!canContinue}
                     onClick={() => goTo(clampedIndex + 1)}
                 >
-                    {clampedIndex + 1 >= total ? 'Finish lesson' : 'Next section'}
+                    {clampedIndex + 1 >= total ? 'Finish lesson' : 'Continue'}
                     <AppIcon name="arrow_forward" className="text-[16px]" />
                 </button>
             </div>

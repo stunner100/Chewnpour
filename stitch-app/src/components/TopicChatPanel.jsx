@@ -9,7 +9,7 @@ import AppIcon from './AppIcon';
 
 const EXIT_ANIMATION_MS = 250;
 
-const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, courseId, open, onClose, initialPrompt }) {
+const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, courseId, open, onClose, initialPrompt, inline = false }) {
     const { profile, updateProfile } = useAuth();
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
@@ -67,8 +67,9 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
     const suggestedPrompts = useMemo(
         () => [
             { label: 'Explain this simply', prompt: `Explain ${topicTitle || 'this lesson'} in simple terms.` },
+            { label: 'Give me an example', prompt: `Give me a real-world example that illustrates ${topicTitle || 'this lesson'}.` },
             { label: 'Quiz me', prompt: 'Quiz me on the most important ideas from this lesson.' },
-            { label: 'Summarise key points', prompt: 'Summarise the key points of this lesson in a short list.' },
+            { label: 'Summarise this section', prompt: 'Summarise the key points of this lesson in a short list.' },
         ],
         [topicTitle],
     );
@@ -93,13 +94,13 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
     }, [open]);
 
     useEffect(() => {
-        if (!open) return undefined;
+        if (!open || inline) return undefined;
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') handleClose();
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [open, handleClose]);
+    }, [open, inline, handleClose]);
 
     const handlePersonaChange = useCallback(async (personaKey) => {
         const normalized = String(personaKey || DEFAULT_TUTOR_PERSONA);
@@ -118,13 +119,19 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
 
     if ((!open && !isClosing) || typeof document === 'undefined') return null;
 
-    const panelAnimClass = isClosing
-        ? 'animate-panel-slide-down lg:animate-panel-slide-right'
-        : 'animate-panel-slide-up lg:animate-panel-slide-left';
+    const panelAnimClass = inline
+        ? ''
+        : isClosing
+          ? 'animate-panel-slide-down lg:animate-panel-slide-right'
+          : 'animate-panel-slide-up lg:animate-panel-slide-left';
 
-    return createPortal(
+    const panelPositionClass = inline
+        ? 'relative h-full w-full border-0 shadow-none'
+        : 'fixed inset-x-0 bottom-0 top-0 z-[60] h-dvh max-h-dvh w-full border-t shadow-lg lg:top-16 lg:bottom-0 lg:left-auto lg:right-0 lg:h-auto lg:max-h-none lg:w-[min(420px,100vw)] lg:border-l lg:border-t-0 lg:pb-0';
+
+    const panelBody = (
         <>
-            {!isDesktop ? (
+            {!isDesktop && !inline ? (
                 <button
                     type="button"
                     aria-label="Close AI tutor panel"
@@ -138,19 +145,17 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                 role={isDesktop ? 'complementary' : 'dialog'}
                 aria-modal={isDesktop ? undefined : 'true'}
                 aria-labelledby="topic-chat-title"
-                className={`fixed inset-x-0 bottom-0 top-0 z-[60] flex h-dvh max-h-dvh w-full flex-col overflow-hidden border-t border-border-light bg-surface-light shadow-lg dark:border-border-dark dark:bg-surface-dark lg:top-16 lg:bottom-0 lg:left-auto lg:right-0 lg:h-auto lg:max-h-none lg:w-[min(420px,100vw)] lg:border-l lg:border-t-0 ph-mask ${panelAnimClass} lg:pb-0`}
-                style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px))' }}
+                className={`flex flex-col overflow-hidden border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark ph-mask ${panelPositionClass} ${panelAnimClass}`}
+                style={inline ? undefined : { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px))' }}
             >
                 <div className="flex h-14 shrink-0 items-center justify-between px-4 lg:h-16 border-b border-border-light dark:border-border-dark">
                     <div className="flex items-center gap-2.5 min-w-0">
                         <TutorAvatarMark size={24} className="size-6" />
                         <div className="min-w-0">
                             <h3 id="topic-chat-title" className="text-body-sm lg:text-body-base font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
-                            {topicTitle && (
-                                <p className="hidden lg:block text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[300px]">
-                                    {topicTitle}
-                                </p>
-                            )}
+                            <p className="hidden lg:block text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[300px]">
+                                Ask about this lesson.
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -257,9 +262,10 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                 />
                 </div>
             </div>
-        </>,
-        document.body,
+        </>
     );
+
+    return inline ? panelBody : createPortal(panelBody, document.body);
 });
 
 export default TopicChatPanel;

@@ -19,21 +19,18 @@ if (!helpersSource.includes('export const buildTopicQuizRoute')) {
 if (!helpersSource.includes('export const buildEssayQuizRoute')) {
   throw new Error('Expected buildEssayQuizRoute helper.');
 }
-if (!helpersSource.includes('autostart=mcq')) {
-  throw new Error('Expected topic quiz route to deep-link mcq autostart.');
-}
-if (!helpersSource.includes('autostart=essay')) {
-  throw new Error('Expected essay quiz route to deep-link essay autostart.');
+if (helpersSource.includes('autostart=')) {
+  throw new Error('Dead autostart param must not be emitted by quiz route builders.');
 }
 if (helpersSource.includes('buildObjectiveExamRoute')) {
   throw new Error('Hard cutover: buildObjectiveExamRoute must be removed.');
 }
 
 if (!nextStepsSource.includes('buildTopicQuizRoute')) {
-  throw new Error('NextStepsGuidance must build a shared autostart quiz route.');
+  throw new Error('NextStepsGuidance must build a shared quiz route.');
 }
-if (!nextStepsSource.includes('autostart=mcq')) {
-  throw new Error('NextStepsGuidance must deep-link quiz CTAs into objective mode.');
+if (nextStepsSource.includes('autostart=')) {
+  throw new Error('NextStepsGuidance must not emit the dead autostart param.');
 }
 if (!nextStepsSource.includes('buildEssayQuizRoute')) {
   throw new Error('NextStepsGuidance must build a separate essay quiz route.');

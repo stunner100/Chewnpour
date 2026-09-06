@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import AppIcon from './AppIcon';
 
 const buildTopicQuizRoute = (topicId) =>
-    topicId ? `/dashboard/quiz/${topicId}?autostart=mcq` : null;
+    topicId ? `/dashboard/quiz/${topicId}` : null;
 const buildEssayQuizRoute = (topicId) =>
-    topicId ? `/dashboard/quiz/${topicId}?autostart=essay` : null;
+    topicId ? `/dashboard/quiz/${topicId}` : null;
 
 /**
  * Ranked "What should I do next?" guidance shown after lessons or exams.

@@ -17,9 +17,9 @@ if (!/handleProgressRequest/.test(progressHttp)) {
   throw new Error('Expected progress HTTP handler.');
 }
 
-const apiRoute = await fs.readFile(path.join(root, 'api', 'progress.js'), 'utf8');
-if (!/handleProgressRequest/.test(apiRoute)) {
-  throw new Error('Expected api/progress.js to export the progress handler.');
+const apiRoute = await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8');
+if (!/handleProgressRequest/.test(apiRoute) || !/\/api\/progress/.test(apiRoute)) {
+  throw new Error('Expected api/router.js to route /api/progress to the progress handler.');
 }
 
 const page = await fs.readFile(path.join(root, 'src', 'pages', 'StudyProgressMastery.jsx'), 'utf8');

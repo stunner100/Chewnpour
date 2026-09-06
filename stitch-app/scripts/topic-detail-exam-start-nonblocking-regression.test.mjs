@@ -30,16 +30,16 @@ if (!helpersSource.includes('export const buildTopicQuizRoute')) {
   throw new Error('Expected topic quiz route helper.');
 }
 
-if (!helpersSource.includes('autostart=mcq')) {
-  throw new Error('Expected topic quiz CTA to deep-link into objective mode.');
+if (helpersSource.includes('autostart=')) {
+  throw new Error('Topic quiz CTA must not carry the dead autostart param.');
 }
 
 if (!helpersSource.includes('export const buildEssayQuizRoute')) {
   throw new Error('Expected essay quiz route helper.');
 }
 
-if (!helpersSource.includes('autostart=essay')) {
-  throw new Error('Expected essay quiz CTA to deep-link into essay mode.');
+if (hookSource.includes('autostart=')) {
+  throw new Error('TopicDetail CTAs must not carry the dead autostart param.');
 }
 
 for (const expectedLabel of [

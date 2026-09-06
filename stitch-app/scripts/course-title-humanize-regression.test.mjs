@@ -22,7 +22,7 @@ assert.equal(stripCourseTitle('AI_Powered_Notes.docx'), 'AI-Powered Notes');
 
 const wiredSurfaces = [
   'src/pages/LessonMemoryNeuralBasis.jsx',
-  'src/pages/StudyProgressMastery.jsx',
+  'src/components/progress/progressModel.js',
   'src/pages/MyMaterialsLibrary.jsx',
   'src/pages/ActiveQuizSession.jsx',
   'src/pages/ExamMode.jsx',

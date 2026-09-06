@@ -8,6 +8,8 @@ const STYLE_PROMPTS = {
         "Break the selected text into clear steps or parts. Use short sentences. Keep it under 180 words.",
     simplify:
         "Simplify the selected text as if teaching a curious 12-year-old. Keep it under 160 words.",
+    example:
+        "Give one concrete, everyday example that illustrates the selected text. Keep it under 160 words.",
 };
 
 const REEXPLAIN_STYLES = [
