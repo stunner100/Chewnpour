@@ -27,6 +27,11 @@ assert.match(stepper, /useReducedMotion/, "section transitions must respect redu
 assert.match(stepper, /Continue/, "stepper must offer a continue control");
 assert.match(stepper, /Finish lesson/, "stepper must finish on the last section");
 assert.match(stepper, /onFinishLesson/, "finishing must persist completion via the hook");
+assert.match(stepper, /initialIndex/, "stepper must restore the persisted section index");
+assert.match(hook, /studyPosition/, "topic hook must persist the current section on topic_progress");
+assert.match(hook, /studyContext/, "topic hook must expose the current section to the tutor");
+assert.match(hook, /\/passages/, "topic hook must fetch real source passages");
+assert.doesNotMatch(hook, /const sourcePassages = \[\]/, "source passages must not stay hardcoded empty");
 assert.match(stepper, /LessonCompletion/, "finishing must show the completion moment");
 assert.ok(
     stepper.indexOf("</Motion.div>") < stepper.indexOf("border-t border-border-subtle"),

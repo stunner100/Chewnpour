@@ -119,3 +119,30 @@ export const retrievePassagesForTopic = async ({
         skipped: false,
     };
 };
+
+export const listTopicPassagesForUser = async ({
+    topicId,
+    userId,
+    limit = 12,
+} = {}) => {
+    const db = getPool();
+    const capped = Math.max(1, Math.min(24, Number(limit) || 12));
+    const result = await db.query(
+        `SELECT id, content, chunk_index
+         FROM topic_passages
+         WHERE topic_id = $1 AND user_id = $2
+         ORDER BY chunk_index ASC
+         LIMIT $3`,
+        [topicId, userId, capped],
+    );
+
+    return result.rows.map((row) => ({
+        id: row.id,
+        passageId: row.id,
+        content: row.content,
+        text: row.content,
+        chunkIndex: Number(row.chunk_index || 0),
+        page: Number(row.chunk_index || 0) + 1,
+        sectionHint: `Passage ${Number(row.chunk_index || 0) + 1}`,
+    }));
+};

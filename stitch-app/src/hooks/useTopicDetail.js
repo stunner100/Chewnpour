@@ -33,6 +33,7 @@ import {
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
 import { splitBlocksIntoSections, buildLessonSteps } from '../lib/lessonSections';
+import { buildStudyContext, normalizeStudyPosition } from '../lib/studyPosition';
 
 const fetchTopicPayload = async (topicId) => {
     const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}`, {
@@ -61,6 +62,31 @@ const fetchTopicProgress = async (topicId) => {
     if (!response.ok) return null;
     const payload = await response.json();
     return payload?.progress || null;
+};
+
+const fetchTopicPassages = async (topicId) => {
+    const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/passages`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return [];
+    const payload = await response.json().catch(() => ({}));
+    const rows = Array.isArray(payload?.passages) ? payload.passages : [];
+    return rows
+        .map((row, index) => {
+            const text = String(row.text || row.content || '').trim();
+            if (!text) return null;
+            const chunkIndex = Number.isFinite(Number(row.chunkIndex))
+                ? Number(row.chunkIndex)
+                : index;
+            return {
+                passageId: row.passageId || row.id || `passage-${chunkIndex}`,
+                page: Number(row.page) || chunkIndex + 1,
+                sectionHint: row.sectionHint || `Passage ${chunkIndex + 1}`,
+                text,
+            };
+        })
+        .filter(Boolean);
 };
 
 const upsertTopicProgressRequest = async (topicId, patch) => {
@@ -113,7 +139,12 @@ export const useTopicDetail = () => {
     const [sourceOpen, setSourceOpen] = useState(false);
     const [topicQueryResult, setTopicQueryResult] = useState(undefined);
     const [topicProgress, setTopicProgress] = useState(null);
+    const [progressLoaded, setProgressLoaded] = useState(false);
+    const [sourcePassages, setSourcePassages] = useState([]);
     const [currentStepSpeech, setCurrentStepSpeech] = useState('');
+    const [currentStepTitle, setCurrentStepTitle] = useState('');
+    const [currentStepFinished, setCurrentStepFinished] = useState(false);
+    const lastPersistedPositionRef = useRef(null);
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
         // Default to full lesson so direct links (e.g. lesson cards) open readable content
@@ -243,22 +274,36 @@ export const useTopicDetail = () => {
     const finalAssessmentTopic = null;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const podcastEnabled = true;
-    const sourcePassages = [];
     const hasSourcePassages = sourcePassages.length > 0;
     const isVoicePremium = false;
 
     useEffect(() => {
         if (!topicId || !user?.id) {
             setTopicProgress(null);
+            setSourcePassages([]);
+            setProgressLoaded(true);
+            lastPersistedPositionRef.current = null;
             return undefined;
         }
         let cancelled = false;
+        setProgressLoaded(false);
+        lastPersistedPositionRef.current = null;
         fetchTopicProgress(topicId)
             .then((progress) => {
                 if (!cancelled) setTopicProgress(progress);
             })
             .catch(() => {
                 if (!cancelled) setTopicProgress(null);
+            })
+            .finally(() => {
+                if (!cancelled) setProgressLoaded(true);
+            });
+        fetchTopicPassages(topicId)
+            .then((passages) => {
+                if (!cancelled) setSourcePassages(passages);
+            })
+            .catch(() => {
+                if (!cancelled) setSourcePassages([]);
             });
         return () => {
             cancelled = true;
@@ -848,13 +893,104 @@ export const useTopicDetail = () => {
     const handleLessonStepChange = useCallback((payload) => {
         setCurrentStepSpeech(payload?.speechText || '');
         setCurrentStepIndex(Number.isFinite(payload?.index) ? payload.index : 0);
+        setCurrentStepTitle(payload?.title || '');
+        setCurrentStepFinished(Boolean(payload?.finished));
     }, []);
+
+    const studyContext = useMemo(
+        () => buildStudyContext({
+            sectionIndex: currentStepIndex,
+            sectionCount: Array.isArray(lessonSteps) ? lessonSteps.length : 0,
+            sectionTitle: currentStepTitle,
+            sectionExcerpt: currentStepSpeech,
+        }),
+        [currentStepIndex, currentStepTitle, currentStepSpeech, lessonSteps],
+    );
+
+    // Persist the current section through the existing topic_progress row.
+    useEffect(() => {
+        if (!topicId || !user?.id || !progressLoaded) return undefined;
+        const sectionCount = Array.isArray(lessonSteps) ? lessonSteps.length : 0;
+        if (sectionCount <= 0) return undefined;
+        const nextPosition = normalizeStudyPosition({
+            sectionIndex: currentStepIndex,
+            sectionCount,
+            sectionTitle: currentStepTitle,
+            finished: currentStepFinished,
+        });
+        if (!nextPosition) return undefined;
+        const previous = lastPersistedPositionRef.current;
+        const sameAsPrevious = previous
+            && previous.sectionIndex === nextPosition.sectionIndex
+            && previous.sectionCount === nextPosition.sectionCount
+            && previous.sectionTitle === nextPosition.sectionTitle
+            && previous.finished === nextPosition.finished;
+        if (sameAsPrevious) return undefined;
+        const restored = normalizeStudyPosition(topicProgress?.studyPosition);
+        const sameAsSaved = restored
+            && restored.sectionIndex === nextPosition.sectionIndex
+            && restored.sectionCount === nextPosition.sectionCount
+            && restored.sectionTitle === nextPosition.sectionTitle
+            && restored.finished === nextPosition.finished
+            && !previous;
+        if (sameAsSaved) {
+            lastPersistedPositionRef.current = nextPosition;
+            return undefined;
+        }
+        const timer = window.setTimeout(() => {
+            lastPersistedPositionRef.current = nextPosition;
+            upsertProgress({
+                lastStudiedAt: Date.now(),
+                lastActivityKind: 'lesson',
+                studyPosition: nextPosition,
+            }).catch(() => {});
+        }, 450);
+        return () => window.clearTimeout(timer);
+    }, [
+        topicId,
+        user?.id,
+        progressLoaded,
+        currentStepIndex,
+        currentStepTitle,
+        currentStepFinished,
+        lessonSteps,
+        topicProgress?.studyPosition,
+        upsertProgress,
+    ]);
 
     // Finish lesson = the existing persisted completion path (completed_at).
     const handleFinishLesson = useCallback(() => {
-        if (topicProgress?.completedAt) return;
-        upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {});
-    }, [topicProgress?.completedAt, upsertProgress, topicId]);
+        const sectionCount = Array.isArray(lessonSteps) ? lessonSteps.length : 0;
+        const studyPosition = normalizeStudyPosition({
+            sectionIndex: currentStepIndex,
+            sectionCount,
+            sectionTitle: currentStepTitle,
+            finished: true,
+        });
+        lastPersistedPositionRef.current = studyPosition;
+        if (topicProgress?.completedAt) {
+            upsertProgress({
+                lastStudiedAt: Date.now(),
+                lastActivityKind: 'lesson',
+                studyPosition,
+            }).catch(() => {});
+            return;
+        }
+        upsertProgress({
+            topicId,
+            completedAt: Date.now(),
+            lastStudiedAt: Date.now(),
+            lastActivityKind: 'lesson',
+            studyPosition,
+        }).catch(() => {});
+    }, [
+        topicProgress?.completedAt,
+        upsertProgress,
+        topicId,
+        lessonSteps,
+        currentStepIndex,
+        currentStepTitle,
+    ]);
 
     // Save a text selection straight into the learner's existing notes.
     const handleSaveSelectionToNotes = useCallback((text) => {
@@ -981,7 +1117,9 @@ export const useTopicDetail = () => {
         }).catch(() => {});
     }, [upsertProgress]);
 
-    const courseHref = courseId ? `/dashboard/course/${courseId}` : '/dashboard';
+    const courseHref = courseId
+        ? `/dashboard/lessons?courseId=${encodeURIComponent(courseId)}`
+        : '/dashboard/lessons';
     const cleanedDescription = cleanLine(topic?.description || '');
 
     const headerPrimaryAction = examTopicId
@@ -1082,6 +1220,7 @@ export const useTopicDetail = () => {
         activeSectionLabel,
         chatInitialPrompt,
         currentStepIndex,
+        currentStepTitle,
         handleFinishLesson,
         handleSaveSelectionToNotes,
         hasQuizCta,
@@ -1133,6 +1272,7 @@ export const useTopicDetail = () => {
         playVoice,
         podcastEnabled,
         postLessonPrompt,
+        progressLoaded,
         practiceDescription,
         practicePrimary,
         practiceSecondary,
@@ -1160,6 +1300,7 @@ export const useTopicDetail = () => {
         sourcePassages,
         speechText,
         stopVoice,
+        studyContext,
         studyMode,
         studyToolActions,
         studyToolSecondary,

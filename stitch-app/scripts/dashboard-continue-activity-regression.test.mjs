@@ -45,6 +45,12 @@ if (!/last_activity_kind/.test(progressServer) || !/buildResumeTarget/.test(prog
 if (!/last_activity_kind/.test(topicNotes) || !/lastActivityKind/.test(topicNotes)) {
   throw new Error('Topic progress must persist lastActivityKind.');
 }
+if (!/studyPosition/.test(topicNotes) || !/mergeStudyPositionIntoChecks/.test(topicNotes)) {
+  throw new Error('Topic progress must persist studyPosition in lesson_checks.');
+}
+if (!/splitLessonChecks/.test(progressServer) || !/studyPosition/.test(progressServer)) {
+  throw new Error('Progress snapshot must include studyPosition in the resume target.');
+}
 if (!/lastActivityKind: "quiz"/.test(courseHttp)) {
   throw new Error('Opening a topic quiz must record quiz activity.');
 }

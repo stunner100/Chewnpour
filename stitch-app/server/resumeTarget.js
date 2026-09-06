@@ -1,3 +1,10 @@
+import {
+    lessonCheckCount,
+    normalizeStudyPosition,
+    splitLessonChecks,
+    studyPositionPercent,
+} from "./studyPosition.js";
+
 const toMs = (value) => {
     if (value == null || value === "") return 0;
     if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -34,13 +41,6 @@ const countAnswered = (answers) => {
     return Object.keys(answers).length;
 };
 
-const lessonCheckCount = (lessonChecks) => {
-    if (!lessonChecks || typeof lessonChecks !== "object" || Array.isArray(lessonChecks)) {
-        return 0;
-    }
-    return Object.keys(lessonChecks).length;
-};
-
 export const clampPercent = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return 0;
@@ -58,6 +58,7 @@ export const computeResumeProgressPercent = ({
     quizTotal,
     examAnswers,
     examTotal,
+    studyPosition,
 } = {}) => {
     if (kind === "exam") {
         const total = Number(examTotal || 0);
@@ -72,6 +73,8 @@ export const computeResumeProgressPercent = ({
         }
     }
     if (completedAt) return 100;
+    const fromSection = studyPositionPercent(normalizeStudyPosition(studyPosition), completedAt);
+    if (fromSection != null) return fromSection;
     const checks = lessonCheckCount(lessonChecks);
     const checkTotal = Math.max(Number(inLessonTotal || 0), checks);
     if (checkTotal > 0 && checks > 0) {
@@ -120,6 +123,8 @@ export const buildResumeTarget = ({
             String(latestQuizAttempt.topicId) === String(latestProgress.topicId)
                 ? latestQuizAttempt
                 : null;
+        const studyPosition = normalizeStudyPosition(latestProgress.studyPosition)
+            || splitLessonChecks(latestProgress.lessonChecks).studyPosition;
         return {
             kind,
             topicId: latestProgress.topicId,
@@ -141,8 +146,14 @@ export const buildResumeTarget = ({
                 courseProgress: latestProgress.courseProgress,
                 quizScore: matchingQuiz?.score,
                 quizTotal: matchingQuiz?.total,
+                studyPosition,
             }),
             lastActivityAt: progressAt,
+            completedAt: latestProgress.completedAt || null,
+            sectionIndex: studyPosition?.sectionIndex ?? null,
+            sectionCount: studyPosition?.sectionCount ?? null,
+            sectionTitle: studyPosition?.sectionTitle || "",
+            finished: Boolean(studyPosition?.finished || latestProgress.completedAt),
         };
     }
 

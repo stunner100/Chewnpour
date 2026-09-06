@@ -334,8 +334,8 @@ const DashboardResults = () => {
                             topicId={attempt.topicId}
                             topicTitle={attempt.topicTitle}
                             percentage={percentage}
-                            completedAt={null}
-                            bestScore={null}
+                            completedAt={attempt.createdAt || null}
+                            bestScore={percentage}
                             hasWordBank={false}
                             onOpenChat={null}
                             variant="exam"

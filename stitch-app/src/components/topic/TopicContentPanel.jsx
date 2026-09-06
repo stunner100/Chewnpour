@@ -24,6 +24,7 @@ const TopicContentPanel = ({
     pauseVoice,
     playVoice,
     podcastEnabled = false,
+    progressLoaded = true,
     resolvedTopicTitle,
     resumeVoice,
     shouldAnimateBlocks,
@@ -76,7 +77,7 @@ const TopicContentPanel = ({
         </div>
 
         <div className="mx-auto w-full max-w-[720px]">
-            {normalizedContent ? (
+            {normalizedContent && progressLoaded ? (
                 <LessonSectionStepper
                     key={topicId || 'topic-lesson'}
                     steps={lessonSteps}
@@ -94,6 +95,10 @@ const TopicContentPanel = ({
                     contentRef={contentRef}
                     onFinishLesson={handleFinishLesson}
                     lessonCompleted={Boolean(topicProgress?.completedAt)}
+                    initialIndex={topicProgress?.studyPosition?.sectionIndex ?? 0}
+                    initialFinished={Boolean(
+                        topicProgress?.studyPosition?.finished && topicProgress?.completedAt
+                    )}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">

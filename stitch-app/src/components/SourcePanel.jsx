@@ -81,7 +81,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                                 <div className="flex items-center gap-2">
                                     <span className="badge badge-primary gap-1">
                                         <AppIcon name="description" className="text-[10px]" />
-                                        Page {passage.page}
+                                        Passage {passage.page}
                                     </span>
                                     {passage.sectionHint && (
                                         <span className="truncate text-caption text-text-faint-light dark:text-text-faint-dark">
