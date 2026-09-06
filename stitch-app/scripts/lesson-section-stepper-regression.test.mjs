@@ -21,19 +21,27 @@ assert.match(app, /TopicDetail/, "App must still mount TopicDetail");
 assert.match(topicDetail, /TopicLessonShell/, "TopicDetail must render the lesson shell");
 assert.match(contentPanel, /LessonSectionStepper/, "lesson page must mount the section stepper");
 assert.doesNotMatch(contentPanel, /GuidedStudyPath/, "guided study path must not remain on the lesson page");
-assert.match(stepper, /Section \{clampedIndex \+ 1\} of \{total\}/, "stepper must show section progress");
 assert.match(stepper, /lesson-reading-stage/, "lesson prose must sit in a defined reading stage");
+assert.match(stepper, /AnimatePresence/, "section transitions must animate subtly");
+assert.match(stepper, /useReducedMotion/, "section transitions must respect reduced motion");
+assert.match(stepper, /Continue/, "stepper must offer a continue control");
+assert.match(stepper, /Finish lesson/, "stepper must finish on the last section");
+assert.match(stepper, /onFinishLesson/, "finishing must persist completion via the hook");
+assert.match(stepper, /LessonCompletion/, "finishing must show the completion moment");
 assert.ok(
-    stepper.indexOf("</article>") < stepper.indexOf("<LessonInlineCheck"),
-    "inline checks must sit outside the reading article",
+    stepper.indexOf("</Motion.div>") < stepper.indexOf("border-t border-border-subtle"),
+    "progression controls must follow the section content",
 );
 assert.match(stepper, /LessonInlineCheck/, "stepper must render the inline check");
-assert.match(stepper, /Next section/, "stepper must continue after an attempt");
 assert.match(inlineCheck, /\/lesson-check/, "inline checks must grade on the server");
+assert.match(inlineCheck, /Quick check/, "inline check must read as part of the lesson");
+assert.match(inlineCheck, /Try again/, "wrong answers must allow a retry");
+assert.match(inlineCheck, /Ask AI Tutor/, "wrong answers must offer tutor help");
 assert.doesNotMatch(renderer, /quickcheck_widget/, "live reader must not render reveal-card quick checks");
 assert.doesNotMatch(renderer, /ordering_widget/, "ordering belongs in the stepper, not the article renderer");
 assert.doesNotMatch(hook, /quickcheck_widget/, "topic hook must not inject markdown Q/A widgets");
 assert.match(quizPlayer, /\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/quiz/, "quiz route must stay MCQ quiz API");
+assert.doesNotMatch(quizPlayer, /autostart/, "quiz player must not consume the dead autostart param");
 assert.match(courses, /surface, 'quiz'\) = 'quiz'/, "quiz queries must require surface=quiz");
 assert.match(exams, /surface, 'quiz'\) = 'quiz'/, "exams must exclude in-lesson checks");
 

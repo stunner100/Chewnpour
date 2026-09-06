@@ -37,8 +37,8 @@ for (const relativePath of [
 
 const lessonViews = await fs.readFile(path.join(root, 'src', 'components', 'topic', 'TopicLessonViews.jsx'), 'utf8');
 const topicChatPanel = await fs.readFile(path.join(root, 'src', 'components', 'TopicChatPanel.jsx'), 'utf8');
-if (!/Open AI Tutor/.test(lessonViews) || !/onAsk=\{handleAskTutor\}/.test(lessonViews)) {
-  throw new Error('Expected TopicStudyAssistantCard to open the shared TopicChatPanel tutor entry.');
+if (!/onOpenChat=\{openChat\}/.test(lessonViews) || !/<TopicChatPanel\s*\n\s*inline/.test(lessonViews)) {
+  throw new Error('Expected the study top bar to open the shared TopicChatPanel tutor rail.');
 }
 if (!/StudyWorkerChat/.test(topicChatPanel)) {
   throw new Error('Expected TopicChatPanel to use the streaming tutor chat.');

@@ -4,9 +4,9 @@ import LessonDefinitionBlock from './LessonDefinitionBlock';
 import AppIcon from './AppIcon';
 
 const HEADER_SIZES = {
-    1: "text-3xl md:text-4xl font-extrabold text-neutral-900 dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
-    2: "text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-8 md:mt-10 mb-3 md:mb-4 tracking-tight flex items-center gap-2",
-    3: "text-lg md:text-xl font-bold text-neutral-800 dark:text-neutral-200 mt-6 md:mt-8 mb-2 md:mb-3 flex items-center gap-2"
+    1: "font-display text-3xl md:text-4xl font-extrabold text-text-primary mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
+    2: "font-display text-xl md:text-2xl font-bold text-text-primary mt-8 md:mt-10 mb-3 md:mb-4 tracking-tight flex items-center gap-2",
+    3: "font-display text-lg md:text-xl font-bold text-text-primary mt-6 md:mt-8 mb-2 md:mb-3 flex items-center gap-2"
 };
 
 // Design tokens + dark mode; tip / warning / important stay visually distinct.
@@ -84,21 +84,21 @@ const parseInlineFormatting = (text, cleanInline = (value) => value) => {
         const key = `${part}-${seenCount}`;
         if (part.startsWith('**') && part.endsWith('**')) {
             return (
-                <strong key={key} className="font-semibold text-neutral-900 dark:text-white">
+                <strong key={key} className="font-semibold text-text-primary">
                     {cleanInline(part.slice(2, -2))}
                 </strong>
             );
         }
         if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
             return (
-                <em key={key} className="italic text-neutral-700 dark:text-neutral-300">
+                <em key={key} className="italic text-text-secondary">
                     {cleanInline(part.slice(1, -1))}
                 </em>
             );
         }
         if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
             return (
-                <code key={key} className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[0.9em] font-mono text-neutral-800 dark:text-neutral-200 border border-neutral-200/60 dark:border-neutral-700/60">
+                <code key={key} className="px-1.5 py-0.5 rounded-md bg-surface-soft text-[0.9em] font-mono text-text-primary border border-border-subtle">
                     {part.slice(1, -1)}
                 </code>
             );
@@ -200,7 +200,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
     const bold = (text) => parseInlineFormatting(text, cleanInline);
 
     return (
-        <div className="prose prose-base md:prose-lg prose-neutral dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed [text-wrap:pretty]">
+        <div className="prose prose-base md:prose-lg prose-neutral dark:prose-invert max-w-none text-text-secondary leading-relaxed [text-wrap:pretty]">
             {blocks.map((block, index) => {
                 if (block.type === 'spacer') {
                     return <div key={block.key} className="h-2 md:h-3"></div>;
@@ -286,12 +286,11 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'example') {
                     return (
-                        <div key={block.key} className={`my-4 md:my-6 pl-5 pr-5 md:pl-6 md:pr-6 py-4 md:py-5 border-l-4 border-primary-400 dark:border-primary-600 bg-primary-50/30 dark:bg-primary-950/20 rounded-r-2xl ${animationClass}`} style={animationStyle}>
-                            <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 mb-2">
-                                <AppIcon name="lightbulb_circle" className="text-[20px]" />
-                                <span className="text-xs font-black uppercase tracking-widest">Example</span>
-                            </div>
-                            <div className="text-neutral-700 dark:text-neutral-300 text-[15px] md:text-base leading-relaxed">
+                        <div key={block.key} className={`my-4 md:my-6 rounded-2xl border border-border-subtle bg-surface-soft p-5 md:p-6 ${animationClass}`} style={animationStyle}>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                                Example
+                            </p>
+                            <div className="mt-2 text-text-secondary text-[15px] md:text-base leading-relaxed">
                                 {bold(block.text)}
                             </div>
                         </div>
@@ -302,7 +301,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                     return (
                         <div key={block.key} className={`mb-3 ml-1 flex items-start gap-3 group md:mb-4 ${animationClass}`} style={animationStyle}>
                             <span aria-hidden="true" className="mt-2.5 size-1.5 shrink-0 rounded-full bg-text-muted/70" />
-                            <span className="text-[15px] leading-7 text-neutral-700 dark:text-neutral-300 md:text-base">{bold(block.text)}</span>
+                            <span className="text-[15px] leading-7 text-text-secondary md:text-base">{bold(block.text)}</span>
                         </div>
                     );
                 }
@@ -327,7 +326,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                             <span className="flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
                                 {block.num}
                             </span>
-                            <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
+                            <span className="text-[15px] md:text-base leading-7 text-text-secondary">{bold(block.text)}</span>
                         </div>
                     );
                 }
@@ -340,39 +339,34 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 // Analogy cards (compact, labeled)
                 if (block.type === 'analogycard') {
                     return (
-                        <div key={block.key} className={`my-3 p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-700/30 flex gap-3 ${animationClass}`} style={animationStyle}>
-                            <AppIcon name="lightbulb" className="text-amber-500 dark:text-amber-400 text-[20px] shrink-0 mt-0.5" />
-                            <div>
-                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">{block.label}</span>
-                                <p className="text-[15px] md:text-base text-neutral-700 dark:text-neutral-300 mt-1 leading-relaxed">{bold(block.text)}</p>
-                            </div>
+                        <div key={block.key} className={`my-4 rounded-2xl border border-border-subtle border-l-4 border-l-primary/50 bg-surface p-5 ${animationClass}`} style={animationStyle}>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                                {block.label || 'Analogy'}
+                            </p>
+                            <p className="mt-2 text-[15px] md:text-base text-text-secondary leading-relaxed">{bold(block.text)}</p>
                         </div>
                     );
                 }
 
                 // Common Mistakes with labels
                 if (block.type === 'mistake') {
-                    const MISTAKE_BADGE = { 'Exam Trap': 'badge-danger', 'Common Confusion': 'badge-warning', 'Do Not Mix Up': 'badge-primary' };
                     return (
-                        <div key={block.key} className={`flex items-start gap-3 ml-1 mb-4 group ${animationClass}`} style={animationStyle}>
-                            <div className="mt-1.5 size-5 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
-                                <AppIcon name="close" className="text-[14px] text-red-500" />
+                        <div key={block.key} className={`my-4 rounded-2xl border border-warning/30 bg-warning-soft/50 p-5 ${animationClass}`} style={animationStyle}>
+                            <div className="flex items-center gap-2">
+                                <AppIcon name="warning" className="text-[16px] text-warning" />
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                                    {block.label || 'Common mistake'}
+                                </p>
                             </div>
-                            <div className="flex-1">
-                                {block.label && (
-                                    <span className={`inline-block badge ${MISTAKE_BADGE[block.label] || 'badge'} mb-1.5 mr-2`}>{block.label}</span>
-                                )}
-                                <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
-                            </div>
+                            <p className="mt-2 text-[15px] md:text-base text-text-secondary leading-relaxed">{bold(block.text)}</p>
                         </div>
                     );
                 }
 
                 if (block.type === 'quote') {
                     return (
-                        <div key={block.key} className={`border-l-4 border-primary/30 bg-primary/5 pl-6 md:pl-8 py-5 md:py-6 pr-5 md:pr-6 rounded-r-3xl my-6 md:my-8 relative ${animationClass}`} style={animationStyle}>
-                            <AppIcon name="format_quote" className="absolute top-2 left-2 text-primary/10 text-4xl" />
-                            <div className="text-base md:text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed relative z-10 italic">
+                        <div key={block.key} className={`border-l-2 border-primary/40 pl-5 md:pl-6 py-2 pr-2 my-6 md:my-8 ${animationClass}`} style={animationStyle}>
+                            <div className="text-base md:text-body-lg text-text-secondary leading-relaxed italic">
                                 {bold(block.text)}
                             </div>
                         </div>
@@ -380,7 +374,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 }
 
                 return (
-                    <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-[1.8] text-neutral-700 dark:text-neutral-300 ${animationClass}`} style={animationStyle}>
+                    <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-[1.8] text-text-secondary ${animationClass}`} style={animationStyle}>
                         {bold(block.text)}
                     </p>
                 );

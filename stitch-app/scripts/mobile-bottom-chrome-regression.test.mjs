@@ -26,8 +26,8 @@ assert.match(layout, /data-cp-tab-bar-spacer/, 'Dashboard must reserve layout sp
 assert.match(layout, /hideAppHeader/, 'Quiz player must drop the app header so Settings is not one tap away.');
 assert.match(
   layout,
-  /\/\^\\\/dashboard\\\/quiz\\\/\(\?!results\\\/\)\[\^\/]\+\//,
-  'Only the live quiz player hides the app header, not quiz results.',
+  /\/\^\\\/dashboard\\\/\(\?:quiz\\\/\(\?!results\\\/\)\[\^\/]\+\|topic\\\/\)\[\^\/]\+\//,
+  'Quiz player and topic lesson routes hide the app header; quiz results keep it.',
 );
 
 assert.match(actions, /data-cp-bottom-chrome="lesson"/, 'Lesson action bar must expose its box for overlay collision.');

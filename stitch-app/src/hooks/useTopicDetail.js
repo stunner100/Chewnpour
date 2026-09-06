@@ -128,6 +128,7 @@ export const useTopicDetail = () => {
     }, [routeTopicId]);
 
     const [chatInitialPrompt, setChatInitialPrompt] = useState('');
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const sidePanelScrollYRef = useRef(0);
     const captureLessonScrollForSidePanel = useCallback(() => {
         if (typeof window === 'undefined') return;
@@ -243,6 +244,7 @@ export const useTopicDetail = () => {
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const podcastEnabled = true;
     const sourcePassages = [];
+    const hasSourcePassages = sourcePassages.length > 0;
     const isVoicePremium = false;
 
     useEffect(() => {
@@ -845,6 +847,20 @@ export const useTopicDetail = () => {
 
     const handleLessonStepChange = useCallback((payload) => {
         setCurrentStepSpeech(payload?.speechText || '');
+        setCurrentStepIndex(Number.isFinite(payload?.index) ? payload.index : 0);
+    }, []);
+
+    // Finish lesson = the existing persisted completion path (completed_at).
+    const handleFinishLesson = useCallback(() => {
+        if (topicProgress?.completedAt) return;
+        upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {});
+    }, [topicProgress?.completedAt, upsertProgress, topicId]);
+
+    // Save a text selection straight into the learner's existing notes.
+    const handleSaveSelectionToNotes = useCallback((text) => {
+        const note = String(text || '').trim();
+        if (!note) return;
+        setNotesAppendText(note);
     }, []);
 
     useEffect(() => {
@@ -1013,7 +1029,7 @@ export const useTopicDetail = () => {
             label: 'Re-explain differently',
             onClick: () => setReExplainOpen(true),
         },
-        {
+        hasSourcePassages && {
             id: 'source',
             icon: 'menu_book',
             label: 'View source passages',
@@ -1025,7 +1041,7 @@ export const useTopicDetail = () => {
             label: 'Voice settings',
             onClick: () => setSettingsOpen(true),
         },
-    ];
+    ].filter(Boolean);
 
     // End-of-lesson practice: Quiz is secondary here because the sticky header owns the primary.
     const practicePrimary = [];
@@ -1047,9 +1063,7 @@ export const useTopicDetail = () => {
     }];
 
     const mobileActionItems = [
-        examTopicId
-            ? { id: 'm-quiz', icon: 'quiz', label: 'Quiz', href: objectiveExamRoute, primary: true }
-            : { id: 'm-quiz', icon: 'hourglass_top', label: 'Quiz', disabled: true },
+        { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
         { id: 'm-tutor', icon: 'smart_toy', label: 'AI Tutor', onClick: openChat },
         { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
         topicProgress?.completedAt
@@ -1061,11 +1075,17 @@ export const useTopicDetail = () => {
                 onClick: () => upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {}),
             },
     ].filter(Boolean);
+    const hasQuizCta = Boolean(examTopicId);
 
     return {
         activeSectionId,
         activeSectionLabel,
         chatInitialPrompt,
+        currentStepIndex,
+        handleFinishLesson,
+        handleSaveSelectionToNotes,
+        hasQuizCta,
+        hasSourcePassages,
         chatOpen,
         cleanInline,
         cleanLine,

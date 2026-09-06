@@ -4,11 +4,12 @@ import { getBottomChromeLimit } from '../lib/bottomChrome';
 
 const PRIMARY_ACTIONS = [
     { key: 'explain', label: 'Explain', icon: 'lightbulb', busy: 'Explaining' },
-    { key: 'breakdown', label: 'Break down', icon: 'account_tree', busy: 'Breaking down' },
+    { key: 'simplify', label: 'Simplify', icon: 'child_care', busy: 'Simplifying' },
 ];
 
 const SECONDARY_ACTIONS = [
-    { key: 'simplify', label: 'Simplify', icon: 'child_care', busy: 'Simplifying' },
+    { key: 'example', label: 'Example', icon: 'account_tree', busy: 'Finding an example' },
+    { key: 'breakdown', label: 'Break down', icon: 'account_tree', busy: 'Breaking down' },
 ];
 
 const ALL_ACTIONS = [...PRIMARY_ACTIONS, ...SECONDARY_ACTIONS];
@@ -38,6 +39,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     topicId,
     onClose,
     onCopyToNotes,
+    onSaveSelection,
 }) {
     const [explainState, setExplainState] = useState({
         selectionText: '',
@@ -309,6 +311,20 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                                             </button>
                                         ))}
                                     </div>
+
+                                    {onSaveSelection ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                onSaveSelection(selection?.text || '');
+                                                onClose();
+                                            }}
+                                            className={controlClass}
+                                        >
+                                            <AppIcon name="bookmark" className="text-[14px]" />
+                                            Save
+                                        </button>
+                                    ) : null}
 
                                     <span className="mx-0.5 h-4 w-px shrink-0 bg-border-subtle" />
                                     <button

@@ -196,7 +196,7 @@ const TopicModuleCard = ({
                     </Link>
                     {quizReady && (
                         <Link
-                            to={`/dashboard/quiz/${topic._id}?autostart=mcq`}
+                            to={`/dashboard/quiz/${topic._id}`}
                             reloadDocument
                             className="btn-ghost text-body-sm py-2 px-3"
                             aria-label={`Take quiz for ${topic.title}`}

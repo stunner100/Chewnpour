@@ -37,17 +37,16 @@ const LessonDefinitionBlock = ({
     return (
         <div
             key={blockKey}
-            className={`my-4 md:my-6 p-5 md:p-6 rounded-[2rem] bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow duration-300 ${animationClass}`}
+            className={`my-4 md:my-6 rounded-2xl border border-border-subtle bg-primary-subtle/50 p-5 md:p-6 ${animationClass}`}
             style={animationStyle}
         >
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                <AppIcon name={DEFINITION_VARIANT.icon} className="text-6xl" />
-            </div>
-            <h4 className="text-sm font-semibold text-primary uppercase tracking-wider mb-2 flex items-center gap-2">
-                <span className="size-2 rounded-full bg-primary" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                Definition
+            </p>
+            <h4 className="mt-1.5 font-display text-body-lg font-semibold text-text-primary">
                 {term}
             </h4>
-            <div className="text-base md:text-lg text-neutral-800 dark:text-neutral-100 leading-relaxed">
+            <div className="mt-1.5 text-base md:text-body-lg text-text-secondary leading-relaxed">
                 {bold(text)}
             </div>
         </div>

@@ -22,8 +22,8 @@ for (const forbidden of [
 for (const required of [
     'bg-background-light',
     'text-text-primary',
-    'Open AI Tutor',
-    'LessonTOC',
+    'StudyTopBar',
+    'onOpenChat',
 ]) {
     if (!viewsSource.includes(required)) {
         throw new Error(`Expected topic lesson shell to include "${required}".`);
@@ -31,7 +31,7 @@ for (const required of [
 }
 
 for (const required of [
-    'max-w-[65ch]',
+    'max-w-[720px]',
     'Preparing your lesson',
 ]) {
     if (!contentPanelSource.includes(required)) {

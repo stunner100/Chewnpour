@@ -48,12 +48,17 @@
 
 @layer base {
     html {
-        scroll-behavior: smooth;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         font-size: 16px;
         min-height: 100%;
         overscroll-behavior: none;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        html {
+            scroll-behavior: smooth;
+        }
     }
 
     body {
@@ -488,7 +493,7 @@ html.is-safari .safari-backdrop {
 .lesson-prose h2,
 .lesson-prose h3,
 .lesson-prose h4 {
-    font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.018em;
     color: #0f0f12;
@@ -520,8 +525,8 @@ html.is-safari .safari-backdrop {
 }
 .dark .lesson-prose ul li,
 .dark .lesson-prose ol li { color: #c8c8d0; }
-.lesson-prose ul li::marker { color: #0D9488; }
-.lesson-prose ol li::marker { color: #0D9488; font-weight: 700; }
+.lesson-prose ul li::marker { color: #007AFF; }
+.lesson-prose ol li::marker { color: #007AFF; font-weight: 700; }
 .lesson-prose strong { color: #0f0f12; font-weight: 600; }
 .dark .lesson-prose strong { color: #f4f4f7; }
 .lesson-prose blockquote {
@@ -542,8 +547,8 @@ html.is-safari .safari-backdrop {
 }
 .dark .lesson-prose hr { border-top-color: #202124; }
 .lesson-prose code {
-    background: rgba(13, 148, 136, 0.08);
-    color: #0F766E;
+    background: rgba(0, 122, 255, 0.08);
+    color: #0066D6;
     padding: 0.1rem 0.35rem;
     border-radius: 6px;
     font-size: 0.94em;

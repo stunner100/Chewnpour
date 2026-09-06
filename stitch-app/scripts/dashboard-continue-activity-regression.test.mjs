@@ -8,6 +8,7 @@ const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8'
 const [
   dashboard,
   progressPage,
+  progressContinueCard,
   progressServer,
   topicNotes,
   courseHttp,
@@ -20,6 +21,7 @@ const [
 ] = await Promise.all([
   read('src/pages/StudentDashboard.jsx'),
   read('src/pages/StudyProgressMastery.jsx'),
+  read('src/components/progress/ContinueLearningCard.jsx'),
   read('server/progress.js'),
   read('server/topicNotes.js'),
   read('server/courseHttp.js'),
@@ -52,8 +54,8 @@ if (!/recordStudyActivity/.test(hub) || !/recordStudyActivity/.test(card)) {
 if (!/onPlay/.test(player)) {
   throw new Error('Podcast player must notify when playback starts.');
 }
-if (!/resumeCopy/.test(progressPage) || !/resumeTarget\?\.href/.test(progressPage)) {
-  throw new Error('Progress next-up must use the activity-aware resume href.');
+if (!/resumeActivityCopy\(resumeTarget\)/.test(progressPage) || !/resumeTarget\.href/.test(progressContinueCard)) {
+  throw new Error('Progress continue-learning card must use the activity-aware resume href.');
 }
 if (!/shouldResume/.test(examMode) || !/get\('resume'\) === '1'/.test(examMode)) {
   throw new Error('Exam mode must resume an in-progress exam from the dashboard.');

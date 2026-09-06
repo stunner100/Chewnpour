@@ -22,6 +22,7 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import AppIcon from './AppIcon';
 
@@ -116,6 +117,33 @@ const DashboardLayout = ({ children }) => (
     </MobileChromeProvider>
 );
 
+const STUDY_ROUTE_PATTERN = /^\/dashboard\/topic\/[^/]+/;
+
+// Study mode: collapse the main navigation while a lesson is open so the
+// product stops feeling like a dashboard. Restores the previous state on exit.
+const StudyModeSidebarQuiet = () => {
+    const { pathname } = useLocation();
+    const { open, setOpen, isMobile } = useSidebar();
+    const previousOpenRef = React.useRef(null);
+
+    useEffect(() => {
+        const studying = STUDY_ROUTE_PATTERN.test(pathname);
+        if (studying) {
+            if (previousOpenRef.current === null) {
+                previousOpenRef.current = open;
+            }
+            if (!isMobile && open) setOpen(false);
+            return;
+        }
+        if (previousOpenRef.current !== null) {
+            if (!isMobile && previousOpenRef.current) setOpen(true);
+            previousOpenRef.current = null;
+        }
+    }, [pathname, open, setOpen, isMobile]);
+
+    return null;
+};
+
 const DashboardLayoutShell = ({ children }) => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
@@ -124,7 +152,7 @@ const DashboardLayoutShell = ({ children }) => {
     const { immersive } = useMobileChrome();
     const isDarkMode = themeMode === DARK_THEME;
     const hideMobileBottomNav = immersive || /^\/dashboard\/(?:quiz\/(?!results\/)|topic\/)[^/]+/.test(routerLocation.pathname);
-    const hideAppHeader = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
+    const hideAppHeader = /^\/dashboard\/(?:quiz\/(?!results\/)[^/]+|topic\/)[^/]+/.test(routerLocation.pathname);
     useKeyboardInset();
 
     useEffect(() => {
@@ -187,6 +215,7 @@ const DashboardLayoutShell = ({ children }) => {
 
     return (
         <SidebarProvider className="dashboard-shell cp-theme max-w-full overflow-x-hidden text-text-primary">
+            <StudyModeSidebarQuiet />
             <AppSidebar />
             <SidebarInset className="max-w-full">
                 {!hideAppHeader && (

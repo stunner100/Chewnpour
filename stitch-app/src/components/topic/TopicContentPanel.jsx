@@ -10,6 +10,7 @@ const TopicContentPanel = ({
     cleanLine,
     contentLines,
     contentRef,
+    handleFinishLesson,
     handleLessonStepChange,
     handleTermsStarred,
     heroTopicTitle,
@@ -19,7 +20,6 @@ const TopicContentPanel = ({
     lessonSteps,
     normalizedContent,
     objectiveExamRoute,
-    openSource,
     parsed,
     pauseVoice,
     playVoice,
@@ -75,23 +75,25 @@ const TopicContentPanel = ({
             ) : null}
         </div>
 
-        <div className="max-w-[65ch]">
+        <div className="mx-auto w-full max-w-[720px]">
             {normalizedContent ? (
                 <LessonSectionStepper
                     key={topicId || 'topic-lesson'}
                     steps={lessonSteps}
                     topicId={topicId}
+                    topicTitle={resolvedTopicTitle || heroTopicTitle}
                     lessonChecks={topicProgress?.lessonChecks}
                     quizHref={objectiveExamRoute}
-                    quizLabel="Start topic quiz"
+                    quizLabel="Start quiz"
                     onStepChange={handleLessonStepChange}
                     cleanInline={cleanInline}
-                    onViewSource={openSource}
                     wordBankTerms={wordBankTerms}
                     starredTerms={topicProgress?.termsStarred}
                     onTermsStarred={handleTermsStarred}
                     shouldAnimateBlocks={shouldAnimateBlocks}
                     contentRef={contentRef}
+                    onFinishLesson={handleFinishLesson}
+                    lessonCompleted={Boolean(topicProgress?.completedAt)}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">

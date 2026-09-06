@@ -202,7 +202,7 @@ export const handleTopicsRequest = async (req, res) => {
                 const { upsertTopicProgressForUser } = await import("./topicNotes.js");
                 await upsertTopicProgressForUser(user.id, parts[0], {
                     lastStudiedAt: Date.now(),
-                    lastActivityKind: "lesson",
+                    lastActivityKind: "quiz",
                     bestScore: result.percent,
                 });
             } catch (progressError) {
