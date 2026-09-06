@@ -115,7 +115,7 @@ const saveTopicNote = async (topicId, content) => {
     return response.json();
 };
 
-const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, appendText }) {
+const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, appendText, inline = false }) {
     const [{ draft, saving, lastSavedAt, statusNow, isClosing }, dispatchNotes] = useReducer(
         notesReducer,
         notesInitialState,
@@ -129,6 +129,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         open: open || isClosing,
         containerRef: panelRef,
         initialFocusRef: textareaRef,
+        trapFocus: !inline,
     });
 
     useEffect(() => {
@@ -217,36 +218,43 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     }, []);
 
     useEffect(() => {
-        if (!open) return;
+        if (!open || inline) return undefined;
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') handleClose();
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [open, handleClose]);
+    }, [open, inline, handleClose]);
 
     if (!open && !isClosing) return null;
 
-    const panelAnimClass = isClosing
-        ? 'animate-panel-slide-down md:animate-panel-slide-right'
-        : 'animate-panel-slide-up md:animate-panel-slide-left';
+    const panelAnimClass = inline
+        ? ''
+        : isClosing
+            ? 'animate-panel-slide-down'
+            : 'animate-panel-slide-up';
+    const panelPositionClass = inline
+        ? 'relative h-full w-full border-0 shadow-none'
+        : 'fixed inset-0 z-[60] border-t shadow-xl';
     const statusText = saving ? 'Saving…' : formatTimeSince(lastSavedAt, statusNow);
 
     return (
         <>
-            <button
-                type="button"
-                aria-label="Close notes panel"
-                className={`fixed inset-0 z-[55] border-0 bg-black/30 p-0 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
-                onClick={handleClose}
-            />
+            {!inline ? (
+                <button
+                    type="button"
+                    aria-label="Close notes panel"
+                    className={`fixed inset-0 z-[55] border-0 bg-black/30 p-0 transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+                    onClick={handleClose}
+                />
+            ) : null}
 
             <div
                 ref={panelRef}
-                role="dialog"
-                aria-modal="true"
+                role={inline ? 'complementary' : 'dialog'}
+                aria-modal={inline ? undefined : 'true'}
                 aria-labelledby="topic-notes-title"
-                className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ph-mask ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}
+                className={`flex flex-col bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 ph-mask ${panelPositionClass} ${panelAnimClass} ${inline ? '' : 'pb-[env(safe-area-inset-bottom)]'}`}
             >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
@@ -268,7 +276,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                         value={draft}
                         onChange={handleDraftChange}
                         placeholder="Jot down insights as you study..."
-                        className="size-full min-h-[200px] md:min-h-0 resize-none rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                        className={`size-full resize-none rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 ${inline ? 'min-h-0' : 'min-h-[200px] md:min-h-0'}`}
                     />
                 </div>
 
