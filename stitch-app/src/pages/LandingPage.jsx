@@ -5,6 +5,7 @@ import { capturePostHogEvent } from '../lib/posthog';
 import BrandLogo from '../components/BrandLogo';
 import AppIcon from '../components/AppIcon';
 import { LandingDashboardPreview, LandingLessonPreview } from '../components/landing/LandingProductPreviews';
+import HeroDashboardStage from '../components/landing/HeroDashboardStage';
 
 /**
  * Landing page — Slate redesign (light Apple Notes aesthetic).
@@ -230,8 +231,48 @@ const LandingPageStyles = () => (
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-10px); }
     }
+    @keyframes heroDashboardFloat {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, -3px, 0); }
+    }
+    @keyframes heroDemoDot {
+      0%, 80%, 100% { opacity: 0.28; transform: translateY(0); }
+      40% { opacity: 1; transform: translateY(-2px); }
+    }
+    @keyframes heroDemoCaret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    @keyframes heroDemoRise {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes heroDemoCheck {
+      from { opacity: 0; transform: scale(0.6); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .hero-dashboard-float {
+      animation: heroDashboardFloat 7s ease-in-out infinite;
+    }
+    .hero-demo-dot {
+      animation: heroDemoDot 1s ease-in-out infinite;
+    }
+    .hero-demo-caret {
+      animation: heroDemoCaret 1s step-end infinite;
+    }
+    .hero-demo-rise {
+      animation: heroDemoRise 380ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+    }
+    .hero-demo-check {
+      animation: heroDemoCheck 220ms ease both;
+    }
+    @media (max-width: 1023px), (hover: none), (pointer: coarse) {
+      .hero-demo-cursor { display: none; }
+    }
     @media (prefers-reduced-motion: reduce) {
-      .slate-float, .slate-float-delay, .slate-float-slow { animation: none; }
+      .slate-float, .slate-float-delay, .slate-float-slow,
+      .hero-dashboard-float, .hero-demo-dot, .hero-demo-caret,
+      .hero-demo-rise, .hero-demo-check { animation: none; }
     }
     .landing-product-stage {
       container-type: inline-size;
@@ -439,7 +480,9 @@ const HeroSection = ({ captureLandingEvent }) => (
       </div>
 
       <div className="relative z-10 mx-auto mt-14 w-full max-w-[860px] lg:mt-16">
-        <LandingDashboardPreview />
+        <HeroDashboardStage>
+          <LandingDashboardPreview />
+        </HeroDashboardStage>
       </div>
     </div>
   </section>
