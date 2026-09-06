@@ -7,6 +7,7 @@ import { listTopicChatMessages } from "./topicChat.js";
 import { retrievePassagesForTopic } from "./topicPassages.js";
 import { toOutline } from "./tutorTools.js";
 import { isCourseAiEnabled } from "./llmClient.js";
+import { followPostRedirects } from "./tutorStreamFetch.js";
 
 const resolveBaseUrl = (value, fallback) => {
     const raw = String(value || fallback || "").trim();
@@ -210,88 +211,123 @@ Rules:
 
         let success = false;
         let fullText = "";
+        let streamedToClient = false;
+
+        const persistAndComplete = async (content) => {
+            const assistantMessage = await insertMessage({
+                userId,
+                topicId,
+                role: "assistant",
+                content,
+            });
+            writeSSE(res, "message-complete", { userMessage, assistantMessage });
+            res.end();
+        };
+
+        const consumeSseLines = (chunk, decoderState) => {
+            decoderState.buffer += chunk;
+            const lines = decoderState.buffer.split("\n");
+            decoderState.buffer = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                const payload = line.slice(6).trim();
+                if (payload === "[DONE]") continue;
+                try {
+                    const parsed = JSON.parse(payload);
+                    const delta = parsed.choices?.[0]?.delta?.content;
+                    if (delta) {
+                        fullText += delta;
+                        writeSSE(res, "text-delta", delta);
+                        streamedToClient = true;
+                    }
+                } catch {
+                    // skip malformed
+                }
+            }
+        };
 
         for (const provider of providers) {
+            if (streamedToClient) break;
             const key = String(provider.apiKey || "").trim();
             if (!key || isPlaceholderUrl(provider.baseUrl)) continue;
 
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), provider.timeoutMs);
-
-                const response = await fetch(new URL("chat/completions", provider.baseUrl).toString(), {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${key}`,
-                    },
-                    body: JSON.stringify({
-                        model: provider.model,
-                        messages,
-                        temperature: 0.2,
-                        max_tokens: 1700,
-                        stream: true,
-                    }),
-                    signal: controller.signal,
-                });
-                
-                clearTimeout(timeoutId);
+                let response;
+                try {
+                    response = await followPostRedirects(
+                        new URL("chat/completions", provider.baseUrl).toString(),
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${key}`,
+                            },
+                            body: JSON.stringify({
+                                model: provider.model,
+                                messages,
+                                temperature: 0.2,
+                                max_tokens: 1700,
+                                stream: true,
+                            }),
+                            signal: controller.signal,
+                        },
+                    );
+                } finally {
+                    clearTimeout(timeoutId);
+                }
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
+                if (!response.body) {
+                    throw new Error("empty response body");
+                }
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                let buffer = "";
+                const decoderState = { buffer: "" };
                 fullText = "";
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split("\n");
-                    buffer = lines.pop();
-                    for (const line of lines) {
-                        if (!line.startsWith("data: ")) continue;
-                        const payload = line.slice(6).trim();
-                        if (payload === "[DONE]") continue;
-                        try {
-                            const parsed = JSON.parse(payload);
-                            const delta = parsed.choices?.[0]?.delta?.content;
-                            if (delta) {
-                                fullText += delta;
-                                writeSSE(res, "text-delta", delta);
-                            }
-                        } catch { /* skip malformed */ }
-                    }
+                    consumeSseLines(decoder.decode(value, { stream: true }), decoderState);
                 }
-                
+                consumeSseLines(decoder.decode(), decoderState);
+
+                if (!fullText.trim()) {
+                    throw new Error("empty stream");
+                }
+
                 success = true;
                 break;
             } catch (error) {
                 console.warn(`[tutorStream] ${provider.name} failed`, error);
+                if (streamedToClient) break;
             }
         }
 
-        if (!success) {
-            writeSSE(res, "error", { message: "All AI providers failed. Please try again later." });
-            return res.end();
+        if (success) {
+            await persistAndComplete(fullText);
+            return;
         }
 
-        const assistantMessage = await insertMessage({
-            userId,
-            topicId,
-            role: "assistant",
-            content: fullText,
-        });
-
-        writeSSE(res, "message-complete", { userMessage, assistantMessage });
-        res.end();
+        const fallback = buildFallbackAnswer({ topic, question: cleanedQuestion });
+        const assistantContent = fullText.trim() || fallback;
+        if (!streamedToClient) {
+            writeSSE(res, "text-delta", assistantContent);
+        }
+        await persistAndComplete(assistantContent);
 
     } catch (error) {
         console.error("[tutorStream] Unhandled error:", error);
-        writeSSE(res, "error", { message: error.message || "Internal server error" });
-        res.end();
+        const message = error?.message || "Internal server error";
+        if (!res.headersSent) {
+            return sendJson(500, { error: message });
+        }
+        writeSSE(res, "error", { message });
+        if (!res.writableEnded) res.end();
     }
 };

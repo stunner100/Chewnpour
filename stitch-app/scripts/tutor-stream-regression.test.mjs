@@ -93,5 +93,13 @@ requireIncludes(useTutorChat, '/api/topics/', 'API endpoint');
 requireIncludes(useTutorChat, 'text/event-stream', 'SSE accept header');
 requireIncludes(useTutorChat, 'text-delta', 'delta event parsing');
 requireIncludes(useTutorChat, 'message-complete', 'completion event parsing');
+requireIncludes(useTutorChat, 'parseTutorStreamError', 'object SSE errors become readable strings');
+requireIncludes(useTutorChat, '_id: id', 'persisted messages keep _id for latest-turn scroll');
+
+requireIncludes(tutorStream, 'followPostRedirects', 'Grid 307 supplier redirects keep the POST body');
+requireIncludes(tutorStream, 'buildFallbackAnswer', 'stream path falls back to a lesson snippet');
+requireIncludes(tutorStream, 'empty stream', 'empty provider streams fail over');
+requireIncludes(tutorStream, 'res.headersSent', 'pre-SSE failures return JSON, not a broken event frame');
+requireExcludes(tutorStream, 'All AI providers failed. Please try again later.', 'stream must not fail closed after a user row is inserted');
 
 console.log('tutor-stream-regression.test.mjs passed');

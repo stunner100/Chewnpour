@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { parseTutorStreamError } from '@/lib/tutorStreamError';
 
 export default function useTutorChat({ topicId, persona = 'coach' }) {
     const [messages, setMessages] = useState([]);
@@ -20,12 +21,16 @@ export default function useTutorChat({ topicId, persona = 'coach' }) {
             }
             const data = await response.json();
             if (data && data.messages) {
-                const formattedMessages = data.messages.map(msg => ({
-                    id: msg.id || msg._id,
-                    role: msg.role,
-                    content: msg.content,
-                    createdAt: msg.createdAt
-                }));
+                const formattedMessages = data.messages.map(msg => {
+                    const id = msg.id || msg._id;
+                    return {
+                        id,
+                        _id: id,
+                        role: msg.role,
+                        content: msg.content,
+                        createdAt: msg.createdAt
+                    };
+                });
                 setMessages(formattedMessages);
             }
         } catch (err) {
@@ -59,6 +64,7 @@ export default function useTutorChat({ topicId, persona = 'coach' }) {
 
         const optimisticUserMessage = {
             id: tempUserId,
+            _id: tempUserId,
             role: 'user',
             content: text,
             createdAt: new Date().toISOString()
@@ -86,6 +92,7 @@ export default function useTutorChat({ topicId, persona = 'coach' }) {
 
             setMessages(prev => [...prev, {
                 id: tempAssistantId,
+                _id: tempAssistantId,
                 role: 'assistant',
                 content: '',
                 createdAt: new Date().toISOString()
@@ -136,21 +143,25 @@ export default function useTutorChat({ topicId, persona = 'coach' }) {
                                 msg => msg.id !== tempUserId && msg.id !== tempAssistantId
                             );
                             if (data.userMessage) {
+                                const id = data.userMessage.id || data.userMessage._id;
                                 newMessages.push({
                                     ...data.userMessage,
-                                    id: data.userMessage.id || data.userMessage._id
+                                    id,
+                                    _id: id,
                                 });
                             }
                             if (data.assistantMessage) {
+                                const id = data.assistantMessage.id || data.assistantMessage._id;
                                 newMessages.push({
                                     ...data.assistantMessage,
-                                    id: data.assistantMessage.id || data.assistantMessage._id
+                                    id,
+                                    _id: id,
                                 });
                             }
                             return newMessages;
                         });
                     } else if (eventType === 'error') {
-                        throw new Error(data);
+                        throw new Error(parseTutorStreamError(data));
                     }
                 }
             }
