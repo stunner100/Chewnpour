@@ -189,12 +189,14 @@ export const TopicLessonPanels = ({ controller }) => {
 
     return (
         <>
-            <TopicNotesPanel
-                topicId={topicId}
-                open={notesOpen}
-                onClose={closeNotes}
-                appendText={notesAppendText}
-            />
+            <div className="lg:hidden">
+                <TopicNotesPanel
+                    topicId={topicId}
+                    open={notesOpen}
+                    onClose={closeNotes}
+                    appendText={notesAppendText}
+                />
+            </div>
 
             {hasSourcePassages ? (
                 <SourcePanel
@@ -326,9 +328,11 @@ export const TopicLessonShell = ({ controller }) => {
         chatInitialPrompt,
         chatOpen,
         closeChat,
+        closeNotes,
         courseHref,
         currentStepIndex,
         lessonSteps,
+        notesAppendText,
         notesOpen,
         openChat,
         openNotes,
@@ -402,6 +406,16 @@ export const TopicLessonShell = ({ controller }) => {
                         onClose={closeChat}
                         initialPrompt={chatInitialPrompt}
                         studyContext={studyContext}
+                    />
+                )}
+                notesOpen={notesOpen}
+                notes={(
+                    <TopicNotesPanel
+                        inline
+                        topicId={topicId}
+                        open={notesOpen}
+                        onClose={closeNotes}
+                        appendText={notesAppendText}
                     />
                 )}
             >

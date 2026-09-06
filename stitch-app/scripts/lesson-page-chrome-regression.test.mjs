@@ -38,7 +38,9 @@ assert.match(views, /StudyTopBar/, 'Study mode must have a quiet top bar.');
 assert.match(views, /onOpenChat=\{openChat\}/, 'Top bar must expose the AI tutor.');
 assert.match(views, /onOpenNotes=\{openNotes\}/, 'Top bar must expose notes.');
 assert.match(views, /tutorOpen=\{chatOpen\}/, 'Tutor rail must open in-flow on desktop.');
+assert.match(views, /notesOpen=\{notesOpen\}/, 'Notes rail must open in-flow on desktop.');
 assert.match(views, /<TopicChatPanel\s*\n\s*inline/, 'Desktop tutor must render as an inline rail.');
+assert.match(views, /<TopicNotesPanel\s*\n\s*inline/, 'Desktop notes must render as an inline rail.');
 assert.match(views, /lg:hidden/, 'Mobile tutor must keep the full-screen sheet.');
 assert.match(views, /TopicLessonNav/, 'Prev/next lesson navigation must stay.');
 
@@ -103,7 +105,9 @@ assert.match(chatPanel, /showComposerSuggestions=\{false\}/, 'Composer must not 
 assert.match(chatPanel, /Tutor style/, 'Persona control must use a visible Tutor style label.');
 assert.match(chatPanel, /inline = false/, 'Tutor panel must support the inline rail variant.');
 assert.match(hook, /label: 'AI Tutor'/, 'Mobile lesson actions must use AI Tutor, not a shortened Tutor label.');
-assert.match(notesPanel, /role="dialog"/, 'Notes panel must be a dialog.');
+assert.match(notesPanel, /inline = false/, 'Notes panel must support the inline rail variant.');
+assert.match(notesPanel, /role=\{inline \? 'complementary' : 'dialog'\}/, 'Desktop notes must be a non-modal complementary rail.');
+assert.match(notesPanel, /trapFocus: !inline/, 'Desktop notes must leave the lesson interactive.');
 assert.match(sidebar, /aria-expanded=\{mobileOpen\}/, 'Mobile TOC must expose expanded state.');
 
 const popover = read('src/components/HighlightExplainPopover.jsx');

@@ -77,19 +77,27 @@ for (const expected of [
   }
 }
 
-for (const [name, source] of [
-  ['TopicNotesPanel', topicNotesPanelSource],
-  ['SourcePanel', sourcePanelSource],
-]) {
-  if (/lg:(relative|z-auto)/.test(source)) {
-    throw new Error(`${name} must stay fixed on desktop so it opens as a stable right-side panel.`);
-  }
-  if (!source.includes('role="dialog"') || !source.includes('aria-modal="true"')) {
-    throw new Error(`${name} must expose dialog semantics when open.`);
-  }
-  if (!source.includes('useSidePanelA11y')) {
-    throw new Error(`${name} must use the shared side-panel focus trap.`);
-  }
+if (/lg:(relative|z-auto)/.test(sourcePanelSource)) {
+  throw new Error('SourcePanel must stay fixed on desktop so it opens as a stable right-side panel.');
+}
+if (!sourcePanelSource.includes('role="dialog"') || !sourcePanelSource.includes('aria-modal="true"')) {
+  throw new Error('SourcePanel must expose dialog semantics when open.');
+}
+if (!sourcePanelSource.includes('useSidePanelA11y')) {
+  throw new Error('SourcePanel must use the shared side-panel focus trap.');
+}
+
+if (!topicNotesPanelSource.includes("role={inline ? 'complementary' : 'dialog'}")) {
+  throw new Error('TopicNotesPanel must be a complementary rail when inline and a dialog on small screens.');
+}
+if (!topicNotesPanelSource.includes('trapFocus: !inline')) {
+  throw new Error('TopicNotesPanel must not trap focus in the desktop rail so the lesson stays interactive.');
+}
+if (!topicNotesPanelSource.includes('role="dialog"') && !topicNotesPanelSource.includes("role={inline ? 'complementary' : 'dialog'}")) {
+  throw new Error('TopicNotesPanel must expose dialog semantics on small screens.');
+}
+if (!topicNotesPanelSource.includes('useSidePanelA11y')) {
+  throw new Error('TopicNotesPanel must use the shared side-panel focus trap.');
 }
 
 if (/lg:(relative|z-auto)/.test(topicChatPanelSource)) {
