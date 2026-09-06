@@ -81,10 +81,10 @@ const WORKFLOW_TABS = [
 ];
 
 const AI_FEATURES = [
-  { icon: 'forum', title: 'Ask', body: 'Ask anything and get answers grounded in the lesson you are studying.' },
-  { icon: 'link', title: 'Link', body: 'Create a connected study system where every lesson adds context for the next.' },
-  { icon: 'style', title: 'Save', body: 'Capture insights the moment they appear — pin weak topics and revisit them.' },
-  { icon: 'upload', title: 'Upload', body: 'Import PDF, DOCX, and PPTX files from wherever your material already lives.' },
+  { icon: 'forum', title: 'Ask the open lesson', body: 'Ask questions about the exact lesson you’re reading.' },
+  { icon: 'lightbulb', title: 'Simplify a concept', body: 'Get difficult ideas explained in simpler language.' },
+  { icon: 'quiz', title: 'Test immediately', body: 'Turn an explanation into instant practice.' },
+  { icon: 'arrow_forward', title: 'Start a quiz', body: 'Move from learning to active recall in one click.' },
 ];
 
 const STEPS = [
@@ -265,6 +265,9 @@ const LandingPageStyles = () => (
     }
     .hero-demo-check {
       animation: heroDemoCheck 220ms ease both;
+    }
+    .hero-demo-mark {
+      background: rgba(0, 122, 255, 0.16);
     }
     @media (max-width: 1023px), (hover: none), (pointer: coarse) {
       .hero-demo-cursor { display: none; }
@@ -738,11 +741,11 @@ const WorkflowSection = ({ activeTab, onTabChange }) => {
 };
 
 const AiSection = () => (
-  <section className="mx-auto max-w-[1120px] px-5 py-10 sm:px-6 sm:py-16">
+  <section id="study-demo" className="mx-auto max-w-[1120px] px-5 py-10 sm:px-6 sm:py-16">
     <div className="mx-auto max-w-2xl text-center">
-      <h2 className="text-3xl font-bold tracking-[-0.02em] sm:text-4xl">AI that reads your lesson</h2>
+      <h2 className="text-3xl font-bold tracking-[-0.02em] sm:text-4xl">Never get stuck while studying.</h2>
       <p className="mt-4 text-[#6B6B70]">
-        Not a generic chatbot. ChewnPour’s tutor answers from the lesson you have open — grounded in your uploaded material.
+        Your AI Tutor understands the lesson you&apos;re reading. Ask questions, simplify difficult concepts and test your understanding without leaving the page.
       </p>
     </div>
 

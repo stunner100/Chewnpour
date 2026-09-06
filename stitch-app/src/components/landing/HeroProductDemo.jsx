@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import AppIcon from '../AppIcon';
 import { TutorAvatarMark } from '../tutor/TutorAvatar';
@@ -8,6 +8,8 @@ import {
   ProductShell,
   ScaledStage,
 } from './landingProductChrome';
+import { DemoCursor, DemoStreamingText, DemoTypingDots } from './landingDemoShared';
+import { PANE_EASE, useDemoInView, useFinePointer } from './landingDemoRuntime';
 import {
   DEMO_ANSWER_WORDS,
   DEMO_GENERATE_STAGES,
@@ -16,67 +18,13 @@ import {
 } from './heroProductDemoScript';
 import { useHeroProductDemo } from './useHeroProductDemo';
 
-const FINE_POINTER_QUERY = '(min-width: 1024px) and (hover: hover) and (pointer: fine)';
 const SUGGESTED_PROMPTS = ['Explain in simple terms', 'Give me an example', 'Quiz me on this'];
-const PANE_EASE = [0.165, 0.84, 0.44, 1];
-
-const subscribeFinePointer = (onStoreChange) => {
-  const media = window.matchMedia(FINE_POINTER_QUERY);
-  media.addEventListener('change', onStoreChange);
-  return () => media.removeEventListener('change', onStoreChange);
-};
-
-const useFinePointer = () =>
-  useSyncExternalStore(
-    subscribeFinePointer,
-    () => window.matchMedia(FINE_POINTER_QUERY).matches,
-    () => false,
-  );
-
-const useDemoInView = (threshold = 0.12) => {
-  const [node, setNode] = useState(null);
-  const [inView, setInView] = useState(true);
-
-  useEffect(() => {
-    if (!node || typeof IntersectionObserver === 'undefined') return undefined;
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(Boolean(entry?.isIntersecting)),
-      { threshold },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [node, threshold]);
-
-  return [setNode, inView];
-};
 
 const paneKey = (phase) => {
   if (phase === 'generatingLesson') return 'generating';
   if (phase === 'lessonComplete' || phase === 'resetting') return 'lesson';
   if (phase === 'dashboard' || phase === 'openingTutor') return 'home';
   return 'tutor';
-};
-
-const DemoCursor = ({ x, y, pressed, visible }) => {
-  if (!visible) return null;
-  return (
-    <Motion.div
-      className="hero-demo-cursor pointer-events-none absolute top-0 left-0 z-30 will-change-transform"
-      style={{ x, y }}
-      animate={{ scale: pressed ? 0.92 : 1 }}
-      transition={{ duration: 0.12, ease: 'easeOut' }}
-    >
-      <svg width="22" height="24" viewBox="0 0 22 24" fill="none" aria-hidden="true">
-        <path
-          d="M3.2 2.4 19 11.1l-7.2 1.5 2.9 7.4-3.3 1.3-2.9-7.3-5.3 4.4z"
-          fill="#111111"
-          stroke="#ffffff"
-          strokeLinejoin="round"
-          strokeWidth="1.4"
-        />
-      </svg>
-    </Motion.div>
-  );
 };
 
 const UserBubble = () => (
@@ -90,14 +38,8 @@ const ThinkingDots = () => (
     <TutorAvatarMark className="mt-0.5 size-7 rounded-full" />
     <div className="rounded-[20px] border border-[#E5E5EA] bg-white px-4 py-3">
       <p className="text-[13px] font-medium text-[#6B6B70]">Tutor is typing...</p>
-      <div className="mt-2 flex items-center gap-1.5">
-        {[0, 1, 2].map((dot) => (
-          <span
-            key={dot}
-            className="hero-demo-dot size-1.5 rounded-full bg-[#8E8E93]"
-            style={{ animationDelay: `${dot * 140}ms` }}
-          />
-        ))}
+      <div className="mt-2">
+        <DemoTypingDots />
       </div>
     </div>
   </div>
@@ -116,7 +58,6 @@ const TutorPane = ({
   const showUser = ['aiThinking', 'aiResponding', 'readyToGenerate'].includes(phase);
   const showThinking = phase === 'aiThinking';
   const showAnswer = streamedWords > 0 && ['aiResponding', 'readyToGenerate'].includes(phase);
-  const answer = DEMO_ANSWER_WORDS.slice(0, streamedWords).join(' ');
   const showActions = phase === 'readyToGenerate';
 
   useEffect(() => {
@@ -154,10 +95,11 @@ const TutorPane = ({
             <TutorAvatarMark className="mt-0.5 size-7 rounded-full" />
             <div className="max-w-[82%] rounded-[20px] border border-[#E5E5EA] bg-white px-4 py-3 shadow-sm">
               <p className="text-[14px] leading-6 text-[#0A0A0A]">
-                {answer}
-                {phase === 'aiResponding' ? (
-                  <span className="hero-demo-caret ml-0.5 inline-block h-3.5 w-px align-[-2px] bg-[#111111]" />
-                ) : null}
+                <DemoStreamingText
+                  words={DEMO_ANSWER_WORDS}
+                  count={streamedWords}
+                  showCaret={phase === 'aiResponding'}
+                />
               </p>
               {showActions ? (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -330,7 +272,7 @@ const frameUrl = (phase) => {
 };
 
 export default function HeroProductDemo() {
-  const [setStageNode, inView] = useDemoInView(0.12);
+  const [setStageNode, inView] = useDemoInView(0.12, true);
   const [shellNode, setShellNode] = useState(null);
   const reduceMotion = useReducedMotion();
   const finePointer = useFinePointer();

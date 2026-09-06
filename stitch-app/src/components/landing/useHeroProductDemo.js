@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSpring } from 'motion/react';
+import { measureTarget, typeDelayForIndex } from './landingDemoRuntime';
 import {
   DEMO_ANSWER_WORDS,
   DEMO_GENERATE_STAGES,
   DEMO_QUESTION,
   DEMO_TARGETS,
   DEMO_TIMING,
-  DEMO_STAGE_WIDTH,
-  typeDelayForIndex,
 } from './heroProductDemoScript';
 
 const INITIAL = {
@@ -22,21 +21,6 @@ const INITIAL = {
   streamedWords: 0,
   generateStep: 0,
   cursorPressed: false,
-};
-
-const measureTarget = (root, name) => {
-  const fallback = DEMO_TARGETS[name];
-  if (!root) return fallback;
-  const el = root.querySelector(`[data-demo-target="${name}"]`);
-  if (!el) return fallback;
-  const rootRect = root.getBoundingClientRect();
-  const rect = el.getBoundingClientRect();
-  if (rootRect.width < 8) return fallback;
-  const scale = rootRect.width / DEMO_STAGE_WIDTH;
-  return {
-    x: (rect.left - rootRect.left + rect.width * 0.28) / scale,
-    y: (rect.top - rootRect.top + rect.height * 0.42) / scale,
-  };
 };
 
 export function useHeroProductDemo({
@@ -73,7 +57,7 @@ export function useHeroProductDemo({
       if (!cancelled) setState((current) => ({ ...current, ...partial }));
     };
 
-    const target = (name) => measureTarget(stageNodeRef.current, name);
+    const target = (name) => measureTarget(stageNodeRef.current, name, DEMO_TARGETS);
 
     const moveCursor = async (name, duration) => {
       const point = target(name);
@@ -122,7 +106,7 @@ export function useHeroProductDemo({
         for (let index = 1; index <= DEMO_QUESTION.length; index += 1) {
           if (cancelled) break;
           patch({ typedQuestion: DEMO_QUESTION.slice(0, index) });
-          await wait(typeDelayForIndex(index));
+          await wait(typeDelayForIndex(index, DEMO_TIMING));
         }
         if (cancelled) break;
 

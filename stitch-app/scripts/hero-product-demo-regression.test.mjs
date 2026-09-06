@@ -17,6 +17,8 @@ const read = (rel) => readFileSync(join(root, rel), 'utf8');
 
 const hook = read('src/components/landing/useHeroProductDemo.js');
 const demo = read('src/components/landing/HeroProductDemo.jsx');
+const runtime = read('src/components/landing/landingDemoRuntime.js');
+const shared = read('src/components/landing/landingDemoShared.jsx');
 
 assert.equal(DEMO_QUESTION, 'Can you explain working memory in simple terms?');
 assert.match(DEMO_ANSWER, /temporary workspace/);
@@ -65,7 +67,9 @@ assert.match(hook, /aiResponding/);
 assert.match(hook, /generatingLesson/);
 assert.match(hook, /lessonComplete/);
 assert.match(hook, /cancelled = true/);
-assert.match(demo, /IntersectionObserver/);
+assert.match(runtime, /IntersectionObserver/);
+assert.match(shared, /export function DemoCursor/);
+assert.match(demo, /useDemoInView/);
 assert.match(demo, /useReducedMotion/);
 assert.match(demo, /lessonComplete/);
 assert.doesNotMatch(hook, /\bfetch\s*\(/);
