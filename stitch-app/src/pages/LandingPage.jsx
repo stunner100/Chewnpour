@@ -233,30 +233,46 @@ const LandingPageStyles = () => (
     }
     @keyframes heroDashboardFloat {
       0%, 100% { transform: translate3d(0, 0, 0); }
-      50% { transform: translate3d(0, -7px, 0); }
+      50% { transform: translate3d(0, -3px, 0); }
     }
-    @keyframes heroDashboardShimmer {
-      0%, 4% { transform: translate3d(-130%, 0, 0) skewX(-18deg); }
-      18% { transform: translate3d(230%, 0, 0) skewX(-18deg); }
-      18.01%, 100% { transform: translate3d(230%, 0, 0) skewX(-18deg); }
+    @keyframes heroDemoDot {
+      0%, 80%, 100% { opacity: 0.28; transform: translateY(0); }
+      40% { opacity: 1; transform: translateY(-2px); }
+    }
+    @keyframes heroDemoCaret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    @keyframes heroDemoRise {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes heroDemoCheck {
+      from { opacity: 0; transform: scale(0.6); }
+      to { opacity: 1; transform: scale(1); }
     }
     .hero-dashboard-float {
-      animation: heroDashboardFloat 6.2s ease-in-out infinite;
+      animation: heroDashboardFloat 7s ease-in-out infinite;
     }
-    .hero-dashboard-shimmer__band {
-      position: absolute;
-      top: -12%;
-      bottom: -12%;
-      left: 0;
-      width: 28%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
-      transform: translate3d(-130%, 0, 0) skewX(-18deg);
-      animation: heroDashboardShimmer 7.2s linear infinite;
-      mix-blend-mode: soft-light;
+    .hero-demo-dot {
+      animation: heroDemoDot 1s ease-in-out infinite;
+    }
+    .hero-demo-caret {
+      animation: heroDemoCaret 1s step-end infinite;
+    }
+    .hero-demo-rise {
+      animation: heroDemoRise 380ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+    }
+    .hero-demo-check {
+      animation: heroDemoCheck 220ms ease both;
+    }
+    @media (max-width: 1023px), (hover: none), (pointer: coarse) {
+      .hero-demo-cursor { display: none; }
     }
     @media (prefers-reduced-motion: reduce) {
       .slate-float, .slate-float-delay, .slate-float-slow,
-      .hero-dashboard-float, .hero-dashboard-shimmer__band { animation: none; }
+      .hero-dashboard-float, .hero-demo-dot, .hero-demo-caret,
+      .hero-demo-rise, .hero-demo-check { animation: none; }
     }
     .landing-product-stage {
       container-type: inline-size;
