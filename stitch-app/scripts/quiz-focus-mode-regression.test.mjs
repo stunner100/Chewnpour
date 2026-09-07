@@ -29,6 +29,7 @@ assert.match(quizPlayer, /const handleContinue = useCallback/, "player must prov
 assert.match(quizPlayer, />\s*Skip\s*</, "Skip advances without selecting an answer");
 assert.match(quizPlayer, />\s*Continue\s*</, "Continue button label present");
 assert.match(quizPlayer, /Submit quiz/, "final question submits the quiz");
+assert.match(quizPlayer, /data-cp-bottom-chrome="quiz"/, "quiz actions stay docked on short-height screens");
 assert.match(quizPlayer, /disabled=\{!hasCurrentSelection\}/, "Continue stays disabled until an answer is selected");
 
 // Must NOT render every question at once

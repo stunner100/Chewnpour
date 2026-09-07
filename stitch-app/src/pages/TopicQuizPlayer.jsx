@@ -185,9 +185,9 @@ const TopicQuizPlayer = () => {
     }
 
     return (
-        <div className="min-h-dvh bg-background-light px-4 pb-28 pt-0 md:px-8 md:pb-10 md:pt-8">
-            <div className="mx-auto max-w-2xl">
-                <header className="sticky top-0 z-30 -mx-4 bg-background-light/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+        <div className="flex h-full min-h-0 flex-1 flex-col bg-background-light">
+            <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+                <header className="sticky top-0 z-30 bg-background-light/95 px-4 py-3 backdrop-blur md:static md:bg-transparent md:px-8 md:py-0 md:backdrop-blur-none md:pt-8">
                     <div className="flex items-center justify-between gap-3">
                         <Link
                             to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard/quiz'}
@@ -208,7 +208,7 @@ const TopicQuizPlayer = () => {
                 </header>
 
                 {error && (
-                    <div role="alert" className="mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
+                    <div role="alert" className="mx-4 mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error md:mx-8">
                         {error}
                     </div>
                 )}
@@ -228,32 +228,37 @@ const TopicQuizPlayer = () => {
                     </div>
                 ) : (
                     <form
-                        className="ph-mask mt-6"
+                        className="ph-mask flex min-h-0 flex-1 flex-col"
                         onSubmit={(event) => event.preventDefault()}
                     >
-                        <AnimatePresence mode="wait" initial={false}>
-                            <Motion.div
-                                key={questionIndex}
-                                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
-                                transition={{ duration: 0.22, ease: 'easeOut' }}
-                            >
-                                <QuizQuestion
-                                    question={currentQuestion}
-                                    selectedIndex={currentSelected}
-                                    onSelect={handleSelect}
-                                />
-                            </Motion.div>
-                        </AnimatePresence>
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-6 md:px-8 md:pb-10">
+                            <AnimatePresence mode="wait" initial={false}>
+                                <Motion.div
+                                    key={questionIndex}
+                                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                                >
+                                    <QuizQuestion
+                                        question={currentQuestion}
+                                        selectedIndex={currentSelected}
+                                        onSelect={handleSelect}
+                                    />
+                                </Motion.div>
+                            </AnimatePresence>
 
-                        {isLastQuestion && unansweredCount > 0 && (
-                            <p className="mt-4 text-body-sm text-text-muted">
-                                {unansweredCount} question{unansweredCount === 1 ? '' : 's'} will be submitted as skipped.
-                            </p>
-                        )}
+                            {isLastQuestion && unansweredCount > 0 && (
+                                <p className="mt-4 text-body-sm text-text-muted">
+                                    {unansweredCount} question{unansweredCount === 1 ? '' : 's'} will be submitted as skipped.
+                                </p>
+                            )}
+                        </div>
 
-                        <div className="sticky bottom-0 z-30 -mx-4 mt-8 flex items-center justify-between gap-3 border-t border-border-subtle bg-background-light/95 px-4 py-4 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:backdrop-blur-none">
+                        <div
+                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background-light/95 px-4 py-3 backdrop-blur safe-area-bottom md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
+                            data-cp-bottom-chrome="quiz"
+                        >
                             <button
                                 type="button"
                                 onClick={handleBack}

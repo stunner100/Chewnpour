@@ -99,6 +99,48 @@ export const computeResumeProgressPercent = ({
     return 0;
 };
 
+export const isCompletedQuizAttempt = (attempt) => {
+    if (!attempt?.topicId) return false;
+    const total = Number(attempt.total);
+    const score = Number(attempt.score);
+    return Number.isFinite(score) && Number.isFinite(total) && total > 0;
+};
+
+const buildLessonResumeFromProgress = (latestProgress, matchingQuiz, lastActivityAt) => {
+    const studyPosition = normalizeStudyPosition(latestProgress.studyPosition)
+        || splitLessonChecks(latestProgress.lessonChecks).studyPosition;
+    return {
+        kind: "lesson",
+        topicId: latestProgress.topicId,
+        topicTitle: latestProgress.topicTitle || "",
+        courseId: latestProgress.courseId || null,
+        courseTitle: latestProgress.courseTitle || "",
+        title: latestProgress.topicTitle || latestProgress.courseTitle || "Continue learning",
+        href: hrefForResumeTarget({
+            kind: "lesson",
+            topicId: latestProgress.topicId,
+            courseId: latestProgress.courseId,
+        }),
+        progressPercent: computeResumeProgressPercent({
+            kind: "lesson",
+            completedAt: latestProgress.completedAt,
+            lessonChecks: latestProgress.lessonChecks,
+            inLessonTotal: latestProgress.inLessonTotal,
+            bestScore: latestProgress.bestScore,
+            courseProgress: latestProgress.courseProgress,
+            quizScore: matchingQuiz?.score,
+            quizTotal: matchingQuiz?.total,
+            studyPosition,
+        }),
+        lastActivityAt,
+        completedAt: latestProgress.completedAt || null,
+        sectionIndex: studyPosition?.sectionIndex ?? null,
+        sectionCount: studyPosition?.sectionCount ?? null,
+        sectionTitle: studyPosition?.sectionTitle || "",
+        finished: Boolean(studyPosition?.finished || latestProgress.completedAt),
+    };
+};
+
 export const buildResumeTarget = ({
     inProgressExam,
     latestProgress,
@@ -135,6 +177,11 @@ export const buildResumeTarget = ({
             String(latestQuizAttempt.topicId) === String(latestProgress.topicId)
                 ? latestQuizAttempt
                 : null;
+        const quizAlreadySubmitted = isCompletedQuizAttempt(matchingQuiz)
+            || (kind === "quiz" && Number.isFinite(Number(latestProgress.bestScore)));
+        if (kind === "quiz" && quizAlreadySubmitted) {
+            return buildLessonResumeFromProgress(latestProgress, matchingQuiz, progressAt);
+        }
         const studyPosition = normalizeStudyPosition(latestProgress.studyPosition)
             || splitLessonChecks(latestProgress.lessonChecks).studyPosition;
         return {
@@ -170,6 +217,34 @@ export const buildResumeTarget = ({
     }
 
     if (latestQuizAttempt?.topicId) {
+        if (isCompletedQuizAttempt(latestQuizAttempt)) {
+            if (
+                latestProgress?.topicId
+                && String(latestProgress.topicId) === String(latestQuizAttempt.topicId)
+            ) {
+                return buildLessonResumeFromProgress(latestProgress, latestQuizAttempt, quizAt);
+            }
+            return {
+                kind: "lesson",
+                topicId: latestQuizAttempt.topicId,
+                topicTitle: latestQuizAttempt.topicTitle || "",
+                courseId: latestQuizAttempt.courseId || null,
+                courseTitle: latestQuizAttempt.courseTitle || "",
+                title: latestQuizAttempt.topicTitle || "Continue learning",
+                href: hrefForResumeTarget({
+                    kind: "lesson",
+                    topicId: latestQuizAttempt.topicId,
+                }),
+                progressPercent: computeResumeProgressPercent({
+                    kind: "lesson",
+                    bestScore: latestQuizAttempt.score,
+                    courseProgress: latestQuizAttempt.courseProgress,
+                    quizScore: latestQuizAttempt.score,
+                    quizTotal: latestQuizAttempt.total,
+                }),
+                lastActivityAt: quizAt,
+            };
+        }
         return {
             kind: "quiz",
             topicId: latestQuizAttempt.topicId,

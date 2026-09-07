@@ -20,16 +20,19 @@ for (const forbiddenSnippet of [
 }
 
 for (const expectedSnippet of [
-  'h-[calc(100dvh-4rem)]',
+  'flex min-h-0 flex-1 flex-col',
   'Ask questions grounded in your generated lessons and source material.',
-  '--keyboard-inset',
-  'max-md:sr-only',
+  'AI Tutor',
   'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full',
-  'pt-3 md:px-8 md:pb-0 md:py-8',
+  'pt-3 md:px-8 md:py-8',
 ]) {
   if (!tutorSource.includes(expectedSnippet)) {
     throw new Error(`Expected AIStudyTutor.jsx to include "${expectedSnippet}".`);
   }
+}
+
+if (tutorSource.includes('max-md:sr-only')) {
+  throw new Error('AI Tutor page title must remain visible on mobile.');
 }
 
 if (tutorSource.includes('flex w-full flex-col gap-2 sm:w-auto sm:flex-row')) {

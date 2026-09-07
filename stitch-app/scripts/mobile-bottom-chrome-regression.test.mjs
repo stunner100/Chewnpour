@@ -11,16 +11,23 @@ const layout = read('src/components/DashboardLayout.jsx');
 const actions = read('src/components/lesson/MobileLessonActions.jsx');
 const nav = read('src/components/MobileBottomNav.jsx');
 const views = read('src/components/topic/TopicLessonViews.jsx');
+const quizPlayer = read('src/pages/TopicQuizPlayer.jsx');
 const popover = read('src/components/HighlightExplainPopover.jsx');
 
 assert.match(css, /--cp-mobile-tab-bar: 4rem;/, 'Tab bar height must be a shared token.');
 assert.match(css, /--cp-mobile-lesson-bar: 3.5rem;/, 'Lesson action bar height must be a shared token.');
+assert.match(css, /--mobile-nav-height: var\(--cp-mobile-tab-bar\);/, 'Nav height must alias the tab-bar token.');
+assert.match(css, /--lesson-action-height: var\(--cp-mobile-lesson-bar\);/, 'Lesson bar height must alias the lesson-bar token.');
+assert.match(css, /--cp-mobile-nav-clearance:/, 'Pages with the tab bar must share one clearance token.');
+assert.match(css, /--cp-mobile-lesson-clearance:/, 'Lesson pages must share one action-bar clearance token.');
+assert.match(css, /--cp-mobile-quiz-clearance:/, 'Quiz pages must share one action-bar clearance token.');
 assert.match(
   css,
   /var\(--keyboard-inset, 0px\)/,
   'Bottom padding must include the visual-viewport inset from iOS browser chrome.',
 );
 assert.match(css, /\.mobile-lesson-safe-bottom/, 'Lesson pages must have a dedicated bottom-clearance utility.');
+assert.match(css, /\.mobile-quiz-safe-bottom/, 'Quiz pages must have a dedicated bottom-clearance utility.');
 
 assert.match(layout, /data-cp-tab-bar-spacer/, 'Dashboard must reserve layout space for the overlay tab bar.');
 assert.match(layout, /hideAppHeader/, 'Quiz player must drop the app header so Settings is not one tap away.');
@@ -32,6 +39,7 @@ assert.match(
 
 assert.match(actions, /data-cp-bottom-chrome="lesson"/, 'Lesson action bar must expose its box for overlay collision.');
 assert.match(nav, /data-cp-bottom-chrome="tabs"/, 'Tab bar must expose its box for overlay collision.');
+assert.match(quizPlayer, /data-cp-bottom-chrome="quiz"/, 'Quiz actions must stay docked as chrome, not below the fold.');
 assert.match(views, /mobile-lesson-safe-bottom/, 'Lesson shell must clear the action bar, safe area, and visual inset.');
 assert.match(popover, /getBottomChromeLimit/, 'Highlight popover must clamp to the visible chrome, not innerHeight.');
 

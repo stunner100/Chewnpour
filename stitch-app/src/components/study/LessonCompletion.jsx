@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { m as Motion, useReducedMotion } from 'motion/react';
 import AppIcon from '../AppIcon';
 
-const MAX_TAKEAWAYS = 4;
-const NOISE_TITLE_PATTERN = /^(quick check|word bank|glossary|summary|introduction)\b/i;
+const NOISE_TITLE_PATTERN = /^(quick check|word bank|glossary)\b/i;
 
 /**
  * Deliberate end-of-lesson moment. Completion is persisted through the
@@ -26,8 +25,7 @@ const LessonCompletion = ({
     const takeaways = useMemo(
         () => (Array.isArray(sectionTitles) ? sectionTitles : [])
             .map((title) => String(title || '').trim())
-            .filter((title) => title && !NOISE_TITLE_PATTERN.test(title))
-            .slice(0, MAX_TAKEAWAYS),
+            .filter((title) => title && !NOISE_TITLE_PATTERN.test(title)),
         [sectionTitles],
     );
 

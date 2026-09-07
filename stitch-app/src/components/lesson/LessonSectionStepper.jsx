@@ -7,8 +7,14 @@ import AppIcon from '../AppIcon';
 import { blocksToSpeechText } from '../../lib/lessonSections';
 
 const scrollLessonToTop = (reduceMotion) => {
-    if (typeof window === 'undefined') return;
-    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    if (typeof document === 'undefined') return;
+    const main = document.getElementById('dashboard-main');
+    const behavior = reduceMotion ? 'auto' : 'smooth';
+    if (main) {
+        main.scrollTo({ top: 0, behavior });
+        return;
+    }
+    window.scrollTo({ top: 0, behavior });
 };
 
 export default function LessonSectionStepper({
@@ -174,7 +180,6 @@ export default function LessonSectionStepper({
                             shareToken={shareToken}
                             onAttempted={markAttempted}
                             onAskTutor={onAskTutor}
-                            onContinue={() => goTo(clampedIndex + 1)}
                         />
                     ) : null}
                 </Motion.div>

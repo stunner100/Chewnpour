@@ -15,7 +15,7 @@ const StudyProgress = ({ index, total, label, percent, className = '' }) => {
     return (
         <div className={`flex items-center gap-3 ${className}`}>
             {text ? (
-                <p className="whitespace-nowrap text-caption font-semibold text-text-secondary">
+                <p className="shrink-0 whitespace-nowrap text-caption font-semibold text-text-secondary">
                     {text}
                 </p>
             ) : null}

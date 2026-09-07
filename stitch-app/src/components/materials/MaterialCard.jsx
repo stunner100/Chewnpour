@@ -80,7 +80,7 @@ const MaterialCard = ({
                 <GenerationStageList stageIndex={Math.max(0, material.stageIndex)} />
             ) : null}
 
-            <div className="mt-auto flex flex-col gap-2 pt-5">
+            <div className="mt-auto flex flex-col gap-3 pt-5">
                 {material.failed ? (
                     <Link
                         to="/dashboard/upload"
@@ -105,15 +105,18 @@ const MaterialCard = ({
                     </button>
                 )}
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm font-semibold">
+                <div className="flex items-stretch gap-4">
                     {material.courseHref ? (
-                        <Link to={material.courseHref} className="text-text-secondary hover:text-primary">
+                        <Link
+                            to={material.courseHref}
+                            className="inline-flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-xl px-3 text-body-sm font-semibold text-text-secondary hover:bg-surface-soft hover:text-primary"
+                        >
                             View course
                         </Link>
                     ) : null}
                     <button
                         type="button"
-                        className="text-text-secondary hover:text-primary disabled:opacity-50"
+                        className="inline-flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-xl px-3 text-body-sm font-semibold text-text-secondary hover:bg-surface-soft hover:text-primary disabled:opacity-50"
                         disabled={Boolean(busyDownload)}
                         aria-busy={fetchingOriginal}
                         onClick={() => onDownloadOriginal(material.uploadId)}
@@ -123,9 +126,10 @@ const MaterialCard = ({
                     <div className="relative">
                         <button
                             type="button"
-                            className="text-text-secondary hover:text-primary"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl px-3 text-body-sm font-semibold text-text-secondary hover:bg-surface-soft hover:text-primary"
                             aria-expanded={moreOpen}
                             aria-haspopup="menu"
+                            aria-label="More material actions"
                             onClick={() => setMoreOpen((value) => !value)}
                         >
                             More
@@ -138,7 +142,7 @@ const MaterialCard = ({
                                 <button
                                     type="button"
                                     role="menuitem"
-                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-caption text-text-secondary hover:bg-surface-soft disabled:opacity-50"
+                                    className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-caption text-text-secondary hover:bg-surface-soft disabled:opacity-50"
                                     disabled={!material.canExport || Boolean(busyDownload)}
                                     aria-busy={exporting}
                                     onClick={() => {
@@ -152,7 +156,7 @@ const MaterialCard = ({
                                 <button
                                     type="button"
                                     role="menuitem"
-                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-caption text-error hover:bg-error-soft"
+                                    className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-caption text-error hover:bg-error-soft"
                                     onClick={() => {
                                         setMoreOpen(false);
                                         onDelete(material.uploadId);

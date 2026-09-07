@@ -187,6 +187,13 @@ assert.doesNotMatch(hook, /\/dashboard\/course\/\$\{courseId\}/);
 assert.doesNotMatch(results, /Try the essay/);
 assert.match(results, /Retry with new questions/);
 assert.match(sourcePanel, /Passage \{passage.page\}/);
+assert.match(sourcePanel, /cleanInlineText\(passage\.text\)/, 'Source passages must render cleaned text, not raw markdown markers.');
+assert.match(useTutorChat, /historyLoading/, 'Tutor reopen must wait for saved history before showing starter prompts.');
+assert.doesNotMatch(
+  read('src/components/study/LessonCompletion.jsx'),
+  /MAX_TAKEAWAYS/,
+  'Completion takeaways must list the actual lesson sections.',
+);
 assert.match(views, /<SourcePanel/);
 assert.match(views, /hasSourcePassages/);
 assert.doesNotMatch(block, /correctIndex/);

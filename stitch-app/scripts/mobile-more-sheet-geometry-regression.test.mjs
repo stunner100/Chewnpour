@@ -8,10 +8,10 @@ const nav = await fs.readFile(path.join(root, 'src/components/MobileBottomNav.js
 const layout = await fs.readFile(path.join(root, 'src/components/DashboardLayout.jsx'), 'utf8');
 const css = await fs.readFile(path.join(root, 'src/index.css'), 'utf8');
 
-assert.match(nav, /min-h-16/, 'Tab bar occupies 4rem before the safe-area inset');
+assert.match(nav, /min-h-\[var\(--mobile-nav-height\)\]/, 'Tab bar occupies the shared nav-height token before the safe-area inset');
 assert.match(
   nav,
-  /bottom-\[calc\(4rem\+env\(safe-area-inset-bottom,0px\)\)\]/,
+  /bottom-\[calc\(var\(--mobile-nav-height\)\+var\(--safe-bottom\)\+var\(--keyboard-inset,0px\)\)\]/,
   'More sheet bottom offset must include the home-indicator inset',
 );
 
@@ -27,7 +27,7 @@ assert.equal(
 
 assert.match(
   css,
-  /padding-bottom: calc\(var\(--cp-mobile-tab-bar\) \+ env\(safe-area-inset-bottom, 0px\) \+ 0\.75rem \+ var\(--keyboard-inset, 0px\)\)/,
+  /--cp-mobile-nav-clearance: calc\(var\(--mobile-nav-height\) \+ var\(--safe-bottom\) \+ var\(--cp-mobile-chrome-gap\) \+ var\(--keyboard-inset, 0px\)\)/,
   'Dashboard bottom padding token must clear the tab bar, inset, and visual viewport chrome',
 );
 assert.match(
@@ -37,7 +37,7 @@ assert.match(
 );
 assert.match(
   layout,
-  /max-md:!bottom-\[calc\(var\(--cp-mobile-tab-bar\)\+env\(safe-area-inset-bottom,0px\)\+0\.75rem\+var\(--keyboard-inset,0px\)\)\]/,
+  /max-md:!bottom-\[calc\(var\(--cp-mobile-nav-clearance\)\+0\.25rem\)\]/,
   'Toasts must sit above the tab bar on mobile',
 );
 

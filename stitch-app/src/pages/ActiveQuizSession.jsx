@@ -33,7 +33,7 @@ const EmptyStudyToolState = ({ availability }) => {
       </Link>
       <Link
         to="/dashboard/exam"
-        className="mt-3 text-body-sm font-semibold text-primary hover:text-primary-hover"
+        className="mt-3 inline-flex min-h-11 items-center justify-center text-body-sm font-semibold text-primary hover:text-primary-hover"
       >
         Try timed exam
       </Link>
@@ -102,7 +102,7 @@ const ActiveQuizSession = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
+      <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full bg-background-light px-4 py-8 md:px-8 md:py-10">
         <div className="mx-auto w-full min-w-0 max-w-5xl space-y-5">
           <div className="h-16 rounded-[20px] bg-surface-soft" />
           <div className="grid min-w-0 gap-4 md:grid-cols-2">
@@ -116,7 +116,7 @@ const ActiveQuizSession = () => {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full bg-background-light px-4 py-8 md:px-8 md:py-10">
       <div className="mx-auto w-full min-w-0 max-w-5xl">
         <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
@@ -129,7 +129,7 @@ const ActiveQuizSession = () => {
           </div>
           <Link
             to="/dashboard/exam"
-            className="text-body-sm font-semibold text-primary hover:text-primary-hover"
+            className="inline-flex min-h-11 items-center text-body-sm font-semibold text-primary hover:text-primary-hover"
           >
             Try timed exam
           </Link>
@@ -199,7 +199,7 @@ const ActiveQuizSession = () => {
                     </ul>
                     <Link
                       to={`/dashboard/exam?courseId=${encodeURIComponent(course.id)}`}
-                      className="mt-4 inline-flex items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary-hover"
+                      className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary-hover"
                     >
                       <AppIcon name="school" className="text-[16px]" />
                       Timed exam for this course
