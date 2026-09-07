@@ -117,9 +117,10 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
     }, [topicId]);
 
     useEffect(() => {
-        if (!topicId || !userId) return;
+        if (!topicId || !userId || !progressLoaded) return;
+        if (topicProgress?.completedAt) return;
         upsertProgress({ topicId, lastStudiedAt: Date.now(), lastActivityKind: 'lesson' }).catch(() => {});
-    }, [topicId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [topicId, userId, progressLoaded, topicProgress?.completedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleLessonStepChange = useCallback((payload) => {
         setCurrentStepSpeech(payload?.speechText || '');
@@ -159,7 +160,7 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         const timer = window.setTimeout(() => {
             lastPersistedPositionRef.current = nextPosition;
             upsertProgress({
-                lastStudiedAt: Date.now(),
+                ...(topicProgress?.completedAt ? {} : { lastStudiedAt: Date.now() }),
                 lastActivityKind: 'lesson',
                 studyPosition: nextPosition,
             }).catch(() => {});
@@ -174,6 +175,7 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         currentStepFinished,
         lessonSteps,
         topicProgress?.studyPosition,
+        topicProgress?.completedAt,
         upsertProgress,
     ]);
 
@@ -188,7 +190,6 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         lastPersistedPositionRef.current = studyPosition;
         if (topicProgress?.completedAt) {
             upsertProgress({
-                lastStudiedAt: Date.now(),
                 lastActivityKind: 'lesson',
                 studyPosition,
             }).catch(() => {});

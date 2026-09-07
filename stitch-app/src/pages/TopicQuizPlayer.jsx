@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
@@ -8,8 +8,10 @@ import QuizQuestion from '../components/quiz/QuizQuestion';
 
 const TopicQuizPlayer = () => {
     const { topicId } = useParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const wantsFresh = searchParams.get('fresh') === '1';
     const reduceMotion = useReducedMotion();
     const [quiz, setQuiz] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -27,6 +29,21 @@ const TopicQuizPlayer = () => {
         setLoading(true);
         setError('');
         try {
+            if (wantsFresh) {
+                const regenerated = await fetch(`/api/topics/${encodeURIComponent(topicId)}/quiz/regenerate`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                });
+                const regeneratedPayload = await regenerated.json().catch(() => ({}));
+                if (regenerated.ok && regeneratedPayload?.topic) {
+                    setQuiz(regeneratedPayload);
+                    setAnswers({});
+                    setQuestionIndex(0);
+                    navigate(`/dashboard/quiz/${encodeURIComponent(topicId)}`, { replace: true });
+                    return;
+                }
+            }
             const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
                 credentials: 'include',
                 headers: { Accept: 'application/json' },
@@ -41,7 +58,7 @@ const TopicQuizPlayer = () => {
         } finally {
             setLoading(false);
         }
-    }, [topicId, user?.id]);
+    }, [topicId, user?.id, wantsFresh, navigate]);
 
     useEffect(() => {
         load();
@@ -173,13 +190,13 @@ const TopicQuizPlayer = () => {
                 <header className="sticky top-0 z-30 -mx-4 bg-background-light/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
                     <div className="flex items-center justify-between gap-3">
                         <Link
-                            to="/dashboard/quiz"
+                            to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard/quiz'}
                             className="inline-flex min-h-11 items-center gap-1.5 text-body-sm font-semibold text-primary hover:text-primary-hover"
                         >
                             <AppIcon name="arrow_back" className="text-[16px]" />
-                            All quizzes
+                            Back to lesson
                         </Link>
-                        <p className="hidden text-caption font-semibold uppercase tracking-[0.06em] text-text-muted sm:block">
+                        <p className="max-w-[50%] truncate text-caption font-semibold text-text-muted">
                             {quiz?.topic?.title || 'Topic quiz'}
                         </p>
                     </div>
@@ -258,15 +275,24 @@ const TopicQuizPlayer = () => {
                                     {!submitting && <AppIcon name="check_circle" className="text-[16px]" />}
                                 </button>
                             ) : (
-                                <button
-                                    type="button"
-                                    onClick={handleContinue}
-                                    disabled={!hasCurrentSelection}
-                                    className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    Continue
-                                    <AppIcon name="arrow_forward" className="text-[16px]" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleContinue}
+                                        className="btn-ghost inline-flex min-h-11 items-center gap-2 text-body-sm"
+                                    >
+                                        Skip
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleContinue}
+                                        disabled={!hasCurrentSelection}
+                                        className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        Continue
+                                        <AppIcon name="arrow_forward" className="text-[16px]" />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </form>

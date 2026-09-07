@@ -39,7 +39,9 @@ const NextStepsGuidance = ({
     const isMid = hasExamScore && score >= 60 && score < 80;
     const isStrong = hasExamScore && score >= 80;
     const objectiveExamRoute = buildTopicQuizRoute(examTopicId);
-    const essayExamRoute = buildEssayQuizRoute(examTopicId);
+    // Essay assessment is not a separate working flow yet. Keep the helper
+    // so route builders stay centralized, but do not render an essay CTA.
+    void buildEssayQuizRoute;
 
     // Build ranked actions based on performance
     const actions = [];
@@ -64,17 +66,9 @@ const NextStepsGuidance = ({
         actions.push({
             key: 'retry-objective',
             icon: 'quiz',
-            label: 'Retry objective quiz',
-            description: 'Retake the MCQ version once you feel ready.',
+            label: 'Retry quiz',
+            description: 'Retake the quiz once you feel ready.',
             to: objectiveExamRoute,
-            priority: 'medium',
-        });
-        actions.push({
-            key: 'try-essay',
-            icon: 'edit_note',
-            label: 'Try the essay',
-            description: 'Switch formats and answer the written version for this topic.',
-            to: essayExamRoute,
             priority: 'medium',
         });
     } else if (isMid) {
@@ -89,17 +83,9 @@ const NextStepsGuidance = ({
         actions.push({
             key: 'retry-objective',
             icon: 'quiz',
-            label: 'Retry objective quiz',
-            description: 'Push for a higher score on the MCQ version.',
+            label: 'Retry quiz',
+            description: 'Push for a higher score on the same topic.',
             to: objectiveExamRoute,
-            priority: 'medium',
-        });
-        actions.push({
-            key: 'try-essay',
-            icon: 'edit_note',
-            label: 'Try the essay',
-            description: 'Check the same topic with a written-response format.',
-            to: essayExamRoute,
             priority: 'medium',
         });
         actions.push({
@@ -130,14 +116,6 @@ const NextStepsGuidance = ({
             });
         }
         actions.push({
-            key: 'essay',
-            icon: 'edit_note',
-            label: 'Try the essay',
-            description: 'Challenge yourself with the written format for the same topic.',
-            to: essayExamRoute,
-            priority: 'low',
-        });
-        actions.push({
             key: 'tutor',
             icon: 'smart_toy',
             label: 'Ask the tutor',
@@ -154,14 +132,6 @@ const NextStepsGuidance = ({
             description: examDescription,
             to: objectiveExamRoute,
             priority: 'high',
-        });
-        actions.push({
-            key: 'essay',
-            icon: 'edit_note',
-            label: 'Start the essay',
-            description: 'Answer a written-response version for the same topic.',
-            to: essayExamRoute,
-            priority: 'medium',
         });
         actions.push({
             key: 'concepts',

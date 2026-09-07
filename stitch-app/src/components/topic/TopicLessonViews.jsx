@@ -69,9 +69,12 @@ export const TopicLessonMainColumn = ({ controller }) => {
         cleanLine,
         contentLines,
         contentRef,
+        explanationView,
+        handleAskTutor,
         handleFinishLesson,
         handleLessonStepChange,
         handleTermsStarred,
+        hasReexplainedLesson,
         heroTopicTitle,
         isPaused,
         isPlaying,
@@ -86,7 +89,10 @@ export const TopicLessonMainColumn = ({ controller }) => {
         playVoice,
         podcastEnabled,
         progressLoaded,
+        requestedSectionIndex,
+        onRequestConsumed,
         resolvedTopicTitle,
+        setExplanationView,
         resumeVoice,
         shouldAnimateBlocks,
         showTopicIllustration,
@@ -108,9 +114,12 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 cleanLine={cleanLine}
                 contentLines={contentLines}
                 contentRef={contentRef}
+                explanationView={explanationView}
+                handleAskTutor={handleAskTutor}
                 handleFinishLesson={handleFinishLesson}
                 handleLessonStepChange={handleLessonStepChange}
                 handleTermsStarred={handleTermsStarred}
+                hasReexplainedLesson={hasReexplainedLesson}
                 heroTopicTitle={heroTopicTitle}
                 isPaused={isPaused}
                 isPlaying={isPlaying}
@@ -124,7 +133,10 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 playVoice={playVoice}
                 podcastEnabled={podcastEnabled}
                 progressLoaded={progressLoaded}
+                requestedSectionIndex={requestedSectionIndex}
+                onRequestConsumed={onRequestConsumed}
                 resolvedTopicTitle={resolvedTopicTitle}
+                setExplanationView={setExplanationView}
                 resumeVoice={resumeVoice}
                 shouldAnimateBlocks={shouldAnimateBlocks}
                 showTopicIllustration={showTopicIllustration}
@@ -150,6 +162,7 @@ export const TopicLessonPanels = ({ controller }) => {
         closeChat,
         closeNotes,
         closeSource,
+        contentsOpen,
         handleSaveSelectionToNotes,
         hasQuizCta,
         hasSourcePassages,
@@ -218,11 +231,11 @@ export const TopicLessonPanels = ({ controller }) => {
                 />
             </div>
 
-            {user && !chatOpen && !notesOpen && (
+            {user && !chatOpen && !notesOpen && !contentsOpen && (
                 <MobileLessonActions items={mobileActionItems} />
             )}
 
-            {showScrollTop && !notesOpen && !chatOpen && (
+            {showScrollTop && !notesOpen && !chatOpen && !contentsOpen && (
                 <button
                     onClick={scrollToTop}
                     className="btn-icon fixed bottom-[calc(var(--cp-mobile-lesson-bar)+env(safe-area-inset-bottom)+0.75rem+var(--keyboard-inset,0px))] left-4 z-30 size-10 border border-border-subtle bg-surface shadow-sm lg:bottom-6"
@@ -328,20 +341,24 @@ export const TopicLessonShell = ({ controller }) => {
         chatInitialPrompt,
         chatOpen,
         closeChat,
+        closeContents,
         closeNotes,
+        contentsOpen,
         courseHref,
         currentStepIndex,
         lessonSteps,
+        moreOpen,
         notesAppendText,
         notesOpen,
         openChat,
         openNotes,
+        requestSectionIndex,
         resolvedTopicTitle,
+        setMoreOpen,
         studyContext,
         topic,
         topicId,
     } = controller;
-    const [moreOpen, setMoreOpen] = useState(false);
 
     const [coursePayload, setCoursePayload] = useState(null);
 
@@ -389,6 +406,7 @@ export const TopicLessonShell = ({ controller }) => {
                         topicTitle={resolvedTopicTitle}
                         sectionIndex={currentStepIndex}
                         sectionCount={sectionCount}
+                        percent={sectionCount > 0 ? Math.round(((currentStepIndex + 1) / sectionCount) * 100) : 0}
                         onOpenNotes={openNotes}
                         onOpenChat={openChat}
                         onOpenMore={() => setMoreOpen(true)}
@@ -424,6 +442,47 @@ export const TopicLessonShell = ({ controller }) => {
             </StudyShell>
 
             <TopicLessonPanels controller={controller} />
+
+            {contentsOpen ? (
+                <>
+                    <button
+                        type="button"
+                        className="fixed inset-0 z-[55] border-0 bg-black/40"
+                        aria-label="Close lesson contents"
+                        onClick={closeContents}
+                    />
+                    <div
+                        role="dialog"
+                        aria-label="Lesson contents"
+                        className="fixed inset-x-3 bottom-3 z-[70] max-h-[70vh] overflow-y-auto rounded-2xl border border-border-subtle bg-surface px-3 py-3 shadow-lg sm:inset-x-auto sm:right-4 sm:w-80"
+                    >
+                        <div className="mb-2 flex items-center justify-between px-2">
+                            <h2 className="text-body-sm font-semibold text-text-primary">Contents</h2>
+                            <button type="button" className="btn-icon size-8" onClick={closeContents} aria-label="Close contents">
+                                <AppIcon name="close" className="text-[16px]" />
+                            </button>
+                        </div>
+                        <ol className="space-y-1">
+                            {(Array.isArray(lessonSteps) ? lessonSteps : []).map((step, index) => (
+                                <li key={`${step?.title || 'section'}-${index}`}>
+                                    <button
+                                        type="button"
+                                        onClick={() => requestSectionIndex(index)}
+                                        className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body-sm ${
+                                            index === currentStepIndex
+                                                ? 'bg-primary-subtle font-semibold text-primary'
+                                                : 'text-text-primary hover:bg-surface-soft'
+                                        }`}
+                                    >
+                                        <span className="w-6 text-caption text-text-muted">{index + 1}</span>
+                                        <span className="line-clamp-2">{step?.title || `Section ${index + 1}`}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ol>
+                    </div>
+                </>
+            ) : null}
 
             {moreOpen ? (
                 <>

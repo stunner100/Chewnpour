@@ -5,7 +5,6 @@ import {
     TopicEmptyState,
     TopicLessonShell,
     TopicLoadingState,
-    TopicStudyModeView,
 } from '../components/topic/TopicLessonViews';
 
 const TopicDetail = () => {
@@ -31,19 +30,6 @@ const TopicDetail = () => {
                 title="This topic link is stale"
                 description="Reload the dashboard, reopen the course, and start from the topic card again."
                 action={<button type="button" onClick={controller.reloadDashboard} className="btn-primary px-5 py-2.5 text-body-sm">Reload Dashboard</button>}
-            />
-        );
-    }
-
-    if (controller.studyMode === null) {
-        return (
-            <TopicStudyModeView
-                courseId={controller.courseId}
-                headerTopicTitle={controller.headerTopicTitle}
-                onSelect={controller.handleStudyModeSelect}
-                onSkip={controller.handleStudyModeSkip}
-                onStartExam={controller.handleStartExam}
-                timedExamAvailable={controller.timedExamAvailable}
             />
         );
     }

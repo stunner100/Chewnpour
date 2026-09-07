@@ -7,7 +7,6 @@ import {
     isEssayFormat,
     normalizeQuestionType,
 } from '../lib/objectiveExam';
-import NextStepsGuidance from '../components/NextStepsGuidance';
 import { Confetti } from '../components/magicui/Confetti';
 import AppIcon from '../components/AppIcon';
 
@@ -76,14 +75,14 @@ const UnderstandSection = ({ answers }) => {
     return (
         <section className="w-full max-w-2xl">
             <h3 className="mb-3 text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
-                What do I understand?
+                How did the questions go?
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {strong.length > 0 && (
                     <div className="rounded-[24px] border border-border-subtle bg-surface p-4 shadow-sm">
                         <div className="mb-3 flex items-center gap-2">
                             <AppIcon name="thumb_up" className="text-[18px] text-success" />
-                            <span className="text-caption font-semibold uppercase tracking-[0.06em] text-success">Strong areas</span>
+                            <span className="text-caption font-semibold uppercase tracking-[0.06em] text-success">Questions you handled well</span>
                         </div>
                         <ul className="space-y-2">
                             {strong.map((a) => (
@@ -98,7 +97,7 @@ const UnderstandSection = ({ answers }) => {
                     <div className="rounded-[24px] border border-border-subtle bg-surface p-4 shadow-sm">
                         <div className="mb-3 flex items-center gap-2">
                             <AppIcon name="target" className="text-[18px] text-warning" />
-                            <span className="text-caption font-semibold uppercase tracking-[0.06em] text-warning">Needs review</span>
+                            <span className="text-caption font-semibold uppercase tracking-[0.06em] text-warning">Questions to review</span>
                         </div>
                         <ul className="space-y-2">
                             {needsReview.map((a) => (
@@ -123,6 +122,7 @@ const DashboardResults = () => {
     const reduceMotion = useReducedMotion();
     // `undefined` = loading, `null` = not found / no attemptId.
     const [attempt, setAttempt] = useState(undefined);
+    const [nextLessonHref, setNextLessonHref] = useState(null);
     const [showConfetti, setShowConfetti] = useState(false);
     const confettiTriggeredRef = useRef(false);
 
@@ -141,6 +141,24 @@ const DashboardResults = () => {
             })
             .then((nextAttempt) => {
                 if (!cancelled) setAttempt(nextAttempt);
+                if (!nextAttempt?.topicId || !nextAttempt?.courseId) return null;
+                return fetch(`/api/courses/${encodeURIComponent(nextAttempt.courseId)}`, {
+                    credentials: 'include',
+                    headers: { Accept: 'application/json' },
+                })
+                    .then((response) => response.json().catch(() => ({})))
+                    .then((payload) => {
+                        const topics = Array.isArray(payload?.course?.topics) ? payload.course.topics : [];
+                        const currentIndex = topics.findIndex((topic) => String(topic.id || topic._id) === String(nextAttempt.topicId));
+                        const nextTopic = currentIndex >= 0 ? topics[currentIndex + 1] : null;
+                        const nextId = nextTopic?.id || nextTopic?._id || null;
+                        if (!cancelled) {
+                            setNextLessonHref(nextId ? `/dashboard/topic/${nextId}` : null);
+                        }
+                    })
+                    .catch(() => {
+                        if (!cancelled) setNextLessonHref(null);
+                    });
             })
             .catch(() => {
                 if (!cancelled) setAttempt(null);
@@ -306,40 +324,40 @@ const DashboardResults = () => {
                     <h3 className="mb-3 text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
                         What should I do next?
                     </h3>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                        <a
-                            href="#question-review"
-                            className="btn-secondary inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm"
-                        >
-                            <AppIcon name="rate_review" className="text-[18px]" />
-                            <span>Review mistakes</span>
-                        </a>
-                        <Link
-                            to={`/dashboard/quiz/${attempt.topicId}`}
-                            className="btn-secondary inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm"
-                        >
-                            <AppIcon name="refresh" className="text-[18px]" />
-                            <span>Retry quiz</span>
-                        </Link>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            {incorrectCount > 0 || skippedCount > 0 ? (
+                                <a
+                                    href="#question-review"
+                                    className="btn-primary inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm"
+                                >
+                                    <AppIcon name="rate_review" className="text-[18px]" />
+                                    <span>Review mistakes</span>
+                                </a>
+                            ) : null}
+                            <Link
+                                to={`/dashboard/quiz/${attempt.topicId}?fresh=1`}
+                                className={`${incorrectCount > 0 || skippedCount > 0 ? 'btn-secondary' : 'btn-primary'} inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm`}
+                            >
+                                <AppIcon name="refresh" className="text-[18px]" />
+                                <span>Retry with new questions</span>
+                            </Link>
+                            {nextLessonHref ? (
+                                <Link
+                                    to={nextLessonHref}
+                                    className="btn-secondary inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm"
+                                >
+                                    <AppIcon name="skip_next" className="text-[18px]" />
+                                    <span>Continue to next lesson</span>
+                                </Link>
+                            ) : null}
+                        </div>
                         <Link
                             to={`/dashboard/topic/${attempt.topicId}`}
-                            className="btn-primary inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm"
+                            className="text-center text-body-sm font-semibold text-text-secondary hover:text-primary"
                         >
-                            <AppIcon name="menu_book" className="text-[18px]" />
-                            <span>Back to lesson</span>
+                            Back to lesson
                         </Link>
-                    </div>
-                    <div className="mt-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm">
-                        <NextStepsGuidance
-                            topicId={attempt.topicId}
-                            topicTitle={attempt.topicTitle}
-                            percentage={percentage}
-                            completedAt={attempt.createdAt || null}
-                            bestScore={percentage}
-                            hasWordBank={false}
-                            onOpenChat={null}
-                            variant="exam"
-                        />
                     </div>
                 </section>
 

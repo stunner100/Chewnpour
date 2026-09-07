@@ -1,23 +1,40 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-export function useTextSelection(containerRef) {
+export function useTextSelection(containerRef, ready = true) {
     const [selection, setSelection] = useState(null);
     const debounceRef = useRef(null);
     // Track when the container element is available (refs don't trigger re-renders)
     const [container, setContainer] = useState(null);
 
-    // Poll for the container ref to become available after mount
+    // Lesson content mounts after progress loads, so keep trying until the
+    // article exists instead of attaching once on the empty preparing state.
     useEffect(() => {
+        if (!ready) {
+            setContainer(null);
+            return undefined;
+        }
         if (containerRef?.current) {
             setContainer(containerRef.current);
-            return;
+            return undefined;
         }
-        // Ref may not be set on first render — check after a tick
-        const raf = requestAnimationFrame(() => {
-            if (containerRef?.current) setContainer(containerRef.current);
-        });
-        return () => cancelAnimationFrame(raf);
-    }, [containerRef]);
+        let cancelled = false;
+        const attach = () => {
+            if (!cancelled && containerRef?.current) {
+                setContainer(containerRef.current);
+                return true;
+            }
+            return false;
+        };
+        const raf = requestAnimationFrame(attach);
+        const timer = window.setInterval(() => {
+            if (attach()) window.clearInterval(timer);
+        }, 200);
+        return () => {
+            cancelled = true;
+            cancelAnimationFrame(raf);
+            window.clearInterval(timer);
+        };
+    }, [containerRef, ready]);
 
     useEffect(() => {
         if (!container) return;

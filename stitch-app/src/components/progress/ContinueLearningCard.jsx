@@ -29,10 +29,9 @@ const ContinueLearningCard = ({ resumeTarget, resumeCopy }) => {
             initial={reduceMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="relative overflow-hidden rounded-[24px] border border-border-subtle bg-surface shadow-sm"
+            className="rounded-[24px] border border-border-subtle bg-surface shadow-sm"
         >
-            <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-primary-subtle opacity-70 blur-3xl" />
-            <div className="relative z-10 flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between md:gap-10 md:p-9">
+            <div className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between md:gap-10 md:p-9">
                 <div className="min-w-0 max-w-xl">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-subtle px-3 py-1.5 text-caption font-semibold text-primary">

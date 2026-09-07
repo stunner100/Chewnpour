@@ -30,24 +30,30 @@ const TopicVoiceToolbar = ({
                 ) : null}
             </p>
             <div className="flex shrink-0 items-center gap-1">
-                <button
-                    type="button"
-                    onClick={handlePlay}
-                    disabled={!speechText || voiceStatus === 'loading'}
-                    className="btn-ghost inline-flex min-h-9 items-center gap-1 px-2.5 text-caption disabled:opacity-50"
-                >
-                    <AppIcon name={voiceStatus === 'loading' ? 'hourglass_top' : isPaused ? 'play_arrow' : 'volume_up'} className="text-[16px]" />
-                    {voiceStatus === 'loading' ? 'Loading' : isPaused ? 'Resume' : 'Play'}
-                </button>
+                {isPlaying ? (
+                    <button
+                        type="button"
+                        onClick={pauseVoice}
+                        className="btn-ghost inline-flex min-h-9 items-center gap-1 px-2.5 text-caption"
+                    >
+                        <AppIcon name="pause" className="text-[16px]" />
+                        Pause
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={handlePlay}
+                        disabled={!speechText || voiceStatus === 'loading'}
+                        className="btn-ghost inline-flex min-h-9 items-center gap-1 px-2.5 text-caption disabled:opacity-50"
+                    >
+                        <AppIcon name={voiceStatus === 'loading' ? 'hourglass_top' : 'play_arrow'} className="text-[16px]" />
+                        {voiceStatus === 'loading' ? 'Generating audio...' : isPaused ? 'Resume' : 'Play'}
+                    </button>
+                )}
                 {(isPlaying || isPaused) ? (
-                    <>
-                        <button type="button" onClick={pauseVoice} disabled={!isPlaying} className="btn-icon size-8 disabled:opacity-50" aria-label="Pause">
-                            <AppIcon name="pause" className="text-[16px]" />
-                        </button>
-                        <button type="button" onClick={stopVoice} className="btn-icon size-8" aria-label="Stop">
-                            <AppIcon name="stop" className="text-[16px]" />
-                        </button>
-                    </>
+                    <button type="button" onClick={stopVoice} className="btn-icon size-8" aria-label="Stop">
+                        <AppIcon name="stop" className="text-[16px]" />
+                    </button>
                 ) : null}
             </div>
         </div>

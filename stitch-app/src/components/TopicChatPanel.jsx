@@ -65,6 +65,15 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
     );
 
     const sectionTitle = String(studyContext?.sectionTitle || '').trim();
+    const sectionIndex = Number.isFinite(Number(studyContext?.sectionIndex))
+        ? Number(studyContext.sectionIndex)
+        : null;
+    const sectionCount = Number.isFinite(Number(studyContext?.sectionCount))
+        ? Number(studyContext.sectionCount)
+        : 0;
+    const sectionLabel = sectionCount > 0 && sectionIndex != null
+        ? `Section ${sectionIndex + 1} of ${sectionCount}`
+        : '';
     const suggestedPrompts = useMemo(
         () => [
             { label: 'Explain this simply', prompt: `Explain ${topicTitle || 'this lesson'} in simple terms.` },
@@ -159,8 +168,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                         <TutorAvatarMark size={24} className="size-6" />
                         <div className="min-w-0">
                             <h3 id="topic-chat-title" className="text-body-sm lg:text-body-base font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
-                            <p className="hidden lg:block text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[300px]">
-                                {sectionTitle ? `Ask about ${sectionTitle}.` : 'Ask about this lesson.'}
+                            <p className="truncate text-caption text-text-faint-light dark:text-text-faint-dark">
+                                {[topicTitle, sectionLabel].filter(Boolean).join(' · ') || 'This lesson'}
                             </p>
                         </div>
                     </div>
@@ -239,8 +248,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                             </div>
                         )}
                     </div>
-                    <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                        Lesson-grounded
+                    <span className="rounded-full bg-primary-subtle px-2.5 py-1 text-caption font-medium text-primary">
+                        {sectionTitle ? `Context: ${sectionTitle}` : 'Lesson-grounded'}
                     </span>
                 </div>
 

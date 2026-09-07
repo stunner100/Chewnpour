@@ -40,7 +40,7 @@ const TopicQuizPanel = ({
                     onOpenChat={openChat}
                     examLabel={isTopicQuizRoute ? 'Start the objective quiz' : 'Take the final objective quiz'}
                     examDescription={isTopicQuizRoute
-                        ? 'Retry this quiz, or try essay or concept practice.'
+                        ? 'Retry this quiz with a fresh question set.'
                         : 'This topic is assessed as part of the final exam.'}
                     variant="lesson"
                 />

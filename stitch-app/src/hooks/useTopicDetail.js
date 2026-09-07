@@ -82,9 +82,13 @@ export const useTopicDetail = () => {
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceSettingsError, setVoiceSettingsError] = useState('');
     const [overrideContent, setOverrideContent] = useState('');
+    const [explanationView, setExplanationView] = useState('original');
     const [cachedContent, setCachedContent] = useState('');
     const [shouldAnimateBlocks, setShouldAnimateBlocks] = useState(false);
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
+    const [contentsOpen, setContentsOpen] = useState(false);
+    const [requestedSectionIndex, setRequestedSectionIndex] = useState(null);
     const [notesOpen, setNotesOpen] = useState(false);
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
@@ -152,11 +156,28 @@ export const useTopicDetail = () => {
         captureLessonScrollForSidePanel();
         setChatInitialPrompt(prompt);
         setNotesOpen(false);
+        setContentsOpen(false);
         setChatOpen(true);
     }, [captureLessonScrollForSidePanel]);
+    const openContents = useCallback(() => {
+        setChatOpen(false);
+        setNotesOpen(false);
+        setContentsOpen(true);
+    }, []);
+    const closeContents = useCallback(() => {
+        setContentsOpen(false);
+    }, []);
+    const requestSectionIndex = useCallback((index) => {
+        if (!Number.isFinite(Number(index))) return;
+        setRequestedSectionIndex(Math.round(Number(index)));
+        setContentsOpen(false);
+    }, []);
+    const onRequestConsumed = useCallback(() => {
+        setRequestedSectionIndex(null);
+    }, []);
     const contentRef = useRef(null);
     const mainRef = useRef(null);
-    const { selection, clearSelection } = useTextSelection(contentRef);
+    const { selection, clearSelection } = useTextSelection(contentRef, Boolean(routeTopicId));
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const focusPanel = searchParams.get('panel');
@@ -278,6 +299,11 @@ export const useTopicDetail = () => {
     });
 
     useEffect(() => {
+        setExplanationView('original');
+        setOverrideContent('');
+    }, [topicId]);
+
+    useEffect(() => {
         if (!storageKey) return;
         try {
             const cached = localStorage.getItem(storageKey);
@@ -311,7 +337,11 @@ export const useTopicDetail = () => {
         }
     }, [contentCacheKey, topic?.content]);
 
-    const content = overrideContent || topic?.content || cachedContent;
+    const originalLessonContent = topic?.content || cachedContent;
+    const hasReexplainedLesson = Boolean(overrideContent);
+    const content = explanationView === 'simplified' && overrideContent
+        ? overrideContent
+        : originalLessonContent;
     const normalizedContent = useMemo(() => {
         if (!content || typeof content !== 'string') return content;
 
@@ -807,7 +837,8 @@ export const useTopicDetail = () => {
         const note = String(text || '').trim();
         if (!note) return;
         setNotesAppendText(note);
-    }, []);
+        openNotes();
+    }, [openNotes]);
 
     useEffect(() => {
         if (!studyMode) return undefined;
@@ -840,7 +871,7 @@ export const useTopicDetail = () => {
         ? topicId
         : (finalAssessmentTopic?._id || null);
     const objectiveExamRoute = buildTopicQuizRoute(examTopicId);
-    const essayExamRoute = buildEssayQuizRoute(examTopicId);
+    void buildEssayQuizRoute;
     const timedExamRoute = buildTimedExamRoute(courseId);
     const timedExamAvailable = Number(topic?.questionCount || 0) > 0;
     const handleStartExam = useCallback(() => {
@@ -849,9 +880,6 @@ export const useTopicDetail = () => {
     const objectiveExamActionLabel = isTopicQuizRoute
         ? (topicProgress?.bestScore != null ? 'Retry quiz' : 'Start quiz')
         : (examTopicId ? 'Start quiz' : 'Quiz preparing');
-    const essayExamActionLabel = isTopicQuizRoute
-        ? 'Start essay'
-        : (examTopicId ? 'Start essay' : 'Essay preparing');
     const hasQuizScore = topicProgress?.bestScore != null;
     const practiceDescription = isTopicQuizRoute
         ? 'A short quiz on what you just read.'
@@ -889,6 +917,7 @@ export const useTopicDetail = () => {
             const result = await reExplainTopicRequest(topicId, reExplainStyle);
             const nextContent = result?.content || '';
             setOverrideContent(nextContent);
+            setExplanationView('simplified');
             if (storageKey) {
                 try {
                     if (nextContent.trim()) {
@@ -950,27 +979,23 @@ export const useTopicDetail = () => {
             description: 'Get help on this lesson',
             onClick: openChat,
         },
-        podcastEnabled && {
-            id: 'podcast-rail',
-            icon: 'podcasts',
-            label: 'Listen as Podcast',
-            description: 'Audio lesson for this topic',
-            onClick: () => {
-                const node = document.getElementById('topic-podcast');
-                if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            },
-        },
-        hasQuizScore && examTopicId && {
-            id: 'essay-rail',
-            icon: 'edit_note',
-            label: 'Take Essay',
-            description: essayExamActionLabel,
-            href: essayExamRoute,
+        examTopicId && {
+            id: 'quiz-rail',
+            icon: 'quiz',
+            label: objectiveExamActionLabel,
+            description: 'Test this lesson',
+            href: objectiveExamRoute,
         },
     ].filter(Boolean);
 
     // Mobile FAB only — Notes/Tutor live in MobileLessonActions; desktop uses header + rail.
     const studyToolSecondary = [
+        {
+            id: 'contents',
+            icon: 'list',
+            label: 'Contents',
+            onClick: openContents,
+        },
         {
             id: 'reexplain',
             icon: 'lightbulb',
@@ -983,10 +1008,16 @@ export const useTopicDetail = () => {
             label: 'View source passages',
             onClick: openSource,
         },
-        {
+        examTopicId && {
+            id: 'quiz-more',
+            icon: 'quiz',
+            label: objectiveExamActionLabel,
+            onClick: () => navigate(objectiveExamRoute),
+        },
+        isVoiceSupported && {
             id: 'settings',
-            icon: 'settings',
-            label: 'Voice settings',
+            icon: 'volume_up',
+            label: 'Read-aloud settings',
             onClick: () => setSettingsOpen(true),
         },
     ].filter(Boolean);
@@ -998,7 +1029,6 @@ export const useTopicDetail = () => {
         examTopicId
             ? { id: 'p-start-quiz', icon: 'quiz', label: objectiveExamActionLabel, href: objectiveExamRoute }
             : { id: 'p-quiz-pending', icon: 'hourglass_top', label: 'Quiz preparing', disabled: true },
-        hasQuizScore && examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
     ].filter(Boolean);
 
     const practiceTertiary = topicProgress?.completedAt ? [] : [{
@@ -1011,19 +1041,12 @@ export const useTopicDetail = () => {
     }];
 
     const mobileActionItems = [
+        { id: 'm-contents', icon: 'list', label: 'Contents', onClick: openContents },
         { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
         { id: 'm-tutor', icon: 'smart_toy', label: 'AI Tutor', onClick: openChat },
-        { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
-        topicProgress?.completedAt
-            ? { id: 'm-settings', icon: 'settings', label: 'Voice', onClick: () => setSettingsOpen(true) }
-            : {
-                id: 'm-done',
-                icon: 'check_circle',
-                label: 'Done',
-                onClick: () => upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {}),
-            },
-    ].filter(Boolean);
-    const hasQuizCta = Boolean(examTopicId);
+        { id: 'm-more', icon: 'more_horiz', label: 'More', onClick: () => setMoreOpen(true) },
+    ];
+    const hasQuizCta = false;
 
     return {
         activeSectionId,
@@ -1041,14 +1064,18 @@ export const useTopicDetail = () => {
         cleanedDescription,
         clearSelection,
         closeChat,
+        closeContents,
         closeNotes,
         closeSource,
+        contentsOpen,
         contentLines,
         contentRef,
         courseHref,
         courseId,
         examTopicId,
+        explanationView,
         filteredBlocks,
+        hasReexplainedLesson,
         handleAskTutor,
         handleLessonStepChange,
         handleReExplain,
@@ -1070,11 +1097,13 @@ export const useTopicDetail = () => {
         lessonSteps,
         mainRef,
         mobileActionItems,
+        moreOpen,
         normalizedContent,
         notesAppendText,
         notesOpen,
         objectiveExamRoute,
         openChat,
+        openContents,
         openNotes,
         openSource,
         parsed,
@@ -1083,6 +1112,9 @@ export const useTopicDetail = () => {
         podcastEnabled,
         postLessonPrompt,
         progressLoaded,
+        requestedSectionIndex,
+        requestSectionIndex,
+        onRequestConsumed,
         practiceDescription,
         practicePrimary,
         practiceSecondary,
@@ -1098,6 +1130,8 @@ export const useTopicDetail = () => {
         routeTopicId,
         scrollToTop,
         selection,
+        setExplanationView,
+        setMoreOpen,
         setNotesAppendText,
         setReExplainOpen,
         setReExplainStyle,

@@ -11,7 +11,7 @@ const EMPTY_LIST = [];
 
 /**
  * /dashboard/progress — a calm, truthful view of the learning journey.
- * Sections, in order: continue learning, overall activity, courses, topic performance.
+ * Sections, in order: continue learning, courses, topic performance, activity.
  */
 const StudyProgressMastery = () => {
     const { user } = useAuth();
@@ -97,15 +97,15 @@ const StudyProgressMastery = () => {
 
                 <ContinueLearningCard resumeTarget={resumeTarget} resumeCopy={resumeCopy} />
 
+                <CourseProgressList courses={courses} />
+
+                <TopicPerformanceList performanceInsights={performanceInsights} />
+
                 <ActivityStatsRow
                     streakDays={streakDays}
                     topicsPracticed={topicsPracticed}
                     quizAverage={quizAverage}
                 />
-
-                <CourseProgressList courses={courses} />
-
-                <TopicPerformanceList performanceInsights={performanceInsights} />
             </div>
         </div>
     );

@@ -28,6 +28,7 @@ export default function LessonInlineCheck({
     shareToken,
     onAttempted,
     onAskTutor,
+    onContinue,
 }) {
     const [selectedIndex, setSelectedIndex] = useState(null);
     const [attempts, setAttempts] = useState(0);
@@ -192,6 +193,16 @@ export default function LessonInlineCheck({
                             <p className="sr-only">Correct</p>
                             {result.explanation ? (
                                 <p className="mt-1.5 text-body-sm leading-6 text-text-secondary">{result.explanation}</p>
+                            ) : null}
+                            {onContinue ? (
+                                <button
+                                    type="button"
+                                    className="btn-primary mt-3 inline-flex min-h-10 items-center gap-1.5 text-body-sm"
+                                    onClick={onContinue}
+                                >
+                                    Continue
+                                    <AppIcon name="arrow_forward" className="text-[16px]" />
+                                </button>
                             ) : null}
                         </div>
                     </div>

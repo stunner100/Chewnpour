@@ -29,8 +29,8 @@ const [hook, quizPanel, uploads] = await Promise.all([
 
 assert.match(hook, /const practicePrimary = \[\];/);
 assert.match(hook, /id: 'p-start-quiz'/);
-assert.match(hook, /hasQuizScore && examTopicId && \{[\s\S]*id: 'essay-rail'/);
-assert.match(hook, /hasQuizScore && examTopicId && \{ id: 'p-essay'/);
+assert.doesNotMatch(hook, /id: 'essay-rail'/);
+assert.doesNotMatch(hook, /id: 'p-essay'/);
 assert.match(hook, /A short quiz on what you just read\./);
 
 assert.match(quizPanel, /Test this lesson/);
@@ -41,7 +41,9 @@ assert.match(quizPanel, /topicProgress\?\.bestScore != null \? \(/);
 assert.match(quizPanel, /<NextStepsGuidance/);
 
 assert.match(uploads, /buildFirstLessonHref\(\{ upload: finalized \}\)/);
-assert.match(uploads, /navigate\(first\.lessonsHref\)/);
+assert.match(uploads, /presentReadyCourse/);
+assert.match(uploads, /Course ready/);
+assert.match(uploads, /Start learning/);
 assert.match(uploads, /fetchCourses/);
 assert.match(uploads, /courses,/);
 

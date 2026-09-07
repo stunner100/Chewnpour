@@ -24,9 +24,12 @@ const CourseProgressList = ({ courses }) => {
                     id="progress-courses-heading"
                     className="font-display text-display-sm font-bold text-text-primary"
                 >
-                    Courses
+                    Your courses
                 </h2>
             </div>
+            <p className="mt-1 text-body-sm text-text-secondary" title="Course progress is the share of topics in that course with at least one quiz attempt.">
+                Course progress is the share of topics you have quizzed, not a concept-level score.
+            </p>
             {rows.length > 0 ? (
                 <ul className="mt-5 flex flex-col gap-3">
                     {rows.map((course) => (

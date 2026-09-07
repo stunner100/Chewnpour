@@ -3,7 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const source = await fs.readFile(path.join(root, 'src/pages/MyMaterialsLibrary.jsx'), 'utf8');
+const source = [
+  await fs.readFile(path.join(root, 'src/pages/MyMaterialsLibrary.jsx'), 'utf8'),
+  await fs.readFile(path.join(root, 'src/components/materials/MaterialCard.jsx'), 'utf8'),
+].join('\n');
 
 const requireIncludes = (snippet, label) => {
   if (!source.includes(snippet)) {
@@ -25,6 +28,7 @@ requireIncludes('rounded-[24px] border border-border-subtle bg-surface p-5', 'co
 requireIncludes('line-clamp-2 font-display text-display-sm font-bold text-text-primary', 'compact material card title');
 requireIncludes('mt-1 text-caption font-medium text-text-muted', 'compact upload timestamp');
 requireIncludes('btn-primary inline-flex w-full min-h-11', 'compact card CTA');
+requireIncludes('Continue studying', 'study-first primary CTA');
 
 requireExcludes('font-display-lg text-display-lg text-text-primary mb-2">My Materials', 'oversized page title');
 requireExcludes('font-headline-sm text-headline-sm text-text-primary mb-1 line-clamp-2', 'oversized material card title');

@@ -45,7 +45,7 @@ assert.doesNotMatch(hub, /from ['"]convex\//i, 'DashboardPodcasts must stay Conv
 
 assert.match(card, /\/api\/podcasts\?topicId=/, 'Lesson card must load the topic podcast');
 assert.match(card, /\/api\/podcast-generate/, 'Lesson card must generate through the dedicated function');
-assert.match(panel, /LessonPodcastCard/, 'Lesson page must mount the podcast card');
+assert.doesNotMatch(panel, /LessonPodcastCard/, 'Primary lesson study mode must not mount the podcast card');
 assert.match(hook, /const podcastEnabled = true/, 'Lesson hook must enable the podcast surface');
 
 assert.match(server, /export const generatePodcastForTopic/, 'Server must generate topic podcasts');

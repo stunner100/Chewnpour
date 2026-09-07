@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { getPool } from "./db.js";
 import { generateCourseCurriculumWithAi } from "./aiCourseGeneration.js";
-import { stripCourseTitle } from "./courseGeneration.js";
+import { buildQuestionsForTopic, stripCourseTitle } from "./courseGeneration.js";
 import { indexTopicPassages } from "./topicPassages.js";
 
 const toClientCourse = (row, extras = {}) => {
@@ -455,6 +455,80 @@ export const getQuizForTopic = async (userId, topicId) => {
     return {
         ...payload,
         questions: questionsResult.rows.map(toPlayableQuestion),
+    };
+};
+
+export const regenerateQuizForTopic = async (userId, topicId) => {
+    const quiz = await getQuizForTopicWithAnswers(userId, topicId);
+    if (!quiz?.topic) return null;
+
+    const existing = Array.isArray(quiz.questions) ? quiz.questions : [];
+    const excludeCorrect = existing
+        .map((question) => {
+            const options = Array.isArray(question.options) ? question.options : [];
+            return options[Number(question.correctIndex)] || "";
+        })
+        .filter(Boolean);
+    const limit = Math.max(existing.length, 3);
+    const generated = buildQuestionsForTopic({
+        topicTitle: quiz.topic.title,
+        topicContent: quiz.topic.content,
+        limit: limit + 2,
+        offset: existing.length,
+        excludeCorrect,
+    }).slice(0, limit);
+
+    const previousCorrect = new Set(excludeCorrect.map((value) => String(value).slice(0, 180).trim()));
+    const freshEnough = generated.some((question) => {
+        const options = Array.isArray(question.options) ? question.options : [];
+        const correct = String(options[Number(question.correctIndex)] || "").slice(0, 180).trim();
+        return correct && !previousCorrect.has(correct);
+    });
+
+    if (!generated.length || !freshEnough) {
+        return {
+            ...quiz,
+            questions: existing.map(toPlayableQuestion),
+            refreshed: false,
+        };
+    }
+
+    const db = getPool();
+    await db.query(
+        `DELETE FROM questions
+         WHERE topic_id = $1
+           AND user_id = $2
+           AND ${MCQ_TYPE_SQL}`,
+        [topicId, userId],
+    );
+    for (const [index, question] of generated.entries()) {
+        await db.query(
+            `INSERT INTO questions (
+                id, topic_id, course_id, user_id, prompt, options, correct_index, explanation, sort_order,
+                question_type, payload, hint, surface
+             ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11::jsonb,$12,$13)`,
+            [
+                nanoid(),
+                topicId,
+                quiz.topic.courseId,
+                userId,
+                question.prompt,
+                JSON.stringify(question.options || []),
+                question.correctIndex,
+                question.explanation || null,
+                question.sortOrder ?? index,
+                "multiple_choice",
+                JSON.stringify({}),
+                null,
+                "quiz",
+            ],
+        );
+    }
+
+    const next = await getQuizForTopic(userId, topicId);
+    return {
+        ...next,
+        refreshed: true,
     };
 };
 

@@ -107,11 +107,17 @@ export const findNewlyStudyReadyUploads = ({
     const course =
       nextCourseByUploadId.get(String(upload.id))
       || (upload.courseId ? nextCourseById.get(String(upload.courseId)) : null);
+    const courseId = course?.id || upload.courseId;
     return {
       uploadId: upload.id,
-      courseId: course?.id || upload.courseId,
+      courseId,
       title: course?.title || upload.fileName || 'Your material',
       lessonsHref: buildFirstLessonHref({ course, upload }),
+      courseHref: courseId
+        ? `/dashboard/lessons?courseId=${encodeURIComponent(courseId)}`
+        : '/dashboard/lessons',
+      topics: Math.max(0, Number(course?.topicCount ?? upload?.topicCount ?? 0)),
+      quizzes: Math.max(0, Number(course?.quizzesReady ?? upload?.quizzesReady ?? 0)),
     };
   });
 };
