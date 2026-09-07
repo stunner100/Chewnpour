@@ -255,17 +255,49 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                         );
                     }
 
+                    const label = String(block.alertType || 'note');
+                    const isKeyIdea = label === 'key takeaway' || label === 'important';
+                    const isWarning = label === 'warning';
+                    if (isKeyIdea) {
+                        return (
+                            <div key={block.key} className={`my-8 ${animationClass}`} style={animationStyle}>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                    Key idea
+                                </p>
+                                <div className="mt-2 text-[17px] font-medium leading-8 text-text-primary md:text-lg">
+                                    {bold(block.text)}
+                                </div>
+                            </div>
+                        );
+                    }
+                    if (isWarning) {
+                        return (
+                            <div key={block.key} className={`my-6 border-l-2 border-warning/70 pl-4 ${animationClass}`} style={animationStyle}>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
+                                    Warning
+                                </p>
+                                <div className="mt-2 text-[15px] leading-7 text-text-secondary md:text-base">
+                                    {bold(block.text)}
+                                </div>
+                            </div>
+                        );
+                    }
+
                     const variant = ALERT_VARIANTS[block.alertType] || DEFAULT_ALERT_VARIANT;
                     return (
                         <div
                             key={block.key}
-                            className={`my-4 md:my-6 p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 ${variant.className} ${animationClass}`}
+                            className={`my-5 flex gap-3 ${animationClass}`}
                             style={animationStyle}
                         >
-                            <AppIcon name={variant.icon} className="shrink-0 text-current opacity-70" />
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{block.alertType}</span>
-                                <div className="text-[15px] md:text-base font-medium leading-relaxed">{bold(block.text)}</div>
+                            <AppIcon name={variant.icon} className="mt-0.5 shrink-0 text-text-muted" />
+                            <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                    {label}
+                                </p>
+                                <div className="mt-1.5 text-[15px] leading-7 text-text-secondary md:text-base">
+                                    {bold(block.text)}
+                                </div>
                             </div>
                         </div>
                     );
@@ -286,11 +318,11 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'example') {
                     return (
-                        <div key={block.key} className={`my-4 md:my-6 rounded-2xl border border-border-subtle bg-surface-soft p-5 md:p-6 ${animationClass}`} style={animationStyle}>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                                Example
+                        <div key={block.key} className={`my-8 ${animationClass}`} style={animationStyle}>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                                Real-world example
                             </p>
-                            <div className="mt-2 text-text-secondary text-[15px] md:text-base leading-relaxed">
+                            <div className="mt-2 text-[15px] leading-7 text-text-secondary md:text-base">
                                 {bold(block.text)}
                             </div>
                         </div>
@@ -339,11 +371,11 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 // Analogy cards (compact, labeled)
                 if (block.type === 'analogycard') {
                     return (
-                        <div key={block.key} className={`my-4 rounded-2xl border border-border-subtle border-l-4 border-l-primary/50 bg-surface p-5 ${animationClass}`} style={animationStyle}>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                        <div key={block.key} className={`my-8 ${animationClass}`} style={animationStyle}>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
                                 {block.label || 'Analogy'}
                             </p>
-                            <p className="mt-2 text-[15px] md:text-base text-text-secondary leading-relaxed">{bold(block.text)}</p>
+                            <p className="mt-2 text-[15px] leading-7 text-text-secondary md:text-base">{bold(block.text)}</p>
                         </div>
                     );
                 }
@@ -351,14 +383,11 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 // Common Mistakes with labels
                 if (block.type === 'mistake') {
                     return (
-                        <div key={block.key} className={`my-4 rounded-2xl border border-warning/30 bg-warning-soft/50 p-5 ${animationClass}`} style={animationStyle}>
-                            <div className="flex items-center gap-2">
-                                <AppIcon name="warning" className="text-[16px] text-warning" />
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                                    {block.label || 'Common mistake'}
-                                </p>
-                            </div>
-                            <p className="mt-2 text-[15px] md:text-base text-text-secondary leading-relaxed">{bold(block.text)}</p>
+                        <div key={block.key} className={`my-8 ${animationClass}`} style={animationStyle}>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
+                                {block.label || 'Common mistake'}
+                            </p>
+                            <p className="mt-2 text-[15px] leading-7 text-text-secondary md:text-base">{bold(block.text)}</p>
                         </div>
                     );
                 }

@@ -59,11 +59,13 @@ requireIncludes(auth, "typeof metadata === 'string'", 'AuthContext.jsx');
 requireIncludes(auth, 'metadata?.full_name || metadata?.name', 'AuthContext.jsx');
 
 requireIncludes(upload, 'Generate your first lesson', 'UploadMaterials.jsx');
-requireIncludes(upload, "We'll take you to your first lesson when it's ready.", 'UploadMaterials.jsx');
-requireIncludes(upload, 'Opening your first lesson', 'UploadMaterials.jsx');
-requireIncludes(upload, 'navigate(first.lessonsHref)', 'UploadMaterials.jsx');
+requireIncludes(upload, 'We will show Start learning when the course is ready.', 'UploadMaterials.jsx');
+requireIncludes(upload, 'Course ready', 'UploadMaterials.jsx');
+requireIncludes(upload, 'Start learning', 'UploadMaterials.jsx');
+requireIncludes(upload, 'presentReadyCourse', 'UploadMaterials.jsx');
 requireIncludes(upload, 'buildFirstLessonHref', 'UploadMaterials.jsx');
 requireIncludes(upload, 'fetchCourses', 'UploadMaterials.jsx');
+requireExcludes(upload, 'Opening your first lesson', 'UploadMaterials.jsx');
 requireExcludes(upload, 'Add to your workspace', 'UploadMaterials.jsx');
 
 requireIncludes(nav, 'firstRunPrimaryTabs', 'MobileBottomNav.jsx');

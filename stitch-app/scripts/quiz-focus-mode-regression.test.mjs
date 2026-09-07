@@ -13,6 +13,7 @@ const quizProgress = await read("src/components/quiz/QuizProgress.jsx");
 const helpers = await read("src/lib/topicLessonHelpers.js");
 const nextSteps = await read("src/components/NextStepsGuidance.jsx");
 const courseHttp = await read("server/courseHttp.js");
+const layout = await read("src/components/DashboardLayout.jsx");
 
 // ─── One question at a time (focus mode) ────────────────────────────────────
 assert.match(quizPlayer, /const \[questionIndex, setQuestionIndex\] = useState\(0\)/, "player must track the visible question index");
@@ -25,6 +26,7 @@ assert.match(quizProgress, /role="progressbar"/, "progress bar must expose an ar
 // Back / Continue controls
 assert.match(quizPlayer, /const handleBack = useCallback/, "player must provide a Back control");
 assert.match(quizPlayer, /const handleContinue = useCallback/, "player must provide a Continue control");
+assert.match(quizPlayer, />\s*Skip\s*</, "Skip advances without selecting an answer");
 assert.match(quizPlayer, />\s*Continue\s*</, "Continue button label present");
 assert.match(quizPlayer, /Submit quiz/, "final question submits the quiz");
 assert.match(quizPlayer, /disabled=\{!hasCurrentSelection\}/, "Continue stays disabled until an answer is selected");
@@ -68,8 +70,8 @@ assert.doesNotMatch(results, /buildBloomBreakdown|BloomBreakdown/, "results must
 assert.match(results, /\$\{correctCount\} \/ \$\{totalQuestions\} correct/, "results show the real score summary");
 assert.match(results, /Quiz complete/, "results overline present");
 // Real understanding lists
-assert.match(results, /Strong areas/, "results list strong areas from real answers");
-assert.match(results, /Needs review/, "results list missed questions");
+assert.match(results, /Questions you handled well/, "results list well-handled questions from real answers");
+assert.match(results, /Questions to review/, "results list missed questions");
 // Question review collapsed by default
 assert.match(results, /<details/, "question review must be collapsed by default");
 assert.match(results, /id="question-review"/, "question review anchor present for Review mistakes");
@@ -78,5 +80,10 @@ assert.doesNotMatch(results, /\?autostart/, "retry link must not include autosta
 
 // ─── Server: quiz submit records quiz activity ──────────────────────────────
 assert.match(courseHttp, /lastActivityKind: "quiz",\n\s*bestScore: result\.percent,/, "quiz submit must set lastActivityKind 'quiz'");
+assert.match(
+    layout,
+    /\{!hideAppHeader && <AppSidebar \/>\}/,
+    "quiz focus mode must unmount the dashboard sidebar",
+);
 
 console.log("quiz-focus-mode-regression.test.mjs passed");

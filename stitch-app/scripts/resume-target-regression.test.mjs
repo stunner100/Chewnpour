@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildResumeTarget, hrefForResumeTarget } from '../server/resumeTarget.js';
+import { buildResumeTarget, hrefForResumeTarget, pickResumeProgressRow } from '../server/resumeTarget.js';
 
 const lesson = buildResumeTarget({
   latestProgress: {
@@ -107,5 +107,21 @@ assert.equal(
   hrefForResumeTarget({ kind: 'lesson', topicId: 'abc' }),
   '/dashboard/topic/abc',
 );
+
+const resumeRow = pickResumeProgressRow([
+  {
+    topic_id: 'completed-recent',
+    completed_at: '2026-09-06T18:00:00.000Z',
+    last_studied_at: '2026-09-06T18:00:00.000Z',
+    lesson_checks: { __studyPosition: { sectionIndex: 4, sectionCount: 5, finished: true } },
+  },
+  {
+    topic_id: 'unfinished-older',
+    completed_at: null,
+    last_studied_at: '2026-09-06T17:00:00.000Z',
+    lesson_checks: { __studyPosition: { sectionIndex: 1, sectionCount: 5, finished: false } },
+  },
+]);
+assert.equal(resumeRow.topic_id, 'unfinished-older');
 
 console.log('resume-target-regression.test.mjs passed');

@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { isUploadStudyReady, buildFirstLessonHref } from '../lib/uploadReadiness';
+import { GENERATION_STAGES, resolveGenerationStageIndex } from '../lib/generationStages';
+import GenerationStageList from '../components/materials/GenerationStageList';
 
 const typeConfig = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -106,9 +108,9 @@ const getStatusConfig = (status, extractionStatus) => {
     }
     if (normalized === 'error' || extraction === 'failed' || extraction === 'deferred') {
         return {
-            label: 'Failed',
-            icon: 'error',
-            className: 'bg-error-soft text-error',
+            label: 'Could not finish',
+            icon: 'info',
+            className: 'bg-warning-soft text-warning',
             isProcessing: false,
             isError: true,
         };
@@ -206,12 +208,14 @@ const finalizeUpload = async (uploadId) => {
 
 const UploadMaterials = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [uploads, setUploads] = useState([]);
     const [courses, setCourses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [activeUploadId, setActiveUploadId] = useState(null);
+    const [activeStageIndex, setActiveStageIndex] = useState(0);
+    const [readyCourse, setReadyCourse] = useState(null);
     const [uploadError, setUploadError] = useState('');
     const [isDragging, setIsDragging] = useState(false);
 
@@ -246,19 +250,29 @@ const UploadMaterials = () => {
         refreshUploads();
     }, [refreshUploads]);
 
+    const presentReadyCourse = useCallback((item) => {
+        if (!item?.lessonsHref) return;
+        setIsUploading(false);
+        setReadyCourse({
+            title: item.title || 'Your course',
+            href: item.lessonsHref,
+            courseHref: item.courseHref || '/dashboard/lessons',
+            topics: Math.max(0, Number(item.topics || 0)),
+            quizzes: Math.max(0, Number(item.quizzes || 0)),
+        });
+        watermelonToast(`${item.title || 'Your course'} is ready to study.`, {
+            type: 'success',
+            duration: 6000,
+        });
+    }, []);
+
     useUploadReadinessPoll({
         enabled: Boolean(userId),
         refresh: refreshUploads,
         uploads,
         courses,
         onNewlyReady: (readyItems) => {
-            const first = readyItems[0];
-            if (!first?.lessonsHref) return;
-            watermelonToast(`${first.title} is ready. Opening your first lesson.`, {
-                type: 'success',
-                duration: 4000,
-            });
-            navigate(first.lessonsHref);
+            presentReadyCourse(readyItems[0]);
         },
     });
 
@@ -266,6 +280,29 @@ const UploadMaterials = () => {
         () => (uploads || []).filter((upload) => !isInternalQaUpload(upload)).slice(0, 3),
         [uploads],
     );
+
+    const dropzoneStageIndex = useMemo(() => {
+        if (!isUploading) return 0;
+        const inFlight = (uploads || []).find((upload) => String(upload.id) === String(activeUploadId));
+        if (!inFlight) return activeStageIndex;
+        const matchedCourse = courses.find((course) => (
+            String(course.uploadId || '') === String(inFlight.id)
+            || String(course.id || '') === String(inFlight.courseId || '')
+        ));
+        return Math.max(
+            activeStageIndex,
+            resolveGenerationStageIndex({
+                status: inFlight.status,
+                extractionStatus: inFlight.extractionStatus,
+                processingStep: inFlight.processingStep,
+                topicCount: matchedCourse?.topicCount ?? inFlight.topicCount,
+                quizzesReady: matchedCourse?.quizzesReady ?? inFlight.quizzesReady,
+                studyReady: isUploadStudyReady(inFlight, matchedCourse),
+            }),
+        );
+    }, [activeStageIndex, activeUploadId, courses, isUploading, uploads]);
+
+    const dropzoneStageLabel = GENERATION_STAGES[Math.max(0, dropzoneStageIndex)]?.label || 'Uploading';
 
     const handleFile = useCallback(async (file) => {
         if (!file) return;
@@ -287,6 +324,8 @@ const UploadMaterials = () => {
         }
 
         setIsUploading(true);
+        setActiveStageIndex(0);
+        setActiveUploadId(null);
         try {
             const init = await initUpload({
                 fileName: file.name,
@@ -306,19 +345,38 @@ const UploadMaterials = () => {
                 throw new Error(`Storage responded with ${putResponse.status}`);
             }
 
+            setActiveUploadId(init.upload.id);
+            setActiveStageIndex(1);
+            setUploads((current) => {
+                const pending = {
+                    ...init.upload,
+                    status: 'extracting',
+                    extractionStatus: 'running',
+                    processingStep: 'extracting',
+                    fileName: file.name,
+                    fileSize: file.size,
+                };
+                const without = (current || []).filter((item) => item.id !== init.upload.id);
+                return [pending, ...without];
+            });
+
             const finalized = await finalizeUpload(init.upload.id);
             setUploads((current) => {
                 const without = (current || []).filter((item) => item.id !== finalized.id);
                 return [finalized, ...without];
             });
             if (isUploadStudyReady(finalized)) {
-                watermelonToast(`${finalized.fileName || 'Your material'} is ready. Opening your first lesson.`, {
-                    type: 'success',
-                    duration: 4000,
+                presentReadyCourse({
+                    title: finalized.fileName || 'Your material',
+                    lessonsHref: buildFirstLessonHref({ upload: finalized }),
+                    courseHref: finalized.courseId
+                        ? `/dashboard/lessons?courseId=${encodeURIComponent(finalized.courseId)}`
+                        : '/dashboard/lessons',
+                    topics: finalized.topicCount,
+                    quizzes: finalized.quizzesReady,
                 });
-                navigate(buildFirstLessonHref({ upload: finalized }));
             } else {
-                watermelonToast("We'll take you to your first lesson when it's ready.", {
+                watermelonToast('We will show Start learning when the course is ready.', {
                     type: 'info',
                     duration: 6000,
                 });
@@ -328,8 +386,9 @@ const UploadMaterials = () => {
             setUploadError(String(err?.message || 'Upload failed. Please try again.'));
         } finally {
             setIsUploading(false);
+            setActiveUploadId(null);
         }
-    }, [navigate, userId]);
+    }, [presentReadyCourse, userId]);
 
     const handleInputChange = useCallback((event) => {
         const file = event.target.files?.[0];
@@ -381,6 +440,37 @@ const UploadMaterials = () => {
                     </p>
                 </div>
 
+                {readyCourse ? (
+                    <div className="mb-8 rounded-[28px] border border-border-subtle bg-surface px-6 py-8 text-center shadow-sm md:px-10">
+                        <p className="text-caption font-semibold uppercase tracking-[0.08em] text-text-muted">
+                            Course ready
+                        </p>
+                        <h2 className="mt-2 font-display text-display-sm font-bold text-text-primary md:text-display-md">
+                            {readyCourse.title}
+                        </h2>
+                        <p className="mt-3 text-body-sm text-text-secondary">
+                            {readyCourse.topics} {readyCourse.topics === 1 ? 'topic' : 'topics'}
+                            {' · '}
+                            {readyCourse.quizzes} {readyCourse.quizzes === 1 ? 'quiz' : 'quizzes'}
+                        </p>
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                            <Link
+                                to={readyCourse.href}
+                                className="btn-primary inline-flex min-h-11 items-center gap-2 text-body-sm"
+                            >
+                                Start learning
+                                <AppIcon name="arrow_forward" className="text-[16px]" />
+                            </Link>
+                            <Link
+                                to={readyCourse.courseHref}
+                                className="btn-secondary inline-flex min-h-11 items-center text-body-sm"
+                            >
+                                View course
+                            </Link>
+                        </div>
+                    </div>
+                ) : null}
+
                 <div
                     role="button"
                     tabIndex={0}
@@ -410,16 +500,21 @@ const UploadMaterials = () => {
                     </div>
                     <h3 className="font-display text-display-sm font-bold text-text-primary md:text-display-md">
                         {isUploading
-                            ? 'Uploading your material...'
+                            ? 'Preparing your course'
                             : isDragging
                                 ? 'Drop to upload'
                                 : 'Drop a PDF, DOCX, PPTX, or audio file here'}
                     </h3>
                     <p className="mt-2 max-w-md text-body-sm text-text-secondary md:text-body-md">
                         {isUploading
-                            ? 'Hold tight while we prepare your material for processing.'
+                            ? 'We will show Start learning when the course is ready.'
                             : `Supported formats: ${ACCEPTED_FILE_TYPE_COPY}. Max 50MB.`}
                     </p>
+                    {isUploading ? (
+                        <div className="mt-5 w-full max-w-xs text-left">
+                            <GenerationStageList stageIndex={Math.max(0, dropzoneStageIndex)} />
+                        </div>
+                    ) : null}
                     <button
                         type="button"
                         onClick={(event) => { event.stopPropagation(); openFilePicker(); }}
@@ -427,7 +522,7 @@ const UploadMaterials = () => {
                         className="btn-primary z-10 mt-8 inline-flex min-h-11 items-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-70"
                     >
                         <AppIcon name={isUploading ? 'sync' : 'upload_file'} className="text-[18px]" />
-                        {isUploading ? 'Uploading…' : (
+                        {isUploading ? `${dropzoneStageLabel}…` : (
                             <>
                                 <span className="md:hidden">Choose file</span>
                                 <span className="hidden md:inline">Upload Material</span>
@@ -477,9 +572,21 @@ const UploadMaterials = () => {
                         </div>
                     ) : recentUploads.length > 0 ? (
                         <div className="space-y-3">
-                            {recentUploads.map((upload) => {
+                            {                            recentUploads.map((upload) => {
                                 const config = typeConfig[resolveFileKind(upload.fileType, upload.fileName)] || typeConfig.docx;
                                 const statusConfig = getStatusConfig(upload.status, upload.extractionStatus);
+                                const matchedCourse = courses.find((course) => (
+                                    String(course.uploadId || '') === String(upload.id)
+                                    || String(course.id || '') === String(upload.courseId || '')
+                                ));
+                                const stageIndex = resolveGenerationStageIndex({
+                                    status: upload.status,
+                                    extractionStatus: upload.extractionStatus,
+                                    processingStep: upload.processingStep,
+                                    topicCount: matchedCourse?.topicCount ?? upload.topicCount,
+                                    quizzesReady: matchedCourse?.quizzesReady ?? upload.quizzesReady,
+                                    studyReady: isUploadStudyReady(upload, matchedCourse),
+                                });
                                 return (
                                     <div
                                         key={upload.id}
@@ -502,22 +609,9 @@ const UploadMaterials = () => {
                                                 <p className="mt-1 text-body-sm text-text-secondary">
                                                     Uploaded {formatRelativeTime(upload.createdAt)} · {formatFileSize(upload.fileSize)}
                                                 </p>
-                                                {statusConfig.isError && upload.errorMessage && (
-                                                    <p className="mt-2 text-caption text-error">{upload.errorMessage}</p>
-                                                )}
-                                                {statusConfig.isProcessing && (
-                                                    <div className="mt-3 max-w-xs">
-                                                        <div
-                                                            className="h-1.5 overflow-hidden rounded-full bg-surface-soft"
-                                                            role="progressbar"
-                                                            aria-label="Uploading / processing"
-                                                            aria-valuetext="Uploading / processing"
-                                                        >
-                                                            <div className="h-full w-full animate-pulse rounded-full bg-info/80" />
-                                                        </div>
-                                                        <p className="mt-1 text-caption text-text-muted">Uploading / processing</p>
-                                                    </div>
-                                                )}
+                                                {statusConfig.isProcessing ? (
+                                                    <GenerationStageList stageIndex={Math.max(0, stageIndex)} />
+                                                ) : null}
                                             </div>
                                         </div>
                                         {!statusConfig.isProcessing && !statusConfig.isError && (

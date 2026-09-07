@@ -1,7 +1,7 @@
 import { getPool } from "./db.js";
 import { getProfileForUser } from "./profiles.js";
 import { listCoursesForUser } from "./courses.js";
-import { buildResumeTarget } from "./resumeTarget.js";
+import { buildResumeTarget, pickResumeProgressRow } from "./resumeTarget.js";
 import { splitLessonChecks } from "./studyPosition.js";
 
 const toDayIndex = (timestampMs) => Math.floor(Number(timestampMs) / (1000 * 60 * 60 * 24));
@@ -83,7 +83,7 @@ export const getProgressSnapshotForUser = async (userId) => {
              WHERE tp.user_id = $1
                AND tp.last_studied_at IS NOT NULL
              ORDER BY tp.last_studied_at DESC
-             LIMIT 1`,
+             LIMIT 20`,
             [userId],
         ),
         db.query(
@@ -170,7 +170,7 @@ export const getProgressSnapshotForUser = async (userId) => {
         };
     });
 
-    const latestProgressRow = progressResult.rows[0] || null;
+    const latestProgressRow = pickResumeProgressRow(progressResult.rows || []);
     const examRow = examResult.rows[0] || null;
     const courseProgressById = new Map(
         coursesWithProgress.map((course) => [String(course.id), Number(course.progress || 0)]),

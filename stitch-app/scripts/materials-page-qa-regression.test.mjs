@@ -41,7 +41,12 @@ requireIncludes(
 );
 requireIncludes(
   materialsSource,
-  'Download lessons and quizzes from every upload.',
+  'Every upload becomes a course you can continue studying.',
+  'MyMaterialsLibrary.jsx',
+);
+requireIncludes(
+  materialsSource,
+  'Continue studying',
   'MyMaterialsLibrary.jsx',
 );
 

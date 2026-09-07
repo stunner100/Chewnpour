@@ -5,14 +5,10 @@ import { getBottomChromeLimit } from '../lib/bottomChrome';
 const PRIMARY_ACTIONS = [
     { key: 'explain', label: 'Explain', icon: 'lightbulb', busy: 'Explaining' },
     { key: 'simplify', label: 'Simplify', icon: 'child_care', busy: 'Simplifying' },
-];
-
-const SECONDARY_ACTIONS = [
     { key: 'example', label: 'Example', icon: 'account_tree', busy: 'Finding an example' },
-    { key: 'breakdown', label: 'Break down', icon: 'account_tree', busy: 'Breaking down' },
 ];
 
-const ALL_ACTIONS = [...PRIMARY_ACTIONS, ...SECONDARY_ACTIONS];
+const ALL_ACTIONS = [...PRIMARY_ACTIONS];
 
 const controlClass =
     'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-body-sm font-medium text-text-primary transition-[background-color,color,transform] duration-150 hover:bg-surface-soft active:scale-[0.96]';
@@ -48,8 +44,10 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         error: '',
         activeStyle: '',
     });
-    const [expanded, setExpanded] = useState(false);
     const [placement, setPlacement] = useState({ top: 0, left: 0, above: false, ready: false });
+    const [isCompact, setIsCompact] = useState(() => (
+        typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    ));
 
     const selectionText = selection?.text || '';
     const hasCurrentSelectionState = explainState.selectionText === selectionText;
@@ -71,7 +69,6 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     const handleExplain = useCallback(async (style) => {
         if (!topicId || !selection?.text) return;
         const selectedText = selection.text;
-        setExpanded(false);
         setExplainState({
             selectionText: selectedText,
             loading: true,
@@ -104,7 +101,6 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     }, [topicId, selection]);
 
     const resetToIdle = useCallback(() => {
-        setExpanded(false);
         setExplainState({
             selectionText,
             loading: false,
@@ -135,6 +131,14 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         };
     }, [selection, onClose]);
 
+    useEffect(() => {
+        const media = window.matchMedia('(max-width: 767px)');
+        const sync = () => setIsCompact(media.matches);
+        sync();
+        media.addEventListener('change', sync);
+        return () => media.removeEventListener('change', sync);
+    }, []);
+
     const updatePlacement = useCallback(() => {
         if (!selection?.rect || !popoverRef.current) return;
         const { top, left, width, bottom } = selection.rect;
@@ -162,7 +166,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
 
     useLayoutEffect(() => {
         updatePlacement();
-    }, [updatePlacement, mode, expanded, explanation, error]);
+    }, [updatePlacement, mode, explanation, error]);
 
     useEffect(() => {
         if (!selection) return undefined;
@@ -204,7 +208,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
         }
 
         previousModeRef.current = mode;
-    }, [mode, expanded]);
+    }, [mode]);
 
     const style = useMemo(() => {
         if (!selection?.rect || !placement.ready) {
@@ -223,6 +227,74 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     }, [selection, placement]);
 
     if (!selection) return null;
+
+    const actionButtons = (
+        <>
+            {PRIMARY_ACTIONS.map((action) => (
+                <button
+                    key={action.key}
+                    type="button"
+                    onClick={() => handleExplain(action.key)}
+                    className={controlClass}
+                >
+                    <AppIcon name={action.icon} className="text-[14px]" />
+                    {action.label}
+                </button>
+            ))}
+            {onSaveSelection ? (
+                <button
+                    type="button"
+                    onClick={() => {
+                        onSaveSelection(selection?.text || '');
+                        onClose();
+                    }}
+                    className={controlClass}
+                >
+                    <AppIcon name="bookmark" className="text-[14px]" />
+                    Save
+                </button>
+            ) : null}
+        </>
+    );
+
+    if (isCompact) {
+        return (
+            <div
+                ref={popoverRef}
+                className="fixed inset-x-3 z-[60] ph-mask"
+                style={{ bottom: 'calc(var(--cp-mobile-lesson-bar) + env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
+            >
+                <div className="rounded-2xl border border-border-subtle bg-surface p-2 shadow-elevated">
+                    {loading ? (
+                        <p className="flex min-h-11 items-center justify-center gap-2 text-body-sm text-text-secondary">
+                            <span className="size-3 animate-spin rounded-full border-[1.5px] border-border-subtle border-t-text-secondary" />
+                            {activeAction.busy}…
+                        </p>
+                    ) : mode === 'result' ? (
+                        <div className="space-y-2 p-2">
+                            {error ? (
+                                <p className="text-caption text-amber-700">{error}</p>
+                            ) : (
+                                <div className="max-h-40 overflow-y-auto whitespace-pre-wrap text-body-sm leading-relaxed text-text-secondary">
+                                    {explanation}
+                                </div>
+                            )}
+                            <div className="flex flex-wrap gap-2">
+                                {onCopyToNotes && explanation ? (
+                                    <button type="button" onClick={() => onCopyToNotes(explanation)} className={primaryClass}>
+                                        Keep in notes
+                                    </button>
+                                ) : null}
+                                <button type="button" onClick={onClose} className={controlClass}>Dismiss</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap justify-center gap-1">{actionButtons}</div>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div ref={popoverRef} style={style} className="w-max max-w-[calc(100vw-2rem)] ph-mask">
@@ -269,79 +341,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                             </>
                         ) : null}
 
-                        {mode === 'idle' ? (
-                            <>
-                                <div
-                                    className="flex min-w-0 items-center gap-0.5 overflow-hidden transition-[max-width,opacity] duration-300"
-                                    style={{
-                                        maxWidth: expanded ? 420 : 220,
-                                        transitionTimingFunction: 'cubic-bezier(0.23,1,0.32,1)',
-                                    }}
-                                >
-                                    {PRIMARY_ACTIONS.map((action) => (
-                                        <button
-                                            key={action.key}
-                                            type="button"
-                                            onClick={() => handleExplain(action.key)}
-                                            className={controlClass}
-                                        >
-                                            <AppIcon name={action.icon} className="text-[14px]" />
-                                            {action.label}
-                                        </button>
-                                    ))}
-
-                                    <div
-                                        className="flex min-w-0 items-center gap-0.5 overflow-hidden transition-[max-width,opacity,margin] duration-300"
-                                        style={{
-                                            maxWidth: expanded ? 160 : 0,
-                                            opacity: expanded ? 1 : 0,
-                                            marginLeft: expanded ? 2 : 0,
-                                            transitionTimingFunction: 'cubic-bezier(0.23,1,0.32,1)',
-                                        }}
-                                    >
-                                        {SECONDARY_ACTIONS.map((action) => (
-                                            <button
-                                                key={action.key}
-                                                type="button"
-                                                onClick={() => handleExplain(action.key)}
-                                                className={controlClass}
-                                            >
-                                                <AppIcon name={action.icon} className="text-[14px]" />
-                                                {action.label}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {onSaveSelection ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                onSaveSelection(selection?.text || '');
-                                                onClose();
-                                            }}
-                                            className={controlClass}
-                                        >
-                                            <AppIcon name="bookmark" className="text-[14px]" />
-                                            Save
-                                        </button>
-                                    ) : null}
-
-                                    <span className="mx-0.5 h-4 w-px shrink-0 bg-border-subtle" />
-                                    <button
-                                        type="button"
-                                        aria-label={expanded ? 'Show fewer actions' : 'Show more actions'}
-                                        aria-expanded={expanded}
-                                        onClick={() => setExpanded((value) => !value)}
-                                        className="flex size-7 shrink-0 items-center justify-center rounded-full text-text-secondary transition-[background-color,transform] duration-200 hover:bg-surface-soft active:scale-[0.96]"
-                                    >
-                                        <AppIcon
-                                            name="chevron_right"
-                                            className={`text-[16px] transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-                                        />
-                                    </button>
-                                </div>
-                            </>
-                        ) : null}
+                        {mode === 'idle' ? actionButtons : null}
                     </div>
                 </div>
 

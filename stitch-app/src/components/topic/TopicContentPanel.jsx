@@ -1,18 +1,16 @@
 import React from 'react';
-import TopicSidebar from '../TopicSidebar';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
-import LessonPodcastCard from '../lesson/LessonPodcastCard';
 import LessonSectionStepper from '../lesson/LessonSectionStepper';
-import AppIcon from '../AppIcon';
 
 const TopicContentPanel = ({
     cleanInline,
-    cleanLine,
-    contentLines,
     contentRef,
+    explanationView = 'original',
+    handleAskTutor,
     handleFinishLesson,
     handleLessonStepChange,
     handleTermsStarred,
+    hasReexplainedLesson = false,
     heroTopicTitle,
     isPaused,
     isPlaying,
@@ -20,18 +18,18 @@ const TopicContentPanel = ({
     lessonSteps,
     normalizedContent,
     objectiveExamRoute,
-    parsed,
     pauseVoice,
     playVoice,
-    podcastEnabled = false,
     progressLoaded = true,
+    requestedSectionIndex = null,
+    onRequestConsumed,
     resolvedTopicTitle,
+    setExplanationView,
     resumeVoice,
     shouldAnimateBlocks,
     showTopicIllustration = false,
     speechText,
     stopVoice,
-    topic,
     topicId,
     topicIllustrationUrl,
     topicProgress,
@@ -41,15 +39,6 @@ const TopicContentPanel = ({
 }) => (
     <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
-            <TopicSidebar
-                normalizedContent={normalizedContent}
-                contentLines={contentLines}
-                toc={parsed.toc}
-                cleanLine={cleanLine}
-                topic={topic}
-                mobileOnly
-            />
-
             {isVoiceSupported && speechText ? (
                 <TopicVoiceToolbar
                     isPaused={isPaused}
@@ -77,9 +66,39 @@ const TopicContentPanel = ({
         </div>
 
         <div className="mx-auto w-full max-w-[720px]">
+            {hasReexplainedLesson && setExplanationView ? (
+                <div className="mb-6 inline-flex rounded-full border border-border-subtle bg-surface p-1" role="tablist" aria-label="Lesson explanation">
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={explanationView !== 'simplified'}
+                        onClick={() => setExplanationView('original')}
+                        className={`rounded-full px-3 py-1.5 text-caption font-semibold ${
+                            explanationView !== 'simplified'
+                                ? 'bg-cta text-cta-foreground'
+                                : 'text-text-secondary'
+                        }`}
+                    >
+                        Original
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={explanationView === 'simplified'}
+                        onClick={() => setExplanationView('simplified')}
+                        className={`rounded-full px-3 py-1.5 text-caption font-semibold ${
+                            explanationView === 'simplified'
+                                ? 'bg-cta text-cta-foreground'
+                                : 'text-text-secondary'
+                        }`}
+                    >
+                        Simplified
+                    </button>
+                </div>
+            ) : null}
             {normalizedContent && progressLoaded ? (
                 <LessonSectionStepper
-                    key={topicId || 'topic-lesson'}
+                    key={`${topicId || 'topic-lesson'}:${explanationView}`}
                     steps={lessonSteps}
                     topicId={topicId}
                     topicTitle={resolvedTopicTitle || heroTopicTitle}
@@ -99,23 +118,20 @@ const TopicContentPanel = ({
                     initialFinished={Boolean(
                         topicProgress?.studyPosition?.finished && topicProgress?.completedAt
                     )}
+                    onAskTutor={handleAskTutor}
+                    requestedIndex={requestedSectionIndex}
+                    onRequestConsumed={onRequestConsumed}
                 />
             ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="mb-4 flex size-14 animate-pulse items-center justify-center rounded-2xl bg-primary-subtle">
-                        <AppIcon name="auto_stories" className="text-[26px] text-primary" />
-                    </div>
-                    <h3 className="font-display text-display-sm font-bold text-text-primary">Preparing your lesson</h3>
+                    <div className="mb-4 flex size-10 animate-spin rounded-full border-2 border-border-subtle border-t-primary" />
+                    <h3 className="font-display text-display-sm font-bold text-text-primary">Loading your place</h3>
                     <p className="mt-1 max-w-xs text-body-sm text-text-secondary">
-                        ChewnPour is organizing this topic into key ideas, examples, checks, and study tools.
+                        Restoring the section you left off on.
                     </p>
                 </div>
             )}
         </div>
-
-        {podcastEnabled && topicId ? (
-            <LessonPodcastCard topicId={topicId} topicTitle={resolvedTopicTitle || heroTopicTitle} />
-        ) : null}
     </div>
 );
 

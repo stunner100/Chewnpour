@@ -20,6 +20,18 @@ export const normalizeActivityKind = (value, fallback = "lesson") => {
     return fallback;
 };
 
+export const isUnfinishedProgressRow = (row) => {
+    if (!row) return false;
+    if (!row.completed_at) return true;
+    const position = splitLessonChecks(row.lesson_checks).studyPosition;
+    return Boolean(position && position.finished === false);
+};
+
+export const pickResumeProgressRow = (rows = []) => {
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    return rows.find((row) => isUnfinishedProgressRow(row)) || rows[0] || null;
+};
+
 export const hrefForResumeTarget = ({ kind, topicId, courseId } = {}) => {
     if (kind === "exam" && courseId) {
         return `/dashboard/exam?courseId=${encodeURIComponent(courseId)}&resume=1`;

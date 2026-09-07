@@ -6,6 +6,7 @@ const root = process.cwd();
 
 const [
   libraryPageSource,
+  materialCardSource,
   uploadHttpSource,
   uploadsSource,
   downloadHelperSource,
@@ -14,6 +15,7 @@ const [
   commandPaletteSource,
 ] = await Promise.all([
   fs.readFile(path.join(root, "src", "pages", "MyMaterialsLibrary.jsx"), "utf8"),
+  fs.readFile(path.join(root, "src", "components", "materials", "MaterialCard.jsx"), "utf8"),
   fs.readFile(path.join(root, "server", "uploadHttp.js"), "utf8"),
   fs.readFile(path.join(root, "server", "uploads.js"), "utf8"),
   fs.readFile(path.join(root, "src", "lib", "downloadFile.js"), "utf8"),
@@ -36,23 +38,25 @@ const requireExcludes = (source, snippet, label) => {
 
 requireIncludes(
   libraryPageSource,
-  "Download lessons and quizzes from every upload.",
+  "Every upload becomes a course you can continue studying.",
   "MyMaterialsLibrary.jsx",
 );
 requireIncludes(libraryPageSource, "/api/uploads/${encodeURIComponent(uploadId)}/export", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "/api/uploads/${encodeURIComponent(uploadId)}/original", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "handleDownloadTransformed", "MyMaterialsLibrary.jsx");
-requireIncludes(libraryPageSource, "Download original", "MyMaterialsLibrary.jsx");
-requireIncludes(libraryPageSource, "Download lessons", "MyMaterialsLibrary.jsx");
-requireIncludes(libraryPageSource, "Ready to download", "MyMaterialsLibrary.jsx");
-requireIncludes(libraryPageSource, "is ready to download", "MyMaterialsLibrary.jsx");
+requireIncludes(materialCardSource, "Download original", "MaterialCard.jsx");
+requireIncludes(materialCardSource, "Download lessons", "MaterialCard.jsx");
+requireIncludes(materialCardSource, "Continue studying", "MaterialCard.jsx");
+requireIncludes(materialCardSource, "View course", "MaterialCard.jsx");
+requireIncludes(libraryPageSource, "Continue studying", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "Nothing to study yet", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "filteredMaterials", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPageSource, "canExport", "MyMaterialsLibrary.jsx");
+requireIncludes(libraryPageSource, "isUploadStudyReady", "MyMaterialsLibrary.jsx");
 
 requireExcludes(libraryPageSource, "Continue Study", "MyMaterialsLibrary.jsx");
 requireExcludes(libraryPageSource, "Study Unavailable", "MyMaterialsLibrary.jsx");
-requireExcludes(libraryPageSource, "Open lessons", "MyMaterialsLibrary.jsx");
+requireExcludes(libraryPageSource, "Ready to download", "MyMaterialsLibrary.jsx");
 requireExcludes(libraryPageSource, "Manage and study your uploaded files", "MyMaterialsLibrary.jsx");
 requireExcludes(libraryPageSource, "from 'convex/react'", "MyMaterialsLibrary.jsx");
 requireExcludes(libraryPageSource, "api.uploads.getUserUploads", "MyMaterialsLibrary.jsx");
@@ -75,8 +79,8 @@ requireIncludes(downloadHelperSource, "triggerBrowserDownload", "downloadFile.js
 if (!navSource.includes("label: 'My Materials'") || !navSource.includes("path: '/dashboard/library'")) {
   throw new Error("Dashboard navigation should route materials to /dashboard/library.");
 }
-if (!navSource.includes("Download transformed lessons for every upload")) {
-  throw new Error("My Materials nav copy should describe downloads.");
+if (!navSource.includes("Open the course Chewnpour generated from each upload")) {
+  throw new Error("My Materials nav copy should describe generated courses.");
 }
 if (!commandPaletteSource.includes("value: '/dashboard/library'")) {
   throw new Error("Command palette should route Library to /dashboard/library.");

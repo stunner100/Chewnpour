@@ -27,6 +27,11 @@ assert.match(
 );
 assert.match(layout, /StudyModeSidebarQuiet/, 'Sidebar must collapse while studying.');
 assert.match(layout, /STUDY_ROUTE_PATTERN/, 'Study routes must be detected for quiet chrome.');
+assert.match(
+  layout,
+  /\{!hideAppHeader && <AppSidebar \/>\}/,
+  'Quiz and topic study routes must unmount the dashboard sidebar, not just collapse it to icons.',
+);
 
 assert.match(mobileActions, /lg:hidden/, 'Lesson action bar should hide on desktop.');
 assert.match(mobileActions, /text-caption/, 'Lesson action labels should use caption scale.');
@@ -68,6 +73,7 @@ assert.match(content, /LessonSectionStepper/, 'Lesson page must use the section 
 assert.match(content, /contentRef=\{contentRef\}/, 'Highlight selection must target the reading stage, not the whole column.');
 assert.match(content, /onFinishLesson=\{handleFinishLesson\}/, 'Stepper must persist completion.');
 assert.doesNotMatch(content, /onViewSource/, 'Dead source affordance must not reach the stepper.');
+assert.doesNotMatch(content, /TopicSidebar/, 'Lesson reading column must not mount a second Contents control.');
 
 assert.match(stepper, /lesson-reading-stage/, 'Lesson prose must live in a dedicated reading stage.');
 assert.match(stepper, /LessonInlineCheck/, 'Inline checks must stay with the stepper.');
@@ -104,6 +110,11 @@ assert.match(chatPanel, /Ask about this lesson\./, 'Tutor rail must set lesson c
 assert.match(chatPanel, /showComposerSuggestions=\{false\}/, 'Composer must not duplicate welcome chips.');
 assert.match(chatPanel, /Tutor style/, 'Persona control must use a visible Tutor style label.');
 assert.match(chatPanel, /inline = false/, 'Tutor panel must support the inline rail variant.');
+assert.match(
+  chatPanel,
+  /if \(!inline && isDesktop\) return null;/,
+  'Portaled tutor sheet must not render on desktop next to the inline rail.',
+);
 assert.match(hook, /label: 'AI Tutor'/, 'Mobile lesson actions must use AI Tutor, not a shortened Tutor label.');
 assert.match(notesPanel, /inline = false/, 'Notes panel must support the inline rail variant.');
 assert.match(notesPanel, /role=\{inline \? 'complementary' : 'dialog'\}/, 'Desktop notes must be a non-modal complementary rail.');

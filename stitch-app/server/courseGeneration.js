@@ -128,9 +128,24 @@ const shuffleOptionsWithCorrect = (options, correctIndex) => {
     };
 };
 
-export const buildQuestionsForTopic = ({ topicTitle, topicContent, limit = 3 }) => {
+export const buildQuestionsForTopic = ({
+    topicTitle,
+    topicContent,
+    limit = 3,
+    offset = 0,
+    excludeCorrect = [],
+} = {}) => {
     const allSentences = splitIntoSentences(topicContent);
-    const sentences = allSentences.slice(0, Math.max(1, limit));
+    const excluded = new Set(
+        (Array.isArray(excludeCorrect) ? excludeCorrect : [])
+            .map((value) => String(value || "").slice(0, 180).trim())
+            .filter(Boolean),
+    );
+    const unused = allSentences.filter((sentence) => !excluded.has(sentence.slice(0, 180).trim()));
+    const start = Math.max(0, Number(offset) || 0);
+    const pool = unused.length > 0 ? unused : allSentences;
+    const rotated = start > 0 ? [...pool.slice(start), ...pool.slice(0, start)] : pool;
+    const sentences = rotated.slice(0, Math.max(1, limit));
     if (sentences.length === 0) {
         return [];
     }

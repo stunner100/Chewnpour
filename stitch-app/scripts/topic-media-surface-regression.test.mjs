@@ -13,12 +13,12 @@ if (!useTopicDetailSource.includes('const podcastEnabled = true')) {
   throw new Error('Expected useTopicDetail to enable the lesson podcast surface.');
 }
 
-if (!contentPanelSource.includes('LessonPodcastCard')) {
-  throw new Error('Expected TopicContentPanel to mount LessonPodcastCard.');
+if (contentPanelSource.includes('LessonPodcastCard')) {
+  throw new Error('Primary lesson study mode must not mount LessonPodcastCard.');
 }
 
 if (topicDetailSource.includes('LessonPodcastCard') || topicDetailSource.includes('TopicPodcastPanel')) {
-  throw new Error('Expected TopicDetail to keep podcast UI in TopicContentPanel, not the page shell.');
+  throw new Error('Expected TopicDetail to keep podcast UI out of the lesson page shell.');
 }
 
 for (const forbiddenSnippet of [

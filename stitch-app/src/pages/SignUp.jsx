@@ -98,10 +98,11 @@ const SignUp = () => {
         signUpReducer,
         initialSignUpState,
     );
-    const { signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
+    const { signUp, signIn, signInWithGoogle, user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const consumedOAuthError = useRef(false);
+    const pendingWelcomeToast = useRef(null);
     const busy = loading || googleLoading;
 
     const referralCode = useMemo(
@@ -111,7 +112,13 @@ const SignUp = () => {
 
     useEffect(() => {
         if (authLoading) return;
-        if (user) navigate('/dashboard', { replace: true });
+        if (!user) return;
+        const welcomeToast = pendingWelcomeToast.current;
+        pendingWelcomeToast.current = null;
+        navigate('/dashboard', {
+            replace: true,
+            ...(welcomeToast ? { state: { watermelonToast: welcomeToast } } : {}),
+        });
     }, [authLoading, user, navigate]);
 
     useEffect(() => {
@@ -188,23 +195,36 @@ const SignUp = () => {
 
         dispatchSignUp({ type: 'submitStarted' });
         stashReferralCode(referralCode);
+        const welcomeToast = {
+            message: `Welcome, ${trimmedName.split(' ')[0]}!`,
+            type: 'success',
+        };
+        // Stash before any auth await so the session effect can land on
+        // /dashboard with the toast once `user` exists.
+        pendingWelcomeToast.current = welcomeToast;
         try {
             const { error: signUpError } = await signUp(trimmedEmail, password, { name: trimmedName });
             if (signUpError) {
+                pendingWelcomeToast.current = null;
                 dispatchSignUp({ type: 'submitFailed', error: signUpError.message });
                 watermelonToast(signUpError.message, { type: 'error' });
                 return;
             }
-            navigate('/dashboard', {
-                replace: true,
-                state: {
-                    watermelonToast: {
-                        message: `Welcome, ${trimmedName.split(' ')[0]}!`,
-                        type: 'success',
-                    },
-                },
-            });
+            // signUp may create the account without a session. Do not
+            // navigate until AuthContext has a user — ProtectedRoute
+            // otherwise bounces to /login.
+            if (!user) {
+                const { error: signInError } = await signIn(trimmedEmail, password);
+                if (signInError) {
+                    pendingWelcomeToast.current = null;
+                    const msg = 'Account created. Please sign in to continue.';
+                    dispatchSignUp({ type: 'submitFailed', error: msg });
+                    watermelonToast(msg, { type: 'error' });
+                    return;
+                }
+            }
         } catch {
+            pendingWelcomeToast.current = null;
             const fallback = 'An unexpected error occurred';
             dispatchSignUp({ type: 'submitFailed', error: fallback });
             watermelonToast(fallback, { type: 'error' });

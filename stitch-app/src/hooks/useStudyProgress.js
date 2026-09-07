@@ -67,10 +67,20 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
     const [progressLoaded, setProgressLoaded] = useState(false);
     const [sourcePassages, setSourcePassages] = useState([]);
     const [currentStepSpeech, setCurrentStepSpeech] = useState('');
-    const [currentStepTitle, setCurrentStepTitle] = useState('');
-    const [currentStepFinished, setCurrentStepFinished] = useState(false);
-    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [stepperReport, setStepperReport] = useState(null);
     const lastPersistedPositionRef = useRef(null);
+    const persistQueueRef = useRef(Promise.resolve());
+    const pendingPositionRef = useRef(null);
+    const latestPositionRef = useRef(null);
+    const completedAtRef = useRef(null);
+    completedAtRef.current = topicProgress?.completedAt;
+    const restoredPosition = useMemo(
+        () => normalizeStudyPosition(topicProgress?.studyPosition),
+        [topicProgress?.studyPosition],
+    );
+    const currentStepIndex = stepperReport?.index ?? restoredPosition?.sectionIndex ?? 0;
+    const currentStepTitle = stepperReport?.title ?? restoredPosition?.sectionTitle ?? '';
+    const currentStepFinished = stepperReport?.finished ?? Boolean(restoredPosition?.finished);
 
     useEffect(() => {
         if (!topicId || !userId) {
@@ -78,11 +88,19 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
             setSourcePassages([]);
             setProgressLoaded(true);
             lastPersistedPositionRef.current = null;
+            pendingPositionRef.current = null;
+            latestPositionRef.current = null;
+            persistQueueRef.current = Promise.resolve();
+            setStepperReport(null);
             return undefined;
         }
         let cancelled = false;
         setProgressLoaded(false);
         lastPersistedPositionRef.current = null;
+        pendingPositionRef.current = null;
+        latestPositionRef.current = null;
+        persistQueueRef.current = Promise.resolve();
+        setStepperReport(null);
         fetchTopicProgress(topicId)
             .then((progress) => {
                 if (!cancelled) setTopicProgress(progress);
@@ -116,16 +134,31 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         }
     }, [topicId]);
 
-    useEffect(() => {
-        if (!topicId || !userId) return;
-        upsertProgress({ topicId, lastStudiedAt: Date.now(), lastActivityKind: 'lesson' }).catch(() => {});
-    }, [topicId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const enqueueStudyPosition = useCallback((nextPosition) => {
+        if (!nextPosition) return;
+        pendingPositionRef.current = nextPosition;
+        lastPersistedPositionRef.current = nextPosition;
+        persistQueueRef.current = persistQueueRef.current
+            .then(async () => {
+                const queued = pendingPositionRef.current;
+                if (!queued) return;
+                pendingPositionRef.current = null;
+                await upsertProgress({
+                    ...(completedAtRef.current ? {} : { lastStudiedAt: Date.now() }),
+                    lastActivityKind: 'lesson',
+                    studyPosition: queued,
+                });
+            })
+            .catch(() => {});
+    }, [upsertProgress]);
 
     const handleLessonStepChange = useCallback((payload) => {
         setCurrentStepSpeech(payload?.speechText || '');
-        setCurrentStepIndex(Number.isFinite(payload?.index) ? payload.index : 0);
-        setCurrentStepTitle(payload?.title || '');
-        setCurrentStepFinished(Boolean(payload?.finished));
+        setStepperReport({
+            index: Number.isFinite(payload?.index) ? payload.index : 0,
+            title: payload?.title || '',
+            finished: Boolean(payload?.finished),
+        });
     }, []);
 
     const studyContext = useMemo(
@@ -150,19 +183,22 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         });
         if (!nextPosition) return undefined;
         const previous = lastPersistedPositionRef.current;
-        if (sameStudyPosition(previous, nextPosition)) return undefined;
         const restored = normalizeStudyPosition(topicProgress?.studyPosition);
-        if (sameStudyPosition(restored, nextPosition) && !previous) {
-            lastPersistedPositionRef.current = nextPosition;
+        // The stepper reports section 0 until it mounts. Never let that
+        // overwrite a restored later section, including on unmount.
+        if (
+            restored
+            && !previous
+            && nextPosition.sectionIndex === 0
+            && restored.sectionIndex > 0
+        ) {
             return undefined;
         }
+        latestPositionRef.current = nextPosition;
+        if (sameStudyPosition(previous, nextPosition)) return undefined;
+
         const timer = window.setTimeout(() => {
-            lastPersistedPositionRef.current = nextPosition;
-            upsertProgress({
-                lastStudiedAt: Date.now(),
-                lastActivityKind: 'lesson',
-                studyPosition: nextPosition,
-            }).catch(() => {});
+            enqueueStudyPosition(nextPosition);
         }, 450);
         return () => window.clearTimeout(timer);
     }, [
@@ -174,8 +210,13 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         currentStepFinished,
         lessonSteps,
         topicProgress?.studyPosition,
-        upsertProgress,
+        enqueueStudyPosition,
     ]);
+
+    useEffect(() => () => {
+        const latest = latestPositionRef.current;
+        if (latest) enqueueStudyPosition(latest);
+    }, [topicId, userId, enqueueStudyPosition]);
 
     const handleFinishLesson = useCallback(() => {
         const sectionCount = Array.isArray(lessonSteps) ? lessonSteps.length : 0;
@@ -188,7 +229,6 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         lastPersistedPositionRef.current = studyPosition;
         if (topicProgress?.completedAt) {
             upsertProgress({
-                lastStudiedAt: Date.now(),
                 lastActivityKind: 'lesson',
                 studyPosition,
             }).catch(() => {});

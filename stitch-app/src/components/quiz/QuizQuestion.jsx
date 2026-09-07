@@ -22,10 +22,10 @@ const QuizQuestion = ({ question, selectedIndex, onSelect }) => {
                     return (
                         <label
                             key={`${question.id}-${optionIndex}`}
-                            className={`flex cursor-pointer items-start gap-3 rounded-[16px] border px-4 py-4 transition-colors ${
+                            className={`flex min-h-14 cursor-pointer items-start gap-3 rounded-[16px] border px-4 py-4 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 ${
                                 selected
                                     ? 'border-primary bg-primary-subtle'
-                                    : 'border-border-default bg-surface hover:bg-surface-soft'
+                                    : 'border-border-default bg-surface hover:bg-surface-soft hover:border-primary/40'
                             }`}
                         >
                             <input

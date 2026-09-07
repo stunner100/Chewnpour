@@ -157,7 +157,7 @@ export const upsertTopicProgressForUser = async (userId, topicId, patch = {}) =>
                 : null;
     const nextLastStudiedAt = patch.lastStudiedAt
         ? new Date(Number(patch.lastStudiedAt) || Date.now())
-        : new Date();
+        : existing.rows[0]?.last_studied_at || new Date();
     const nextActivityKind = normalizeTopicActivityKind(
         patch.lastActivityKind,
         normalizeTopicActivityKind(existing.rows[0]?.last_activity_kind, "lesson"),

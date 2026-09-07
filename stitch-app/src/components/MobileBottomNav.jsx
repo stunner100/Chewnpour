@@ -20,7 +20,7 @@ const firstRunPrimaryTabs = [
 const returningMoreItems = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, PPTX, or audio files' },
     { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', description: 'Study plan and mastery' },
-    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Download transformed lessons for every upload' },
+    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Open the course Chewnpour generated from each upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
     { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
     { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
@@ -28,7 +28,7 @@ const returningMoreItems = [
 
 const firstRunMoreItems = [
     { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz', description: 'Practice after your first lesson is ready' },
-    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Download transformed lessons for every upload' },
+    { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Open the course Chewnpour generated from each upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
     { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
     { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', description: 'Ask follow-up questions' },

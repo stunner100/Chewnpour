@@ -2,10 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
+import MaterialCard from '../components/materials/MaterialCard';
 import { useUploadReadinessPoll } from '../hooks/useUploadReadinessPoll';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { downloadAuthenticatedFile } from '../lib/downloadFile';
+import { buildFirstLessonHref, isUploadStudyReady } from '../lib/uploadReadiness';
+import { resolveGenerationStageIndex } from '../lib/generationStages';
 
 const filterTabs = [
     { label: 'All', value: 'all' },
@@ -13,15 +16,6 @@ const filterTabs = [
     { label: 'Notes', value: 'notes' },
     { label: 'Processing', value: 'processing' },
 ];
-
-const typeIcons = {
-    pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
-    pptx: { icon: 'slideshow', color: 'bg-mastery-soft text-mastery' },
-    docx: { icon: 'description', color: 'bg-info-soft text-info' },
-    audio: { icon: 'graphic_eq', color: 'bg-primary-soft text-primary' },
-    image: { icon: 'image', color: 'bg-success-soft text-success' },
-    notes: { icon: 'description', color: 'bg-info-soft text-info' },
-};
 
 const resolveFileKind = (fileType = '', fileName = '') => {
     const source = `${fileType} ${fileName}`.toLowerCase();
@@ -151,12 +145,14 @@ const MyMaterialsLibrary = () => {
         onNewlyReady: (readyItems) => {
             const first = readyItems[0];
             if (!first) return;
-            watermelonToast(`${first.title} is ready to download`, {
+            watermelonToast(`${first.title} is ready to study`, {
                 type: 'success',
                 duration: 8000,
                 action: {
-                    label: 'Download',
-                    onClick: () => handleDownloadTransformed(first.uploadId, first.title),
+                    label: 'Continue studying',
+                    onClick: () => {
+                        window.location.assign(first.lessonsHref);
+                    },
                 },
             });
         },
@@ -169,24 +165,37 @@ const MyMaterialsLibrary = () => {
             const topicCount = Number(course?.topicCount || upload.topicCount || 0);
             const quizzesReady = Number(course?.quizzesReady || upload.quizzesReady || 0);
             const extractionStatus = String(upload.extractionStatus || '').toLowerCase();
-            const isComplete = upload.status === 'ready' && extractionStatus === 'complete';
+            const studyReady = isUploadStudyReady(upload, course);
+            const failed = upload.status === 'error' || extractionStatus === 'failed';
+            const stageIndex = resolveGenerationStageIndex({
+                status: upload.status,
+                extractionStatus,
+                processingStep: upload.processingStep || '',
+                topicCount,
+                quizzesReady,
+                studyReady,
+            });
             return {
                 uploadId: upload.id,
                 courseId: course?.id || upload.courseId || null,
-                firstQuizTopicId: course?.firstQuizTopicId || upload.firstQuizTopicId || null,
                 title: formatCourseTitle(course?.title || upload.fileName) || course?.title || upload.fileName,
                 fileName: upload.fileName,
                 kind: resolveFileKind(upload.fileType, upload.fileName),
                 status: upload.status,
                 extractionStatus,
-                errorMessage: upload.errorMessage || '',
-                processingProgress: isComplete ? 100 : (upload.status === 'error' ? 0 : 35),
-                processingStep: upload.processingStep || '',
-                createdAt: upload.createdAt,
+                processing: !studyReady && !failed,
+                failed,
+                studyReady,
+                stageIndex,
+                uploadedLabel: formatUploadedAt(upload.createdAt),
                 lessons: topicCount,
                 quizzes: quizzesReady,
                 topicCount,
-                canExport: Boolean(upload.canExport) || (isComplete && Number(upload.charCount || 0) > 0),
+                canExport: Boolean(upload.canExport) || (studyReady && Number(upload.charCount || 0) > 0),
+                continueHref: buildFirstLessonHref({ course, upload }),
+                courseHref: course?.id
+                    ? `/dashboard/lessons?courseId=${encodeURIComponent(course.id)}`
+                    : null,
             };
         });
     }, [courses, uploads]);
@@ -215,7 +224,7 @@ const MyMaterialsLibrary = () => {
         return materials.filter((material) => {
             const matchesFilter = activeFilter === 'all'
                 || material.kind === activeFilter
-                || (activeFilter === 'processing' && material.status !== 'ready' && material.status !== 'error')
+                || (activeFilter === 'processing' && material.processing)
                 || (activeFilter === 'notes' && ['notes', 'docx', 'pptx'].includes(material.kind));
             const matchesSearch = !normalizedSearch
                 || String(material.title || '').toLowerCase().includes(normalizedSearch)
@@ -235,7 +244,7 @@ const MyMaterialsLibrary = () => {
                             My Materials
                         </h1>
                         <p className="mt-2 max-w-xl text-pretty text-body-md text-text-secondary">
-                            Download lessons and quizzes from every upload.
+                            Every upload becomes a course you can continue studying.
                         </p>
                     </div>
                     <div className="flex w-full items-center gap-2 rounded-full border border-border-subtle bg-surface px-4 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-primary-soft md:w-72">
@@ -275,112 +284,16 @@ const MyMaterialsLibrary = () => {
                 </div>
 
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredMaterials.map((material) => {
-                        const typeConfig = typeIcons[material.kind] || typeIcons.notes;
-                        const isProcessing = material.status !== 'ready' && material.status !== 'error';
-                        const exporting = busyDownload?.id === material.uploadId && busyDownload?.kind === 'export';
-                        const fetchingOriginal = busyDownload?.id === material.uploadId && busyDownload?.kind === 'original';
-                        return (
-                            <article
-                                key={material.uploadId}
-                                className="flex h-full flex-col overflow-hidden rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm"
-                            >
-                                <div className="mb-4 flex items-start justify-between gap-3">
-                                    <div className={`flex size-11 items-center justify-center rounded-xl ${typeConfig.color}`}>
-                                        <AppIcon name={typeConfig.icon} className="text-[22px]" />
-                                    </div>
-                                    {material.canExport ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-caption font-semibold text-success">
-                                            <span className="size-1.5 rounded-full bg-success" />
-                                            Ready to download
-                                        </span>
-                                    ) : isProcessing ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-1 text-caption font-semibold text-warning">
-                                            <AppIcon name="sync" className="animate-spin text-[14px]" />
-                                            Processing
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-error-soft px-2.5 py-1 text-caption font-semibold text-error">
-                                            <AppIcon name="error" className="text-[14px]" />
-                                            Failed
-                                        </span>
-                                    )}
-                                </div>
-                                <h2 className="line-clamp-2 font-display text-display-sm font-bold text-text-primary">
-                                    {material.title}
-                                </h2>
-                                <p className="mt-1 text-caption font-medium text-text-muted">
-                                    Uploaded {formatUploadedAt(material.createdAt)}
-                                </p>
-                                {!material.canExport && material.errorMessage && (
-                                    <p className="mt-2 text-caption text-error">{material.errorMessage}</p>
-                                )}
-
-                                <div className="mt-auto pt-5">
-                                    <div className="mb-4 flex gap-4 border-t border-border-subtle pt-4">
-                                        <div>
-                                            <p className="font-semibold text-text-primary">{material.topicCount}</p>
-                                            <p className="text-caption text-text-muted">Lessons</p>
-                                        </div>
-                                        <div className="w-px bg-border-subtle" />
-                                        <div>
-                                            <p className="font-semibold text-text-primary">{material.canExport ? 'Yes' : 'No'}</p>
-                                            <p className="text-caption text-text-muted">Source text</p>
-                                        </div>
-                                        <div className="w-px bg-border-subtle" />
-                                        <div>
-                                            <p className="font-semibold text-text-primary">{material.quizzes}</p>
-                                            <p className="text-caption text-text-muted">Quizzes</p>
-                                        </div>
-                                    </div>
-                                    {isProcessing && (
-                                        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                                            <div
-                                                className="h-full animate-pulse rounded-full bg-warning"
-                                                style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="flex flex-col gap-2">
-                                        <button
-                                            type="button"
-                                            className="btn-primary inline-flex w-full min-h-11 items-center justify-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-60"
-                                            disabled={!material.canExport || Boolean(busyDownload)}
-                                            aria-busy={exporting}
-                                            aria-label={`Download transformed content for ${material.title}`}
-                                            onClick={() => handleDownloadTransformed(material.uploadId, material.title)}
-                                        >
-                                            <AppIcon name={exporting ? 'pending' : 'download'} className="text-[16px]" />
-                                            {exporting
-                                                ? 'Downloading...'
-                                                : material.canExport
-                                                    ? (material.topicCount > 0 ? 'Download lessons' : 'Download extracted text')
-                                                    : 'Download when ready'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn-secondary inline-flex w-full min-h-10 items-center justify-center gap-2 text-body-sm disabled:cursor-not-allowed disabled:opacity-60"
-                                            disabled={Boolean(busyDownload)}
-                                            aria-busy={fetchingOriginal}
-                                            aria-label={`Download original file for ${material.title}`}
-                                            onClick={() => handleDownloadOriginal(material.uploadId)}
-                                        >
-                                            <AppIcon name={fetchingOriginal ? 'pending' : 'description'} className="text-[16px]" />
-                                            {fetchingOriginal ? 'Opening original...' : 'Download original'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDelete(material.uploadId)}
-                                            className="inline-flex w-full min-h-10 items-center justify-center gap-2 text-body-sm font-semibold text-text-muted hover:text-error"
-                                        >
-                                            <AppIcon name="delete" className="text-[16px]" />
-                                            Delete
-                                        </button>
-                                    </div>
-                                </div>
-                            </article>
-                        );
-                    })}
+                    {filteredMaterials.map((material) => (
+                        <MaterialCard
+                            key={material.uploadId}
+                            material={material}
+                            busyDownload={busyDownload}
+                            onDownloadOriginal={handleDownloadOriginal}
+                            onDownloadTransformed={handleDownloadTransformed}
+                            onDelete={handleDelete}
+                        />
+                    ))}
                 </div>
 
                 {filteredMaterials.length === 0 && (
@@ -393,7 +306,7 @@ const MyMaterialsLibrary = () => {
                         </h2>
                         <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
                             {materials.length === 0
-                                ? 'Upload a lecture PDF or PPTX to generate lessons.'
+                                ? 'Upload a lecture PDF or PPTX to generate a course.'
                                 : 'Try a different search or clear your filters to see more files.'}
                         </p>
                         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

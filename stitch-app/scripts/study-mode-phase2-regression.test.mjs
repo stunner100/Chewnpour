@@ -139,13 +139,53 @@ assert.match(topicChat, /studyContext/);
 assert.match(useTutorChat, /studyContext: studyContextRef.current/);
 assert.match(chatPanel, /current section "\$\{sectionTitle\}"/);
 assert.match(stepper, /initialIndex/);
+assert.match(
+  stepper,
+  /requestedIndex == null \|\| requestedIndex === ''/,
+  'Resume must not treat a null requestedIndex as section 0.',
+);
 assert.match(hook, /useStudyProgress/);
 assert.match(studyProgress, /buildStudyContext/);
 assert.match(studyProgress, /\/passages/);
+assert.match(
+  studyProgress,
+  /stepperReport\?\.index \?\? restoredPosition\?\.sectionIndex \?\? 0/,
+  'Restored studyPosition must seed the live section index before the stepper reports.',
+);
+assert.match(
+  studyProgress,
+  /nextPosition\.sectionIndex === 0\s*&& restored\.sectionIndex > 0/,
+  'Section 0 must not overwrite a restored later section before the stepper reports.',
+);
+assert.match(
+  studyProgress,
+  /pendingPositionRef\.current = nextPosition/,
+  'Lesson position writes must queue so an older last-studied touch cannot clobber a later section.',
+);
+assert.match(
+  studyProgress,
+  /latestPositionRef\.current = nextPosition/,
+  'The latest section must be remembered so leaving the lesson can flush it.',
+);
+assert.match(
+  studyProgress,
+  /return \(\) => window\.clearTimeout\(timer\)/,
+  'Changing sections must cancel the debounce without writing the previous section.',
+);
+assert.match(
+  studyProgress,
+  /if \(latest\) enqueueStudyPosition\(latest\)/,
+  'Leaving the lesson must flush the current section instead of dropping the debounce.',
+);
+assert.doesNotMatch(
+  studyProgress,
+  /upsertProgress\(\{ topicId, lastStudiedAt: Date\.now\(\), lastActivityKind: 'lesson' \}\)/,
+  'Opening a lesson must not upsert lastActivityKind without the current studyPosition.',
+);
 assert.match(hook, /\/dashboard\/lessons\?courseId=/);
 assert.doesNotMatch(hook, /\/dashboard\/course\/\$\{courseId\}/);
-assert.doesNotMatch(results, /completedAt=\{null\}/);
-assert.match(results, /completedAt=\{attempt.createdAt/);
+assert.doesNotMatch(results, /Try the essay/);
+assert.match(results, /Retry with new questions/);
 assert.match(sourcePanel, /Passage \{passage.page\}/);
 assert.match(views, /<SourcePanel/);
 assert.match(views, /hasSourcePassages/);

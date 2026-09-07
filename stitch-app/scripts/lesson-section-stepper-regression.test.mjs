@@ -29,6 +29,11 @@ assert.match(stepper, /Continue/, "stepper must offer a continue control");
 assert.match(stepper, /Finish lesson/, "stepper must finish on the last section");
 assert.match(stepper, /onFinishLesson/, "finishing must persist completion via the hook");
 assert.match(stepper, /initialIndex/, "stepper must restore the persisted section index");
+assert.match(
+  stepper,
+  /requestedIndex == null \|\| requestedIndex === ''/,
+  "A missing requestedIndex must not jump the stepper back to section 0.",
+);
 assert.match(hook, /useStudyProgress/, "topic hook must reuse the study-progress session hook");
 assert.match(hook, /studyContext/, "topic hook must expose the current section to the tutor");
 assert.match(studyProgress, /studyPosition/, "study progress must persist the current section on topic_progress");
@@ -43,6 +48,8 @@ assert.match(stepper, /LessonInlineCheck/, "stepper must render the inline check
 assert.match(inlineCheck, /\/lesson-check/, "inline checks must grade on the server");
 assert.match(inlineCheck, /Quick check/, "inline check must read as part of the lesson");
 assert.match(inlineCheck, /Try again/, "wrong answers must allow a retry");
+assert.match(inlineCheck, /Not quite\. Try another answer\./, "failed checks must not announce Incorrect");
+assert.doesNotMatch(inlineCheck, />Incorrect</, "failed checks must not expose Incorrect in the accessibility tree");
 assert.match(inlineCheck, /Ask AI Tutor/, "wrong answers must offer tutor help");
 assert.doesNotMatch(renderer, /quickcheck_widget/, "live reader must not render reveal-card quick checks");
 assert.doesNotMatch(renderer, /ordering_widget/, "ordering belongs in the stepper, not the article renderer");

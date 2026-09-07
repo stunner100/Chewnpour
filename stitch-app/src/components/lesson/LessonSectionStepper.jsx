@@ -31,6 +31,9 @@ export default function LessonSectionStepper({
     lessonCompleted = false,
     initialIndex = 0,
     initialFinished = false,
+    onAskTutor,
+    requestedIndex = null,
+    onRequestConsumed,
 }) {
     const reduceMotion = useReducedMotion();
     const safeSteps = Array.isArray(steps) ? steps : [];
@@ -72,6 +75,17 @@ export default function LessonSectionStepper({
             finished,
         });
     }, [clampedIndex, step, speechText, finished, onStepChange]);
+
+    useEffect(() => {
+        if (requestedIndex == null || requestedIndex === '') return;
+        if (!Number.isFinite(Number(requestedIndex))) return;
+        const next = Math.round(Number(requestedIndex));
+        if (next < 0 || next >= total) return;
+        setFinished(false);
+        setIndex(next);
+        scrollLessonToTop(reduceMotion);
+        onRequestConsumed?.();
+    }, [requestedIndex, total, reduceMotion, onRequestConsumed]);
 
     const markAttempted = useCallback((questionId) => {
         if (!questionId) return;
@@ -159,6 +173,8 @@ export default function LessonSectionStepper({
                             topicId={topicId}
                             shareToken={shareToken}
                             onAttempted={markAttempted}
+                            onAskTutor={onAskTutor}
+                            onContinue={() => goTo(clampedIndex + 1)}
                         />
                     ) : null}
                 </Motion.div>

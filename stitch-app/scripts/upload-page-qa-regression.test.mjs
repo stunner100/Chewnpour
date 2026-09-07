@@ -26,47 +26,30 @@ requireIncludes(
 
 requireIncludes(
   uploadSource,
-  "const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX';",
-  'single supported-format copy source',
+  'resolveGenerationStageIndex',
+  'upload processing uses real generation stages',
 );
 requireIncludes(
   uploadSource,
-  "const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx';",
-  'accept list limited to extractable study formats',
+  '<GenerationStageList',
+  'upload shows staged generation progress',
 );
 requireIncludes(
   uploadSource,
-  'Please upload one of these supported file types: ${ACCEPTED_FILE_TYPE_COPY}.',
-  'validation error mirrors supported formats',
-);
-requireIncludes(
-  uploadSource,
-  'Upload PDF, DOCX, or PPTX files. ChewnPour extracts text and prepares lessons and quizzes.',
-  'header copy mirrors supported formats',
-);
-requireIncludes(
-  uploadSource,
-  'Drop PDF, DOCX, or PPTX files here',
-  'dropzone copy mirrors supported formats',
-);
-requireIncludes(
-  uploadSource,
-  'Supported formats: ${ACCEPTED_FILE_TYPE_COPY}. Max 50MB.',
-  'dropzone detail copy mirrors supported formats',
-);
-requireIncludes(
-  uploadSource,
-  "label: 'Failed'",
-  'failed extraction is shown as Failed not Stored',
+  "label: 'Could not finish'",
+  'failed extraction is shown without a raw Failed/error dump',
 );
 requireExcludes(
   uploadSource,
   "label: extraction === 'complete' ? 'Extracted' : 'Stored'",
   'deferred uploads must not look successfully Stored',
 );
-requireExcludes(uploadSource, 'audio/*', 'audio must not be in accept list');
+requireExcludes(uploadSource, 'upload.errorMessage', 'upload cards must not dump raw error messages');
 requireExcludes(uploadSource, 'Drop your PDFs, slides, or notes here', 'old inconsistent dropzone copy');
 requireIncludes(uploadSource, '\\bqa\\s+probe\\b', 'targeted internal QA probe filter');
 requireExcludes(uploadSource, '|| /\\bqa\\b/.test(normalized)', 'overbroad QA upload filter');
+requireIncludes(uploadSource, 'Course ready', 'completed generation shows a Course ready state');
+requireIncludes(uploadSource, 'Start learning', 'completed generation offers Start learning');
+requireExcludes(uploadSource, 'Opening your first lesson', 'generation must not surprise-navigate on ready');
 
 console.log('upload-page-qa-regression.test.mjs passed');

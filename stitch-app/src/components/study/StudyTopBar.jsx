@@ -31,7 +31,7 @@ const StudyTopBar = ({
                 >
                     <AppIcon name="arrow_back" className="text-[16px]" />
                 </Link>
-                <div className="hidden min-w-0 sm:block">
+                <div className="min-w-0">
                     <p className="line-clamp-1 text-caption font-medium text-text-muted">
                         {courseTitle || 'Lessons'}
                     </p>
@@ -48,7 +48,7 @@ const StudyTopBar = ({
                 className="w-full max-w-[280px] shrink"
             />
 
-            <div className="flex flex-1 items-center justify-end gap-1">
+            <div className="hidden flex-1 items-center justify-end gap-1 sm:flex">
                 {onOpenNotes ? (
                     <button
                         type="button"
@@ -82,6 +82,7 @@ const StudyTopBar = ({
                     </button>
                 ) : null}
             </div>
+            <div className="flex flex-1 justify-end sm:hidden" aria-hidden="true" />
         </div>
     </div>
 );

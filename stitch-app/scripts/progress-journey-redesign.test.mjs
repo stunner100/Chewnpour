@@ -2,7 +2,7 @@
  * Regression: /dashboard/progress journey-first redesign (Phase 1, presentation-only).
  *
  * Asserts the page renders its four sections in order — continue learning,
- * overall activity, courses, topic performance — on top of the real
+ * courses, topic performance, overall activity — on top of the real
  * /api/progress payload, uses resumeActivityCopy for the resume card, links
  * the resume CTA to resumeTarget.href, and labels quiz performance honestly
  * (Strong / Developing / Needs review / Not practiced — never "mastery").
@@ -30,7 +30,7 @@ assert.match(page, /fetch\('\/api\/progress'/, 'page must fetch /api/progress');
 assert.match(page, /credentials:\s*'include'/, 'progress fetch must include credentials');
 assert.doesNotMatch(page, /from ['"]convex\/react['"]/, 'page must not depend on Convex');
 
-// ── Section order in the page: continue learning → activity → courses → topic performance ──
+// ── Section order: continue learning → courses → topics → activity ──
 const continueIdx = page.indexOf('<ContinueLearningCard');
 const activityIdx = page.indexOf('<ActivityStatsRow');
 const coursesIdx = page.indexOf('<CourseProgressList');
@@ -40,8 +40,8 @@ assert.ok(activityIdx > -1, 'page renders the overall activity section');
 assert.ok(coursesIdx > -1, 'page renders the courses section');
 assert.ok(topicsIdx > -1, 'page renders the topic performance section');
 assert.ok(
-    continueIdx < activityIdx && activityIdx < coursesIdx && coursesIdx < topicsIdx,
-    'sections must render in order: continue learning, overall activity, courses, topic performance',
+    continueIdx < coursesIdx && coursesIdx < topicsIdx && topicsIdx < activityIdx,
+    'sections must render in order: continue learning, courses, topic performance, overall activity',
 );
 
 // ── Continue learning uses resumeActivityCopy and links to resumeTarget.href ──
@@ -58,9 +58,9 @@ assert.match(continueCard, /resumeCopy\.cta/, 'resume card CTA must use the copy
 assert.match(continueCard, /progressPercent/, 'resume card must surface real progress percent');
 
 // ── Truthful activity stats only ──
-for (const label of ['Study streak', 'Topics practiced', 'Quiz average']) {
-    assert.ok(statsRow.includes(label), `activity stats must include "${label}"`);
-}
+assert.match(statsRow, /Consecutive days with a quiz attempt/, 'streak must explain what it measures');
+assert.match(statsRow, /Topics where you have submitted at least one quiz/, 'topics practiced must explain what it measures');
+assert.match(statsRow, /Average of your best quiz scores/, 'quiz average must explain what it measures');
 assert.match(page, /overallPreparedness \?\? userStats\?\.accuracy/, 'quiz average must prefer overallPreparedness and fall back to stats.accuracy');
 
 // ── Courses: "X of Y topics practiced" + progress bar ──

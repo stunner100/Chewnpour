@@ -2,13 +2,13 @@ import React from 'react';
 import { m as Motion, useReducedMotion } from 'motion/react';
 import AppIcon from '../AppIcon';
 
-const StatCard = ({ icon, iconTone, label, value, unit }) => (
+const StatCard = ({ icon, iconTone, label, value, unit, hint }) => (
     <div className="flex items-center gap-4 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
         <div className={`flex size-11 shrink-0 items-center justify-center rounded-full ${iconTone}`}>
             <AppIcon name={icon} className="text-[20px]" />
         </div>
         <div className="min-w-0">
-            <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
+            <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted" title={hint}>
                 {label}
             </p>
             <p className="mt-1 flex items-baseline gap-1.5">
@@ -17,6 +17,9 @@ const StatCard = ({ icon, iconTone, label, value, unit }) => (
                 </span>
                 {unit ? <span className="text-body-sm text-text-muted">{unit}</span> : null}
             </p>
+            {hint ? (
+                <p className="mt-1 text-caption leading-5 text-text-muted">{hint}</p>
+            ) : null}
         </div>
     </div>
 );
@@ -42,11 +45,12 @@ const ActivityStatsRow = ({ streakDays, topicsPracticed, quizAverage }) => {
             </h2>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatCard
-                    icon="local_fire_department"
+                    icon="calendar_today"
                     iconTone="bg-warning-soft text-warning"
                     label="Study streak"
                     value={streakDays}
                     unit={streakDays === 1 ? 'day' : 'days'}
+                    hint="Consecutive days with a quiz attempt."
                 />
                 <StatCard
                     icon="menu_book"
@@ -54,13 +58,18 @@ const ActivityStatsRow = ({ streakDays, topicsPracticed, quizAverage }) => {
                     label="Topics practiced"
                     value={topicsPracticed}
                     unit={topicsPracticed === 1 ? 'topic' : 'topics'}
+                    hint="Topics where you have submitted at least one quiz."
                 />
                 <StatCard
                     icon="analytics"
                     iconTone="bg-success-soft text-success"
                     label="Quiz average"
                     value={`${quizAverage}%`}
+                    hint="Average of your best quiz scores. This is quiz performance, not a concept-level score."
                 />
+                <p className="sr-only">
+                    Topics practiced counts topics with a quiz attempt. Quiz average is the mean of your best quiz scores, not a concept-level score.
+                </p>
             </div>
         </Motion.section>
     );
