@@ -133,6 +133,9 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
     }, [profile?.studyPreferences, updateProfile]);
 
     if ((!open && !isClosing) || typeof document === 'undefined') return null;
+    // Desktop Study Mode owns the in-flow rail. The sheet is portaled to
+    // document.body, so an lg:hidden wrapper cannot hide it.
+    if (!inline && isDesktop) return null;
 
     const panelAnimClass = inline
         ? ''

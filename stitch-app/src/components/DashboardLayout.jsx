@@ -117,7 +117,7 @@ const DashboardLayout = ({ children }) => (
     </MobileChromeProvider>
 );
 
-const STUDY_ROUTE_PATTERN = /^\/dashboard\/topic\/[^/]+/;
+const STUDY_ROUTE_PATTERN = /^\/dashboard\/(?:quiz\/(?!results\/)[^/]+|topic\/)[^/]+/;
 
 // Study mode: collapse the main navigation while a lesson is open so the
 // product stops feeling like a dashboard. Restores the previous state on exit.
@@ -216,7 +216,7 @@ const DashboardLayoutShell = ({ children }) => {
     return (
         <SidebarProvider className="dashboard-shell cp-theme max-w-full overflow-x-hidden text-text-primary">
             <StudyModeSidebarQuiet />
-            <AppSidebar />
+            {!hideAppHeader && <AppSidebar />}
             <SidebarInset className="max-w-full">
                 {!hideAppHeader && (
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">

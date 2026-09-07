@@ -1,13 +1,9 @@
 import React from 'react';
-import TopicSidebar from '../TopicSidebar';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
 import LessonSectionStepper from '../lesson/LessonSectionStepper';
-import AppIcon from '../AppIcon';
 
 const TopicContentPanel = ({
     cleanInline,
-    cleanLine,
-    contentLines,
     contentRef,
     explanationView = 'original',
     handleAskTutor,
@@ -22,10 +18,8 @@ const TopicContentPanel = ({
     lessonSteps,
     normalizedContent,
     objectiveExamRoute,
-    parsed,
     pauseVoice,
     playVoice,
-    podcastEnabled = false,
     progressLoaded = true,
     requestedSectionIndex = null,
     onRequestConsumed,
@@ -36,7 +30,6 @@ const TopicContentPanel = ({
     showTopicIllustration = false,
     speechText,
     stopVoice,
-    topic,
     topicId,
     topicIllustrationUrl,
     topicProgress,
@@ -46,15 +39,6 @@ const TopicContentPanel = ({
 }) => (
     <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
-            <TopicSidebar
-                normalizedContent={normalizedContent}
-                contentLines={contentLines}
-                toc={parsed.toc}
-                cleanLine={cleanLine}
-                topic={topic}
-                mobileOnly
-            />
-
             {isVoiceSupported && speechText ? (
                 <TopicVoiceToolbar
                     isPaused={isPaused}

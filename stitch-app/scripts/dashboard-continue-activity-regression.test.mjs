@@ -51,8 +51,17 @@ if (!/studyPosition/.test(topicNotes) || !/mergeStudyPositionIntoChecks/.test(to
 if (!/splitLessonChecks/.test(progressServer) || !/studyPosition/.test(progressServer)) {
   throw new Error('Progress snapshot must include studyPosition in the resume target.');
 }
-if (!/lastActivityKind: "quiz"/.test(courseHttp)) {
-  throw new Error('Opening a topic quiz must record quiz activity.');
+const quizGetMatch = courseHttp.match(
+  /if \(parts\.length === 2 && parts\[1\] === "quiz" && method === "GET"\) \{[\s\S]*?return sendJson\(res, 200, quiz\);\n        \}/,
+);
+if (!quizGetMatch) {
+  throw new Error('Expected a dedicated GET /api/topics/:id/quiz handler.');
+}
+if (/upsertTopicProgressForUser/.test(quizGetMatch[0])) {
+  throw new Error('Opening a quiz must not record quiz activity; answers are only local until submit.');
+}
+if (!/parts\[1\] === "quiz" && method === "POST"[\s\S]*lastActivityKind: "quiz"/.test(courseHttp)) {
+  throw new Error('Submitting a topic quiz must record quiz activity.');
 }
 if (!/recordStudyActivity/.test(hub) || !/recordStudyActivity/.test(card)) {
   throw new Error('Playing a podcast must record listening activity.');

@@ -77,6 +77,7 @@ export default function LessonSectionStepper({
     }, [clampedIndex, step, speechText, finished, onStepChange]);
 
     useEffect(() => {
+        if (requestedIndex == null || requestedIndex === '') return;
         if (!Number.isFinite(Number(requestedIndex))) return;
         const next = Math.round(Number(requestedIndex));
         if (next < 0 || next >= total) return;

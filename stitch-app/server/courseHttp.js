@@ -179,17 +179,6 @@ export const handleTopicsRequest = async (req, res) => {
             if (!quiz?.topic) {
                 return sendJson(res, 404, { error: "Topic not found" });
             }
-            try {
-                const { upsertTopicProgressForUser } = await import("./topicNotes.js");
-                await upsertTopicProgressForUser(user.id, parts[0], {
-                    lastStudiedAt: Date.now(),
-                    lastActivityKind: "quiz",
-                });
-            } catch (progressError) {
-                console.warn("[api/topics] quiz start progress upsert failed", {
-                    message: progressError?.message || String(progressError),
-                });
-            }
             return sendJson(res, 200, quiz);
         }
 

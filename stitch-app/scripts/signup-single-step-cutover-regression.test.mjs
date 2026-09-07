@@ -28,6 +28,12 @@ if (!signUpSource.includes('Create account')) {
 if (!signUpSource.includes("navigate('/dashboard'")) {
   throw new Error('Successful signup should go straight to the dashboard.');
 }
+if (!signUpSource.includes('await signIn(') && !signUpSource.includes('signIn(trimmedEmail, password)')) {
+  throw new Error('Signup must establish a session before ProtectedRoute can admit /dashboard.');
+}
+if (!signUpSource.includes('if (!user)')) {
+  throw new Error('Signup must wait for AuthContext user instead of navigating immediately.');
+}
 
 if (!appSource.includes('RedirectOnboardingNameToSignup')) {
   throw new Error('Legacy /onboarding/name must redirect to /signup.');

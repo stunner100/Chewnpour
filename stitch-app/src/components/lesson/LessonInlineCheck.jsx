@@ -212,7 +212,7 @@ export default function LessonInlineCheck({
                             <AppIcon name="refresh" className="mt-0.5 shrink-0 text-[18px] text-warning" />
                             <div>
                                 <p className="text-body-sm font-semibold text-text-primary">Not quite.</p>
-                                <p className="sr-only">Incorrect</p>
+                                <p className="sr-only">Not quite. Try another answer.</p>
                                 {revealAnswer && result.explanation ? (
                                     <p className="mt-1.5 text-body-sm leading-6 text-text-secondary">{result.explanation}</p>
                                 ) : null}
