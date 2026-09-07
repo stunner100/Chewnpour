@@ -166,21 +166,26 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                 className={`flex flex-col overflow-hidden border-border-light bg-surface-light dark:border-border-dark dark:bg-surface-dark ph-mask ${panelPositionClass} ${panelAnimClass}`}
                 style={inline ? undefined : { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px))' }}
             >
-                <div className="flex h-14 shrink-0 items-center justify-between px-4 lg:h-16 border-b border-border-light dark:border-border-dark">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <TutorAvatarMark size={24} className="size-6" />
+                <div className="flex min-h-14 shrink-0 items-center justify-between gap-2 px-4 py-2 lg:min-h-16 border-b border-border-light dark:border-border-dark">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                        <TutorAvatarMark size={24} className="size-6 shrink-0" />
                         <div className="min-w-0">
                             <h3 id="topic-chat-title" className="text-body-sm lg:text-body-base font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
                             <p className="truncate text-caption text-text-faint-light dark:text-text-faint-dark">
-                                {[topicTitle, sectionLabel].filter(Boolean).join(' · ') || 'This lesson'}
+                                {topicTitle || 'This lesson'}
                             </p>
+                            {sectionLabel ? (
+                                <p className="truncate text-caption text-text-muted">
+                                    {sectionTitle ? `${sectionLabel} · ${sectionTitle}` : sectionLabel}
+                                </p>
+                            ) : null}
                         </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                         {clearChat ? (
                             <button
                                 onClick={() => void clearChat()}
-                                className="btn-icon size-8 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
+                            className="btn-icon size-11 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
                                 title="Clear chat"
                                 aria-label="Clear chat"
                             >
@@ -189,7 +194,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
                         ) : null}
                         <button
                             onClick={handleClose}
-                            className="btn-icon size-8"
+                            className="btn-icon size-11"
                             aria-label="Close chat panel"
                         >
                             <AppIcon name="close" className="text-[16px]" />

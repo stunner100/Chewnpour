@@ -279,7 +279,7 @@ const DashboardResults = () => {
                 </div>
             </header>
 
-            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-8 pb-24 md:px-8 md:pb-12">
+            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-8 md:px-8 md:pb-12">
                 {/* 1) How did I do? */}
                 <section className="w-full max-w-2xl">
                     <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">Quiz complete</p>
@@ -313,13 +313,7 @@ const DashboardResults = () => {
                     </div>
                 </section>
 
-                {/* Share prompt for high scores */}
-                <PostQuizSharePrompt percentage={percentage} topicTitle={attempt.topicTitle} profile={profile} />
-
-                {/* 2) What do I understand? */}
-                {answers.length > 0 && <UnderstandSection answers={answers} />}
-
-                {/* 3) What should I do next? */}
+                {/* 2) What should I do next? */}
                 <section className="w-full max-w-2xl">
                     <h3 className="mb-3 text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">
                         What should I do next?
@@ -354,14 +348,20 @@ const DashboardResults = () => {
                         </div>
                         <Link
                             to={`/dashboard/topic/${attempt.topicId}`}
-                            className="text-center text-body-sm font-semibold text-text-secondary hover:text-primary"
+                            className="inline-flex min-h-11 items-center justify-center text-center text-body-sm font-semibold text-text-secondary hover:text-primary"
                         >
                             Back to lesson
                         </Link>
                     </div>
                 </section>
 
-                {/* Question Review — collapsed by default, lower on the page */}
+                {/* Share prompt for high scores */}
+                <PostQuizSharePrompt percentage={percentage} topicTitle={attempt.topicTitle} profile={profile} />
+
+                {/* What do I understand? */}
+                {answers.length > 0 && <UnderstandSection answers={answers} />}
+
+                {/* 3) Question Review — collapsed by default */}
                 <section id="question-review" className="w-full max-w-3xl scroll-mt-20">
                     <details className="group rounded-[24px] border border-border-subtle bg-surface shadow-sm">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">

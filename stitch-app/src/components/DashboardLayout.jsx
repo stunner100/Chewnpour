@@ -153,6 +153,9 @@ const DashboardLayoutShell = ({ children }) => {
     const isDarkMode = themeMode === DARK_THEME;
     const hideMobileBottomNav = immersive || /^\/dashboard\/(?:quiz\/(?!results\/)|topic\/)[^/]+/.test(routerLocation.pathname);
     const hideAppHeader = /^\/dashboard\/(?:quiz\/(?!results\/)[^/]+|topic\/)[^/]+/.test(routerLocation.pathname);
+    const isStudyLesson = /^\/dashboard\/topic\//.test(routerLocation.pathname);
+    const isQuizPlayer = /^\/dashboard\/quiz\/(?!results\/)/.test(routerLocation.pathname);
+    const mobileScrollPad = isStudyLesson ? 'lesson' : isQuizPlayer ? 'quiz' : 'nav';
     useKeyboardInset();
 
     useEffect(() => {
@@ -214,10 +217,10 @@ const DashboardLayoutShell = ({ children }) => {
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <SidebarProvider className="dashboard-shell cp-theme max-w-full overflow-x-hidden text-text-primary">
+        <SidebarProvider className="dashboard-shell cp-theme h-dvh max-h-dvh min-h-0 max-w-full overflow-hidden text-text-primary">
             <StudyModeSidebarQuiet />
             {!hideAppHeader && <AppSidebar />}
-            <SidebarInset className="max-w-full">
+            <SidebarInset className="min-h-0 max-w-full overflow-hidden">
                 {!hideAppHeader && (
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface transition-[width,height] ease-linear">
                     <div className="flex min-w-0 flex-1 items-center gap-2 px-3 md:px-4">
@@ -298,10 +301,11 @@ const DashboardLayoutShell = ({ children }) => {
 
                 <main
                     id="dashboard-main"
-                    className="flex min-h-0 max-w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
+                    data-cp-scroll-pad={mobileScrollPad}
+                    className="flex min-h-0 max-w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain"
                 >
                     <DashboardContentErrorBoundary key={routerLocation.pathname}>
-                        <BlurFade className="min-w-0 w-full max-w-full" duration={0.35} yOffset={0} blur="0px">
+                        <BlurFade className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col" duration={0.35} yOffset={0} blur="0px">
                             {children}
                         </BlurFade>
                     </DashboardContentErrorBoundary>
@@ -309,7 +313,7 @@ const DashboardLayoutShell = ({ children }) => {
                 {!hideMobileBottomNav && (
                     <div
                         className="pointer-events-none shrink-0 md:hidden"
-                        style={{ height: 'calc(var(--cp-mobile-tab-bar) + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px))' }}
+                        style={{ height: 'var(--cp-mobile-nav-clearance)' }}
                         aria-hidden="true"
                         data-cp-tab-bar-spacer="true"
                     />
@@ -318,7 +322,7 @@ const DashboardLayoutShell = ({ children }) => {
 
             <WatermelonToaster
                 position="bottom-center"
-                className={hideMobileBottomNav ? undefined : 'max-md:!bottom-[calc(var(--cp-mobile-tab-bar)+env(safe-area-inset-bottom,0px)+0.75rem+var(--keyboard-inset,0px))]'}
+                className={hideMobileBottomNav ? undefined : 'max-md:!bottom-[calc(var(--cp-mobile-nav-clearance)+0.25rem)]'}
             />
             <CommandPalette />
             {!hideMobileBottomNav && <MobileBottomNav />}

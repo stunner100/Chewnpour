@@ -12,7 +12,7 @@ const MobileLessonActions = ({ items = EMPTY_ARRAY }) => {
             aria-label="Lesson actions"
             data-cp-bottom-chrome="lesson"
         >
-            <div className="mx-auto grid h-14 max-w-md grid-cols-4">
+            <div className="mx-auto grid h-[var(--lesson-action-height)] max-w-md grid-cols-4">
                 {items.slice(0, 5).map((item) => {
                     const Tag = item.href ? Link : 'button';
                     const tagProps = item.href ? { to: item.href, reloadDocument: item.reloadDocument } : { type: 'button', onClick: item.onClick };

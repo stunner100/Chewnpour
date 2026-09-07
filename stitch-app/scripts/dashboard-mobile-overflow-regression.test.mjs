@@ -29,7 +29,7 @@ requireIncludes(
 );
 requireIncludes(
   layoutSource,
-  'className="min-w-0 w-full max-w-full"',
+  'flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col',
   'Dashboard BlurFade wrapper must not force the page wider than the viewport',
 );
 requireIncludes(
@@ -78,7 +78,7 @@ if (!dashboardSource.includes('[overflow-wrap:anywhere]')) {
 
 requireIncludes(
   quizSource,
-  'min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light',
+  'min-h-[calc(100dvh-4rem)] min-w-0 max-w-full bg-background-light',
   'Quiz hub page must shrink and clip instead of widening the phone viewport',
 );
 requireIncludes(

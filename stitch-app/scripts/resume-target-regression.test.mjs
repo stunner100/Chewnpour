@@ -124,4 +124,59 @@ const resumeRow = pickResumeProgressRow([
 ]);
 assert.equal(resumeRow.topic_id, 'unfinished-older');
 
+const submittedQuiz = buildResumeTarget({
+  latestProgress: {
+    topicId: 'topic-working-memory',
+    topicTitle: 'What working memory is',
+    lastStudiedAt: '2026-09-07T18:00:00.000Z',
+    lastActivityKind: 'quiz',
+    bestScore: 67,
+    studyPosition: {
+      sectionIndex: 2,
+      sectionCount: 7,
+      sectionTitle: 'The Idea',
+    },
+  },
+  latestQuizAttempt: {
+    topicId: 'topic-working-memory',
+    topicTitle: 'What working memory is',
+    createdAt: '2026-09-07T17:59:00.000Z',
+    score: 2,
+    total: 3,
+  },
+});
+assert.equal(submittedQuiz.kind, 'lesson');
+assert.equal(submittedQuiz.href, '/dashboard/topic/topic-working-memory');
+assert.notEqual(submittedQuiz.href, '/dashboard/quiz/topic-working-memory');
+
+const submittedQuizNewerThanProgress = buildResumeTarget({
+  latestProgress: {
+    topicId: 'topic-working-memory',
+    topicTitle: 'What working memory is',
+    lastStudiedAt: '2026-09-07T17:00:00.000Z',
+    lastActivityKind: 'lesson',
+  },
+  latestQuizAttempt: {
+    topicId: 'topic-working-memory',
+    topicTitle: 'What working memory is',
+    createdAt: '2026-09-07T18:00:00.000Z',
+    score: 3,
+    total: 3,
+  },
+});
+assert.equal(submittedQuizNewerThanProgress.kind, 'lesson');
+assert.equal(submittedQuizNewerThanProgress.href, '/dashboard/topic/topic-working-memory');
+
+const submittedQuizBestScoreOnly = buildResumeTarget({
+  latestProgress: {
+    topicId: 'topic-working-memory',
+    topicTitle: 'What working memory is',
+    lastStudiedAt: '2026-09-07T18:00:00.000Z',
+    lastActivityKind: 'quiz',
+    bestScore: 80,
+  },
+});
+assert.equal(submittedQuizBestScoreOnly.kind, 'lesson');
+assert.equal(submittedQuizBestScoreOnly.href, '/dashboard/topic/topic-working-memory');
+
 console.log('resume-target-regression.test.mjs passed');

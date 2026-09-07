@@ -23,7 +23,15 @@
     --popover-foreground: 10 10 10;
     --cp-mobile-tab-bar: 4rem;
     --cp-mobile-lesson-bar: 3.5rem;
-    --cp-mobile-chrome-gap: 1.25rem;
+    --cp-mobile-quiz-bar: 4.5rem;
+    --cp-mobile-chrome-gap: 1.5rem;
+    --mobile-nav-height: var(--cp-mobile-tab-bar);
+    --lesson-action-height: var(--cp-mobile-lesson-bar);
+    --quiz-action-height: var(--cp-mobile-quiz-bar);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --cp-mobile-nav-clearance: calc(var(--mobile-nav-height) + var(--safe-bottom) + var(--cp-mobile-chrome-gap) + var(--keyboard-inset, 0px));
+    --cp-mobile-lesson-clearance: calc(var(--lesson-action-height) + var(--safe-bottom) + var(--cp-mobile-chrome-gap) + var(--keyboard-inset, 0px));
+    --cp-mobile-quiz-clearance: calc(var(--quiz-action-height) + var(--safe-bottom) + var(--cp-mobile-chrome-gap) + var(--keyboard-inset, 0px));
 }
 
 .dark {
@@ -333,13 +341,26 @@ html.is-safari .safari-backdrop {
 
 /* ── Mobile Utilities ── */
 .mobile-safe-bottom {
-    padding-bottom: calc(var(--cp-mobile-tab-bar) + env(safe-area-inset-bottom, 0px) + 0.75rem + var(--keyboard-inset, 0px));
+    padding-bottom: var(--cp-mobile-nav-clearance);
 }
 .mobile-lesson-safe-bottom {
-    padding-bottom: calc(var(--cp-mobile-lesson-bar) + env(safe-area-inset-bottom, 0px) + var(--cp-mobile-chrome-gap) + var(--keyboard-inset, 0px));
+    padding-bottom: var(--cp-mobile-lesson-clearance);
+}
+.mobile-quiz-safe-bottom {
+    padding-bottom: var(--cp-mobile-quiz-clearance);
 }
 .safe-area-bottom {
-    padding-bottom: clamp(0px, env(safe-area-inset-bottom, 0px), 34px);
+    padding-bottom: var(--safe-bottom);
+}
+
+#dashboard-main[data-cp-scroll-pad="nav"] {
+    scroll-padding-bottom: var(--cp-mobile-nav-clearance);
+}
+#dashboard-main[data-cp-scroll-pad="lesson"] {
+    scroll-padding-bottom: var(--cp-mobile-lesson-clearance);
+}
+#dashboard-main[data-cp-scroll-pad="quiz"] {
+    scroll-padding-bottom: var(--cp-mobile-quiz-clearance);
 }
 
 @media (max-width: 767px) {
@@ -356,7 +377,7 @@ html.is-safari .safari-backdrop {
     .animate-spin {
         animation: spin 1s linear infinite !important;
     }
-    .sticky, .fixed {
+    .fixed {
         will-change: transform;
     }
 }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AppIcon from './AppIcon';
 import { useSidePanelA11y } from '../hooks/useSidePanelA11y';
+import { cleanInlineText } from '../lib/topicContentFormatting';
 
 const SourcePanel = ({ open, onClose, passages }) => {
     const [isClosing, setIsClosing] = useState(false);
@@ -60,7 +61,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                         ref={closeButtonRef}
                         type="button"
                         onClick={handleClose}
-                        className="btn-icon size-8"
+                        className="btn-icon size-11"
                         aria-label="Close sources panel"
                     >
                         <AppIcon name="close" className="text-[18px]" />
@@ -90,7 +91,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                                     )}
                                 </div>
                                 <p className="text-caption leading-relaxed text-text-sub-light dark:text-text-sub-dark">
-                                    {passage.text}
+                                    {cleanInlineText(passage.text)}
                                 </p>
                             </div>
                         ))

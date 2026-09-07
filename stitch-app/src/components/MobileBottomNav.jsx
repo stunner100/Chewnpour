@@ -88,7 +88,7 @@ const MobileBottomNav = () => {
                 aria-label="Main navigation"
                 data-cp-bottom-chrome="tabs"
             >
-                <div className="flex items-stretch min-h-16 max-w-md mx-auto px-1">
+                <div className="flex items-stretch min-h-[var(--mobile-nav-height)] max-w-md mx-auto px-1">
                     {primaryTabs.map((tab) => {
                         const active = isActive(tab);
                         const content = (
@@ -150,7 +150,7 @@ const MobileBottomNav = () => {
                     <div
                         role="menu"
                         aria-label="More navigation options"
-                        className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-[60] md:hidden bg-surface border-t border-border-subtle shadow-lg rounded-t-2xl pt-space-3 pb-space-4"
+                        className="fixed bottom-[calc(var(--mobile-nav-height)+var(--safe-bottom)+var(--keyboard-inset,0px))] inset-x-0 z-[60] md:hidden max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain bg-surface border-t border-border-subtle shadow-lg rounded-t-2xl pt-space-3 pb-space-4"
                     >
                         <div className="mx-auto h-1 w-10 rounded-full bg-border-default mb-space-3" />
                         <ul className="px-space-3 grid grid-cols-1 divide-y divide-border-subtle">

@@ -4,13 +4,19 @@ import { parseTutorStreamError } from '@/lib/tutorStreamError';
 export default function useTutorChat({ topicId, persona = 'coach', studyContext = null }) {
     const [messages, setMessages] = useState([]);
     const [status, setStatus] = useState('ready');
+    const [historyLoading, setHistoryLoading] = useState(Boolean(topicId));
     const [error, setError] = useState(null);
     const abortControllerRef = useRef(null);
     const studyContextRef = useRef(studyContext);
     studyContextRef.current = studyContext;
 
     const loadMessages = useCallback(async () => {
-        if (!topicId) return;
+        if (!topicId) {
+            setMessages([]);
+            setHistoryLoading(false);
+            return;
+        }
+        setHistoryLoading(true);
         setStatus('ready');
         setError(null);
         try {
@@ -34,11 +40,16 @@ export default function useTutorChat({ topicId, persona = 'coach', studyContext 
                     };
                 });
                 setMessages(formattedMessages);
+            } else {
+                setMessages([]);
             }
         } catch (err) {
             console.error('Error loading chat history:', err);
             setError(err.message);
             setStatus('error');
+            setMessages([]);
+        } finally {
+            setHistoryLoading(false);
         }
     }, [topicId]);
 
@@ -214,5 +225,5 @@ export default function useTutorChat({ topicId, persona = 'coach', studyContext 
         loadMessages();
     }, [loadMessages]);
 
-    return { messages, status, error, send, cancel, clear, reload };
+    return { messages, status, historyLoading, error, send, cancel, clear, reload };
 }

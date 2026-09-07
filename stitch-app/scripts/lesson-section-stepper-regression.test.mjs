@@ -51,6 +51,7 @@ assert.match(inlineCheck, /Try again/, "wrong answers must allow a retry");
 assert.match(inlineCheck, /Not quite\. Try another answer\./, "failed checks must not announce Incorrect");
 assert.doesNotMatch(inlineCheck, />Incorrect</, "failed checks must not expose Incorrect in the accessibility tree");
 assert.match(inlineCheck, /Ask AI Tutor/, "wrong answers must offer tutor help");
+assert.doesNotMatch(inlineCheck, /Continue/, "inline checks must not duplicate the stepper Continue control");
 assert.doesNotMatch(renderer, /quickcheck_widget/, "live reader must not render reveal-card quick checks");
 assert.doesNotMatch(renderer, /ordering_widget/, "ordering belongs in the stepper, not the article renderer");
 assert.doesNotMatch(hook, /quickcheck_widget/, "topic hook must not inject markdown Q/A widgets");

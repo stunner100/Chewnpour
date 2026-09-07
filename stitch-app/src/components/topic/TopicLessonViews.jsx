@@ -40,7 +40,7 @@ export const TopicStudyModeView = ({
     onStartExam,
     timedExamAvailable = false,
 }) => (
-    <div className="flex min-h-dvh flex-col overflow-x-hidden bg-background-light font-body text-text-primary antialiased">
+    <div className="flex min-h-0 flex-col bg-background-light font-body text-text-primary antialiased">
         <div className="px-4 pt-4">
             <Link
                 to="/dashboard/lessons"
@@ -168,6 +168,7 @@ export const TopicLessonPanels = ({ controller }) => {
         hasSourcePassages,
         isVoiceSupported,
         mobileActionItems,
+        moreOpen,
         notesAppendText,
         notesOpen,
         objectiveExamRoute,
@@ -231,14 +232,14 @@ export const TopicLessonPanels = ({ controller }) => {
                 />
             </div>
 
-            {user && !chatOpen && !notesOpen && !contentsOpen && (
+            {user && !chatOpen && !notesOpen && !contentsOpen && !moreOpen && (
                 <MobileLessonActions items={mobileActionItems} />
             )}
 
-            {showScrollTop && !notesOpen && !chatOpen && !contentsOpen && (
+            {showScrollTop && !notesOpen && !chatOpen && !contentsOpen && !moreOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="btn-icon fixed bottom-[calc(var(--cp-mobile-lesson-bar)+env(safe-area-inset-bottom)+0.75rem+var(--keyboard-inset,0px))] left-4 z-30 size-10 border border-border-subtle bg-surface shadow-sm lg:bottom-6"
+                    className="btn-icon fixed bottom-[calc(var(--lesson-action-height)+var(--safe-bottom)+0.75rem+var(--keyboard-inset,0px))] left-4 z-30 size-11 border border-border-subtle bg-surface shadow-sm lg:bottom-6"
                     aria-label="Scroll to top"
                 >
                     <AppIcon name="arrow_upward" className="text-[18px]" />
@@ -356,11 +357,23 @@ export const TopicLessonShell = ({ controller }) => {
         resolvedTopicTitle,
         setMoreOpen,
         studyContext,
+        sourceOpen,
         topic,
         topicId,
     } = controller;
 
     const [coursePayload, setCoursePayload] = useState(null);
+
+    useEffect(() => {
+        const lock = contentsOpen || moreOpen || chatOpen || notesOpen || sourceOpen;
+        const main = document.getElementById('dashboard-main');
+        if (!main) return undefined;
+        const previous = main.style.overflowY;
+        if (lock) main.style.overflowY = 'hidden';
+        return () => {
+            main.style.overflowY = previous;
+        };
+    }, [contentsOpen, moreOpen, chatOpen, notesOpen, sourceOpen]);
 
     useEffect(() => {
         const courseId = topic?.courseId;
@@ -454,11 +467,12 @@ export const TopicLessonShell = ({ controller }) => {
                     <div
                         role="dialog"
                         aria-label="Lesson contents"
-                        className="fixed inset-x-3 bottom-3 z-[70] max-h-[70vh] overflow-y-auto rounded-2xl border border-border-subtle bg-surface px-3 py-3 shadow-lg sm:inset-x-auto sm:right-4 sm:w-80"
+                        className="fixed inset-x-3 z-[70] max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border-subtle bg-surface px-3 py-3 shadow-lg sm:inset-x-auto sm:right-4 sm:w-80"
+                        style={{ bottom: 'calc(var(--lesson-action-height) + var(--safe-bottom) + 0.75rem)' }}
                     >
                         <div className="mb-2 flex items-center justify-between px-2">
                             <h2 className="text-body-sm font-semibold text-text-primary">Contents</h2>
-                            <button type="button" className="btn-icon size-8" onClick={closeContents} aria-label="Close contents">
+                            <button type="button" className="btn-icon size-11" onClick={closeContents} aria-label="Close contents">
                                 <AppIcon name="close" className="text-[16px]" />
                             </button>
                         </div>
@@ -495,7 +509,8 @@ export const TopicLessonShell = ({ controller }) => {
                     <div
                         role="menu"
                         aria-label="More study tools"
-                        className="fixed bottom-3 inset-x-3 z-[70] rounded-2xl border border-border-subtle bg-surface px-3 py-3 shadow-lg sm:inset-x-auto sm:right-4 sm:w-72"
+                        className="fixed inset-x-3 z-[70] max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border-subtle bg-surface px-3 py-3 shadow-lg sm:inset-x-auto sm:right-4 sm:w-72"
+                        style={{ bottom: 'calc(var(--lesson-action-height) + var(--safe-bottom) + 0.75rem)' }}
                     >
                         {(controller.studyToolSecondary || []).map((tool) => (
                             <button

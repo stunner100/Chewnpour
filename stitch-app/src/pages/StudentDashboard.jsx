@@ -35,7 +35,7 @@ const StatCard = ({ label, value, icon }) => (
 );
 
 const FirstRunHome = ({ greeting, displayName }) => (
-    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full bg-background-light px-4 py-8 md:px-8 md:py-10">
     <div className="mx-auto w-full min-w-0 max-w-3xl">
       <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
         {greeting}, {displayName}.
@@ -146,7 +146,7 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full overflow-x-hidden bg-background-light px-4 py-8 md:px-8 md:py-10">
+    <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full bg-background-light px-4 py-8 md:px-8 md:py-10">
       <div className="mx-auto w-full min-w-0 max-w-6xl">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>

@@ -20,9 +20,9 @@ for (const forbiddenSnippet of [
 }
 
 for (const expectedSnippet of [
-  'mx-auto max-w-2xl',
+  'max-w-2xl',
   'sticky top-0',
-  'sticky bottom-0',
+  'data-cp-bottom-chrome="quiz"',
 ]) {
   if (!quizPlayer.includes(expectedSnippet)) {
     throw new Error(`Expected focus-mode player to include "${expectedSnippet}".`);

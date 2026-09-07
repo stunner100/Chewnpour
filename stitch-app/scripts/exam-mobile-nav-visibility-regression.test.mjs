@@ -43,7 +43,7 @@ assert.doesNotMatch(
 const moreNav = await read('src/components/MobileBottomNav.jsx');
 assert.match(
   moreNav,
-  /bottom-\[calc\(4rem\+env\(safe-area-inset-bottom,0px\)\)\]/,
+  /bottom-\[calc\(var\(--mobile-nav-height\)\+var\(--safe-bottom\)\+var\(--keyboard-inset,0px\)\)\]/,
   'More sheet must sit above the nav plus home-indicator inset',
 );
 assert.match(moreNav, /z-\[60\]/, 'More sheet and overlay must stack above the tab bar');

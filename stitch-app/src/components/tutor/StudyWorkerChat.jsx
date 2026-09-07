@@ -36,6 +36,7 @@ export default function StudyWorkerChat({
     const {
         messages,
         status,
+        historyLoading,
         error: chatError,
         send,
         cancel,
@@ -84,6 +85,14 @@ export default function StudyWorkerChat({
                 messages={messages}
                 isTyping={isBusy}
                 error={error}
+                loadingState={historyLoading ? (
+                    <div role="status" aria-live="polite">
+                        <p className="text-body-sm font-semibold text-text-primary">Loading conversation…</p>
+                        <p className="mt-1 text-body-sm text-text-secondary">
+                            Getting your saved chat for {topicTitle || 'this lesson'}.
+                        </p>
+                    </div>
+                ) : null}
                 emptyState={
                     <TutorWelcomeMessage
                         topicTitle={topicTitle}
@@ -111,7 +120,7 @@ export default function StudyWorkerChat({
                 sending={isBusy}
                 status={isBusy ? 'streaming' : 'ready'}
                 error={error}
-                disabled={!topicId}
+                disabled={!topicId || historyLoading}
                 initialInput={initialPrompt || ''}
                 placeholder={placeholder}
                 inputAriaLabel={inputAriaLabel}

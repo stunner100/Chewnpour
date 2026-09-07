@@ -21,7 +21,7 @@ const StudyShell = ({
     const railLabel = notesOpen ? 'Notes' : 'AI Tutor';
 
     return (
-        <div className="min-h-[calc(100dvh-4rem)] bg-background-light text-text-primary">
+        <div className="min-h-0 bg-background-light text-text-primary">
             {topBar}
             <div className="flex items-start">
                 <div className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-10">

@@ -503,7 +503,12 @@ const UploadMaterials = () => {
                             ? 'Preparing your course'
                             : isDragging
                                 ? 'Drop to upload'
-                                : 'Drop a PDF, DOCX, PPTX, or audio file here'}
+                                : (
+                                    <>
+                                        <span className="md:hidden">Choose a PDF, DOCX, PPTX, or audio file</span>
+                                        <span className="hidden md:inline">Drop a PDF, DOCX, PPTX, or audio file here</span>
+                                    </>
+                                )}
                     </h3>
                     <p className="mt-2 max-w-md text-body-sm text-text-secondary md:text-body-md">
                         {isUploading

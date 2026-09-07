@@ -157,15 +157,21 @@ const AIStudyTutor = () => {
     if (topicOptions.length === 0) return <EmptyTutorState />;
 
     return (
-        <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden bg-background-light px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+var(--keyboard-inset,0px))] pt-3 md:px-8 md:pb-0 md:py-8">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background-light px-4 pt-3 md:px-8 md:py-8">
             <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
                 <div className="mb-3 flex min-w-0 shrink-0 flex-col gap-2 md:mb-5 md:flex-row md:items-end md:justify-between md:gap-4">
-                    <div className="max-md:sr-only">
-                        <h1 className="font-display text-display-md font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
+                    <div className="min-w-0">
+                        <h1 className="font-display text-body-lg font-bold tracking-[-0.02em] text-text-primary md:text-display-lg">
                             AI Tutor
                         </h1>
-                        <p className="mt-2 max-w-xl text-body-md text-text-secondary">
+                        <p className="mt-1 hidden max-w-xl text-body-md text-text-secondary md:mt-2 md:block">
                             Ask questions grounded in your generated lessons and source material.
+                        </p>
+                        <p className="mt-0.5 truncate text-caption text-text-muted md:hidden">
+                            {[
+                                formatCourseTitle(selectedCourse?.title) || selectedCourse?.title,
+                                selectedTopicOption?.title,
+                            ].filter(Boolean).join(' · ')}
                         </p>
                     </div>
                     <div className="flex w-full min-w-0 gap-2 md:w-auto">
