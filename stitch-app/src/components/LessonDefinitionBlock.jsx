@@ -1,5 +1,6 @@
 import React from 'react';
 import AppIcon from './AppIcon';
+import { AnnotatedText } from './opensource-ui/AnnotatedText';
 
 const DEFINITION_VARIANT = {
     className:
@@ -26,7 +27,9 @@ const LessonDefinitionBlock = ({
                 <AppIcon name={DEFINITION_VARIANT.icon} className="shrink-0 text-current opacity-70" />
                 <div className="flex flex-col gap-1">
                     {term ? (
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{term}</span>
+                        <AnnotatedText variant="highlight" className="text-[10px] font-black uppercase tracking-widest opacity-60">
+                            {term}
+                        </AnnotatedText>
                     ) : null}
                     <div className="text-[15px] md:text-base font-medium leading-relaxed">{bold(text)}</div>
                 </div>
@@ -44,7 +47,7 @@ const LessonDefinitionBlock = ({
                 Definition
             </p>
             <h4 className="mt-1.5 font-display text-body-lg font-semibold text-text-primary">
-                {term}
+                <AnnotatedText variant="highlight">{term}</AnnotatedText>
             </h4>
             <div className="mt-1.5 text-base md:text-body-lg text-text-secondary leading-relaxed">
                 {bold(text)}

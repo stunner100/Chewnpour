@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import FlashcardDeck from './FlashcardDeck';
 import AppIcon from './AppIcon';
+import { AnnotatedText } from './opensource-ui/AnnotatedText';
 
 const TABS = [
     { id: 'flashcards', label: 'Flashcards', icon: 'style' },
@@ -25,7 +26,7 @@ const BrowseTab = ({ terms, starred, onToggleStar }) => (
                 >
                     <div className="flex items-start justify-between gap-2">
                         <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
-                            {item.term}
+                            <AnnotatedText variant="underline">{item.term}</AnnotatedText>
                         </p>
                         <button
                             type="button"

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AppIcon from '../AppIcon';
 import LessonOrderingCheck from './LessonOrderingCheck';
+import { AnnotatedText } from '../opensource-ui/AnnotatedText';
 
 const submitLessonCheck = async ({ topicId, shareToken, questionId, selectedIndex, orderedSteps }) => {
     const url = shareToken
@@ -188,7 +189,9 @@ export default function LessonInlineCheck({
                     <div className="mt-4 flex items-start gap-2.5">
                         <AppIcon name="check" className="mt-0.5 shrink-0 text-[18px] text-success" />
                         <div>
-                            <p className="text-body-sm font-semibold text-text-primary">Exactly.</p>
+                            <p className="text-body-sm font-semibold text-text-primary">
+                                <AnnotatedText variant="highlight">Exactly.</AnnotatedText>
+                            </p>
                             <p className="sr-only">Correct</p>
                             {result.explanation ? (
                                 <p className="mt-1.5 text-body-sm leading-6 text-text-secondary">{result.explanation}</p>
@@ -200,7 +203,9 @@ export default function LessonInlineCheck({
                         <div className="flex items-start gap-2.5">
                             <AppIcon name="refresh" className="mt-0.5 shrink-0 text-[18px] text-warning" />
                             <div>
-                                <p className="text-body-sm font-semibold text-text-primary">Not quite.</p>
+                                <p className="text-body-sm font-semibold text-text-primary">
+                                    <AnnotatedText variant="wavy" color="text-warning">Not quite.</AnnotatedText>
+                                </p>
                                 <p className="sr-only">Not quite. Try another answer.</p>
                                 {revealAnswer && result.explanation ? (
                                     <p className="mt-1.5 text-body-sm leading-6 text-text-secondary">{result.explanation}</p>

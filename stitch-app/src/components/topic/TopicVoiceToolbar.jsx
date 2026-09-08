@@ -1,5 +1,6 @@
 import React from 'react';
 import AppIcon from '../AppIcon';
+import { VoiceAssistantWidget } from '../opensource-ui/VoiceAssistantWidget';
 
 const TopicVoiceToolbar = ({
     isPaused,
@@ -21,41 +22,36 @@ const TopicVoiceToolbar = ({
         playVoice(speechText);
     };
 
+    const busy = voiceStatus === 'loading';
+    const active = isPlaying || busy;
+
     return (
-        <div className="flex items-center justify-between gap-3 py-1">
-            <p className="min-w-0 text-caption text-text-muted">
-                Read this lesson aloud
-                {voicePlaybackError ? (
-                    <span className="mt-0.5 block truncate text-rose-500">{voicePlaybackError}</span>
-                ) : null}
-            </p>
-            <div className="flex shrink-0 items-center gap-1">
-                {isPlaying ? (
-                    <button
-                        type="button"
-                        onClick={pauseVoice}
-                        className="btn-ghost inline-flex min-h-9 items-center gap-1 px-2.5 text-caption"
-                    >
-                        <AppIcon name="pause" className="text-[16px]" />
-                        Pause
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={handlePlay}
-                        disabled={!speechText || voiceStatus === 'loading'}
-                        className="btn-ghost inline-flex min-h-9 items-center gap-1 px-2.5 text-caption disabled:opacity-50"
-                    >
-                        <AppIcon name={voiceStatus === 'loading' ? 'hourglass_top' : 'play_arrow'} className="text-[16px]" />
-                        {voiceStatus === 'loading' ? 'Generating audio...' : isPaused ? 'Resume' : 'Play'}
-                    </button>
-                )}
+        <div className="flex flex-col gap-1 py-1">
+            <div className="flex items-center gap-2">
+                <VoiceAssistantWidget
+                    layout="inline"
+                    appearance="playback"
+                    active={active}
+                    label={busy ? 'Generating audio...' : 'Reading…'}
+                    idleLabel={isPaused ? 'Resume' : 'Read this lesson aloud'}
+                    onToggle={() => {
+                        if (isPlaying) {
+                            pauseVoice();
+                            return;
+                        }
+                        handlePlay();
+                    }}
+                    className="min-w-0 flex-1 rounded-2xl"
+                />
                 {(isPlaying || isPaused) ? (
-                    <button type="button" onClick={stopVoice} className="btn-icon size-8" aria-label="Stop">
+                    <button type="button" onClick={stopVoice} className="btn-icon size-8 shrink-0" aria-label="Stop">
                         <AppIcon name="stop" className="text-[16px]" />
                     </button>
                 ) : null}
             </div>
+            {voicePlaybackError ? (
+                <p className="truncate text-caption text-rose-500">{voicePlaybackError}</p>
+            ) : null}
         </div>
     );
 };
