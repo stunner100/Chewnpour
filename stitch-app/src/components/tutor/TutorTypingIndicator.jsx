@@ -5,6 +5,7 @@ import {
   MessageContent,
 } from '@/components/ui/message';
 import { TutorAvatar } from '@/components/tutor/TutorAvatar';
+import { VoiceAssistantWidget } from '@/components/opensource-ui/VoiceAssistantWidget';
 
 export function TutorTypingIndicator({
   compact = false,
@@ -19,7 +20,15 @@ export function TutorTypingIndicator({
         </MessageAvatar>
         <MessageContent>
           <Marker role="status" aria-live="polite">
-            <MarkerContent className="shimmer font-body-sm text-body-sm">
+            <MarkerContent className="flex items-center gap-2 shimmer font-body-sm text-body-sm">
+              <VoiceAssistantWidget
+                layout="inline"
+                active
+                showButton={false}
+                label=""
+                idleLabel=""
+                className="h-6 w-[4.5rem] border-0 bg-transparent p-0 shadow-none"
+              />
               {compact ? (
                 'Tutor is typing...'
               ) : (

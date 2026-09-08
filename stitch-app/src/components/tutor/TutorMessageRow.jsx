@@ -7,6 +7,7 @@ import {
   MessageContent,
 } from '@/components/ui/message';
 import { TutorAvatar } from '@/components/tutor/TutorAvatar';
+import { AnnotatedText } from '@/components/opensource-ui/AnnotatedText';
 import { cn } from '@/lib/utils';
 
 const bubbleShapeClass = 'rounded-[20px] px-4 py-3';
@@ -115,7 +116,7 @@ export function TutorWelcomeMessage({
         <Bubble variant="muted" className="max-w-[85%]">
           <BubbleContent className={cn(bubbleShapeClass, 'bg-surface-soft dark:bg-surface-hover-dark')}>
             <p className="font-body-sm text-body-sm text-foreground">
-              Ask about a confusing idea, get an example, or start a quick review of {lessonLabel}.
+              Ask about a <AnnotatedText variant="wavy">confusing idea</AnnotatedText>, get an example, or start a quick review of {lessonLabel}.
             </p>
             {!compact && description ? (
               <p className="mt-space-3 font-body-sm text-body-sm text-muted-foreground">{description}</p>

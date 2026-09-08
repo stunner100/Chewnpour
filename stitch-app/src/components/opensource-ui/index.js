@@ -21,3 +21,5 @@ export { OtpBoxedInput } from "./OtpBoxedInput";
 export { OtpUnderlineInput } from "./OtpUnderlineInput";
 export { FileUploadFieldInput } from "./FileUploadFieldInput";
 export { SearchInput } from "./SearchInput";
+export { VoiceAssistantWidget } from "./VoiceAssistantWidget";
+export { AnnotatedText } from "./AnnotatedText";

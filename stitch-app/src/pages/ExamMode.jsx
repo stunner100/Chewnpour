@@ -10,6 +10,7 @@ import {
   studyToolEmptyCopy,
 } from '../lib/uploadReadiness';
 import { formatCourseTitle } from '../lib/courseTitle';
+import { AnnotatedText } from '../components/opensource-ui/AnnotatedText';
 
 const EmptyExamState = ({ availability }) => {
   const copy = studyToolEmptyCopy(availability);
@@ -122,18 +123,29 @@ const ExamReviewPanel = ({ result, onRetry, onBack }) => {
                 <div className="mt-2 space-y-1 text-body-sm text-text-primary">
                   <p>
                     Your answer:{' '}
-                    <span className={status === 'skipped' ? 'text-warning' : undefined}>
+                    <AnnotatedText
+                      variant={
+                        status === 'correct'
+                          ? 'highlight'
+                          : status === 'skipped'
+                            ? 'dottedUnderline'
+                            : 'strikethrough'
+                      }
+                      className="whitespace-normal"
+                    >
                       {item.selectedIndex == null
                         ? 'Skipped'
                         : item.options?.[item.selectedIndex] || `Option ${item.selectedIndex + 1}`}
-                    </span>
+                    </AnnotatedText>
                   </p>
                   {status !== 'correct' ? (
                     <p>
                       Correct answer:{' '}
-                      {item.correctIndex == null
-                        ? 'Unavailable'
-                        : item.options?.[item.correctIndex] || `Option ${item.correctIndex + 1}`}
+                      <AnnotatedText variant="doubleUnderline" className="whitespace-normal">
+                        {item.correctIndex == null
+                          ? 'Unavailable'
+                          : item.options?.[item.correctIndex] || `Option ${item.correctIndex + 1}`}
+                      </AnnotatedText>
                     </p>
                   ) : null}
                 </div>
