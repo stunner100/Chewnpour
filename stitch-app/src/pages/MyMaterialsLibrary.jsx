@@ -9,12 +9,24 @@ import { formatCourseTitle } from '../lib/courseTitle';
 import { downloadAuthenticatedFile } from '../lib/downloadFile';
 import { buildFirstLessonHref, isUploadStudyReady } from '../lib/uploadReadiness';
 import { resolveGenerationStageIndex } from '../lib/generationStages';
+import { FilterSortDropdown } from '../components/opensource-ui/FilterSortDropdown';
+import { SearchInput } from '../components/opensource-ui/SearchInput';
+import { SegmentedToggleButton } from '../components/opensource-ui/SegmentedToggleButton';
+import { StackedFolderCard } from '../components/opensource-ui/StackedFolderCard';
 
 const filterTabs = [
     { label: 'All', value: 'all' },
     { label: 'PDFs', value: 'pdf' },
     { label: 'Notes', value: 'notes' },
     { label: 'Processing', value: 'processing' },
+];
+const filterLabels = filterTabs.map((tab) => tab.label);
+
+const librarySortOptions = [
+    { id: 'newest', label: 'Newest first' },
+    { id: 'oldest', label: 'Oldest first' },
+    { id: 'az', label: 'A → Z' },
+    { id: 'za', label: 'Z → A' },
 ];
 
 const resolveFileKind = (fileType = '', fileName = '') => {
@@ -57,6 +69,7 @@ const MaterialsSkeleton = () => (
 const MyMaterialsLibrary = () => {
     const { user } = useAuth();
     const [activeFilter, setActiveFilter] = useState('all');
+    const [sortId, setSortId] = useState('newest');
     const [searchTerm, setSearchTerm] = useState('');
     const [uploads, setUploads] = useState([]);
     const [courses, setCourses] = useState([]);
@@ -188,6 +201,7 @@ const MyMaterialsLibrary = () => {
                 studyReady,
                 stageIndex,
                 uploadedLabel: formatUploadedAt(upload.createdAt),
+                createdAt: Number(upload.createdAt || 0),
                 lessons: topicCount,
                 quizzes: quizzesReady,
                 topicCount,
@@ -202,8 +216,6 @@ const MyMaterialsLibrary = () => {
 
     const handleDelete = useCallback(async (uploadId) => {
         if (!uploadId) return;
-        const confirmed = window.confirm('Delete this material and its generated lessons? This cannot be undone.');
-        if (!confirmed) return;
         setError('');
         try {
             const response = await fetch(`/api/uploads/${encodeURIComponent(uploadId)}`, {
@@ -221,7 +233,7 @@ const MyMaterialsLibrary = () => {
 
     const filteredMaterials = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
-        return materials.filter((material) => {
+        const filtered = materials.filter((material) => {
             const matchesFilter = activeFilter === 'all'
                 || material.kind === activeFilter
                 || (activeFilter === 'processing' && material.processing)
@@ -231,7 +243,16 @@ const MyMaterialsLibrary = () => {
                 || String(material.fileName || '').toLowerCase().includes(normalizedSearch);
             return matchesFilter && matchesSearch;
         });
-    }, [activeFilter, materials, searchTerm]);
+
+        const sorted = [...filtered];
+        sorted.sort((left, right) => {
+            if (sortId === 'oldest') return (left.createdAt || 0) - (right.createdAt || 0);
+            if (sortId === 'az') return String(left.title || '').localeCompare(String(right.title || ''));
+            if (sortId === 'za') return String(right.title || '').localeCompare(String(left.title || ''));
+            return (right.createdAt || 0) - (left.createdAt || 0);
+        });
+        return sorted;
+    }, [activeFilter, materials, searchTerm, sortId]);
 
     if (loading) return <MaterialsSkeleton />;
 
@@ -247,15 +268,22 @@ const MyMaterialsLibrary = () => {
                             Every upload becomes a course you can continue studying.
                         </p>
                     </div>
-                    <div className="flex w-full items-center gap-2 rounded-full border border-border-subtle bg-surface px-4 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-primary-soft md:w-72">
-                        <AppIcon name="search" className="text-[18px] text-text-muted" />
-                        <input
-                            className="w-full border-none bg-transparent p-0 text-body-sm outline-none placeholder:text-text-muted focus:ring-0"
+                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
+                        <SearchInput
+                            label="Search materials"
                             placeholder="Search materials..."
-                            type="search"
-                            aria-label="Search materials"
                             value={searchTerm}
-                            onChange={(event) => setSearchTerm(event.target.value)}
+                            containerClassName="w-full max-w-none md:w-72"
+                            className="h-11 rounded-full"
+                            onChange={(value) => setSearchTerm(value)}
+                            onClear={() => setSearchTerm('')}
+                        />
+                        <FilterSortDropdown
+                            className="w-full sm:w-52"
+                            label="Sort"
+                            value={sortId}
+                            options={librarySortOptions}
+                            onValueChange={(option) => setSortId(option.id)}
                         />
                     </div>
                 </div>
@@ -266,21 +294,15 @@ const MyMaterialsLibrary = () => {
                     </div>
                 )}
 
-                <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
-                    {filterTabs.map((tab) => (
-                        <button
-                            key={tab.value}
-                            type="button"
-                            onClick={() => setActiveFilter(tab.value)}
-                            className={`whitespace-nowrap rounded-full px-4 py-2 text-body-sm font-semibold transition-all ${
-                                activeFilter === tab.value
-                                    ? 'bg-cta text-cta-foreground shadow-sm'
-                                    : 'border border-border-subtle bg-surface text-text-secondary hover:bg-surface-soft'
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                <div className="mt-6 overflow-x-auto pb-1">
+                    <SegmentedToggleButton
+                        className="w-full min-w-[20rem]"
+                        options={filterLabels}
+                        activeIndex={Math.max(0, filterTabs.findIndex((tab) => tab.value === activeFilter))}
+                        onChange={(index) => {
+                            setActiveFilter(filterTabs[index]?.value || 'all');
+                        }}
+                    />
                 </div>
 
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -298,9 +320,13 @@ const MyMaterialsLibrary = () => {
 
                 {filteredMaterials.length === 0 && (
                     <div className="mx-auto mt-10 flex w-full max-w-xl flex-col items-center rounded-[28px] border border-dashed border-border-default bg-surface px-6 py-12 text-center shadow-sm">
-                        <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-surface-soft text-text-muted">
-                            <AppIcon name="search_off" className="text-[28px]" />
-                        </div>
+                        {materials.length === 0 ? (
+                            <StackedFolderCard className="mb-6 h-[12rem] w-[14rem] scale-75" />
+                        ) : (
+                            <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-surface-soft text-text-muted">
+                                <AppIcon name="search_off" className="text-[28px]" />
+                            </div>
+                        )}
                         <h2 className="font-display text-display-sm font-bold text-text-primary">
                             {materials.length === 0 ? 'Nothing to study yet' : 'No matching materials'}
                         </h2>
