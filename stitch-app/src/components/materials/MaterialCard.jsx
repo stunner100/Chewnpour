@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import AppIcon from '../AppIcon';
 import { describeGenerationStage } from '../../lib/generationStages';
 import GenerationStageList from './GenerationStageList';
+import { DownloadButton } from '../opensource-ui/DownloadButton';
+import { HoldToDeleteButton } from '../opensource-ui/HoldToDeleteButton';
 
 const typeIcons = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -28,6 +30,7 @@ const MaterialCard = ({
     onDelete,
 }) => {
     const [moreOpen, setMoreOpen] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const typeConfig = typeIcons[material.kind] || typeIcons.notes;
     const exporting = busyDownload?.id === material.uploadId && busyDownload?.kind === 'export';
     const fetchingOriginal = busyDownload?.id === material.uploadId && busyDownload?.kind === 'original';
@@ -114,15 +117,15 @@ const MaterialCard = ({
                             View course
                         </Link>
                     ) : null}
-                    <button
-                        type="button"
-                        className="inline-flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-xl px-3 text-body-sm font-semibold text-text-secondary hover:bg-surface-soft hover:text-primary disabled:opacity-50"
-                        disabled={Boolean(busyDownload)}
-                        aria-busy={fetchingOriginal}
-                        onClick={() => onDownloadOriginal(material.uploadId)}
-                    >
-                        {fetchingOriginal ? 'Opening original...' : 'Download original'}
-                    </button>
+                    <DownloadButton
+                        className="h-11 min-h-11 flex-1 justify-center px-3"
+                        label="Download original"
+                        downloadingLabel="Opening original..."
+                        doneLabel="Opened"
+                        busy={fetchingOriginal}
+                        disabled={Boolean(busyDownload) && !fetchingOriginal}
+                        onDownload={() => onDownloadOriginal(material.uploadId)}
+                    />
                     <div className="relative">
                         <button
                             type="button"
@@ -159,7 +162,7 @@ const MaterialCard = ({
                                     className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-caption text-error hover:bg-error-soft"
                                     onClick={() => {
                                         setMoreOpen(false);
-                                        onDelete(material.uploadId);
+                                        setConfirmDelete(true);
                                     }}
                                 >
                                     <AppIcon name="delete" className="text-[14px]" />
@@ -170,6 +173,26 @@ const MaterialCard = ({
                     </div>
                 </div>
             </div>
+            {confirmDelete ? (
+                <div className="mt-3 flex flex-col gap-2">
+                    <p className="text-caption text-text-secondary">
+                        Hold to delete this material and its generated lessons.
+                    </p>
+                    <HoldToDeleteButton
+                        className="h-11 w-full"
+                        label="Hold to delete"
+                        doneLabel="Deleted"
+                        onHoldComplete={() => onDelete(material.uploadId)}
+                    />
+                    <button
+                        type="button"
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl text-body-sm font-semibold text-text-secondary hover:bg-surface-soft"
+                        onClick={() => setConfirmDelete(false)}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            ) : null}
         </article>
     );
 };

@@ -6,6 +6,8 @@ import ActivityStatsRow from '../components/progress/ActivityStatsRow';
 import CourseProgressList from '../components/progress/CourseProgressList';
 import TopicPerformanceList from '../components/progress/TopicPerformanceList';
 import ProgressSkeleton from '../components/progress/ProgressSkeleton';
+import { DailyActivityCalendarWidget } from '../components/opensource-ui/DailyActivityCalendarWidget';
+import { ProgressRingCard } from '../components/opensource-ui/ProgressRingCard';
 
 const EMPTY_LIST = [];
 
@@ -74,6 +76,16 @@ const StudyProgressMastery = () => {
             Math.round(Number(performanceInsights?.overallPreparedness ?? userStats?.accuracy ?? 0)),
         ),
     );
+    const todayDay = new Date().getDate();
+    const streakActiveDays = Array.from(
+        { length: Math.min(streakDays, todayDay) },
+        (_, index) => todayDay - index,
+    );
+    const courseStages = courses.slice(0, 3).map((course) => ({
+        label: String(course.title || 'Course').slice(0, 14),
+        value: Math.max(0, Math.min(100, Math.round(Number(course.progress || 0)))),
+        color: 'bg-primary',
+    }));
 
     return (
         <div className="min-h-[calc(100dvh-4rem)] bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -106,6 +118,24 @@ const StudyProgressMastery = () => {
                     topicsPracticed={topicsPracticed}
                     quizAverage={quizAverage}
                 />
+
+                <section className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-start">
+                    <DailyActivityCalendarWidget
+                        activeDays={streakActiveDays}
+                        highlightDay={todayDay}
+                    />
+                    <ProgressRingCard
+                        className="w-full max-w-none border-border-subtle shadow-sm"
+                        title="Quiz average"
+                        progress={quizAverage}
+                        progressLabel="Best scores"
+                        ringStartColor="#007AFF"
+                        ringEndColor="#5AC8FA"
+                        stages={courseStages.length > 0
+                            ? courseStages
+                            : [{ label: 'Quizzes', value: quizAverage, color: 'bg-primary' }]}
+                    />
+                </section>
             </div>
         </div>
     );

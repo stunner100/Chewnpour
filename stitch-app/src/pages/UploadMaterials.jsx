@@ -7,6 +7,7 @@ import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { isUploadStudyReady, buildFirstLessonHref } from '../lib/uploadReadiness';
 import { GENERATION_STAGES, resolveGenerationStageIndex } from '../lib/generationStages';
 import GenerationStageList from '../components/materials/GenerationStageList';
+import { SpinLoader } from '../components/opensource-ui/SpinLoader';
 
 const typeConfig = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -496,7 +497,11 @@ const UploadMaterials = () => {
                         disabled={isUploading}
                     />
                     <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-primary-subtle text-primary md:size-20">
-                        <AppIcon name={isUploading ? 'sync' : 'folder'} className={`text-[32px] md:text-[40px] ${isUploading ? 'animate-spin' : ''}`} />
+                        {isUploading ? (
+                            <SpinLoader label="Preparing your course" iconClassName="text-primary" size="lg" />
+                        ) : (
+                            <AppIcon name="folder" className="text-[32px] md:text-[40px]" />
+                        )}
                     </div>
                     <h3 className="font-display text-display-sm font-bold text-text-primary md:text-display-md">
                         {isUploading

@@ -14,6 +14,8 @@ import {
 import AppIcon from '../components/AppIcon';
 import { DARK_THEME } from '../lib/theme.js';
 import useThemeMode from '../lib/useThemeMode.js';
+import { KeyboardShortcutsCard } from '../components/opensource-ui/KeyboardShortcutsCard';
+import { PomodoroWidget } from '../components/opensource-ui/PomodoroWidget';
 
 const SESSION_LENGTH_OPTIONS = [
     { value: '25', title: 'Pomodoro', detail: '25m focus sprint', triggerDetail: '25m', icon: 'timer' },
@@ -475,6 +477,27 @@ const AccountStudySettings = () => {
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
+                            </div>
+                        </section>
+
+                        <section className="flex flex-col gap-5 rounded-[24px] border border-border-subtle bg-surface p-5 shadow-sm md:p-6">
+                            <div className="flex items-center gap-3 border-b border-border-subtle pb-4">
+                                <AppIcon name="event_note" className="text-text-muted" />
+                                <h2 className="font-display text-display-sm font-bold text-text-primary">Study tools</h2>
+                            </div>
+                            <div className="grid gap-5 lg:grid-cols-2">
+                                <PomodoroWidget minutes={Number(sessionLength) || 25} label="Focus" />
+                                <KeyboardShortcutsCard
+                                    className="w-full max-w-none shadow-sm"
+                                    title="Shortcuts"
+                                    hint="Works anywhere in the dashboard"
+                                    shortcuts={[
+                                        { keys: ['⌘', 'K'], label: 'Open command palette' },
+                                        { keys: ['Esc'], label: 'Close palettes and menus' },
+                                        { keys: ['↑', '↓'], label: 'Move through results' },
+                                        { keys: ['↵'], label: 'Open the selected page' },
+                                    ]}
+                                />
                             </div>
                         </section>
 
