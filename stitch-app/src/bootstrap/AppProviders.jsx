@@ -1,5 +1,6 @@
 import React from 'react';
 import MaintenanceScreen from '../components/MaintenanceScreen.jsx';
+import PwaUpdatePrompt from '../components/PwaUpdatePrompt.jsx';
 import App from '../App.jsx';
 import { AuthProvider } from '../contexts/AuthContext.jsx';
 import { TooltipProvider } from '../components/ui/tooltip.jsx';
@@ -19,6 +20,7 @@ const AppProviders = () => {
     return withAppShell(
         <AuthProvider>
             <App />
+            <PwaUpdatePrompt />
         </AuthProvider>
     );
 };
