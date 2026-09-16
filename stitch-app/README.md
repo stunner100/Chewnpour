@@ -1,65 +1,20 @@
-# React + Vite
+# stitch-app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+stitch-app is the main Chewnpour web application. It contains the React/Vite frontend, Vercel-compatible API entrypoints, Node.js server modules, PostgreSQL migrations, and browser/regression scripts.
 
-Currently, two official plugins are available:
+For the project overview, architecture, setup, and contribution process, see the [root README](../README.md), [architecture guide](../docs/ARCHITECTURE.md), and [contribution guide](../CONTRIBUTING.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Package commands
 
-## React Compiler
+~~~bash
+npm install
+npm run dev:auth
+npm run dev
+npm run lint
+npm run build
+node scripts/run-all-tests.mjs
+~~~
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The local API/auth process runs on port 8787 by default and Vite runs on port 5173. Configure the database, Better Auth, storage, and provider variables in .env.local using [.env.example](.env.example) as the sanitized reference.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-
-## Sentry Configuration
-
-Frontend error tracking is enabled when `VITE_SENTRY_DSN` is set.
-
-Required environment variables:
-
-- `VITE_SENTRY_DSN`
-- `VITE_SENTRY_ENVIRONMENT` (for example `production`)
-- `VITE_SENTRY_RELEASE` (optional release identifier)
-- `VITE_SENTRY_TRACES_SAMPLE_RATE`
-- `VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE`
-- `VITE_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE`
-
-Backend question-bank telemetry is enabled when `SENTRY_DSN` is set for Convex runtime.
-
-Optional backend variables:
-
-- `SENTRY_DSN` (falls back to `VITE_SENTRY_DSN` if unset)
-- `SENTRY_ENVIRONMENT`
-- `SENTRY_RELEASE`
-- `SENTRY_CAPTURE_TIMEOUT_MS` (default `1500`)
-
-## PostHog Configuration
-
-Frontend product analytics, sampled session replay, and in-app surveys are enabled when `VITE_POSTHOG_KEY` is set.
-
-Required environment variables:
-
-- `VITE_POSTHOG_KEY`
-
-Optional variables:
-
-- `VITE_POSTHOG_HOST` (default `/ingest` same-origin proxy; production may use `https://us.i.posthog.com`)
-- `VITE_POSTHOG_UI_HOST` (default `https://us.posthog.com`)
-- `VITE_POSTHOG_DEBUG` (`true` to enable client-side debug logs)
-
-Lesson text, tutor chat, notes, quizzes, and typed inputs are masked in recordings. Create surveys and set replay sampling in the PostHog project UI.
-
-## Staging
-
-Use Vercel `Preview` as staging and point it at a non-production Convex
-deployment.
-
-Do not let Preview builds fall back to the checked-in Convex URL. The build is
-now guarded so Preview and Production must supply `VITE_CONVEX_URL` or
-`CONVEX_URL` explicitly.
-
-See [docs/staging.md](/Users/patrickannor/Desktop/stitch_onboarding_name/stitch-app/docs/staging.md).
+There is no npm test script in this package. The regression runner discovers the checked-in scripts/*.test.mjs files and skips live or provider-dependent tests by default.
