@@ -200,7 +200,7 @@ The workflow may use repository secrets for test accounts, provider integrations
 
 ### Deployment overview
 
-The main application includes a Vercel-compatible configuration in stitch-app/vercel.json. The extraction service has a Dockerfile and a Render service definition in render.yaml. DigitalOcean App Platform manifests are also present under .do/, but they reference a feature branch and should be verified against the intended deployment before use.
+The current deployment arrangement reported by the maintainer uses Vercel for the frontend/API deployment and Supabase for PostgreSQL and Storage backend services. The repository includes a Vercel-compatible configuration in stitch-app/vercel.json. The extraction service has a Dockerfile and a Render service definition in render.yaml. DigitalOcean App Platform manifests are also present under .do/, but they reference a feature branch and should be verified against the intended deployment before use.
 
 These files describe deployment targets; they are not proof of the currently active production deployment. Confirm production provider, domains, secrets, migrations, and health checks in the relevant hosting dashboards before releasing.
 

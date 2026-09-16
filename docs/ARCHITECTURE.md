@@ -106,13 +106,13 @@ The application records state for uploads, courses, podcasts, attempts, progress
 
 ## Deployment
 
-The checked-in deployment targets are:
+The current deployment arrangement reported by the maintainer is Vercel for the frontend/API deployment and Supabase for PostgreSQL and Storage backend services. The checked-in deployment targets are:
 
 - stitch-app/vercel.json for the main Vercel-compatible web/API deployment.
 - render.yaml and docling-service/Dockerfile for a containerized extraction service.
 - .do/app.yaml and .do/app.scale-to-zero.yaml for DigitalOcean App Platform variants of the extraction service; both require current-branch and environment verification.
 
-Treat these as deployment configuration, not as an authoritative inventory of live production. Verify the active frontend, API, database, storage, domains, secrets, and health checks in the hosting dashboards before changing infrastructure.
+Treat these files and the maintainer-provided context as deployment evidence that should still be kept time-scoped. Verify the active frontend, API, database, storage, domains, secrets, and health checks in the hosting dashboards before changing infrastructure.
 
 ## Testing and QA flow
 
