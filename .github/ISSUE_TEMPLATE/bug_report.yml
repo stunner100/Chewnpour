@@ -1,0 +1,74 @@
+name: Bug report
+description: Report a reproducible problem in Chewnpour.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please remove secrets, personal data, and private user content before submitting.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What went wrong?
+      placeholder: Describe the observed problem and the affected package or route.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: List the smallest set of steps that reproduces the issue.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the package, commit or branch, deployment target, and relevant configuration mode.
+      placeholder: stitch-app, current master, local or production
+    validations:
+      required: true
+
+  - type: input
+    id: browser_device
+    attributes:
+      label: Browser and device
+      description: Include this when the issue is browser, viewport, or device dependent.
+      placeholder: Safari 18 on iPhone, or Chrome 153 on macOS
+
+  - type: textarea
+    id: logs_screenshots
+    attributes:
+      label: Logs and screenshots
+      description: Add sanitized logs, stack traces, screenshots, or recordings that help explain the issue.
+      render: text
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add related issues, provider assumptions, workarounds, or anything else a maintainer should know.

@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose an improvement based on a concrete user or maintainer problem.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are proposals until a maintainer accepts them. Please do not include secrets or private user data.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this solve, and who experiences it?
+      placeholder: Describe the user, contributor, or operational problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed solution
+      description: What would you like Chewnpour to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches, workarounds, or designs did you consider?
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add relevant package or route details, screenshots, research, or operational constraints.
