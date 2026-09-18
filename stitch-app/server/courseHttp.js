@@ -34,6 +34,7 @@ import {
 } from "./topicExplain.js";
 import { handleTutorStream } from "./tutorStream.js";
 import { listTopicPassagesForUser } from "./topicPassages.js";
+import { createLiveTutorSession } from "./liveTutor.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -314,6 +315,14 @@ export const handleTopicsRequest = async (req, res) => {
                 style: body.style,
             });
             return sendJson(res, 200, result);
+        }
+
+        if (parts.length === 2 && parts[1] === "live-tutor" && method === "POST") {
+            const session = await createLiveTutorSession({
+                userId: user.id,
+                topicId: parts[0],
+            });
+            return sendJson(res, 200, session);
         }
 
         res.setHeader("Allow", "GET, POST, PUT, DELETE");

@@ -856,3 +856,27 @@ html.is-safari .safari-backdrop {
 .dark .cp-theme .bg-warning-soft {
     background-color: rgba(255, 159, 10, 0.16) !important;
 }
+
+.live-tutor-orb-stage {
+    background:
+        radial-gradient(120% 90% at 50% 18%, #2c241b 0%, #14110e 54%, #0c0b0a 100%);
+}
+
+.live-tutor-orb-stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.live-tutor-orb-stage--speaking {
+    box-shadow: inset 0 0 0 1px rgba(240, 180, 90, 0.28);
+}
+
+.live-tutor-orb-stage--listening {
+    box-shadow: inset 0 0 0 1px rgba(143, 191, 154, 0.22);
+}
+
+.dark .live-tutor-orb-stage {
+    background:
+        radial-gradient(120% 90% at 50% 18%, #241c16 0%, #10100f 58%, #0a0a0a 100%);
+}

@@ -123,6 +123,7 @@ export default function LessonSectionStepper({
     if (finished) {
         return (
             <LessonCompletion
+                topicId={topicId}
                 topicTitle={topicTitle || step?.title || 'Lesson'}
                 sectionTitles={safeSteps.map((entry) => entry?.title)}
                 quizHref={quizHref}
