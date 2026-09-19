@@ -1,7 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { lazy, Suspense, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { m as Motion, useReducedMotion } from 'motion/react';
 import AppIcon from '../AppIcon';
+import { isLiveTutorUiEnabled } from '@/lib/liveTutorEnabled';
+
+const LiveTutorPanel = lazy(() => import('./LiveTutorPanel'));
 
 const NOISE_TITLE_PATTERN = /^(quick check|word bank|glossary)\b/i;
 
@@ -12,6 +15,7 @@ const NOISE_TITLE_PATTERN = /^(quick check|word bank|glossary)\b/i;
  * separate completion state.
  */
 const LessonCompletion = ({
+    topicId,
     topicTitle,
     sectionTitles = [],
     quizHref,
@@ -22,6 +26,7 @@ const LessonCompletion = ({
     completed = false,
 }) => {
     const reduceMotion = useReducedMotion();
+    const liveTutorEnabled = isLiveTutorUiEnabled() && Boolean(topicId);
     const takeaways = useMemo(
         () => (Array.isArray(sectionTitles) ? sectionTitles : [])
             .map((title) => String(title || '').trim())
@@ -61,6 +66,12 @@ const LessonCompletion = ({
                         ))}
                     </ul>
                 </div>
+            ) : null}
+
+            {liveTutorEnabled ? (
+                <Suspense fallback={null}>
+                    <LiveTutorPanel topicId={topicId} />
+                </Suspense>
             ) : null}
 
             <p className="mt-7 text-body-sm text-text-secondary">

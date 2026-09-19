@@ -66,6 +66,7 @@ const completion = read('src/components/study/LessonCompletion.jsx');
 assert.match(completion, /Lesson complete/, 'Completion must be a deliberate moment.');
 assert.match(completion, /Start quiz/, 'Completion must lead into the quiz.');
 assert.match(completion, /onComplete/, 'Completion must use the existing persistence callback.');
+assert.match(completion, /isLiveTutorUiEnabled/, 'Live oral review must stay behind the UI flag.');
 
 assert.match(content, /max-w-\[720px\]/, 'Lesson prose should have a readable measure.');
 assert.match(content, /showTopicIllustration && topicIllustrationUrl/, 'Lesson page must gate illustrations.');
