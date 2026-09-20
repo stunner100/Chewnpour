@@ -44,6 +44,14 @@ const palettesForStatus = (status) => {
                 glow: 'rgba(217, 137, 128, 0.42)',
                 wash: 'rgba(217, 137, 128, 0.14)',
             };
+        case 'ended':
+            return {
+                core: '#DDEAD9',
+                mid: '#7FAD8B',
+                rim: '#37584A',
+                glow: 'rgba(127, 173, 139, 0.34)',
+                wash: 'rgba(127, 173, 139, 0.12)',
+            };
         default: {
             const _exhaustive = status;
             throw new Error(`Unknown live tutor status: ${_exhaustive}`);
@@ -71,6 +79,8 @@ const liveEnergy = (status, level) => {
             return 0.16;
         case 'error':
             return 0.06;
+        case 'ended':
+            return 0.05;
         case 'idle':
             return 0.05;
         default: {
@@ -214,7 +224,7 @@ const LiveTutorOrb = ({ status = 'idle', levelRef }) => {
     return (
         <div
             className={cn(
-                'live-tutor-orb-stage relative h-[240px] w-full overflow-hidden rounded-[1.25rem]',
+                'live-tutor-orb-stage relative h-32 w-full overflow-hidden rounded-[1.25rem] sm:h-[240px]',
                 status === 'speaking' && 'live-tutor-orb-stage--speaking',
                 status === 'listening' && 'live-tutor-orb-stage--listening',
             )}
