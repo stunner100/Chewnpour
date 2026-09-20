@@ -11,6 +11,7 @@ import {
     buildLiveTutorPrompt,
     isLiveTutorEnabled,
     LIVE_TUTOR_MAX_EXCERPT,
+    LIVE_TUTOR_QUESTION_TARGET,
 } from '../server/liveTutor.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -33,6 +34,7 @@ assert.match(liveTutor, /systemInstruction/, 'lesson prompt must stay on the ser
 
 assert.match(liveTutor, /token: name/, 'response must include the ephemeral token name');
 assert.match(liveTutor, /expiresAt: expireTime/, 'response must include expiry');
+assert.match(liveTutor, /questionTarget: LIVE_TUTOR_QUESTION_TARGET/, 'response must include the question budget');
 assert.doesNotMatch(
     liveTutor.slice(liveTutor.indexOf('return {'), liveTutor.indexOf('};', liveTutor.indexOf('return {')) + 2),
     /GEMINI_API_KEY|apiKey/,
@@ -50,12 +52,26 @@ assert.match(vercelJson, /microphone=\(self\)/, 'production must allow the oral-
 assert.match(completion, /isLiveTutorUiEnabled/, 'completion must gate the live tutor card');
 assert.match(completion, /Start quiz/, 'completion must still lead into the quiz');
 assert.match(completion, /LiveTutorPanel/, 'completion must mount the oral review card when enabled');
+assert.match(completion, /quizHref=\{quizHref\}/, 'completion must hand the quiz link to the oral review card');
+assert.match(completion, /onStartQuiz=\{onComplete\}/, 'oral review quiz CTA must persist lesson completion');
 assert.match(stepper, /topicId=\{topicId\}/, 'stepper must pass the topic id into completion');
 assert.match(panel, /Start oral review/, 'panel must require a click before the mic starts');
 assert.match(panel, /LiveTutorOrb/, 'oral review must show an audio-reactive tutor orb');
 assert.match(panel, /data-live-caption/, 'tutor speech must stream into the transcript list');
 assert.match(panel, /liveCaption/, 'panel must render the playback-synced caption in history');
+assert.match(panel, /Review complete/, 'panel must have a terminal review-complete state');
+assert.match(panel, /data-review-summary/, 'panel must summarize the finished review');
+assert.match(panel, /data-question-progress/, 'panel must show question progress during the review');
+assert.match(panel, /Question \{progress\.current\} of \{progress\.total\}/, 'progress must read "Question n of total"');
+assert.match(panel, /End the review early\?/, 'ending early must ask for confirmation');
+assert.match(panel, /role="alertdialog"/, 'end confirmation must be an accessible alert dialog');
+assert.match(panel, /Try again after enabling the mic/, 'mic-denied errors must get a recovery CTA');
+assert.match(panel, /Show last review/, 'a saved review must be viewable from the completion screen');
+assert.match(panel, /data-saved-review/, 'saved review must render as a transcript list');
+assert.match(panel, /text-error/, 'errors must use design tokens');
+assert.doesNotMatch(panel, /text-rose-500/, 'errors must not use off-palette colors');
 assert.doesNotMatch(panel, /live-tutor-caption/, 'tutor words must not overlay the orb');
+assert.doesNotMatch(panel, /Asking a question/, 'status copy must not assume the tutor is always asking');
 assert.match(hook, /\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/live-tutor/, 'hook must mint via the topics API');
 assert.match(hook, /sendRealtimeInput\(\{ text: KICKOFF_TEXT \}\)/, 'session must kick off the first question');
 assert.match(hook, /audio\/pcm;rate=16000/, 'mic audio must be 16kHz PCM');
@@ -66,6 +82,14 @@ assert.match(hook, /revealedCaption/, 'tutor captions must reveal with PCM progr
 assert.match(hook, /liveCaption/, 'speaking words must stream from playback-synced captions');
 assert.match(hook, /queuedAudioRef/, 'captions must wait for queued tutor audio before committing a turn');
 assert.match(hook, /inputTranscription/, 'learner speech must freeze the current tutor line into history');
+assert.match(hook, /saveLiveTutorReview/, 'finished reviews must persist the transcript');
+assert.match(hook, /loadLiveTutorReview/, 'completion must reload the saved review');
+assert.match(hook, /localStorage\.setItem\(\s*liveTutorStorageKey/, 'saved reviews must be keyed per topic');
+assert.match(hook, /questionSegments\(full\)/, 'tutor turns must split into per-question lines');
+assert.match(hook, /setQuestionTarget/, 'the question budget must come from the minted session');
+assert.match(hook, /MicPermissionDenied/, 'mic-denied errors must be flagged for recovery copy');
+assert.match(hook, /recap:/i, 'hook must detect the tutor recap to end the review');
+assert.match(hook, /status: 'ended'/, 'ending a review must land on the ended status');
 assert.doesNotMatch(
     hook,
     /appendTranscription\(current, 'assistant', content\.outputTranscription/,
@@ -96,7 +120,10 @@ const prompt = buildLiveTutorPrompt({
     title: 'Working memory',
     content: `# Encoding\n\n${longExcerpt}\n\n# Quick check\n\nDo not send this.`,
 });
-assert.match(prompt, /ask 4 to 6 short spoken questions/i);
+assert.match(
+    prompt,
+    new RegExp(`ask exactly ${LIVE_TUTOR_QUESTION_TARGET} short spoken questions`, 'i'),
+);
 assert.match(prompt, /RESPOND UNMISTAKABLY IN ENGLISH/);
 assert.match(prompt, /Stay in English for the whole review/);
 assert.match(prompt, /LESSON TITLE: Working memory/);

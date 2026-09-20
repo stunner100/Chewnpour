@@ -45,14 +45,32 @@ export const base64ToInt16 = (base64) => {
     return new Int16Array(bytes.buffer);
 };
 
+export const LIVE_TUTOR_MIC_PERMISSION_MESSAGE =
+    'Microphone access is blocked. Allow the microphone in your browser settings, then try again.';
+
 export const startMicCapture = async ({ onPcmBase64, onLevel } = {}) => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            channelCount: 1,
-        },
-    });
+    if (!navigator.mediaDevices?.getUserMedia) {
+        const unsupported = new Error('This browser does not support microphone capture.');
+        unsupported.name = 'NotSupportedError';
+        throw unsupported;
+    }
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                channelCount: 1,
+            },
+        });
+    } catch (caught) {
+        if (caught?.name === 'NotAllowedError' || caught?.name === 'SecurityError') {
+            const denied = new Error(LIVE_TUTOR_MIC_PERMISSION_MESSAGE);
+            denied.name = 'MicPermissionDenied';
+            throw denied;
+        }
+        throw caught;
+    }
     const audioContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
     if (audioContext.state === 'suspended') {
         await audioContext.resume();

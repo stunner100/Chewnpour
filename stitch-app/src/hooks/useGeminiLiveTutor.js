@@ -1,10 +1,51 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { createPcmPlayer, startMicCapture } from '@/lib/liveTutorAudio';
-import { revealedCaption } from '@/lib/liveTutorCaptions';
+import { questionSegments, revealedCaption } from '@/lib/liveTutorCaptions';
 import { isLiveTutorUiEnabled } from '@/lib/liveTutorEnabled';
 
 const KICKOFF_TEXT = 'Start the oral review now with your first question.';
+const LIVE_TUTOR_STORAGE_KEY_PREFIX = 'chewnpour.liveTutorReview';
+
+export const liveTutorStorageKey = (topicId) =>
+    `${LIVE_TUTOR_STORAGE_KEY_PREFIX}.${String(topicId || 'unknown')}`;
+
+export const saveLiveTutorReview = (topicId, transcript) => {
+    const entries = (Array.isArray(transcript) ? transcript : [])
+        .map((entry) => ({
+            role: entry?.role === 'user' ? 'user' : 'assistant',
+            text: String(entry?.text || '').trim(),
+        }))
+        .filter((entry) => entry.text);
+    if (!topicId || !entries.length) return;
+    try {
+        window.localStorage.setItem(
+            liveTutorStorageKey(topicId),
+            JSON.stringify({ savedAt: new Date().toISOString(), entries }),
+        );
+    } catch {
+        // storage may be unavailable (private mode, quota); the review still works
+    }
+};
+
+export const loadLiveTutorReview = (topicId) => {
+    if (!topicId) return null;
+    try {
+        const raw = window.localStorage.getItem(liveTutorStorageKey(topicId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const entries = (Array.isArray(parsed?.entries) ? parsed.entries : [])
+            .map((entry) => ({
+                role: entry?.role === 'user' ? 'user' : 'assistant',
+                text: String(entry?.text || '').trim(),
+            }))
+            .filter((entry) => entry.text);
+        if (!entries.length) return null;
+        return { savedAt: String(parsed?.savedAt || ''), entries };
+    } catch {
+        return null;
+    }
+};
 
 const appendTranscription = (items, role, chunk) => {
     const text = String(chunk || '');
@@ -19,8 +60,12 @@ const appendTranscription = (items, role, chunk) => {
 export default function useGeminiLiveTutor({ topicId } = {}) {
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState(null);
+    const [micBlocked, setMicBlocked] = useState(false);
     const [transcript, setTranscript] = useState([]);
     const [liveCaption, setLiveCaption] = useState('');
+    const [questionTarget, setQuestionTarget] = useState(0);
+    const [endedSummary, setEndedSummary] = useState(null);
+    const [confirmingEnd, setConfirmingEnd] = useState(false);
     const sessionRef = useRef(null);
     const captureRef = useRef(null);
     const playerRef = useRef(null);
@@ -39,6 +84,8 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
     const queuedAudioRef = useRef(0);
     const turnCompleteRef = useRef(false);
     const captionCommittedRef = useRef(true);
+    const recapHeardRef = useRef(false);
+    const finishReviewRef = useRef(async () => {});
 
     const applyStatus = useCallback((next) => {
         statusRef.current = next;
@@ -91,15 +138,24 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         captionCommittedRef.current = true;
         turnCompleteRef.current = false;
         if (!full) return;
-        captionIdRef.current += 1;
+        // Split a tutor utterance into one line per question so the review UI
+        // can count "Question n of total" from the transcript alone.
+        const segments = questionSegments(full);
+        const lines = segments.length ? segments : [full];
+        captionIdRef.current += lines.length;
         setTranscript((current) => [
             ...current,
-            { id: `assistant-${captionIdRef.current}`, role: 'assistant', text: full },
+            ...lines.map((text, index) => ({
+                id: `assistant-${captionIdRef.current - lines.length + index + 1}`,
+                role: 'assistant',
+                text,
+            })),
         ]);
     };
     commitAssistantCaptionRef.current = commitAssistantCaption;
 
-    const stop = useCallback(async () => {
+    const stop = useCallback(async (options = {}) => {
+        const { status: nextStatus = 'idle' } = options;
         generationRef.current += 1;
         commitAssistantCaptionRef.current();
         const session = sessionRef.current;
@@ -120,8 +176,55 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
             await player.close();
         }
         setVoiceLevel(0);
-        applyStatus('idle');
+        applyStatus(nextStatus);
     }, [applyStatus]);
+
+    const finishReview = useCallback(async (outcome) => {
+        const active = ['connecting', 'listening', 'speaking'].includes(statusRef.current);
+        if (active) await stop({ status: 'ended' });
+        setTranscript((current) => {
+            if (!current.length) {
+                setEndedSummary((previous) => previous);
+                return current;
+            }
+            const summary = {
+                outcome,
+                answered: current.filter((entry) => entry.role === 'user').length,
+                savedAt: new Date().toISOString(),
+            };
+            setEndedSummary(summary);
+            saveLiveTutorReview(topicId, current);
+            return current;
+        });
+        if (!active && statusRef.current !== 'ended') applyStatus('ended');
+    }, [stop, topicId, applyStatus]);
+    finishReviewRef.current = finishReview;
+
+    const detectRecap = () => {
+        // The system prompt instructs the tutor to deliver a final "Recap:"
+        // message. Once it has been spoken, the review is over — persist it.
+        if (recapHeardRef.current) return;
+        if (!/^recap:/i.test(pendingCaptionRef.current.trim())) return;
+        recapHeardRef.current = true;
+        void finishReviewRef.current('completed');
+    };
+
+    const requestEnd = useCallback(() => {
+        if (statusRef.current === 'speaking' || statusRef.current === 'listening') {
+            setConfirmingEnd(true);
+            return;
+        }
+        void stop();
+    }, [stop]);
+
+    const cancelEnd = useCallback(() => {
+        setConfirmingEnd(false);
+    }, []);
+
+    const confirmEnd = useCallback(() => {
+        setConfirmingEnd(false);
+        void finishReview('ended-early');
+    }, [finishReview]);
 
     const start = useCallback(async () => {
         if (!topicId) {
@@ -133,6 +236,10 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         await stop();
         const generation = generationRef.current;
         setError(null);
+        setMicBlocked(false);
+        setEndedSummary(null);
+        setConfirmingEnd(false);
+        setQuestionTarget(0);
         setTranscript([]);
         pendingCaptionRef.current = '';
         applyLiveCaptionRef.current('');
@@ -140,6 +247,7 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         queuedAudioRef.current = 0;
         turnCompleteRef.current = false;
         captionCommittedRef.current = true;
+        recapHeardRef.current = false;
         applyStatus('connecting');
 
         try {
@@ -157,7 +265,9 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
             if (!token || !model) {
                 throw new Error('Live tutor token was incomplete.');
             }
+            const target = Math.floor(Number(payload.questionTarget));
             if (generation !== generationRef.current) return;
+            setQuestionTarget(Number.isFinite(target) && target > 0 ? target : 0);
 
             const player = createPcmPlayer({
                 onLevel: (level) => {
@@ -171,6 +281,8 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
                     if (!turnCompleteRef.current) return;
                     const full = pendingCaptionRef.current.trim();
                     if (full) applyLiveCaptionRef.current(full);
+                    detectRecap();
+                    if (generation !== generationRef.current) return;
                     applyStatus('listening');
                 },
             });
@@ -259,6 +371,8 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
                             if (queuedAudioRef.current === 0 && !playerRef.current?.isPlaying?.()) {
                                 const full = pendingCaptionRef.current.trim();
                                 if (full) applyLiveCaptionRef.current(full);
+                                detectRecap();
+                                if (generation !== generationRef.current) return;
                                 setVoiceLevel(0);
                                 applyStatus('listening');
                             }
@@ -313,6 +427,7 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
             applyStatus('listening');
         } catch (caught) {
             if (generation !== generationRef.current) return;
+            setMicBlocked(caught?.name === 'MicPermissionDenied');
             setError(caught?.message || 'Could not start the live tutor.');
             await stop();
             applyStatus('error');
@@ -327,10 +442,19 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         enabled: isLiveTutorUiEnabled(),
         status,
         error,
+        micBlocked,
         transcript,
         liveCaption,
+        questionTarget,
+        endedSummary,
+        confirmingEnd,
         voiceLevelRef,
         start,
         stop,
+        requestEnd,
+        confirmEnd,
+        cancelEnd,
+        finishReview,
+        loadSavedReview: () => loadLiveTutorReview(topicId),
     };
 }

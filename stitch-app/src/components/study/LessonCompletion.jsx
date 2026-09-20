@@ -70,7 +70,11 @@ const LessonCompletion = ({
 
             {liveTutorEnabled ? (
                 <Suspense fallback={null}>
-                    <LiveTutorPanel topicId={topicId} />
+                    <LiveTutorPanel
+                        topicId={topicId}
+                        quizHref={quizHref}
+                        onStartQuiz={onComplete}
+                    />
                 </Suspense>
             ) : null}
 

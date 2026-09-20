@@ -8,6 +8,7 @@ export const DEFAULT_GEMINI_LIVE_MODEL = "gemini-3.8-live";
 // Ephemeral tokens are only accepted on v1alpha in the current JS SDK.
 export const GEMINI_LIVE_API_VERSION = "v1alpha";
 export const LIVE_TUTOR_VOICE = "Kore";
+export const LIVE_TUTOR_QUESTION_TARGET = 5;
 
 const SKIP_TITLE_PATTERN = /^(quick check|word bank|glossary|self-check|review questions)\b/i;
 
@@ -44,10 +45,10 @@ export const buildLiveTutorPrompt = ({ title, content } = {}) => {
         "Speak and transcribe only in English. Stay in English for the whole review.",
         "RESPOND IN ENGLISH. YOU MUST RESPOND UNMISTAKABLY IN ENGLISH.",
         "If you hear Spanish or any other language, treat it as background noise, not a language switch.",
-        "The learner just finished this lesson. Ask 4 to 6 short spoken questions, one at a time.",
+        `The learner just finished this lesson. Ask exactly ${LIVE_TUTOR_QUESTION_TARGET} short spoken questions, one at a time.`,
         "Wait for their spoken answer before asking the next question.",
         "Correct mistakes briefly and encouragingly. Do not lecture the whole lesson.",
-        "After the last question, give a 20-second recap and invite them to take the written quiz.",
+        "After the final answer, deliver a 20-second recap on its own that starts with 'Recap:' and invites them to take the written quiz below.",
         "",
         `LESSON TITLE: ${lessonTitle}`,
         "",
@@ -116,6 +117,7 @@ export const mintLiveTutorSession = async ({ title, content } = {}) => {
             expiresAt: expireTime,
             apiVersion: GEMINI_LIVE_API_VERSION,
             connectConfig: LIVE_TUTOR_CONNECT_CONFIG,
+            questionTarget: LIVE_TUTOR_QUESTION_TARGET,
         };
     } catch (error) {
         console.warn("[liveTutor] token mint failed", {
