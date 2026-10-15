@@ -40,7 +40,7 @@ const requireExcludes = (source, snippet, label) => {
 
 requireIncludes(access, 'const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];', 'admin allowlist');
 requireExcludes(access, 'info@chewnpour.com', 'bootstrap email');
-requireIncludes(http, 'isAdminUser', 'admin HTTP auth');
+requireIncludes(http, 'isAdminSessionUser', 'admin HTTP auth');
 requireIncludes(http, 'getAdminSnapshot', 'admin snapshot route');
 requireIncludes(http, '/api/admin/snapshot', 'snapshot path');
 requireIncludes(router, 'handleAdminRequest', 'API router');

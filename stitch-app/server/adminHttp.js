@@ -1,7 +1,8 @@
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
-import { BOOTSTRAP_ADMIN_EMAILS, isAdminUser } from "./adminAccess.js";
-import { getAdminSnapshot, searchAdminUsers } from "./adminMetrics.js";
+import { BOOTSTRAP_ADMIN_EMAILS } from "./adminAccess.js";
+import { clearAdminSnapshotCache, getAdminSnapshot, searchAdminUsers } from "./adminMetrics.js";
+import { grantAdmin, isAdminSessionUser, listAdmins, revokeAdmin } from "./adminMembers.js";
 import { handleAdminPastPapersRequest } from "./pastPaperHttp.js";
 
 const sendJson = (res, statusCode, payload) => {
@@ -10,6 +11,21 @@ const sendJson = (res, statusCode, payload) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.end(body);
+};
+
+const readJsonBody = async (req) => {
+    if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
+        return req.body;
+    }
+    if (typeof req.body === "string" && req.body.trim()) {
+        return JSON.parse(req.body);
+    }
+    const chunks = [];
+    for await (const chunk of req) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const raw = Buffer.concat(chunks).toString("utf8").trim();
+    return raw ? JSON.parse(raw) : {};
 };
 
 const requireAdminUser = async (req) => {
@@ -22,7 +38,7 @@ const requireAdminUser = async (req) => {
         error.status = 401;
         throw error;
     }
-    if (!isAdminUser({ email: user.email, id: user.id, emailVerified: user.emailVerified })) {
+    if (!(await isAdminSessionUser(user))) {
         const error = new Error("Forbidden");
         error.status = 403;
         error.code = "ADMIN_FORBIDDEN";
@@ -57,6 +73,27 @@ export const handleAdminRequest = async (req, res) => {
             });
         }
 
+        if (pathname === "/api/admin/admins" && method === "GET") {
+            return sendJson(res, 200, { admins: await listAdmins(), viewerId: user.id });
+        }
+        if (pathname === "/api/admin/admins" && method === "POST") {
+            const body = await readJsonBody(req);
+            const granted = await grantAdmin({
+                actorId: user.id,
+                userId: body.userId,
+                email: body.email,
+                allowUnverified: body.allowUnverified === true,
+            });
+            clearAdminSnapshotCache();
+            return sendJson(res, 201, { granted, admins: await listAdmins() });
+        }
+        if (pathname.startsWith("/api/admin/admins/") && method === "DELETE") {
+            const targetId = decodeURIComponent(pathname.slice("/api/admin/admins/".length));
+            await revokeAdmin({ actorId: user.id, userId: targetId });
+            clearAdminSnapshotCache();
+            return sendJson(res, 200, { admins: await listAdmins() });
+        }
+
         if (pathname === "/api/admin/users" && method === "GET") {
             const query = new URL(String(req.url || "/"), "http://localhost").searchParams.get("q");
             return sendJson(res, 200, { users: await searchAdminUsers(query) });
@@ -78,6 +115,9 @@ export const handleAdminRequest = async (req, res) => {
                 error: "Forbidden",
                 code: error.code || "ADMIN_FORBIDDEN",
             });
+        }
+        if (status >= 400 && status < 500) {
+            return sendJson(res, status, { error: error.message, code: error.code || undefined });
         }
         console.error("adminHttp", error);
         return sendJson(res, 500, { error: "Could not load admin data." });

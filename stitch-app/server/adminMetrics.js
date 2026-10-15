@@ -1,4 +1,6 @@
 import { getPool } from "./db.js";
+import { adminSourcesFor } from "./adminAccess.js";
+import { loadDashboardAdminIds } from "./adminMembers.js";
 
 const RECENT_LIMIT = 25;
 
@@ -16,7 +18,7 @@ const toInt = (value) => {
 
 const SNAPSHOT_TTL_MS = 30_000;
 const USER_SEARCH_LIMIT = 50;
-const DAILY_WINDOW_DAYS = 7;
+const DAILY_WINDOW_DAYS = 14;
 
 // The pool is usually a single connection, so every round trip runs serially.
 // Keep the snapshot to a few grouped queries and reuse it briefly.
@@ -55,6 +57,46 @@ export const fillDailySeries = (rows, { days = DAILY_WINDOW_DAYS, now = new Date
     return series;
 };
 
+/**
+ * A student is "active" when they did something: studied a lesson, took a
+ * quiz or exam, sent the tutor a message, or uploaded material. Signing in
+ * alone doesn't count.
+ */
+export const ACTIVITY_CTE = `
+    activity AS (
+        SELECT user_id, last_studied_at AS at FROM topic_progress
+        WHERE last_studied_at >= NOW() - INTERVAL '30 days'
+        UNION ALL
+        SELECT user_id, created_at FROM quiz_attempts WHERE created_at >= NOW() - INTERVAL '30 days'
+        UNION ALL
+        SELECT user_id, created_at FROM exam_attempts WHERE created_at >= NOW() - INTERVAL '30 days'
+        UNION ALL
+        SELECT user_id, created_at FROM topic_chat_messages
+        WHERE role = 'user' AND created_at >= NOW() - INTERVAL '30 days'
+        UNION ALL
+        SELECT user_id, created_at FROM uploads WHERE created_at >= NOW() - INTERVAL '30 days'
+    )
+`;
+
+// Daily new sign-ups and daily active students in one round trip.
+export const DAILY_SERIES_SQL = `
+    WITH ${ACTIVITY_CTE},
+    window_start AS (
+        SELECT date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' - make_interval(days => $1) AS at
+    )
+    SELECT 'new' AS kind, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, count(*)::int AS value
+    FROM "user" WHERE created_at >= (SELECT at FROM window_start)
+    GROUP BY 2
+    UNION ALL
+    SELECT 'active', to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD'), count(DISTINCT user_id)::int
+    FROM activity WHERE at >= (SELECT at FROM window_start)
+    GROUP BY 2
+`;
+
+export const clearAdminSnapshotCache = () => {
+    cachedSnapshot = null;
+};
+
 export const STATUS_BREAKDOWN_SQL = `
     SELECT 'uploads' AS kind, status, count(*)::int AS count FROM uploads GROUP BY status
     UNION ALL
@@ -83,12 +125,17 @@ const loadAdminSnapshot = async () => {
     const [
         totalsResult,
         statusResult,
-        dailyUsersResult,
+        dailySeriesResult,
         recentUsersResult,
         recentUploadsResult,
+        dashboardAdminIds,
     ] = await Promise.all([
         db.query(`
+            WITH ${ACTIVITY_CTE}
             SELECT
+                (SELECT count(DISTINCT user_id)::int FROM activity WHERE at >= NOW() - INTERVAL '1 day') AS active_1d,
+                (SELECT count(DISTINCT user_id)::int FROM activity WHERE at >= NOW() - INTERVAL '7 days') AS active_7d,
+                (SELECT count(DISTINCT user_id)::int FROM activity) AS active_30d,
                 (SELECT count(*)::int FROM "user") AS users_total,
                 (SELECT count(*)::int FROM "user" WHERE created_at >= NOW() - INTERVAL '1 day') AS users_1d,
                 (SELECT count(*)::int FROM "user" WHERE created_at >= NOW() - INTERVAL '7 days') AS users_7d,
@@ -107,33 +154,10 @@ const loadAdminSnapshot = async () => {
                 (SELECT count(*)::int FROM topic_podcasts) AS podcasts_total,
                 (SELECT count(*)::int FROM (SELECT DISTINCT user_id, topic_id FROM topic_chat_messages) chats) AS tutor_conversations,
                 (SELECT count(DISTINCT user_id)::int FROM topic_chat_messages) AS tutor_users,
-                (
-                    SELECT count(DISTINCT user_id)::int FROM (
-                        SELECT user_id FROM topic_progress
-                        WHERE last_studied_at >= NOW() - INTERVAL '7 days'
-                        UNION
-                        SELECT user_id FROM quiz_attempts
-                        WHERE created_at >= NOW() - INTERVAL '7 days'
-                        UNION
-                        SELECT user_id FROM exam_attempts
-                        WHERE created_at >= NOW() - INTERVAL '7 days'
-                        UNION
-                        SELECT user_id FROM topic_chat_messages
-                        WHERE created_at >= NOW() - INTERVAL '7 days'
-                    ) active_users
-                ) AS active_users_7d
+                (SELECT count(*)::int FROM "user" WHERE created_at >= NOW() - INTERVAL '30 days') AS users_30d
         `),
         db.query(STATUS_BREAKDOWN_SQL),
-        db.query(
-            `
-            SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, count(*)::int AS value
-            FROM "user"
-            WHERE created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' - make_interval(days => $1)
-            GROUP BY 1
-            ORDER BY 1
-            `,
-            [DAILY_WINDOW_DAYS - 1],
-        ),
+        db.query(DAILY_SERIES_SQL, [DAILY_WINDOW_DAYS - 1]),
         db.query(
             `
             SELECT
@@ -141,6 +165,7 @@ const loadAdminSnapshot = async () => {
                 u.name,
                 u.email,
                 u.created_at,
+                u.email_verified,
                 p.full_name,
                 p.onboarding_completed
             FROM "user" u
@@ -169,6 +194,7 @@ const loadAdminSnapshot = async () => {
             `,
             [RECENT_LIMIT],
         ),
+        loadDashboardAdminIds(),
     ]);
 
     const statusMaps = toCountMaps(statusResult.rows);
@@ -181,14 +207,18 @@ const loadAdminSnapshot = async () => {
             usersTotal: toInt(totals.users_total),
             users1d: toInt(totals.users_1d),
             users7d: toInt(totals.users_7d),
+            users30d: toInt(totals.users_30d),
             onboardedUsers: toInt(totals.onboarded_users),
-            activeUsers7d: toInt(totals.active_users_7d),
+            active1d: toInt(totals.active_1d),
+            active7d: toInt(totals.active_7d),
+            active30d: toInt(totals.active_30d),
             uploadsTotal: toInt(totals.uploads_total),
             coursesTotal: toInt(totals.courses_total),
             topicsTotal: toInt(totals.topics_total),
             tutorConversations: toInt(totals.tutor_conversations),
             tutorUsers: toInt(totals.tutor_users),
-            dailyNewUsers: fillDailySeries(dailyUsersResult.rows),
+            dailyNewUsers: fillDailySeries(dailySeriesResult.rows.filter((row) => row.kind === "new")),
+            dailyActiveUsers: fillDailySeries(dailySeriesResult.rows.filter((row) => row.kind === "active")),
         },
         learning: {
             quizAttempts: toInt(totals.quiz_attempts_total),
@@ -210,7 +240,7 @@ const loadAdminSnapshot = async () => {
             podcastStatus: statusMaps.podcasts || {},
         },
         users: {
-            recent: (recentUsersResult.rows || []).map(toAdminUser),
+            recent: (recentUsersResult.rows || []).map((row) => toAdminUser(row, dashboardAdminIds)),
         },
         uploads: {
             recent: (recentUploadsResult.rows || []).map((row) => ({
@@ -229,13 +259,19 @@ const loadAdminSnapshot = async () => {
     };
 };
 
-const toAdminUser = (row) => ({
-    id: row.id,
-    name: row.full_name || row.name || "",
-    email: row.email,
-    onboarded: Boolean(row.onboarding_completed),
-    createdAt: toIso(row.created_at),
-});
+
+const toAdminUser = (row, dashboardAdminIds = new Set()) => {
+    const emailVerified = row.email_verified === true;
+    return {
+        id: row.id,
+        name: row.full_name || row.name || "",
+        email: row.email,
+        emailVerified,
+        onboarded: Boolean(row.onboarding_completed),
+        isAdmin: adminSourcesFor({ email: row.email, id: row.id, emailVerified }, dashboardAdminIds).length > 0,
+        createdAt: toIso(row.created_at),
+    };
+};
 
 export const searchAdminUsers = async (query) => {
     const term = String(query || "").trim().slice(0, 120);
@@ -243,7 +279,7 @@ export const searchAdminUsers = async (query) => {
     const pattern = `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
     const result = await getPool().query(
         `
-        SELECT u.id, u.name, u.email, u.created_at, p.full_name, p.onboarding_completed
+        SELECT u.id, u.name, u.email, u.created_at, u.email_verified, p.full_name, p.onboarding_completed
         FROM "user" u
         LEFT JOIN profiles p ON p.user_id = u.id
         WHERE u.email ILIKE $1 OR u.name ILIKE $1 OR p.full_name ILIKE $1
@@ -252,5 +288,6 @@ export const searchAdminUsers = async (query) => {
         `,
         [pattern, USER_SEARCH_LIMIT],
     );
-    return result.rows.map(toAdminUser);
+    const dashboardAdminIds = await loadDashboardAdminIds();
+    return result.rows.map((row) => toAdminUser(row, dashboardAdminIds));
 };
