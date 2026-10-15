@@ -49,14 +49,15 @@ const { PAST_PAPER_STORAGE_PATH } = await import("../server/pastPapers.js");
     assert.equal(isAdminUser({ email: "", id: "admin-user-id" }), true, "explicit user ids need no email");
     delete process.env.ADMIN_USER_IDS;
 
-    const http = await read("server/adminHttp.js");
-    assert.ok(http.includes("emailVerified: user.emailVerified"), "admin gate passes the session's verification flag");
+    const members = await read("server/adminMembers.js");
+    assert.ok(members.includes("emailVerified: user.emailVerified"), "admin gate passes the session's verification flag");
 }
 
 // 3. New-student chart has one bar per day, zero-filled, oldest first.
 {
     const now = new Date("2026-10-15T09:00:00Z");
-    const series = fillDailySeries([{ day: "2026-10-15", value: 3 }, { day: "2026-10-11", value: "2" }], { now });
+    const series = fillDailySeries([{ day: "2026-10-15", value: 3 }, { day: "2026-10-11", value: "2" }], { now, days: 7 });
+    assert.equal(fillDailySeries([], { now }).length, 14, "overview charts cover 14 days");
     assert.equal(series.length, 7);
     assert.deepEqual(series.map((d) => d.value), [0, 0, 2, 0, 0, 0, 3]);
     assert.equal(series[0].label, "Oct 09");
@@ -100,8 +101,8 @@ const { PAST_PAPER_STORAGE_PATH } = await import("../server/pastPapers.js");
 //    only after the file is uploaded (no orphan drafts).
 {
     const dashboard = await read("src/pages/admin/AdminDashboard.jsx");
-    assert.match(dashboard, /if \(activeTab === 'past-papers'\) return <PastPapersPanel \/>;\s*if \(!snapshot\) return null;/);
-    assert.ok(dashboard.includes("const needsSnapshot = activeTab !== 'past-papers';"));
+    assert.match(dashboard, /if \(activeTab === 'past-papers'\) return <PastPapersPanel \/>;[\s\S]*?if \(!snapshot\) return null;/);
+    assert.ok(dashboard.includes("const needsSnapshot = activeTab !== 'past-papers' && activeTab !== 'admins';"));
 
     const pastPapers = await read("server/pastPapers.js");
     const init = pastPapers.slice(pastPapers.indexOf("export const initPastPaperUpload"), pastPapers.indexOf("export const createPastPaper"));

@@ -26,7 +26,7 @@ assert.doesNotMatch(
 );
 assert.match(courseHttp, /handleShareRequest/, 'public /api/share handler required');
 assert.match(router, /handleShareRequest/, 'router must mount /api/share');
-assert.match(vite, /['"]\/api\/share['"]/, 'Vite must proxy /api/share');
+assert.match(vite, /'\/api': \{/, 'Vite must proxy all /api routes (incl. /api/share) to the local API server');
 assert.match(app, /path="\/c\/:token"/, 'public share route must be live');
 assert.match(app, /PublicSharedCourse/, 'share page must be wired');
 assert.doesNotMatch(page, /ParkedFeatureView/, 'share page must be a live feature');

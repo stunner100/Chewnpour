@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import DeniedCard from '../../components/admin/DeniedCard';
@@ -11,6 +11,7 @@ import { ContentPanel } from './panels/ContentPanel';
 import { UsersPanel } from './panels/UsersPanel';
 import { UploadsPanel } from './panels/UploadsPanel';
 import { PastPapersPanel } from './panels/PastPapersPanel';
+import { AdminsPanel } from './panels/AdminsPanel';
 
 const TAB_KEYS = new Set(TABS.map((tab) => tab.key));
 
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
     const activeTab = tabFromHash(location.hash);
     // Past questions loads its own data, so it must not wait on (or be hidden
     // by a failure of) the metrics snapshot.
-    const needsSnapshot = activeTab !== 'past-papers';
+    const needsSnapshot = activeTab !== 'past-papers' && activeTab !== 'admins';
 
     const loadSnapshot = useCallback(async () => {
         setLoading(true);
@@ -69,12 +70,22 @@ export default function AdminDashboard() {
         if (needsSnapshot && !snapshot) loadSnapshot();
     }, [loadSnapshot, needsSnapshot, snapshot]);
 
+    // Admin changes affect the Users tab, so reload after leaving Admins.
+    const previousTab = useRef(activeTab);
+    useEffect(() => {
+        if (previousTab.current === 'admins' && activeTab !== 'admins' && needsSnapshot) {
+            loadSnapshot();
+        }
+        previousTab.current = activeTab;
+    }, [activeTab, loadSnapshot, needsSnapshot]);
+
     const onTabChange = (key) => {
         navigate({ pathname: '/admin', hash: key === 'overview' ? '' : key }, { replace: true });
     };
 
     const panel = useMemo(() => {
         if (activeTab === 'past-papers') return <PastPapersPanel />;
+        if (activeTab === 'admins') return <AdminsPanel />;
         if (!snapshot) return null;
         if (activeTab === 'learning') return <LearningPanel snapshot={snapshot} />;
         if (activeTab === 'content') return <ContentPanel snapshot={snapshot} />;

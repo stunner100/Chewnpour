@@ -31,13 +31,13 @@ if (!quizPlayer.includes('/dashboard/quiz/results/')) {
 }
 
 const viteConfig = await read('vite.config.js');
-if (!viteConfig.includes("'/api/quiz-attempts'")) {
-  throw new Error('Expected Vite to proxy /api/quiz-attempts.');
+if (!viteConfig.includes("'/api': {")) {
+  throw new Error('Expected Vite to proxy all /api routes (incl. /api/quiz-attempts).');
 }
 
 const devAuth = await read('scripts/dev-auth-server.mjs');
-if (!devAuth.includes('handleQuizAttemptsRequest') || !devAuth.includes('/api/quiz-attempts')) {
-  throw new Error('Expected dev-auth-server to serve /api/quiz-attempts.');
+if (!devAuth.includes('importApi("router.js")') || !(await read('api/router.js')).includes('/api/quiz-attempts')) {
+  throw new Error('Expected dev-auth-server to serve /api/quiz-attempts via api/router.js.');
 }
 
 console.log('supabase-quiz-results-milestone-regression.test.mjs passed');

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SectionCard } from '../../../components/admin/AdminUi';
 import { formatDateTime } from '../../../lib/admin/formatters';
+import { grantAdminAccess } from '../../../lib/admin/ui';
 
 export const UsersPanel = ({ snapshot }) => {
     const recent = Array.isArray(snapshot?.users?.recent) ? snapshot.users.recent : [];
@@ -38,7 +39,30 @@ export const UsersPanel = ({ snapshot }) => {
         };
     }, [term]);
 
-    const users = results ?? recent;
+    const [adminIds, setAdminIds] = useState(() => new Set());
+    const [granting, setGranting] = useState('');
+    const [grantMessage, setGrantMessage] = useState('');
+
+    const users = (results ?? recent).map((user) => (adminIds.has(user.id) ? { ...user, isAdmin: true } : user));
+
+    const makeAdmin = async (user) => {
+        if (!window.confirm(`Make ${user.email} an admin? They'll be able to see all students and manage past questions.`)) return;
+        setGranting(user.id);
+        setGrantMessage('');
+        try {
+            const result = await grantAdminAccess(
+                { userId: user.id },
+                { confirmUnverified: (message) => window.confirm(`${message}\n\nAdd them as an admin anyway?`) },
+            );
+            if (result.cancelled) return;
+            setAdminIds((current) => new Set(current).add(user.id));
+            setGrantMessage(`${user.email} is now an admin.`);
+        } catch (err) {
+            setGrantMessage(err.message || 'Could not add admin.');
+        } finally {
+            setGranting('');
+        }
+    };
 
     return (
         <SectionCard title={results ? 'Matching students' : 'Recent students'} badge={`${users.length} shown`}>
@@ -53,16 +77,18 @@ export const UsersPanel = ({ snapshot }) => {
                 />
             </label>
             {searchError ? <p role="alert" className="mb-3 text-sm text-error">{searchError}</p> : null}
+            {grantMessage ? <p role="status" className="mb-3 text-sm text-text-secondary">{grantMessage}</p> : null}
             {users.length ? (
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[36rem] text-left text-sm">
+                    <table className="w-full min-w-[44rem] text-left text-sm">
                         <caption className="sr-only">Recent students</caption>
                         <thead>
                             <tr className="border-b border-border-subtle text-text-muted">
                                 <th className="py-2 pr-3 font-medium">Name</th>
                                 <th className="py-2 pr-3 font-medium">Email</th>
                                 <th className="py-2 pr-3 font-medium">Joined</th>
-                                <th className="py-2 font-medium">Onboarding</th>
+                                <th className="py-2 pr-3 font-medium">Onboarding</th>
+                                <th className="py-2 font-medium">Access</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -75,8 +101,22 @@ export const UsersPanel = ({ snapshot }) => {
                                     <td className="py-2.5 pr-3 text-text-secondary">
                                         {formatDateTime(user.createdAt)}
                                     </td>
-                                    <td className="py-2.5 text-text-secondary">
+                                    <td className="py-2.5 pr-3 text-text-secondary">
                                         {user.onboarded ? 'Done' : 'Incomplete'}
+                                    </td>
+                                    <td className="py-2.5 whitespace-nowrap">
+                                        {user.isAdmin ? (
+                                            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-semibold text-primary">Admin</span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="btn-secondary min-h-9 px-3 text-xs"
+                                                disabled={granting === user.id}
+                                                onClick={() => makeAdmin(user)}
+                                            >
+                                                {granting === user.id ? 'Adding…' : 'Make admin'}
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

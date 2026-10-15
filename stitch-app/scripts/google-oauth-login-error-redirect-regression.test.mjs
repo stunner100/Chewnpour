@@ -80,7 +80,8 @@ assert.match(routerSource, /pathname === "\/api\/auth\/google-start"/, 'router m
 assert.match(routerSource, /handleGoogleOAuthStart/, 'router must call the Google start handler');
 
 const devAuthSource = await read('scripts/dev-auth-server.mjs');
-assert.match(devAuthSource, /\/api\/auth\/google-start/, 'local auth proxy must intercept google-start');
+assert.match(devAuthSource, /importApi\("router\.js"\)/, 'local API server must route through api/router.js (which handles google-start)');
+assert.match(await read('api/router.js'), /\/api\/auth\/google-start/, 'router must intercept google-start');
 
 const startSource = await read('server/googleOAuthStart.js');
 assert.match(startSource, /auth\.handler\(baRequest\)/, 'google-start must mint OAuth state through Better Auth');

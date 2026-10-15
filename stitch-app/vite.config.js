@@ -27,39 +27,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
-        '/api/auth': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/profile': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/uploads': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/courses': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/share': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/topics': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/billing': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/progress': {
-          target: `http://127.0.0.1:${authDevPort}`,
-          changeOrigin: true,
-        },
-        '/api/quiz-attempts': {
+        // Every API route, including admin, exams, and past questions, is
+        // served by the local dev API server (scripts/dev-auth-server.mjs).
+        '/api': {
           target: `http://127.0.0.1:${authDevPort}`,
           changeOrigin: true,
         },

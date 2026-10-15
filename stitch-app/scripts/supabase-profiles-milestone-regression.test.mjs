@@ -49,7 +49,7 @@ if (!/preferredPersona/.test(settings) || !/updateProfile\(/.test(settings)) {
 }
 
 const viteConfig = await fs.readFile(path.join(root, 'vite.config.js'), 'utf8');
-if (!/['"]\/api\/profile['"]/.test(viteConfig)) {
+if (!/'\/api': \{/.test(viteConfig)) {
   throw new Error('Expected Vite to proxy /api/profile to the local API server.');
 }
 

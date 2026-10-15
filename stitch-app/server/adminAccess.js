@@ -39,3 +39,31 @@ export const isAdminUser = ({ email, id, emailVerified = false } = {}) => {
     }
     return false;
 };
+
+/**
+ * Where a user's admin access comes from: "bootstrap" / "env" (code and
+ * environment, not removable from the dashboard) and "db" (granted from the
+ * dashboard). Allowlisted emails only count once verified.
+ */
+export const adminSourcesFor = (
+    { email, id, emailVerified = false } = {},
+    dashboardAdminIds = new Set(),
+) => {
+    const sources = [];
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const userId = String(id || "").trim();
+    if (emailVerified === true && normalizedEmail) {
+        if (BOOTSTRAP_ADMIN_EMAILS.map((item) => item.toLowerCase()).includes(normalizedEmail)) {
+            sources.push("bootstrap");
+        } else if (splitEmails(process.env.ADMIN_EMAILS).includes(normalizedEmail)) {
+            sources.push("env");
+        }
+    }
+    if (userId && listAdminUserIds().includes(userId) && !sources.includes("env")) {
+        sources.push("env");
+    }
+    if (userId && dashboardAdminIds.has(userId)) {
+        sources.push("db");
+    }
+    return sources;
+};
