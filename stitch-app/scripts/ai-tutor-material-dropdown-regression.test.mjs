@@ -12,15 +12,13 @@ const tutorSource = await read('src/pages/AIStudyTutor.jsx');
 
 for (const expectedSnippet of [
   "from '@/components/ui/dropdown-menu';",
-  'api.courses.getUserCourses',
-  'api.courses.getCourseWithTopics',
-  'api.topicChat.getMessages',
-  'api.ai.askTopicTutor',
+  "fetch('/api/courses', {",
+  "fetch(`/api/courses/${encodeURIComponent(effectiveCourseId)}`, {",
   'selectedTopicId',
   'aria-label="AI tutor material"',
   '<DropdownMenuTrigger asChild>',
   '<DropdownMenuRadioGroup value={effectiveSelectedTopicId} onValueChange={setSelectedTopicId}>',
-  "placeholder={`Ask a question about ${selectedTopicOption?.title || 'this lesson'}...`}",
+  "placeholder={`Ask a question about ${selectedTopicOption.title || 'this lesson'}...`}",
 ]) {
   if (!tutorSource.includes(expectedSnippet)) {
     throw new Error(`Expected AIStudyTutor.jsx to include "${expectedSnippet}".`);

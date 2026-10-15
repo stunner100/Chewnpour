@@ -80,8 +80,9 @@ if (!/"source": "\/api\/podcast-generate"/.test(vercelSource)) {
   throw new Error('Expected Vercel rewrite to isolate /api/podcast-generate.');
 }
 
-if (!/LessonPodcastCard/.test(contentPanelSource)) {
-  throw new Error('Expected TopicContentPanel to mount LessonPodcastCard.');
+// Study mode deliberately keeps the podcast card out of the lesson panel (a4179689e).
+if (/LessonPodcastCard/.test(contentPanelSource)) {
+  throw new Error('Expected TopicContentPanel to keep the podcast card out of primary study mode.');
 }
 if (!/\/api\/podcast-generate/.test(cardSource) || !/\/api\/podcasts/.test(cardSource)) {
   throw new Error('Expected LessonPodcastCard to list and generate over HTTP.');

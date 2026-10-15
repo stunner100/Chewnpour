@@ -101,7 +101,9 @@ requireExcludes('BotIcon', 'bot fallback avatar icon');
 requireIncludes('TutorTypingIndicator', 'shadcn marker typing indicator');
 requireIncludes('@/components/ui/marker', 'shadcn marker primitive for typing status');
 requireIncludes('isTyping={isBusy}', 'sending-aware tutor typing state');
-requireIncludes('className="shimmer', 'css shimmer typing animation');
+if (!/className="[^"]*\bshimmer\b/.test(typingIndicatorSource)) {
+  throw new Error('AI tutor chat UX should keep css shimmer typing animation on TutorTypingIndicator.');
+}
 requireIncludes('is typing...', 'tutor typing copy');
 requireExcludes('@/components/ai-elements/shimmer', 'broken motion shimmer dependency for typing');
 requireExcludes('Tutor is preparing an answer', 'legacy spinner typing copy');

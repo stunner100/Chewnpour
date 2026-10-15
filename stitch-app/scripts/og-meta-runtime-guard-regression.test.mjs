@@ -19,10 +19,14 @@ assert.match(
 );
 
 const guardCallIndex = mainSource.indexOf('ensureSocialMetaDefaults();');
-const renderCallIndex = mainSource.indexOf('createRoot(document.getElementById(\'root\')).render(');
+const renderCallIndex = Math.min(
+  mainSource.lastIndexOf('renderNormalApp();'),
+  mainSource.lastIndexOf('renderMaintenanceApp();'),
+);
 
 assert.ok(guardCallIndex >= 0, 'Expected ensureSocialMetaDefaults() call in src/main.jsx');
-assert.ok(renderCallIndex >= 0, 'Expected createRoot render call in src/main.jsx');
+assert.match(mainSource, /const root = createRoot\(document\.getElementById\('root'\)\);/, 'Expected createRoot bootstrap in src/main.jsx');
+assert.ok(renderCallIndex >= 0, 'Expected render bootstrap calls in src/main.jsx');
 assert.ok(
   guardCallIndex < renderCallIndex,
   'Expected ensureSocialMetaDefaults() to run before React render bootstrap'

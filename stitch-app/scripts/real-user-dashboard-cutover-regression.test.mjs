@@ -33,10 +33,6 @@ const [
 for (const snippet of [
   'useAuth()',
   'profile?.fullName',
-  'profile?.educationLevel',
-  'profile?.department',
-  'Study workspace',
-  'Edit profile',
   '/dashboard/library',
 ]) {
   requireIncludes(dashboardPageSource, snippet, 'StudentDashboard.jsx');

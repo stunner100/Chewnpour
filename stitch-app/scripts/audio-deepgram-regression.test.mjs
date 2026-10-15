@@ -19,7 +19,8 @@ assert.match(deepgramSource, /callDeepgramTranscribe/, 'deepgram client required
 assert.match(uploadsSource, /tryDeepgramTranscribe/, 'finalize must transcribe audio');
 assert.match(uploadsSource, /isAudioUploadType/, 'finalize must detect audio');
 assert.match(uploadUi, /\.mp3/, 'upload UI must accept mp3');
-assert.match(uploadUi, /FLAC/, 'upload UI copy must mention audio formats');
+assert.match(uploadUi, /\.flac/, 'upload input must accept audio formats');
+assert.match(uploadUi, /or audio \(MP3, M4A, WAV/, 'upload UI copy must mention audio formats');
 
 assert.equal(
   isAllowedStudyUploadType({

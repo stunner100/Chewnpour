@@ -18,13 +18,13 @@ const signOutBlock = authContextSource.slice(signOutStart, updateProfileStart);
 
 assert.match(
   signOutBlock,
-  /const\s+transient\s*=\s*isTransientSessionError\(error\);/,
-  'signOut should classify Better Auth failures as transient before reporting them.',
+  /operation:\s*'sign_out'/,
+  'signOut should report Better Auth failures through captureAuthFailure.',
 );
 
 assert.match(
   signOutBlock,
-  /level:\s*transient\s*\?\s*['"]warning['"]\s*:\s*['"]error['"]/,
+  /level:\s*isTransientSessionError\(error\)\s*\?\s*['"]warning['"]\s*:\s*['"]error['"]/,
   'Transient sign_out fetch failures should be captured as warnings so Sentry drops auth transport noise.',
 );
 

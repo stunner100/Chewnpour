@@ -23,7 +23,7 @@ const requireExcludes = (snippet, label) => {
 requireIncludes('px-4 py-8 md:px-8 md:py-10', 'compact page spacing');
 requireIncludes('font-display text-display-md font-bold tracking-[-0.02em] text-text-primary', 'compact page title');
 requireIncludes('mt-2 max-w-xl text-pretty text-body-md text-text-secondary', 'compact subtitle');
-requireIncludes('rounded-full px-4 py-2 text-body-sm font-semibold', 'compact filter tabs');
+requireIncludes('options={filterLabels}', 'segmented filter tabs');
 requireIncludes('rounded-[24px] border border-border-subtle bg-surface p-5', 'compact material card padding');
 requireIncludes('line-clamp-2 font-display text-display-sm font-bold text-text-primary', 'compact material card title');
 requireIncludes('mt-1 text-caption font-medium text-text-muted', 'compact upload timestamp');

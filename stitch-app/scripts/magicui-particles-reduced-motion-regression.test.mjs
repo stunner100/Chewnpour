@@ -9,7 +9,10 @@ if (!/prefers-reduced-motion:\s*reduce/.test(source)) {
   throw new Error("Particles must check the prefers-reduced-motion media query.");
 }
 
-if (!/addEventListener\('change',\s*handleChange\)/.test(source)) {
+if (
+  !/addEventListener\('change',\s*onStoreChange\)/.test(source)
+  || !/useSyncExternalStore\(\s*subscribeReducedMotion,/.test(source)
+) {
   throw new Error("Particles must react when reduced-motion preference changes.");
 }
 

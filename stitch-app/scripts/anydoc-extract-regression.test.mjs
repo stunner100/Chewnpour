@@ -122,8 +122,10 @@ assert.equal(docxResult.parser, "anydoc_docx");
 assert.match(uploadsSource, /from "\.\/anydocClient\.js"/);
 assert.match(uploadsSource, /callAnydocExtract/);
 assert.match(uploadsSource, /isAnydocUnsupportedError/);
-assert.match(uploadsSource, /Scanned or image-only document; OCR is not enabled/);
-assert.match(uploadsSource, /extraction_status: "deferred"/);
+// Scanned/image-only documents fall back to OCR.space, failing honestly when it is not configured.
+assert.match(uploadsSource, /tryOcrSpaceFallback\(/);
+assert.match(uploadsSource, /Scanned or image-only document\. OCR is not configured\./);
+assert.doesNotMatch(uploadsSource, /extraction_status: "deferred"/);
 assert.doesNotMatch(uploadsSource, /callDoclingExtract|doclingClient|isDoclingEnabled/);
 
 const anydocClientSource = await fs.readFile(
