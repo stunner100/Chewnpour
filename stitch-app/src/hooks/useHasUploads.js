@@ -10,7 +10,6 @@ export const useHasUploads = () => {
     useEffect(() => {
         if (!user?.id) {
             cachedHasUploads = false;
-            setHasUploads(false);
             return undefined;
         }
 
@@ -36,5 +35,6 @@ export const useHasUploads = () => {
         };
     }, [user?.id]);
 
-    return hasUploads;
+    // Signed-out users never have uploads, whatever the last session cached.
+    return user?.id ? hasUploads : false;
 };

@@ -82,16 +82,29 @@ export default function LessonSectionStepper({
         });
     }, [clampedIndex, step, speechText, finished, onStepChange]);
 
+    // A section jump (TOC, tutor) arrives as a prop. Apply it during render;
+    // the effect below only scrolls and tells the parent it was consumed.
+    const requestedSection = requestedIndex == null || requestedIndex === ''
+        || !Number.isFinite(Number(requestedIndex))
+        ? null
+        : Math.round(Number(requestedIndex));
+    const validRequest = requestedSection != null && requestedSection >= 0 && requestedSection < total
+        ? requestedSection
+        : null;
+    const [appliedRequest, setAppliedRequest] = useState(null);
+    if (validRequest !== appliedRequest) {
+        setAppliedRequest(validRequest);
+        if (validRequest != null) {
+            setFinished(false);
+            setIndex(validRequest);
+        }
+    }
+
     useEffect(() => {
-        if (requestedIndex == null || requestedIndex === '') return;
-        if (!Number.isFinite(Number(requestedIndex))) return;
-        const next = Math.round(Number(requestedIndex));
-        if (next < 0 || next >= total) return;
-        setFinished(false);
-        setIndex(next);
+        if (validRequest == null) return;
         scrollLessonToTop(reduceMotion);
         onRequestConsumed?.();
-    }, [requestedIndex, total, reduceMotion, onRequestConsumed]);
+    }, [validRequest, reduceMotion, onRequestConsumed]);
 
     const markAttempted = useCallback((questionId) => {
         if (!questionId) return;

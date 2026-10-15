@@ -1,4 +1,3 @@
-/* eslint-env node */
 export const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];
 
 const splitEmails = (value) =>

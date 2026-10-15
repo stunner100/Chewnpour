@@ -48,7 +48,7 @@ const formatHistoryForPrompt = (messages) => {
         .join("\n");
 };
 
-const buildFallbackAnswer = ({ topic, question }) => {
+const buildFallbackAnswer = ({ topic }) => {
     const content = String(topic?.content || "").replace(/\s+/g, " ").trim();
     const snippet = content.slice(0, 420);
     const title = String(topic?.title || "this lesson").trim();

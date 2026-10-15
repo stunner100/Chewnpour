@@ -64,16 +64,29 @@ const sameStudyPosition = (left, right) => Boolean(
  */
 export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
     const [topicProgress, setTopicProgress] = useState(null);
-    const [progressLoaded, setProgressLoaded] = useState(false);
     const [sourcePassages, setSourcePassages] = useState([]);
     const [currentStepSpeech, setCurrentStepSpeech] = useState('');
     const [stepperReport, setStepperReport] = useState(null);
+    // Progress belongs to one user+topic. Reset it during render when that
+    // scope changes so the previous topic's state never flashes on the next.
+    const scopeKey = topicId && userId ? `${userId}:${topicId}` : '';
+    const [activeScope, setActiveScope] = useState(scopeKey);
+    const [loadedScope, setLoadedScope] = useState(null);
+    if (activeScope !== scopeKey) {
+        setActiveScope(scopeKey);
+        setTopicProgress(null);
+        setSourcePassages([]);
+        setStepperReport(null);
+    }
+    const progressLoaded = !scopeKey || loadedScope === scopeKey;
     const lastPersistedPositionRef = useRef(null);
     const persistQueueRef = useRef(Promise.resolve());
     const pendingPositionRef = useRef(null);
     const latestPositionRef = useRef(null);
     const completedAtRef = useRef(null);
-    completedAtRef.current = topicProgress?.completedAt;
+    useEffect(() => {
+        completedAtRef.current = topicProgress?.completedAt;
+    }, [topicProgress?.completedAt]);
     const restoredPosition = useMemo(
         () => normalizeStudyPosition(topicProgress?.studyPosition),
         [topicProgress?.studyPosition],
@@ -83,24 +96,13 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
     const currentStepFinished = stepperReport?.finished ?? Boolean(restoredPosition?.finished);
 
     useEffect(() => {
-        if (!topicId || !userId) {
-            setTopicProgress(null);
-            setSourcePassages([]);
-            setProgressLoaded(true);
-            lastPersistedPositionRef.current = null;
-            pendingPositionRef.current = null;
-            latestPositionRef.current = null;
-            persistQueueRef.current = Promise.resolve();
-            setStepperReport(null);
-            return undefined;
-        }
-        let cancelled = false;
-        setProgressLoaded(false);
         lastPersistedPositionRef.current = null;
         pendingPositionRef.current = null;
         latestPositionRef.current = null;
         persistQueueRef.current = Promise.resolve();
-        setStepperReport(null);
+        if (!topicId || !userId) return undefined;
+        let cancelled = false;
+        const scope = `${userId}:${topicId}`;
         fetchTopicProgress(topicId)
             .then((progress) => {
                 if (!cancelled) setTopicProgress(progress);
@@ -109,7 +111,7 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
                 if (!cancelled) setTopicProgress(null);
             })
             .finally(() => {
-                if (!cancelled) setProgressLoaded(true);
+                if (!cancelled) setLoadedScope(scope);
             });
         fetchTopicPassages(topicId)
             .then((passages) => {
@@ -127,6 +129,8 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         if (!topicId) return null;
         try {
             const progress = await upsertTopicProgressRequest(topicId, patch);
+            // Queued position saves read this before React re-renders.
+            completedAtRef.current = progress?.completedAt;
             setTopicProgress(progress);
             return progress;
         } catch {

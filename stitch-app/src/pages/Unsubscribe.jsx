@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PublicShell from '../components/PublicShell';
 import AppIcon from '../components/AppIcon';
@@ -20,32 +20,16 @@ const normalizeType = (value) => String(value || '').trim().toLowerCase();
  */
 const Unsubscribe = () => {
     const [searchParams] = useSearchParams();
-    const [unsubscribeState, setUnsubscribeState] = useState({
-        status: 'loading',
-        message: '',
-    });
-    const { status, message } = unsubscribeState;
 
     const token = String(searchParams.get('token') || '').trim();
     const emailType = normalizeType(searchParams.get('type') || 'all');
     const label = useMemo(() => LABELS[emailType] || LABELS.all, [emailType]);
 
-    useEffect(() => {
-        if (!token) {
-            setUnsubscribeState({
-                status: 'error',
-                message: 'This unsubscribe link is missing a token.',
-            });
-            return;
-        }
-
-        setUnsubscribeState({
-            status: 'error',
-            message:
-                `We could not process this unsubscribe link for ${label} yet. ` +
-                'Email preferences are being moved to the new backend — manage them from Settings once signed in, or reply to the email for help.',
-        });
-    }, [emailType, label, token]);
+    const status = 'error';
+    const message = token
+        ? `We could not process this unsubscribe link for ${label} yet. `
+            + 'Email preferences are being moved to the new backend — manage them from Settings once signed in, or reply to the email for help.'
+        : 'This unsubscribe link is missing a token.';
 
     const iconChip = status === 'success'
         ? { bg: '#B39DFF', fg: '#0A0A0A', icon: 'check_circle' }

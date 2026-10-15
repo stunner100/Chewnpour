@@ -8,6 +8,25 @@ const normalizeForSpeech = (text) =>
         .replace(/\s+([.,!?;:])/g, "$1")
         .trim();
 
+
+// Audio element setup lives outside the hook: the React compiler treats a
+// value read from a ref as immutable inside hook callbacks.
+const createLessonAudio = () => {
+    const audio = new Audio();
+    audio.playsInline = true;
+    audio.preload = "auto";
+    return audio;
+};
+
+const loadLessonAudio = (audio, { src, onEnded, onError }) => {
+    audio.onended = onEnded;
+    audio.onerror = onError;
+    audio.muted = false;
+    audio.volume = 1;
+    audio.src = src;
+    return audio;
+};
+
 export const splitLessonVoiceChunks = (text, maxChars = DEFAULT_CHUNK_CHARS) => {
     const normalized = normalizeForSpeech(text);
     if (!normalized) return [];
@@ -53,7 +72,12 @@ export const useVoicePlayback = ({ remoteStream = null } = {}) => {
     const chunkIndexRef = useRef(0);
     const playbackIdRef = useRef(0);
     const remoteStreamRef = useRef(remoteStream);
-    remoteStreamRef.current = remoteStream;
+    // Lets the audio "ended" handler start the next chunk without playChunk
+    // referencing itself inside its own useCallback.
+    const playChunkRef = useRef(null);
+    useEffect(() => {
+        remoteStreamRef.current = remoteStream;
+    }, [remoteStream]);
 
     const isSupported = canCreateAudioElement();
 
@@ -115,41 +139,37 @@ export const useVoicePlayback = ({ remoteStream = null } = {}) => {
             objectUrlsRef.current.push(resolvedUrl);
         }
 
-        let audio = audioRef.current;
-        if (!audio) {
-            audio = new Audio();
-            audio.playsInline = true;
-            audio.preload = "auto";
-            audioRef.current = audio;
-        }
-
-        audio.onended = () => {
-            if (playbackId !== playbackIdRef.current) return;
-            const nextIndex = chunkIndexRef.current + 1;
-            if (nextIndex < chunksRef.current.length) {
-                chunkIndexRef.current = nextIndex;
-                playChunk(playbackId, nextIndex).catch((playError) => {
-                    if (playbackId !== playbackIdRef.current) return;
-                    setError(playError?.message || "Could not continue reading the lesson.");
-                    setStatus("error");
-                });
-                return;
-            }
-            setStatus("idle");
-        };
-        audio.onerror = () => {
-            if (playbackId !== playbackIdRef.current) return;
-            setError("Could not play the lesson audio.");
-            setStatus("error");
-        };
-
-        audio.muted = false;
-        audio.volume = 1;
-        audio.src = resolvedUrl;
+        if (!audioRef.current) audioRef.current = createLessonAudio();
+        const audio = loadLessonAudio(audioRef.current, {
+            src: resolvedUrl,
+            onEnded: () => {
+                if (playbackId !== playbackIdRef.current) return;
+                const nextIndex = chunkIndexRef.current + 1;
+                if (nextIndex < chunksRef.current.length) {
+                    chunkIndexRef.current = nextIndex;
+                    playChunkRef.current(playbackId, nextIndex).catch((playError) => {
+                        if (playbackId !== playbackIdRef.current) return;
+                        setError(playError?.message || "Could not continue reading the lesson.");
+                        setStatus("error");
+                    });
+                    return;
+                }
+                setStatus("idle");
+            },
+            onError: () => {
+                if (playbackId !== playbackIdRef.current) return;
+                setError("Could not play the lesson audio.");
+                setStatus("error");
+            },
+        });
         await audio.play();
         if (playbackId !== playbackIdRef.current) return;
         setStatus("playing");
     }, []);
+
+    useEffect(() => {
+        playChunkRef.current = playChunk;
+    }, [playChunk]);
 
     const play = useCallback(async (text) => {
         const chunks = splitLessonVoiceChunks(text);
