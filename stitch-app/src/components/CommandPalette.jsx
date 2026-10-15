@@ -13,6 +13,7 @@ const NAV_OPTIONS = [
     { label: 'Quizzes', value: '/dashboard/quiz', icon: 'quiz', keywords: ['test', 'assessment'] },
     { label: 'Podcasts', value: '/dashboard/podcasts', icon: 'podcasts', keywords: ['audio', 'listen', 'headphones'] },
     { label: 'Timed exams', value: '/dashboard/exam', icon: 'school', keywords: ['exam', 'mcq', 'timed'] },
+    { label: 'Past questions', value: '/dashboard/past-questions', icon: 'description', keywords: ['past papers', 'pasco', 'exam', 'questions'] },
     { label: 'AI Tutor', value: '/dashboard/ai-tutor', icon: 'smart_toy', keywords: ['chat', 'help', 'explain'] },
     { label: 'Study Plan', value: '/dashboard/progress', icon: 'event_note', keywords: ['schedule', 'plan', 'analysis'] },
     { label: 'Profile', value: '/dashboard/settings#profile', icon: 'person', keywords: ['account', 'settings'] },

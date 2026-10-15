@@ -16,6 +16,7 @@ import {
   BarChart3Icon,
   BookOpenIcon,
   CloudUploadIcon,
+  FileTextIcon,
   FolderIcon,
   GraduationCapIcon,
   HeadphonesIcon,
@@ -32,6 +33,7 @@ const navItems = [
   { title: 'Quizzes', url: '/dashboard/quiz', icon: CircleHelpIcon },
   { title: 'Podcasts', url: '/dashboard/podcasts', icon: HeadphonesIcon },
   { title: 'Timed exams', url: '/dashboard/exam', icon: GraduationCapIcon },
+  { title: 'Past questions', url: '/dashboard/past-questions', icon: FileTextIcon },
   { title: 'AI Tutor', url: '/dashboard/ai-tutor', icon: TutorAvatarMark, isTutorAvatar: true },
   { title: 'Progress', url: '/dashboard/progress', icon: BarChart3Icon },
 ];

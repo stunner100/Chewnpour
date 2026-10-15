@@ -4,4 +4,5 @@ export const TABS = [
     { key: 'content', label: 'Content', icon: 'library_books' },
     { key: 'users', label: 'Users', icon: 'group' },
     { key: 'uploads', label: 'Uploads', icon: 'cloud_upload' },
+    { key: 'past-papers', label: 'Past questions', icon: 'description' },
 ];

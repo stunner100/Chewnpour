@@ -47,9 +47,9 @@ export const ensureStudyUploadsBucket = async () => {
     return bucket;
 };
 
-export const createSignedUpload = async ({ path, upsert = false }) => {
+export const createSignedUpload = async ({ path, upsert = false, bucket: targetBucket }) => {
     const supabase = getSupabaseAdmin();
-    const bucket = await ensureStudyUploadsBucket();
+    const bucket = String(targetBucket || "").trim() || (await ensureStudyUploadsBucket());
     const { data, error } = await supabase.storage
         .from(bucket)
         .createSignedUploadUrl(path, { upsert });
@@ -101,13 +101,14 @@ export const createSignedDownloadUrl = async ({
     bucket,
     path,
     expiresIn = 3600,
+    download,
 } = {}) => {
     const supabase = getSupabaseAdmin();
     const targetBucket =
         String(bucket || "").trim() || (await ensureStudyUploadsBucket());
     const { data, error } = await supabase.storage
         .from(targetBucket)
-        .createSignedUrl(path, expiresIn);
+        .createSignedUrl(path, expiresIn, download ? { download } : undefined);
     if (error) {
         throw new Error(`Failed to create signed download URL: ${error.message}`);
     }

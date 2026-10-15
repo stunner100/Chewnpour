@@ -2,6 +2,7 @@ import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
 import { BOOTSTRAP_ADMIN_EMAILS, isAdminUser } from "./adminAccess.js";
 import { getAdminSnapshot } from "./adminMetrics.js";
+import { handleAdminPastPapersRequest } from "./pastPaperHttp.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -54,6 +55,10 @@ export const handleAdminRequest = async (req, res) => {
                 },
                 bootstrapAdminIncludes: BOOTSTRAP_ADMIN_EMAILS[0],
             });
+        }
+
+        if (pathname === "/api/admin/past-papers" || pathname.startsWith("/api/admin/past-papers/")) {
+            return handleAdminPastPapersRequest(req, res, user);
         }
 
         res.setHeader("Allow", "GET");
