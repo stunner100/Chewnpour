@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api-localdb",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["DEV_ENV_FILE=.env.localdb", "npm", "--prefix", "stitch-app", "run", "dev:auth"],
+      "port": 8787
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "stitch-app", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}
