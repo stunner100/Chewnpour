@@ -35,8 +35,7 @@ requireIncludes(appSource, "<TopicDetail key={topicId || 'topic'} />", 'App.jsx'
 requireExcludes(lessonsSource, 'const LessonDetailView = ({ topic }) => {', 'LessonMemoryNeuralBasis.jsx');
 requireExcludes(lessonsSource, 'api.topics.getTopicWithQuestions', 'LessonMemoryNeuralBasis.jsx');
 requireExcludes(lessonsSource, 'return <LessonDetailView topic={topicDetail} />;', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonsSource, 'to={`/dashboard/topic/${resumeTarget.topicId}`}', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonsSource, 'to={`/dashboard/topic/${topic._id}`}', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonsSource, 'to={`/dashboard/topic/${encodeURIComponent(topic.id)}`}', 'LessonMemoryNeuralBasis.jsx');
 requireExcludes(lessonsSource, "Navigate to={`/dashboard/topic/${lessonId}`}", 'LessonMemoryNeuralBasis.jsx');
 
 console.log('lesson-route-cutover-regression.test.mjs passed');

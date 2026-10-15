@@ -18,8 +18,11 @@ const requireExcludes = (source, snippet, label) => {
 };
 
 requireIncludes(quizSource, 'const quizReadyCourses = useMemo(', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'Boolean(course.firstQuizTopicId) || Number(course.quizzesReady || 0) > 0', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'quizReadyCourses.slice(0, 8).map((course)', 'ActiveQuizSession.jsx');
+if (!/Boolean\(course\.firstQuizTopicId\)\s*\|\| Number\(course\.quizzesReady \|\| 0\) > 0/.test(quizSource)) {
+  throw new Error('Expected ActiveQuizSession.jsx to list only courses with quiz-ready topics.');
+}
+requireIncludes(quizSource, '{quizReadyCourses.length === 0 ? (', 'ActiveQuizSession.jsx empty state gate');
+requireIncludes(quizSource, 'quizReadyCourses.map((course)', 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, "from 'convex/react'", 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, 'courseList.slice(0, 4).map((course)', 'ActiveQuizSession.jsx');
 

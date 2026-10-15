@@ -10,15 +10,15 @@ const read = (relativePath) => {
 
 const appSource = read("src/App.jsx");
 
-for (const route of [
-  '<Route path="/kids" element={<Navigate to="/" replace />} />',
-  '<Route path="/kids/parent" element={<Navigate to="/" replace />} />',
-  '<Route path="/kids/upload" element={<Navigate to="/" replace />} />',
-  '<Route path="/kids/child" element={<Navigate to="/" replace />} />',
-  '<Route path="/kids/lesson/:lessonId" element={<Navigate to="/" replace />} />',
-]) {
-  assert.ok(appSource.includes(route), `App.jsx missing parked Kids redirect: ${route}`);
+const parkedKidsView = 'element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />';
+for (const path of ["/kids", "/kids/parent", "/kids/upload", "/kids/child", "/kids/lesson/:lessonId"]) {
+  const route = `<Route path="${path}" ${parkedKidsView}`;
+  assert.ok(appSource.includes(route), `App.jsx missing parked Kids route: ${route}`);
 }
+assert.ok(
+  appSource.includes('<Route path="/dashboard/kids" element={<ParkedDashboardFeature title="Kids mode" />} />'),
+  "App.jsx missing parked dashboard Kids route",
+);
 
 assert.equal(
   /KidsParentHome|KidsUpload|KidsChildHome|KidsLesson/.test(appSource),

@@ -3,22 +3,25 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const httpSource = await fs.readFile(path.join(root, 'convex', 'http.ts'), 'utf8');
+const authSource = await fs.readFile(path.join(root, 'server', 'auth.js'), 'utf8');
 
-const requiredOrigins = [
+const productionOriginsBlock = authSource.match(/const PRODUCTION_ORIGINS = \[([\s\S]*?)\];/);
+if (!productionOriginsBlock) {
+  throw new Error('Expected server/auth.js to define PRODUCTION_ORIGINS.');
+}
+
+for (const origin of [
   'https://www.chewnpour.com',
   'https://chewnpour.com',
   'https://staging.chewnpour.com',
-];
-
-for (const origin of requiredOrigins) {
-  if (!httpSource.includes(origin)) {
-    throw new Error(`Missing Better Auth CORS origin: ${origin}`);
+]) {
+  if (!productionOriginsBlock[1].includes(`"${origin}"`)) {
+    throw new Error(`Missing Better Auth trusted origin: ${origin}`);
   }
 }
 
-if (!/allowedOrigins:\s*AUTH_CORS_ALLOWED_ORIGINS/.test(httpSource)) {
-  throw new Error('Expected Better Auth HTTP routes to use AUTH_CORS_ALLOWED_ORIGINS.');
+if (!/trustedOrigins: async \(request\) => \{[\s\S]*?\.\.\.PRODUCTION_ORIGINS,/.test(authSource)) {
+  throw new Error('Expected Better Auth trustedOrigins to include PRODUCTION_ORIGINS.');
 }
 
 console.log('auth-cors-origins-regression.test.mjs passed');

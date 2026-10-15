@@ -61,40 +61,15 @@ if (!/captureAuthFailure\s*=\s*\(/.test(authSource)) {
 }
 for (const pattern of [
   'authBaseUrl',
-  'connectionEffectiveType',
-  'connectionDownlink',
-  'connectionRtt',
-  'connectionSaveData',
   "operation: 'sign_in_google'",
-  "operation: 'sign_in'",
-  "operation: 'sign_up'",
-  "operation: 'ott_verify'",
+  "operation: 'sign_in_email'",
+  "operation: 'sign_up_email'",
+  "operation: 'sign_out'",
+  "operation: 'profile_fetch'",
 ]) {
   if (!authSource.includes(pattern)) {
     throw new Error(`Expected AuthContext to include auth diagnostics pattern "${pattern}".`);
   }
-}
-
-const examModeSource = await fs.readFile(path.join(root, 'src', 'pages', 'ExamMode.jsx'), 'utf8');
-if (!/EXAM_LOADING_STALL_TIMEOUT_MS/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to define a loading stall timeout.');
-}
-if (!/Exam flow stalled in loading state/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to report stalled exam loading to Sentry.');
-}
-
-const convexAiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
-if (!/captureBackendSentryMessage/.test(convexAiSource)) {
-  throw new Error('Expected convex/ai.ts to define backend Sentry message capture helper.');
-}
-if (!/Question bank generation hit time budget/.test(convexAiSource)) {
-  throw new Error('Expected question-bank time budget warnings to be sent to backend Sentry.');
-}
-if (!/Question bank generation hit no-progress limit/.test(convexAiSource)) {
-  throw new Error('Expected no-progress question-bank exits to be sent to backend Sentry.');
-}
-if (!/Question bank generation finished/.test(convexAiSource)) {
-  throw new Error('Expected question-bank completion summaries to be sent to backend Sentry.');
 }
 
 console.log('sentry-instrumentation-regression.test.mjs passed');

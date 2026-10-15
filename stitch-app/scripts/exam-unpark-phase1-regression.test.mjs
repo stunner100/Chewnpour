@@ -35,18 +35,15 @@ assert.doesNotMatch(
 );
 
 assert.match(exam, /\/api\/courses/, 'Exam hub must load live courses');
-assert.match(exam, /autostart=mcq/, 'Exam start links must autostart MCQ quiz sessions');
-assert.match(exam, /Start exam practice/, 'Exam hub must offer exam practice CTAs');
+assert.match(exam, /fetch\('\/api\/exams', \{/, 'Exam hub must start timed exams through the exams API');
+assert.match(exam, /\/api\/exams\/\$\{exam\.id\}\/submit/, 'Exam hub must submit through the exams API');
 assert.doesNotMatch(exam, /ParkedFeatureView/, 'ExamMode must not render the parked stub');
 assert.doesNotMatch(exam, /from ['"]convex\//i, 'ExamMode must stay Convex-free');
 
-assert.match(sidebar, /title: 'Exam practice'/, 'Sidebar must include Exam practice');
+assert.match(sidebar, /title: 'Timed exams'/, 'Sidebar must include Timed exams');
 assert.match(sidebar, /url: '\/dashboard\/exam'/, 'Sidebar Exam must point at /dashboard/exam');
 assert.match(dashboard, /to: '\/dashboard\/exam'/, 'Dashboard quick actions must include Exam');
 assert.match(mobileNav, /path: '\/dashboard\/exam'/, 'Mobile more menu must include Exam');
 assert.match(commandPalette, /value: '\/dashboard\/exam'/, 'Command palette must include Exam');
-
-assert.match(exam, /Exam practice/, 'Exam hub must use Exam practice labelling');
-assert.match(exam, /same question bank as Quizzes/, 'Exam hub must disclose shared quiz bank');
 
 console.log('exam-unpark-phase1-regression.test.mjs passed');

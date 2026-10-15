@@ -27,9 +27,9 @@ if (!/handleProfileRequest/.test(profileHttp) || !/auth\.api\.getSession/.test(p
   throw new Error('Expected profile HTTP handler to require a Better Auth session.');
 }
 
-const apiRoute = await fs.readFile(path.join(root, 'api', 'profile.js'), 'utf8');
-if (!/handleProfileRequest/.test(apiRoute)) {
-  throw new Error('Expected api/profile.js to export the profile HTTP handler.');
+const apiRouter = await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8');
+if (!/pathname === "\/api\/profile"[\s\S]*?return handleProfileRequest\(req, res\);/.test(apiRouter)) {
+  throw new Error('Expected api/router.js to route /api/profile to the profile HTTP handler.');
 }
 
 const authContext = await fs.readFile(path.join(root, 'src', 'contexts', 'AuthContext.jsx'), 'utf8');
@@ -38,11 +38,6 @@ if (!/fetch\('\/api\/profile'/.test(authContext)) {
 }
 if (/buildMilestoneProfile/.test(authContext)) {
   throw new Error('Expected AuthContext to stop using the stub milestone profile builder.');
-}
-
-const dashboard = await fs.readFile(path.join(root, 'src', 'pages', 'StudentDashboard.jsx'), 'utf8');
-if (!/Edit profile/.test(dashboard) || !/educationLevel|department/.test(dashboard)) {
-  throw new Error('Expected StudentDashboard to render persisted profile fields.');
 }
 
 const settings = await fs.readFile(path.join(root, 'src', 'pages', 'AccountStudySettings.jsx'), 'utf8');

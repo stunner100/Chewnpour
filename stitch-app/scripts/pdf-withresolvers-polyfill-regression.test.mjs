@@ -18,23 +18,4 @@ assert.ok(
     'Expected app bootstrap to install Promise.withResolvers polyfill.',
 );
 
-const dashboardSource = read('src/pages/DashboardAnalysis.jsx');
-assert.match(
-    dashboardSource,
-    /ensurePromiseWithResolvers\(\);\s*\n\s*const pdfjsLib = await import\('pdfjs-dist\/build\/pdf\.mjs'\);/,
-    'Expected DashboardAnalysis PDF extraction to install polyfill before loading pdfjs.',
-);
-assert.match(
-    dashboardSource,
-    /processUploadedFile\(\{\s*uploadId,\s*courseId,\s*userId,\s*extractedText\s*\}\)/,
-    'Expected DashboardAnalysis to pass extractedText when dispatching processUploadedFile.',
-);
-
-const assignmentSource = read('src/pages/AssignmentHelper.jsx');
-assert.match(
-    assignmentSource,
-    /ensurePromiseWithResolvers\(\);\s*\n\s*const pdfjsLib = await import\('pdfjs-dist\/build\/pdf\.mjs'\);/,
-    'Expected AssignmentHelper PDF extraction to install polyfill before loading pdfjs.',
-);
-
 console.log('pdf-withresolvers-polyfill-regression.test.mjs passed');

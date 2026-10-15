@@ -21,7 +21,6 @@ if (!maintenanceModeSource.includes("import.meta.env.VITE_MAINTENANCE_MODE === '
 for (const snippet of [
   "import MaintenanceScreen from '../components/MaintenanceScreen.jsx';",
   "import { maintenanceModeEnabled } from '../lib/maintenance-mode.js';",
-  'const convex = !maintenanceModeEnabled && hasConvexUrl ? new ConvexReactClient(convexUrl) : null;',
   'if (maintenanceModeEnabled) {',
   '<MaintenanceScreen />',
 ]) {
@@ -31,7 +30,7 @@ for (const snippet of [
 }
 
 const maintenanceBranchIndex = appProvidersSource.indexOf('if (maintenanceModeEnabled) {');
-const normalProviderIndex = appProvidersSource.indexOf('if (hasConvexUrl && convex) {');
+const normalProviderIndex = appProvidersSource.indexOf('return withAppShell(');
 if (maintenanceBranchIndex === -1 || normalProviderIndex === -1 || maintenanceBranchIndex > normalProviderIndex) {
   throw new Error('Expected AppProviders to render the maintenance screen before normal providers.');
 }

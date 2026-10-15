@@ -10,11 +10,10 @@
 // Skipped by default:
 //   * smoke / benchmark / probe tests and anything issuing a real network call
 //     (they need live services, latency harnesses, or seeded accounts)
-//   * tests that reference the Convex backend when no convex/ checkout exists
 //
 // Options:
 //   --include-live          run live-service tests (or RUN_LIVE=1)
-//   --include-all           run everything, including convex-dependent tests
+//   --include-all           run everything (same as --include-live)
 //   <filter>...             only run tests whose path contains a filter string
 //   --json <path>           also write machine-readable results to <path>
 
@@ -22,7 +21,6 @@ import {
     existsSync,
     readdirSync,
     readFileSync,
-    statSync,
     writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -50,7 +48,7 @@ for (let index = 0; index < rawArgs.length; index += 1) {
 }
 
 if (flags.has("--help") || flags.has("-h")) {
-    console.log(readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(0, 22).join("\n"));
+    console.log(readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(0, 18).join("\n"));
     process.exit(0);
 }
 
@@ -66,8 +64,6 @@ const LIVE_PATTERNS = [/smoke/i, /benchmark/i, /probe/i];
 // deployed auth endpoint but are named "regression").
 const LIVE_FILES = new Set(["production-google-callback-regression.test.mjs"]);
 
-const convexDir = path.join(appRoot, "convex");
-const convexPresent = existsSync(convexDir) && statSync(convexDir).isDirectory();
 const depsInstalled = existsSync(path.join(appRoot, "node_modules"));
 
 const skipReason = (fileName, content) => {
@@ -79,9 +75,6 @@ const skipReason = (fileName, content) => {
         if (liveName || liveFile || liveCall) {
             return liveName ? "live-service test (smoke/benchmark/probe)" : "live-service test";
         }
-    }
-    if (!convexPresent && /(convex\/|['"]convex['"])/.test(content)) {
-        return "convex/ checkout missing";
     }
     return null;
 };

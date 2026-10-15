@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const root = '/Users/patrickannor/Desktop/stitch_onboarding_name/stitch-app';
+const root = process.cwd();
 const recoverySource = await fs.readFile(path.join(root, 'src/lib/chunkLoadRecovery.js'), 'utf8');
 const mainSource = await fs.readFile(path.join(root, 'src/main.jsx'), 'utf8');
 

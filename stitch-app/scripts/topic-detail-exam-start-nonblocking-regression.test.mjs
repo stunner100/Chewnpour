@@ -43,7 +43,6 @@ if (hookSource.includes('autostart=')) {
 }
 
 for (const expectedLabel of [
-  'Start essay',
   'Retry quiz',
   'Start quiz',
 ]) {

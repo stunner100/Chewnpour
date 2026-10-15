@@ -3,14 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-
-const dashboardPath = path.join(root, 'src', 'pages', 'DashboardAnalysis.jsx');
-const assignmentPath = path.join(root, 'src', 'pages', 'AssignmentHelper.jsx');
-
-const [dashboardSource, assignmentSource] = await Promise.all([
-  fs.readFile(dashboardPath, 'utf8'),
-  fs.readFile(assignmentPath, 'utf8'),
-]);
+const uploadSource = await fs.readFile(path.join(root, 'src', 'pages', 'UploadMaterials.jsx'), 'utf8');
 
 const assertValidationOrder = (source, fileName, markers) => {
   const indexes = markers.map((marker) => {
@@ -30,16 +23,11 @@ const assertValidationOrder = (source, fileName, markers) => {
   }
 };
 
-assertValidationOrder(dashboardSource, 'DashboardAnalysis.jsx', [
-  "reason: 'unsupported_file_type'",
-  "reason: 'file_too_large'",
-  "reason: 'upload_quota_exhausted_preflight'",
-]);
-
-assertValidationOrder(assignmentSource, 'AssignmentHelper.jsx', [
-  "reason: 'unsupported_file_type'",
-  "reason: 'file_too_large'",
-  "reason: 'upload_quota_exhausted_preflight'",
+// Reject unsupported types before size, and both before any upload request is made.
+assertValidationOrder(uploadSource, 'UploadMaterials.jsx', [
+  'const uploadFileType = resolveStudyUploadFileType(file);',
+  'if (file.size > MAX_FILE_SIZE_BYTES) {',
+  'const init = await initUpload({',
 ]);
 
 console.log('upload-validation-priority-regression.test.mjs passed');

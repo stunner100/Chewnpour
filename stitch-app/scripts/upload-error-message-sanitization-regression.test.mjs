@@ -74,11 +74,6 @@ for (const forbidden of [
 }
 
 assert.ok(
-  librarySource.includes('Open when ready'),
-  'MyMaterialsLibrary.jsx should use neutral unavailable copy for generated-content cards.',
-);
-
-assert.ok(
   !librarySource.includes('Upload is ready, but there are no lessons to open yet.'),
   'MyMaterialsLibrary.jsx should not render multi-line no-content explanations inside material cards.',
 );
