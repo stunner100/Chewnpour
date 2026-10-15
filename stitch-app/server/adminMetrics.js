@@ -59,8 +59,8 @@ export const fillDailySeries = (rows, { days = DAILY_WINDOW_DAYS, now = new Date
 
 /**
  * A student is "active" when they did something: studied a lesson, took a
- * quiz or exam, sent the tutor a message, or uploaded material. Signing in
- * alone doesn't count.
+ * quiz or exam, sent the tutor a message, did a live oral review, or uploaded
+ * material. Signing in alone doesn't count.
  */
 export const ACTIVITY_CTE = `
     activity AS (
@@ -73,6 +73,8 @@ export const ACTIVITY_CTE = `
         UNION ALL
         SELECT user_id, created_at FROM topic_chat_messages
         WHERE role = 'user' AND created_at >= NOW() - INTERVAL '30 days'
+        UNION ALL
+        SELECT user_id, created_at FROM live_tutor_sessions WHERE created_at >= NOW() - INTERVAL '30 days'
         UNION ALL
         SELECT user_id, created_at FROM uploads WHERE created_at >= NOW() - INTERVAL '30 days'
     )
@@ -154,6 +156,10 @@ const loadAdminSnapshot = async () => {
                 (SELECT count(*)::int FROM topic_podcasts) AS podcasts_total,
                 (SELECT count(*)::int FROM (SELECT DISTINCT user_id, topic_id FROM topic_chat_messages) chats) AS tutor_conversations,
                 (SELECT count(DISTINCT user_id)::int FROM topic_chat_messages) AS tutor_users,
+                (SELECT count(*)::int FROM live_tutor_sessions) AS live_sessions_total,
+                (SELECT count(*)::int FROM live_tutor_sessions WHERE created_at >= NOW() - INTERVAL '7 days') AS live_sessions_7d,
+                (SELECT count(*)::int FROM live_tutor_sessions WHERE outcome = 'completed') AS live_sessions_completed,
+                (SELECT count(DISTINCT user_id)::int FROM live_tutor_sessions) AS live_tutor_users,
                 (SELECT count(*)::int FROM "user" WHERE created_at >= NOW() - INTERVAL '30 days') AS users_30d
         `),
         db.query(STATUS_BREAKDOWN_SQL),
@@ -217,6 +223,10 @@ const loadAdminSnapshot = async () => {
             topicsTotal: toInt(totals.topics_total),
             tutorConversations: toInt(totals.tutor_conversations),
             tutorUsers: toInt(totals.tutor_users),
+            liveSessionsTotal: toInt(totals.live_sessions_total),
+            liveSessions7d: toInt(totals.live_sessions_7d),
+            liveSessionsCompleted: toInt(totals.live_sessions_completed),
+            liveTutorUsers: toInt(totals.live_tutor_users),
             dailyNewUsers: fillDailySeries(dailySeriesResult.rows.filter((row) => row.kind === "new")),
             dailyActiveUsers: fillDailySeries(dailySeriesResult.rows.filter((row) => row.kind === "active")),
         },

@@ -27,7 +27,7 @@ export const shareOfStudents = (part, total) => {
 };
 
 export const ACTIVE_DEFINITION =
-    'Active means the student studied a lesson, took a quiz or exam, asked the tutor, or uploaded material.';
+    'Active means the student studied a lesson, took a quiz or exam, asked the tutor, did a live oral review, or uploaded material.';
 
 export const ADMIN_SOURCE_LABELS = {
     bootstrap: 'Owner (built in)',
