@@ -31,7 +31,7 @@ import { buildTransformedExportZip } from "./materialExport.js";
 const EXTRACTION_FAILED_MESSAGE =
     "Could not extract text from this file. Upload a text-based PDF, DOCX, or PPTX, a scanned PDF with OCR configured, or an audio lecture for transcription.";
 
-const UNSUPPORTED_TYPE_MESSAGE =
+export const UNSUPPORTED_TYPE_MESSAGE =
     "Only PDF, DOCX, PPTX, and audio (MP3, M4A, WAV, WEBM, OGG, AAC, FLAC) files are supported right now.";
 
 const OCR_UNSUPPORTED_HINT =

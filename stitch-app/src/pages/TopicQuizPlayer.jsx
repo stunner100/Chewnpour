@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import QuizProgress from '../components/quiz/QuizProgress';
 import QuizQuestion from '../components/quiz/QuizQuestion';
+import { describeQuizRefresh } from '../lib/quizRefresh';
 
 const TopicQuizPlayer = () => {
     const { topicId } = useParams();
@@ -19,6 +20,7 @@ const TopicQuizPlayer = () => {
     const [answers, setAnswers] = useState({});
     const [questionIndex, setQuestionIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    const [refreshNotice, setRefreshNotice] = useState(null);
 
     const load = useCallback(async () => {
         if (!user?.id || !topicId) {
@@ -37,6 +39,7 @@ const TopicQuizPlayer = () => {
                 });
                 const regeneratedPayload = await regenerated.json().catch(() => ({}));
                 if (regenerated.ok && regeneratedPayload?.topic) {
+                    setRefreshNotice(describeQuizRefresh(regeneratedPayload));
                     setQuiz(regeneratedPayload);
                     setAnswers({});
                     setQuestionIndex(0);
@@ -206,6 +209,19 @@ const TopicQuizPlayer = () => {
                         </div>
                     )}
                 </header>
+
+                {refreshNotice && (
+                    <div
+                        role="status"
+                        className={`mx-4 mt-5 rounded-[16px] border px-4 py-3 text-body-sm md:mx-8 ${
+                            refreshNotice.tone === 'success'
+                                ? 'border-success/30 bg-success-soft text-success'
+                                : 'border-border-subtle bg-surface-soft text-text-secondary'
+                        }`}
+                    >
+                        {refreshNotice.message}
+                    </div>
+                )}
 
                 {error && (
                     <div role="alert" className="mx-4 mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error md:mx-8">

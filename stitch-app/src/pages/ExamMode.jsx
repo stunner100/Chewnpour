@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useMobileChrome } from '../contexts/MobileChromeContext';
 import AppIcon from '../components/AppIcon';
@@ -11,6 +11,52 @@ import {
 } from '../lib/uploadReadiness';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { AnnotatedText } from '../components/opensource-ui/AnnotatedText';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import { estimateExamShape, summarizeWeakTopics, timerAnnouncement } from '../lib/examUx';
+
+const ExamConfirmDialog = ({
+  open,
+  title,
+  description,
+  confirmLabel,
+  cancelLabel = 'Cancel',
+  onConfirm,
+  onCancel,
+  children = null,
+}) => (
+  <Dialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
+    <DialogContent showCloseButton={false} className="bg-surface text-text-primary">
+      <DialogHeader>
+        <DialogTitle className="font-headline-sm text-headline-sm font-bold text-text-primary">{title}</DialogTitle>
+        <DialogDescription className="text-body-sm text-text-secondary">{description}</DialogDescription>
+      </DialogHeader>
+      {children}
+      <DialogFooter className="gap-space-2">
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-subtle px-space-4 font-label-md text-text-primary"
+          onClick={onCancel}
+        >
+          {cancelLabel}
+        </button>
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-space-5 font-label-md text-on-primary"
+          onClick={onConfirm}
+        >
+          {confirmLabel}
+        </button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
 
 const EmptyExamState = ({ availability }) => {
   const copy = studyToolEmptyCopy(availability);
@@ -50,6 +96,7 @@ const ExamReviewPanel = ({ result, onRetry, onBack }) => {
     (item) => item.selectedIndex != null && !item.isCorrect,
   ).length;
   const correctCount = Number(result.correctCount ?? review.filter((item) => item.isCorrect).length);
+  const weakTopics = summarizeWeakTopics(review);
 
   return (
     <section className="rounded-2xl border border-border-subtle bg-surface p-space-6">
@@ -91,6 +138,27 @@ const ExamReviewPanel = ({ result, onRetry, onBack }) => {
         </div>
       </div>
 
+      {weakTopics.length > 0 ? (
+        <div className="mb-space-5 rounded-xl border border-border-subtle bg-surface-soft px-space-4 py-space-3">
+          <h3 className="font-label-md text-text-primary">Review these lessons</h3>
+          <ul className="mt-space-2 flex flex-wrap gap-space-2">
+            {weakTopics.map((topic) => (
+              <li key={topic.topicId}>
+                <Link
+                  to={`/dashboard/topic/${encodeURIComponent(topic.topicId)}`}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border-subtle bg-surface px-space-3 text-body-sm font-semibold text-primary hover:border-primary/40"
+                >
+                  {topic.topicTitle}
+                  <span className="text-caption font-normal text-text-secondary">
+                    {topic.missed} missed
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {review.length > 0 ? (
         <ul className="space-y-space-3">
           {review.map((item, index) => {
@@ -117,6 +185,9 @@ const ExamReviewPanel = ({ result, onRetry, onBack }) => {
                 <p className={`text-caption font-semibold uppercase tracking-wide ${statusClass}`}>
                   Question {index + 1} · {statusLabel}
                 </p>
+                {item.topicTitle ? (
+                  <p className="mt-0.5 text-caption text-text-secondary">{item.topicTitle}</p>
+                ) : null}
                 <p className="mt-1 font-body-base text-body-base font-medium text-text-primary">
                   {item.prompt}
                 </p>
@@ -148,6 +219,9 @@ const ExamReviewPanel = ({ result, onRetry, onBack }) => {
                       </AnnotatedText>
                     </p>
                   ) : null}
+                  {item.explanation ? (
+                    <p className="pt-1 text-text-secondary">{item.explanation}</p>
+                  ) : null}
                 </div>
               </li>
             );
@@ -175,6 +249,11 @@ const ExamMode = () => {
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [pendingStartCourse, setPendingStartCourse] = useState(null);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
+  const [timerMessage, setTimerMessage] = useState('');
+  const navigate = useNavigate();
   const answersRef = useRef({});
   const submittingRef = useRef(false);
 
@@ -325,6 +404,12 @@ const ExamMode = () => {
 
   useEffect(() => {
     if (!exam?.id) return;
+    const message = timerAnnouncement(timeRemaining);
+    if (message) setTimerMessage(message);
+  }, [exam?.id, timeRemaining]);
+
+  useEffect(() => {
+    if (!exam?.id) return;
     const fromEndsAt = exam.endsAt
       ? Math.max(0, Math.ceil((Number(exam.endsAt) - Date.now()) / 1000))
       : 0;
@@ -394,13 +479,25 @@ const ExamMode = () => {
 
   const requestSubmit = () => {
     if (unansweredCount > 0) {
-      const confirmed = window.confirm(
-        `Submit with ${unansweredCount} unanswered question${unansweredCount === 1 ? '' : 's'}?`,
-      );
-      if (!confirmed) return;
+      setSubmitConfirmOpen(true);
+      return;
     }
     void submitExam(answersRef.current);
   };
+
+  const confirmExit = () => {
+    // The attempt keeps running on the server; save so a resume restores it.
+    void saveExamAnswers(answersRef.current, { keepalive: true });
+    setExitConfirmOpen(false);
+    setExam(null);
+    setAnswers({});
+    answersRef.current = {};
+    setCurrentIndex(0);
+    setTimerMessage('');
+    navigate('/dashboard/exam', { replace: true });
+  };
+
+  const pendingShape = pendingStartCourse ? estimateExamShape(pendingStartCourse) : null;
 
   if (questions.length) {
     const progressPct = questions.length
@@ -410,14 +507,15 @@ const ExamMode = () => {
       <div className="flex min-h-dvh flex-col bg-background-light">
         <header className="sticky top-0 z-40 border-b border-border-subtle bg-surface/95 backdrop-blur">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-space-3 px-space-4 py-2">
-            <Link
-              to="/dashboard/exam"
+            <button
+              type="button"
               aria-label="Exit exam"
+              onClick={() => setExitConfirmOpen(true)}
               className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl font-label-md text-text-primary hover:bg-surface-soft"
             >
               <AppIcon name="close" className="text-[20px]" />
               <span className="hidden sm:inline">Exit</span>
-            </Link>
+            </button>
             <div className="min-w-0 text-center">
               <p className="truncate font-label-md text-text-primary">
                 {formatCourseTitle(exam.courseTitle) || exam.courseTitle || 'Exam'}
@@ -426,10 +524,12 @@ const ExamMode = () => {
                 {answeredCount}/{questions.length} answered
               </p>
             </div>
+            <span className="sr-only" role="status" aria-live="polite">
+              {timerMessage}
+            </span>
             <div
-              role="status"
-              aria-live="polite"
-              aria-label={`${timeRemaining} seconds remaining`}
+              role="timer"
+              aria-label="Time remaining"
               className={`inline-flex min-h-11 items-center rounded-xl px-space-3 font-mono text-body-sm font-bold ${isLowTime ? 'bg-error-soft text-error' : 'bg-primary-soft text-primary'}`}
             >
               {formattedTime}
@@ -472,16 +572,25 @@ const ExamMode = () => {
             <p className="text-caption text-text-secondary">
               Question {currentIndex + 1} of {questions.length}
             </p>
-            <h2 className="mt-space-3 font-body-lg text-body-lg font-semibold text-text-primary">
+            <h2
+              id="exam-question-prompt"
+              className="mt-space-3 font-body-lg text-body-lg font-semibold text-text-primary"
+            >
               {currentQuestion?.prompt}
             </h2>
-            <div className="mt-space-5 space-y-space-3">
+            <div
+              role="radiogroup"
+              aria-labelledby="exam-question-prompt"
+              className="mt-space-5 space-y-space-3"
+            >
               {(currentQuestion?.options || []).map((option, optionIndex) => {
                 const selected = answers[currentQuestion.id] === optionIndex;
                 return (
                   <button
                     key={`${currentQuestion.id}-${optionIndex}`}
                     type="button"
+                    role="radio"
+                    aria-checked={selected}
                     onClick={() =>
                       setAnswers((prev) => {
                         const next = {
@@ -519,30 +628,64 @@ const ExamMode = () => {
             >
               Previous
             </button>
-            {currentIndex < questions.length - 1 ? (
-              <button
-                type="button"
-                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-space-5 font-label-md text-on-primary"
-                onClick={() =>
-                  setCurrentIndex((value) =>
-                    Math.min(questions.length - 1, value + 1),
-                  )
-                }
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex min-h-11 items-center rounded-xl bg-primary px-space-5 font-label-md text-on-primary disabled:opacity-50"
-                disabled={submitting}
-                onClick={requestSubmit}
-              >
-                {submitting ? 'Submitting…' : 'Submit exam'}
-              </button>
-            )}
+            <div className="flex items-center gap-space-2">
+              {currentIndex < questions.length - 1 ? (
+                <>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-11 items-center rounded-xl border border-border-subtle px-space-4 font-label-md text-text-primary disabled:opacity-50"
+                    disabled={submitting}
+                    onClick={requestSubmit}
+                  >
+                    {submitting ? 'Submitting…' : 'Submit'}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-space-5 font-label-md text-on-primary"
+                    onClick={() =>
+                      setCurrentIndex((value) =>
+                        Math.min(questions.length - 1, value + 1),
+                      )
+                    }
+                  >
+                    Next
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center rounded-xl bg-primary px-space-5 font-label-md text-on-primary disabled:opacity-50"
+                  disabled={submitting}
+                  onClick={requestSubmit}
+                >
+                  {submitting ? 'Submitting…' : 'Submit exam'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        <ExamConfirmDialog
+          open={exitConfirmOpen}
+          title="Leave this exam?"
+          description={`The timer keeps running while you are away. You can resume from this course until it reaches zero (${formattedTime} left).`}
+          confirmLabel="Leave exam"
+          cancelLabel="Keep going"
+          onConfirm={confirmExit}
+          onCancel={() => setExitConfirmOpen(false)}
+        />
+        <ExamConfirmDialog
+          open={submitConfirmOpen}
+          title="Submit with unanswered questions?"
+          description={`${unansweredCount} question${unansweredCount === 1 ? ' is' : 's are'} still unanswered and will be marked as skipped.`}
+          confirmLabel="Submit exam"
+          cancelLabel="Keep answering"
+          onConfirm={() => {
+            setSubmitConfirmOpen(false);
+            void submitExam(answersRef.current);
+          }}
+          onCancel={() => setSubmitConfirmOpen(false)}
+        />
       </div>
     );
   }
@@ -603,7 +746,7 @@ const ExamMode = () => {
                     type="button"
                     className="inline-flex items-center justify-center rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-on-primary disabled:opacity-60"
                     disabled={Boolean(startingCourseId)}
-                    onClick={() => startExam(course.id)}
+                    onClick={() => setPendingStartCourse(course)}
                   >
                     {startingCourseId === course.id ? 'Starting…' : 'Start timed exam'}
                   </button>
@@ -613,6 +756,21 @@ const ExamMode = () => {
           </div>
         </>
       ) : null}
+
+      <ExamConfirmDialog
+        open={Boolean(pendingStartCourse)}
+        title="Start timed exam?"
+        description={pendingShape
+          ? `${pendingShape.questionCount} question${pendingShape.questionCount === 1 ? '' : 's'} · ${pendingShape.durationMinutes} minute${pendingShape.durationMinutes === 1 ? '' : 's'}. The countdown starts as soon as you begin and keeps running if you leave.`
+          : ''}
+        confirmLabel="Start exam"
+        onConfirm={() => {
+          const course = pendingStartCourse;
+          setPendingStartCourse(null);
+          if (course?.id) void startExam(course.id);
+        }}
+        onCancel={() => setPendingStartCourse(null)}
+      />
     </div>
   );
 };

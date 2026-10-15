@@ -334,7 +334,7 @@ const DashboardResults = () => {
                                 className={`${incorrectCount > 0 || skippedCount > 0 ? 'btn-secondary' : 'btn-primary'} inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm`}
                             >
                                 <AppIcon name="refresh" className="text-[18px]" />
-                                <span>Retry with new questions</span>
+                                <span>Retry quiz</span>
                             </Link>
                             {nextLessonHref ? (
                                 <Link

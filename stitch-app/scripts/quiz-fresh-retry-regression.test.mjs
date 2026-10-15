@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildQuestionsForTopic } from '../server/courseGeneration.js';
+import { describeQuizRefresh } from '../src/lib/quizRefresh.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(root, rel), 'utf8');
@@ -46,7 +47,15 @@ assert.match(courses, /export const regenerateQuizForTopic/, 'server must expose
 assert.match(courses, /DELETE FROM questions[\s\S]*AND \$\{MCQ_TYPE_SQL\}/, 'regeneration must keep in-lesson checks');
 assert.match(http, /parts\[2\] === "regenerate"/, 'HTTP must expose POST /quiz/regenerate');
 assert.match(player, /quiz\/regenerate/, 'quiz player must request a fresh set');
-assert.match(results, /Retry with new questions/, 'results must not claim a same-question retry');
+assert.match(results, /<span>Retry quiz<\/span>/, 'results must not promise new questions before regeneration succeeds');
+assert.doesNotMatch(results, /Retry with new questions/, 'results must not promise new questions before regeneration succeeds');
+assert.match(player, /describeQuizRefresh\(regeneratedPayload\)/, 'quiz player must report whether the retry is fresh');
+
+assert.equal(describeQuizRefresh({ topic: { id: 't1' }, refreshed: true }).tone, 'success');
+const sameSet = describeQuizRefresh({ topic: { id: 't1' }, refreshed: false });
+assert.equal(sameSet.tone, 'info');
+assert.match(sameSet.message, /same questions/, 'an unrefreshed retry must say it reuses the same questions');
+assert.equal(describeQuizRefresh(null), null);
 assert.doesNotMatch(results, /Try the essay/, 'results must not advertise an essay flow');
 
 console.log('quiz-fresh-retry-regression.test.mjs passed');

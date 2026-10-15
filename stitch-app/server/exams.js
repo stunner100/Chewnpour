@@ -39,7 +39,7 @@ const parseOptions = (raw) => {
     return Array.isArray(options) ? options : [];
 };
 
-const toReviewItems = (orderedQuestions, answers = {}) =>
+export const toReviewItems = (orderedQuestions, answers = {}) =>
     orderedQuestions.map((row) => {
         const options = parseOptions(row.options);
         const selectedRaw = answers?.[row.id];
@@ -57,6 +57,9 @@ const toReviewItems = (orderedQuestions, answers = {}) =>
             selectedIndex: Number.isFinite(selectedIndex) ? selectedIndex : null,
             correctIndex: Number.isFinite(correctIndex) ? correctIndex : null,
             isCorrect,
+            explanation: row.explanation || "",
+            topicId: row.topic_id || null,
+            topicTitle: row.topic_title || "",
         };
     });
 
@@ -197,8 +200,10 @@ export const getExamAttemptForUser = async (userId, examId) => {
         : JSON.parse(attempt.question_ids || "[]");
 
     const questionsResult = await db.query(
-        `SELECT * FROM questions
-         WHERE user_id = $1 AND id = ANY($2::text[])`,
+        `SELECT q.*, t.title AS topic_title
+         FROM questions q
+         LEFT JOIN topics t ON t.id = q.topic_id
+         WHERE q.user_id = $1 AND q.id = ANY($2::text[])`,
         [userId, questionIds],
     );
     const byId = new Map(questionsResult.rows.map((row) => [row.id, row]));
