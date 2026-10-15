@@ -19,11 +19,11 @@ const requireExcludes = (snippet) => {
   }
 };
 
-requireIncludes('useQuery(api.uploads.getUserUploads, {})');
+requireIncludes("fetch('/api/uploads', {");
 requireIncludes('const isInternalQaUpload = (upload) => {');
 requireIncludes("() => (uploads || []).filter((upload) => !isInternalQaUpload(upload)).slice(0, 3),");
 requireIncludes("{upload.fileName || 'Untitled material'}");
-requireIncludes('Uploaded {formatRelativeTime(upload._creationTime)} &bull; {formatFileSize(upload.fileSize)}');
+requireIncludes('Uploaded {formatRelativeTime(upload.createdAt)} · {formatFileSize(upload.fileSize)}');
 
 [
   'ai-tutor-commerce-kpi-qa.pdf',

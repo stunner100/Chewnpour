@@ -48,8 +48,9 @@ requireIncludes(settingsSource, 'role="switch"', 'notification toggles expose sw
 requireIncludes(settingsSource, 'aria-checked={Boolean(notifications[toggle.key])}', 'notification toggles expose checked state');
 requireIncludes(settingsSource, 'aria-label={`${toggle.title}: ${notifications[toggle.key] ? \'on\' : \'off\'}`}', 'notification toggles expose names');
 
-requireIncludes(settingsSource, 'href={BILLING_SUPPORT_MAILTO}', 'billing support action is real');
-requireIncludes(settingsSource, 'Contact Billing Support', 'subscription card uses honest billing CTA');
+// ChewnPour is free (07bd7a93c): settings offers a real support mailto instead of a billing CTA.
+requireIncludes(settingsSource, 'href="mailto:info@chewnpour.com?subject=ChewnPour%20Support"', 'support action is real');
+requireExcludes(settingsSource, 'Contact Billing Support', 'billing CTA on a free product');
 requireExcludes(settingsSource, 'to="/dashboard/settings#subscription"', 'dead-end subscription hash link');
 
 requireIncludes(layoutSource, 'const scrollDashboardTargetIntoView = (targetId, options = {}) => {', 'shared dashboard hash scroller');

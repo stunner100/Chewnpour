@@ -32,7 +32,7 @@ for (const required of [
 
 for (const required of [
     'max-w-[720px]',
-    'Preparing your lesson',
+    'Loading your place',
 ]) {
     if (!contentPanelSource.includes(required)) {
         throw new Error(`Expected topic content panel to include "${required}".`);
