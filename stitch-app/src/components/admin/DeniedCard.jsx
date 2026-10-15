@@ -8,7 +8,7 @@ const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
             return 'Admin access is not configured yet. Set ADMIN_EMAILS or ADMIN_USER_IDS in environment variables.';
         }
         if (reason === 'forbidden') {
-            return 'Your account is signed in but does not have admin access.';
+            return 'Your account is signed in but does not have admin access. Allowlisted emails only count once verified, so sign in with Google for that address.';
         }
         return 'You must be signed in to access the admin dashboard.';
     })();

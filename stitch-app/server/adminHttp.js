@@ -1,7 +1,7 @@
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
 import { BOOTSTRAP_ADMIN_EMAILS, isAdminUser } from "./adminAccess.js";
-import { getAdminSnapshot } from "./adminMetrics.js";
+import { getAdminSnapshot, searchAdminUsers } from "./adminMetrics.js";
 import { handleAdminPastPapersRequest } from "./pastPaperHttp.js";
 
 const sendJson = (res, statusCode, payload) => {
@@ -22,7 +22,7 @@ const requireAdminUser = async (req) => {
         error.status = 401;
         throw error;
     }
-    if (!isAdminUser({ email: user.email, id: user.id })) {
+    if (!isAdminUser({ email: user.email, id: user.id, emailVerified: user.emailVerified })) {
         const error = new Error("Forbidden");
         error.status = 403;
         error.code = "ADMIN_FORBIDDEN";
@@ -55,6 +55,11 @@ export const handleAdminRequest = async (req, res) => {
                 },
                 bootstrapAdminIncludes: BOOTSTRAP_ADMIN_EMAILS[0],
             });
+        }
+
+        if (pathname === "/api/admin/users" && method === "GET") {
+            const query = new URL(String(req.url || "/"), "http://localhost").searchParams.get("q");
+            return sendJson(res, 200, { users: await searchAdminUsers(query) });
         }
 
         if (pathname === "/api/admin/past-papers" || pathname.startsWith("/api/admin/past-papers/")) {

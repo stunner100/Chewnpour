@@ -22,10 +22,16 @@ export const listAdminEmails = () => {
 
 export const listAdminUserIds = () => splitIds(process.env.ADMIN_USER_IDS);
 
-export const isAdminUser = ({ email, id } = {}) => {
+// Email/password sign-up does not verify addresses, so an allowlisted email
+// only grants admin once the account has proven it owns that address.
+export const isAdminUser = ({ email, id, emailVerified = false } = {}) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     const userId = String(id || "").trim();
-    if (normalizedEmail && listAdminEmails().includes(normalizedEmail)) {
+    if (
+        emailVerified === true &&
+        normalizedEmail &&
+        listAdminEmails().includes(normalizedEmail)
+    ) {
         return true;
     }
     if (userId && listAdminUserIds().includes(userId)) {

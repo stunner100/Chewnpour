@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import DeniedCard from '../../components/admin/DeniedCard';
 import { TabBar } from '../../components/admin/AdminUi';
+import { ADMIN_TABPANEL_ID } from '../../lib/admin/ui';
 import { TABS } from '../../lib/admin/constants';
 import { OverviewPanel } from './panels/OverviewPanel';
 import { LearningPanel } from './panels/LearningPanel';
@@ -28,6 +29,9 @@ export default function AdminDashboard() {
     const [deniedReason, setDeniedReason] = useState('');
 
     const activeTab = tabFromHash(location.hash);
+    // Past questions loads its own data, so it must not wait on (or be hidden
+    // by a failure of) the metrics snapshot.
+    const needsSnapshot = activeTab !== 'past-papers';
 
     const loadSnapshot = useCallback(async () => {
         setLoading(true);
@@ -62,20 +66,20 @@ export default function AdminDashboard() {
     }, []);
 
     useEffect(() => {
-        loadSnapshot();
-    }, [loadSnapshot]);
+        if (needsSnapshot && !snapshot) loadSnapshot();
+    }, [loadSnapshot, needsSnapshot, snapshot]);
 
     const onTabChange = (key) => {
         navigate({ pathname: '/admin', hash: key === 'overview' ? '' : key }, { replace: true });
     };
 
     const panel = useMemo(() => {
+        if (activeTab === 'past-papers') return <PastPapersPanel />;
         if (!snapshot) return null;
         if (activeTab === 'learning') return <LearningPanel snapshot={snapshot} />;
         if (activeTab === 'content') return <ContentPanel snapshot={snapshot} />;
         if (activeTab === 'users') return <UsersPanel snapshot={snapshot} />;
         if (activeTab === 'uploads') return <UploadsPanel snapshot={snapshot} />;
-        if (activeTab === 'past-papers') return <PastPapersPanel />;
         return <OverviewPanel snapshot={snapshot} />;
     }, [activeTab, snapshot]);
 
@@ -96,7 +100,7 @@ export default function AdminDashboard() {
                     Admin dashboard
                 </h1>
                 <p className="mt-2 max-w-2xl text-body-md text-text-secondary text-pretty">
-                    Counts for students, uploads, lessons, quizzes, and tutor chat.
+                    Student activity, content health, and past question papers.
                 </p>
             </header>
 
@@ -104,10 +108,13 @@ export default function AdminDashboard() {
 
             <div
                 role="tabpanel"
+                id={ADMIN_TABPANEL_ID}
                 aria-labelledby={`admin-tab-${activeTab}`}
                 className="mt-6"
             >
-                {loading ? (
+                {!needsSnapshot ? (
+                    panel
+                ) : loading ? (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {[0, 1, 2].map((key) => (
                             <div

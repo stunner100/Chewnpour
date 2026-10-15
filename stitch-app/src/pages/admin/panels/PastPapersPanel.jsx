@@ -98,12 +98,18 @@ export const PastPapersPanel = () => {
                 contentType: init.contentType,
                 onProgress: setProgress,
             });
-            if (form.publish) {
-                await adminRequest(`/api/admin/past-papers/${encodeURIComponent(init.paper.id)}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ status: 'published' }),
-                });
-            }
+            // The paper row is only created once the file is in storage.
+            await adminRequest('/api/admin/past-papers', {
+                method: 'POST',
+                body: JSON.stringify({
+                    ...form,
+                    year: Number(form.year),
+                    fileName: file.name,
+                    fileSize: file.size,
+                    contentType: file.type,
+                    storagePath: init.storagePath,
+                }),
+            });
             setForm((current) => ({ ...EMPTY_FORM, institution: current.institution, year: current.year }));
             setFile(null);
             if (fileInputRef.current) fileInputRef.current.value = '';

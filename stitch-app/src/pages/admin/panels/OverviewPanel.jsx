@@ -24,20 +24,19 @@ export const OverviewPanel = ({ snapshot }) => {
                     color="blue"
                 />
                 <StatCard
-                    label="Tutor sessions"
-                    value={overview.tutorSessions}
-                    sublabel={`${formatNumber(overview.onboardedUsers)} finished onboarding`}
+                    label="Tutor conversations"
+                    value={overview.tutorConversations}
+                    sublabel={`${formatNumber(overview.tutorUsers)} students · ${formatNumber(overview.onboardedUsers)} finished onboarding`}
                     icon="smart_toy"
                     color="emerald"
                 />
             </section>
 
             <SectionCard title="New students" badge="Last 7 days">
-                {daily.length ? (
-                    <BarChart items={daily} />
-                ) : (
-                    <p className="text-sm text-text-secondary">No new students in the last 7 days.</p>
-                )}
+                <BarChart items={daily} />
+                {daily.every((day) => !day.value) ? (
+                    <p className="mt-3 text-sm text-text-secondary">No new students in the last 7 days.</p>
+                ) : null}
             </SectionCard>
 
             <SectionCard title="This week">

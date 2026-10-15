@@ -3,49 +3,7 @@ import { getPool } from "./db.js";
 import { ensureProfile } from "./profiles.js";
 import { ensureBillingAccount } from "./billing.js";
 import { isResendConfigured, sendPasswordResetEmail } from "./email.js";
-
-const LOCAL_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-    "http://127.0.0.1:5175",
-];
-
-const PRODUCTION_ORIGINS = [
-    "https://www.chewnpour.com",
-    "https://chewnpour.com",
-    "https://staging.chewnpour.com",
-];
-
-const normalizeOrigin = (value) => {
-    if (!value) return null;
-    try {
-        return new URL(value).origin;
-    } catch {
-        return null;
-    }
-};
-
-const parseConfiguredFrontendOrigins = () => {
-    const values = [
-        process.env.APP_BASE_URL,
-        process.env.FRONTEND_URL,
-        ...(process.env.FRONTEND_URLS || "")
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean),
-    ];
-
-    return Array.from(
-        new Set(
-            values
-                .map((value) => normalizeOrigin(value))
-                .filter(Boolean),
-        ),
-    );
-};
+import { buildTrustedOrigins } from "./authOrigins.js";
 
 const googleConfigured =
     Boolean(process.env.GOOGLE_CLIENT_ID) &&
@@ -166,30 +124,5 @@ export const auth = betterAuth({
             },
         }
         : undefined,
-    trustedOrigins: async (request) => {
-        const dynamicOrigin = normalizeOrigin(
-            request?.headers.get("origin") ||
-            request?.headers.get("referer"),
-        );
-        const configuredFrontends = parseConfiguredFrontendOrigins();
-        const origins = [
-            ...LOCAL_ORIGINS,
-            ...PRODUCTION_ORIGINS,
-            ...configuredFrontends,
-        ];
-
-        if (
-            dynamicOrigin &&
-            (
-                LOCAL_ORIGINS.includes(dynamicOrigin) ||
-                PRODUCTION_ORIGINS.includes(dynamicOrigin) ||
-                configuredFrontends.includes(dynamicOrigin) ||
-                dynamicOrigin.endsWith(".vercel.app")
-            )
-        ) {
-            origins.push(dynamicOrigin);
-        }
-
-        return Array.from(new Set(origins));
-    },
+    trustedOrigins: buildTrustedOrigins(),
 });
