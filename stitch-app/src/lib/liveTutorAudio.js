@@ -1,4 +1,4 @@
-import { rmsFromByteTimeDomain, rmsFromFloat32, voiceLevelFromRms } from '@/lib/liveTutorEnergy';
+import { rmsFromByteTimeDomain, rmsFromFloat32, voiceLevelFromRms } from './liveTutorEnergy.js';
 
 const INPUT_SAMPLE_RATE = 16000;
 export const OUTPUT_SAMPLE_RATE = 24000;
@@ -13,16 +13,38 @@ const floatTo16BitPcm = (float32) => {
     return buffer;
 };
 
-const downsample = (float32, inputRate, outputRate) => {
+// Box-filter decimation: averaging each window keeps high frequencies from
+// aliasing into the 16kHz stream the way picking single samples did.
+export const downsample = (float32, inputRate, outputRate) => {
     if (inputRate === outputRate) return float32;
     const ratio = inputRate / outputRate;
-    if (!Number.isFinite(ratio) || ratio <= 0) return float32;
+    if (!Number.isFinite(ratio) || ratio <= 1) return float32;
     const length = Math.max(1, Math.floor(float32.length / ratio));
     const result = new Float32Array(length);
     for (let index = 0; index < length; index += 1) {
-        result[index] = float32[Math.min(float32.length - 1, Math.floor(index * ratio))];
+        const start = Math.floor(index * ratio);
+        const end = Math.min(float32.length, Math.max(start + 1, Math.floor((index + 1) * ratio)));
+        let sum = 0;
+        for (let cursor = start; cursor < end; cursor += 1) sum += float32[cursor];
+        result[index] = sum / (end - start);
     }
     return result;
+};
+
+/**
+ * Create (and start resuming) both audio contexts synchronously inside the
+ * user's click. Safari/iOS only lets audio start from a user gesture, and
+ * contexts created after an await start suspended. The mic context uses the
+ * device's native rate: Firefox can't connect a microphone stream to a
+ * context running at a different rate, so audio is downsampled in JS instead.
+ */
+export const createLiveTutorAudioContexts = ({ AudioContextImpl = globalThis.AudioContext } = {}) => {
+    const output = new AudioContextImpl({ sampleRate: OUTPUT_SAMPLE_RATE });
+    const input = new AudioContextImpl();
+    for (const context of [output, input]) {
+        if (context.state === 'suspended') void context.resume().catch(() => {});
+    }
+    return { input, output };
 };
 
 export const pcm16BufferToBase64 = (buffer) => {
@@ -48,7 +70,7 @@ export const base64ToInt16 = (base64) => {
 export const LIVE_TUTOR_MIC_PERMISSION_MESSAGE =
     'Microphone access is blocked. Allow the microphone in your browser settings, then try again.';
 
-export const startMicCapture = async ({ onPcmBase64, onLevel } = {}) => {
+export const startMicCapture = async ({ onPcmBase64, onLevel, audioContext: providedContext } = {}) => {
     if (!navigator.mediaDevices?.getUserMedia) {
         const unsupported = new Error('This browser does not support microphone capture.');
         unsupported.name = 'NotSupportedError';
@@ -71,9 +93,9 @@ export const startMicCapture = async ({ onPcmBase64, onLevel } = {}) => {
         }
         throw caught;
     }
-    const audioContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
+    const audioContext = providedContext || new AudioContext();
     if (audioContext.state === 'suspended') {
-        await audioContext.resume();
+        await audioContext.resume().catch(() => {});
     }
     const source = audioContext.createMediaStreamSource(stream);
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -109,8 +131,9 @@ export const createPcmPlayer = ({
     sampleRate = OUTPUT_SAMPLE_RATE,
     onLevel,
     onIdle,
+    audioContext: providedContext,
 } = {}) => {
-    const audioContext = new AudioContext({ sampleRate });
+    const audioContext = providedContext || new AudioContext({ sampleRate });
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.18;

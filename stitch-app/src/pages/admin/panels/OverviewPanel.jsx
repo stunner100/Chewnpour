@@ -84,6 +84,11 @@ export const OverviewPanel = ({ snapshot }) => {
                         value={formatNumber(overview.tutorConversations)}
                         detail={`${formatNumber(overview.tutorUsers)} students`}
                     />
+                    <StatRow
+                        label="Live oral reviews"
+                        value={formatNumber(overview.liveSessionsTotal)}
+                        detail={`${formatNumber(overview.liveSessions7d)} this week · ${formatNumber(overview.liveSessionsCompleted)} completed · ${formatNumber(overview.liveTutorUsers)} students`}
+                    />
                 </SectionCard>
             </div>
         </div>

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
-import { createPcmPlayer, startMicCapture } from '@/lib/liveTutorAudio';
-import { questionSegments, revealedCaption } from '@/lib/liveTutorCaptions';
-import { isLiveTutorUiEnabled } from '@/lib/liveTutorEnabled';
+import { createLiveTutorAudioContexts, createPcmPlayer, startMicCapture } from '../lib/liveTutorAudio.js';
+import { questionSegments, revealedCaption } from '../lib/liveTutorCaptions.js';
+import { isLiveTutorUiEnabled } from '../lib/liveTutorEnabled.js';
 
 const KICKOFF_TEXT = 'Start the oral review now with your first question.';
 const LIVE_TUTOR_STORAGE_KEY_PREFIX = 'chewnpour.liveTutorReview';
@@ -47,6 +47,33 @@ export const loadLiveTutorReview = (topicId) => {
     }
 };
 
+// The tutor is told to open its last turn with "Recap:", but models drift, so
+// accept the common variants too.
+export const RECAP_PATTERN = /^(?:(?:here(?:'s| is)\s+(?:a|your)\s+(?:quick\s+)?)?(?:recap|summary)\b|to (?:recap|sum up)\b|in summary\b)/i;
+
+export const DISCONNECTED_MESSAGE = 'The live tutor disconnected. Check your connection and try again.';
+
+const answeredCount = (entries) => entries.filter((entry) => entry.role === 'user').length;
+
+/** Tell the server how a session ended (usage stats). Never blocks the UI. */
+export const reportLiveTutorEnd = (topicId, sessionId, outcome, answered, fetchImpl = globalThis.fetch) => {
+    if (!topicId || !sessionId || typeof fetchImpl !== 'function') return;
+    try {
+        void fetchImpl(
+            `/api/topics/${encodeURIComponent(topicId)}/live-tutor/${encodeURIComponent(sessionId)}/end`,
+            {
+                method: 'POST',
+                credentials: 'include',
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ outcome, answered }),
+            },
+        ).catch(() => {});
+    } catch {
+        // reporting is best-effort
+    }
+};
+
 const appendTranscription = (items, role, chunk) => {
     const text = String(chunk || '');
     if (!text) return items;
@@ -86,6 +113,22 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
     const captionCommittedRef = useRef(true);
     const recapHeardRef = useRef(false);
     const finishReviewRef = useRef(async () => {});
+    const transcriptRef = useRef([]);
+    const serverSessionRef = useRef({ id: null, reported: true });
+    const handleDropRef = useRef(() => {});
+
+    useEffect(() => {
+        transcriptRef.current = transcript;
+    }, [transcript]);
+
+    const reportEnd = (outcome) => {
+        const current = serverSessionRef.current;
+        if (!current.id || current.reported) return;
+        current.reported = true;
+        reportLiveTutorEnd(topicId, current.id, outcome, answeredCount(transcriptRef.current));
+    };
+    const reportEndRef = useRef(reportEnd);
+    reportEndRef.current = reportEnd;
 
     const applyStatus = useCallback((next) => {
         statusRef.current = next;
@@ -143,14 +186,18 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         const segments = questionSegments(full);
         const lines = segments.length ? segments : [full];
         captionIdRef.current += lines.length;
-        setTranscript((current) => [
-            ...current,
+        // Keep the ref in step synchronously so a session that drops right
+        // now still saves what the tutor just said.
+        const next = [
+            ...transcriptRef.current,
             ...lines.map((text, index) => ({
                 id: `assistant-${captionIdRef.current - lines.length + index + 1}`,
                 role: 'assistant',
                 text,
             })),
-        ]);
+        ];
+        transcriptRef.current = next;
+        setTranscript(next);
     };
     commitAssistantCaptionRef.current = commitAssistantCaption;
 
@@ -182,20 +229,16 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
     const finishReview = useCallback(async (outcome) => {
         const active = ['connecting', 'listening', 'speaking'].includes(statusRef.current);
         if (active) await stop({ status: 'ended' });
-        setTranscript((current) => {
-            if (!current.length) {
-                setEndedSummary((previous) => previous);
-                return current;
-            }
-            const summary = {
+        const entries = transcriptRef.current;
+        if (entries.length) {
+            setEndedSummary({
                 outcome,
-                answered: current.filter((entry) => entry.role === 'user').length,
+                answered: answeredCount(entries),
                 savedAt: new Date().toISOString(),
-            };
-            setEndedSummary(summary);
-            saveLiveTutorReview(topicId, current);
-            return current;
-        });
+            });
+            saveLiveTutorReview(topicId, entries);
+        }
+        reportEndRef.current(outcome);
         if (!active && statusRef.current !== 'ended') applyStatus('ended');
     }, [stop, topicId, applyStatus]);
     finishReviewRef.current = finishReview;
@@ -204,10 +247,27 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         // The system prompt instructs the tutor to deliver a final "Recap:"
         // message. Once it has been spoken, the review is over — persist it.
         if (recapHeardRef.current) return;
-        if (!/^recap:/i.test(pendingCaptionRef.current.trim())) return;
+        if (!RECAP_PATTERN.test(pendingCaptionRef.current.trim())) return;
         recapHeardRef.current = true;
         void finishReviewRef.current('completed');
     };
+
+    // The socket closed or errored without us asking (network drop, server
+    // timeout, token expiry). Release the mic and speaker right away, keep
+    // whatever was said, and tell the learner.
+    const handleDrop = async (message) => {
+        commitAssistantCaptionRef.current();
+        const hadConversation = transcriptRef.current.length > 0;
+        if (hadConversation) {
+            await finishReviewRef.current('disconnected');
+            setError(message || DISCONNECTED_MESSAGE);
+            return;
+        }
+        await stop({ status: 'error' });
+        setError(message || DISCONNECTED_MESSAGE);
+        reportEndRef.current('error');
+    };
+    handleDropRef.current = handleDrop;
 
     const requestEnd = useCallback(() => {
         if (statusRef.current === 'speaking' || statusRef.current === 'listening') {
@@ -233,6 +293,20 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
             return;
         }
 
+        // Create the audio contexts before any await so they belong to the
+        // click (Safari/iOS won't start audio otherwise).
+        let contexts = null;
+        try {
+            contexts = createLiveTutorAudioContexts();
+        } catch {
+            contexts = null;
+        }
+        const closeContexts = async () => {
+            for (const context of [contexts?.input, contexts?.output]) {
+                if (context && context.state !== 'closed') await context.close().catch(() => {});
+            }
+        };
+
         await stop();
         const generation = generationRef.current;
         setError(null);
@@ -241,6 +315,8 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         setConfirmingEnd(false);
         setQuestionTarget(0);
         setTranscript([]);
+        transcriptRef.current = [];
+        serverSessionRef.current = { id: null, reported: true };
         pendingCaptionRef.current = '';
         applyLiveCaptionRef.current('');
         playQueueRef.current = Promise.resolve();
@@ -250,7 +326,35 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
         recapHeardRef.current = false;
         applyStatus('connecting');
 
+        let capture = null;
+        let player = null;
         try {
+            // Ask for the mic first: a denied prompt then costs no tutor
+            // session, and the tutor never starts talking before the
+            // learner can answer.
+            capture = await startMicCapture({
+                audioContext: contexts?.input,
+                onPcmBase64: (data) => {
+                    if (generation !== generationRef.current) return;
+                    sessionRef.current?.sendRealtimeInput({
+                        audio: {
+                            data,
+                            mimeType: 'audio/pcm;rate=16000',
+                        },
+                    });
+                },
+                onLevel: (level) => {
+                    if (generation !== generationRef.current) return;
+                    if (statusRef.current === 'listening') setVoiceLevel(level);
+                },
+            });
+            if (generation !== generationRef.current) {
+                await capture.stop();
+                await closeContexts();
+                return;
+            }
+            captureRef.current = capture;
+
             const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/live-tutor`, {
                 method: 'POST',
                 credentials: 'include',
@@ -265,11 +369,16 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
             if (!token || !model) {
                 throw new Error('Live tutor token was incomplete.');
             }
+            serverSessionRef.current = { id: String(payload.sessionId || '') || null, reported: false };
             const target = Math.floor(Number(payload.questionTarget));
-            if (generation !== generationRef.current) return;
+            if (generation !== generationRef.current) {
+                reportEndRef.current('ended-early');
+                return;
+            }
             setQuestionTarget(Number.isFinite(target) && target > 0 ? target : 0);
 
-            const player = createPcmPlayer({
+            player = createPcmPlayer({
+                audioContext: contexts?.output,
                 onLevel: (level) => {
                     if (generation !== generationRef.current) return;
                     if (statusRef.current === 'speaking') setVoiceLevel(level);
@@ -327,16 +436,18 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
                                 playQueueRef.current = playQueueRef.current
                                     .then(async () => {
                                         if (generation !== generationRef.current) return;
-                                        const player = playerRef.current;
-                                        if (!player) return;
-                                        if (!player.isPlaying() && captionCommittedRef.current) {
-                                            applyLiveCaptionRef.current('');
-                                            pendingCaptionRef.current = '';
+                                        const activePlayer = playerRef.current;
+                                        if (!activePlayer) return;
+                                        if (!activePlayer.isPlaying() && captionCommittedRef.current) {
+                                            // A new tutor turn. The previous turn's caption was
+                                            // already committed (and cleared); transcription for
+                                            // this turn can arrive before its first audio chunk,
+                                            // so keep it rather than wiping the opening words.
                                             captionCommittedRef.current = false;
                                             turnCompleteRef.current = false;
                                         }
                                         applyStatus('speaking');
-                                        await player.playBase64(audioData);
+                                        await activePlayer.playBase64(audioData);
                                         if (generation !== generationRef.current) return;
                                         startCaptionClockRef.current();
                                     })
@@ -348,9 +459,13 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
                         }
                         if (content?.inputTranscription?.text) {
                             commitAssistantCaptionRef.current();
-                            setTranscript((current) =>
-                                appendTranscription(current, 'user', content.inputTranscription.text),
+                            const next = appendTranscription(
+                                transcriptRef.current,
+                                'user',
+                                content.inputTranscription.text,
                             );
+                            transcriptRef.current = next;
+                            setTranscript(next);
                         }
                         if (content?.outputTranscription?.text) {
                             pendingCaptionRef.current += content.outputTranscription.text;
@@ -380,61 +495,39 @@ export default function useGeminiLiveTutor({ topicId } = {}) {
                     },
                     onerror: (event) => {
                         if (generation !== generationRef.current) return;
-                        setError(event?.message || 'Live tutor connection failed.');
-                        applyStatus('error');
+                        void handleDropRef.current(event?.message || DISCONNECTED_MESSAGE);
                     },
                     onclose: () => {
                         if (generation !== generationRef.current) return;
-                        if (statusRef.current === 'error') return;
-                        applyStatus('idle');
+                        if (['ended', 'error', 'idle'].includes(statusRef.current)) return;
+                        void handleDropRef.current(DISCONNECTED_MESSAGE);
                     },
                 },
             });
 
             if (generation !== generationRef.current) {
                 session.close();
-                await player.close();
-                playerRef.current = null;
+                reportEndRef.current('ended-early');
                 return;
             }
 
             sessionRef.current = session;
             session.sendRealtimeInput({ text: KICKOFF_TEXT });
-
-            const capture = await startMicCapture({
-                onPcmBase64: (data) => {
-                    if (generation !== generationRef.current) return;
-                    sessionRef.current?.sendRealtimeInput({
-                        audio: {
-                            data,
-                            mimeType: 'audio/pcm;rate=16000',
-                        },
-                    });
-                },
-                onLevel: (level) => {
-                    if (generation !== generationRef.current) return;
-                    if (statusRef.current === 'listening') setVoiceLevel(level);
-                },
-            });
-            if (generation !== generationRef.current) {
-                await capture.stop();
-                session.close();
-                await player.close();
-                playerRef.current = null;
-                return;
-            }
-            captureRef.current = capture;
             applyStatus('listening');
         } catch (caught) {
             if (generation !== generationRef.current) return;
             setMicBlocked(caught?.name === 'MicPermissionDenied');
             setError(caught?.message || 'Could not start the live tutor.');
             await stop();
+            if (!captureRef.current && capture) await capture.stop().catch(() => {});
+            if (!player) await closeContexts();
+            reportEndRef.current('error');
             applyStatus('error');
         }
     }, [applyStatus, stop, topicId]);
 
     useEffect(() => () => {
+        reportEndRef.current('ended-early');
         void stop();
     }, [stop]);
 

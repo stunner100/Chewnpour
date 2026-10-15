@@ -145,7 +145,9 @@ const LiveTutorPanel = ({ topicId, quizHref, onStartQuiz }) => {
                     <p className="text-body-sm font-semibold text-text-primary">
                         {endedSummary.outcome === 'completed'
                             ? 'Oral review complete — nice work.'
-                            : `Review ended after ${endedSummary.answered} answer${endedSummary.answered === 1 ? '' : 's'}.`}
+                            : endedSummary.outcome === 'disconnected'
+                                ? `The connection dropped after ${endedSummary.answered} answer${endedSummary.answered === 1 ? '' : 's'}.`
+                                : `Review ended after ${endedSummary.answered} answer${endedSummary.answered === 1 ? '' : 's'}.`}
                     </p>
                     <p className="mt-1 text-caption text-text-secondary">
                         {endedSummary.outcome === 'completed'
