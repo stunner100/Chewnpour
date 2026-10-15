@@ -1,6 +1,7 @@
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "./auth.js";
 import {
+    createPastPaper,
     deletePastPaper,
     getPastPaperFileUrl,
     initPastPaperUpload,
@@ -106,8 +107,12 @@ export const handleAdminPastPapersRequest = async (req, res, user) => {
         }
         if (parts.length === 1 && parts[0] === "init" && method === "POST") {
             const body = await readJsonBody(req);
-            const result = await initPastPaperUpload({ adminUserId: user.id, input: body });
-            return sendJson(res, 200, result);
+            return sendJson(res, 200, await initPastPaperUpload({ input: body }));
+        }
+        if (parts.length === 0 && method === "POST") {
+            const body = await readJsonBody(req);
+            const paper = await createPastPaper({ adminUserId: user.id, input: body });
+            return sendJson(res, 201, { paper });
         }
         if (parts.length === 1 && method === "PATCH") {
             const body = await readJsonBody(req);

@@ -318,8 +318,7 @@ export const listAllPastPapers = async () => {
     return result.rows.map((row) => toClientPastPaper(row, { admin: true }));
 };
 
-export const initPastPaperUpload = async ({ adminUserId, input = {} }) => {
-    const meta = normalizePastPaperInput(input);
+const normalizePastPaperFile = (input = {}) => {
     const fileName = cleanText(input.fileName, 255);
     const fileSize = Number(input.fileSize || 0);
     const type = resolvePastPaperFileType({ fileName, contentType: input.contentType });
@@ -329,43 +328,81 @@ export const initPastPaperUpload = async ({ adminUserId, input = {} }) => {
     if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > MAX_PAST_PAPER_BYTES) {
         throw httpError(400, "File must be smaller than 50MB.", "INVALID_FILE_SIZE");
     }
+    return { fileName, fileSize, ...type };
+};
 
-    const id = nanoid();
-    const safeName = fileName.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120);
-    const storagePath = `${id}/${safeName}`;
+// Paths minted by initPastPaperUpload: "<nanoid>/<sanitised file name>".
+export const PAST_PAPER_STORAGE_PATH = /^([A-Za-z0-9_-]{21})\/[A-Za-z0-9._-]{1,120}$/;
+
+/**
+ * Step 1: validate the paper and hand back a signed upload URL. No row is
+ * written yet, so an abandoned or failed upload leaves no draft behind.
+ */
+export const initPastPaperUpload = async ({ input = {} }) => {
+    normalizePastPaperInput(input);
+    const file = normalizePastPaperFile(input);
+    const safeName = file.fileName.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120);
+    const storagePath = `${nanoid()}/${safeName}`;
     const signed = await createSignedUpload({
         path: storagePath,
         bucket: PAST_PAPERS_BUCKET,
     });
+    return {
+        storagePath: signed.path || storagePath,
+        signedUrl: signed.signedUrl,
+        contentType: file.contentType,
+    };
+};
+
+/** Step 2: after the file is in storage, record the paper. */
+export const createPastPaper = async ({ adminUserId, input = {} }) => {
+    const meta = normalizePastPaperInput(input);
+    const file = normalizePastPaperFile(input);
+    const storagePath = String(input.storagePath || "");
+    const match = storagePath.match(PAST_PAPER_STORAGE_PATH);
+    if (!match) {
+        throw httpError(400, "Upload the file before saving the paper.", "INVALID_STORAGE_PATH");
+    }
+    try {
+        await createSignedDownloadUrl({
+            bucket: PAST_PAPERS_BUCKET,
+            path: storagePath,
+            expiresIn: 60,
+        });
+    } catch {
+        throw httpError(409, "The file has not finished uploading. Try again.", "PAST_PAPER_FILE_MISSING");
+    }
+
     const inserted = await getPool().query(
         `INSERT INTO past_papers (
             id, institution, course_code, course_title, year, semester, level,
             file_name, file_type, file_size, content_type, storage_bucket,
             storage_path, status, uploaded_by
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'draft',$14)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         ON CONFLICT (id) DO NOTHING
          RETURNING *`,
         [
-            id,
+            match[1],
             meta.institution,
             meta.courseCode,
             meta.courseTitle,
             meta.year,
             meta.semester,
             meta.level,
-            fileName,
-            type.fileType,
-            fileSize,
-            type.contentType,
-            signed.bucket,
-            signed.path || storagePath,
+            file.fileName,
+            file.fileType,
+            file.fileSize,
+            file.contentType,
+            PAST_PAPERS_BUCKET,
+            storagePath,
+            input.publish === true ? "published" : "draft",
             adminUserId || null,
         ],
     );
-    return {
-        paper: toClientPastPaper(inserted.rows[0], { admin: true }),
-        signedUrl: signed.signedUrl,
-        contentType: type.contentType,
-    };
+    if (!inserted.rows[0]) {
+        throw httpError(409, "This paper was already saved.", "PAST_PAPER_EXISTS");
+    }
+    return toClientPastPaper(inserted.rows[0], { admin: true });
 };
 
 export const updatePastPaper = async (paperId, input = {}) => {

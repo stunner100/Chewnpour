@@ -1,36 +1,47 @@
 import React from 'react';
 import { TABS } from '../../lib/admin/constants';
 import { formatNumber } from '../../lib/admin/formatters';
+import { ADMIN_TABPANEL_ID, BAR_TRACK_PX, barHeightPx, nextTabKey } from '../../lib/admin/ui';
 import AppIcon from '../AppIcon';
 
-export const TabBar = ({ activeTab, onTabChange }) => (
-    <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface p-1 shadow-sm">
-        <div role="tablist" aria-label="Admin sections" className="flex min-w-max gap-1">
-            {TABS.map((tab) => {
-                const selected = activeTab === tab.key;
-                return (
-                    <button
-                        key={tab.key}
-                        type="button"
-                        role="tab"
-                        aria-selected={selected}
-                        aria-current={selected ? 'page' : undefined}
-                        id={`admin-tab-${tab.key}`}
-                        onClick={() => onTabChange(tab.key)}
-                        className={`flex items-center gap-2 rounded-lg px-3.5 py-2.5 font-label-md text-label-md transition-colors whitespace-nowrap ${
-                            selected
-                                ? 'bg-primary-soft text-primary shadow-sm'
-                                : 'text-text-muted hover:bg-surface-soft hover:text-text-primary'
-                        }`}
-                    >
-                        <AppIcon name={tab.icon} className="text-[18px]" aria-hidden="true" />
-                        {tab.label}
-                    </button>
-                );
-            })}
+export const TabBar = ({ activeTab, onTabChange }) => {
+    const onKeyDown = (event) => {
+        const target = nextTabKey(TABS.map((tab) => tab.key), activeTab, event.key);
+        if (!target) return;
+        event.preventDefault();
+        onTabChange(target);
+        document.getElementById(`admin-tab-${target}`)?.focus();
+    };
+    return (
+        <div className="overflow-x-auto rounded-xl border border-border-subtle bg-surface p-1 shadow-sm">
+            <div role="tablist" aria-label="Admin sections" className="flex min-w-max gap-1" onKeyDown={onKeyDown}>
+                {TABS.map((tab) => {
+                    const selected = activeTab === tab.key;
+                    return (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            aria-controls={ADMIN_TABPANEL_ID}
+                            tabIndex={selected ? 0 : -1}
+                            id={`admin-tab-${tab.key}`}
+                            onClick={() => onTabChange(tab.key)}
+                            className={`flex items-center gap-2 rounded-lg px-3.5 py-2.5 font-label-md text-label-md transition-colors whitespace-nowrap ${
+                                selected
+                                    ? 'bg-primary-soft text-primary shadow-sm'
+                                    : 'text-text-muted hover:bg-surface-soft hover:text-text-primary'
+                            }`}
+                        >
+                            <AppIcon name={tab.icon} className="text-[18px]" aria-hidden="true" />
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 export const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
     const bgMap = {
@@ -75,18 +86,19 @@ export const StatRow = ({ label, value, detail }) => (
 export const BarChart = ({ items, maxValue }) => {
     const max = maxValue || Math.max(...items.map((i) => Number(i.value) || 0), 1);
     return (
-        <div className="flex items-end gap-2" style={{ height: 120 }}>
+        <div className="flex items-end gap-2">
             {items.map((item) => {
-                const pct = Math.max(((Number(item.value) || 0) / max) * 100, 2);
                 return (
                     <div key={item.label} className="flex flex-col items-center flex-1 min-w-0">
                         <span className="text-xs font-semibold text-text-primary mb-1">
                             {formatNumber(item.value)}
                         </span>
-                        <div
-                            className="w-full rounded-t-lg bg-primary/80 transition-all"
-                            style={{ height: `${pct}%` }}
-                        />
+                        <div className="flex w-full items-end" style={{ height: BAR_TRACK_PX }}>
+                            <div
+                                className="w-full rounded-t-lg bg-primary/80 transition-all"
+                                style={{ height: barHeightPx(item.value, max) }}
+                            />
+                        </div>
                         <span className="mt-1.5 text-[10px] text-text-muted truncate w-full text-center">
                             {item.label}
                         </span>

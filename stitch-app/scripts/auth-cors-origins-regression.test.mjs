@@ -4,8 +4,9 @@ import process from 'node:process';
 
 const root = process.cwd();
 const authSource = await fs.readFile(path.join(root, 'server', 'auth.js'), 'utf8');
+const originsSource = await fs.readFile(path.join(root, 'server', 'authOrigins.js'), 'utf8');
 
-const productionOriginsBlock = authSource.match(/const PRODUCTION_ORIGINS = \[([\s\S]*?)\];/);
+const productionOriginsBlock = originsSource.match(/export const PRODUCTION_ORIGINS = \[([\s\S]*?)\];/);
 if (!productionOriginsBlock) {
   throw new Error('Expected server/auth.js to define PRODUCTION_ORIGINS.');
 }
@@ -20,8 +21,11 @@ for (const origin of [
   }
 }
 
-if (!/trustedOrigins: async \(request\) => \{[\s\S]*?\.\.\.PRODUCTION_ORIGINS,/.test(authSource)) {
-  throw new Error('Expected Better Auth trustedOrigins to include PRODUCTION_ORIGINS.');
+if (!authSource.includes('trustedOrigins: buildTrustedOrigins(),')) {
+  throw new Error('Expected Better Auth trustedOrigins to come from buildTrustedOrigins().');
+}
+if (!/\.\.\.PRODUCTION_ORIGINS/.test(originsSource)) {
+  throw new Error('Expected buildTrustedOrigins to include PRODUCTION_ORIGINS.');
 }
 
 console.log('auth-cors-origins-regression.test.mjs passed');

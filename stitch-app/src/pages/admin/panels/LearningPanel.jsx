@@ -26,7 +26,7 @@ export const LearningPanel = ({ snapshot }) => {
                 <StatCard
                     label="Lessons completed"
                     value={learning.lessonsCompleted}
-                    sublabel={`${formatNumber(learning.progressRows)} in progress rows`}
+                    sublabel={`${formatNumber(learning.progressRows)} lessons started`}
                     icon="menu_book"
                     color="emerald"
                 />
@@ -44,7 +44,7 @@ export const LearningPanel = ({ snapshot }) => {
 
             <SectionCard title="Study artifacts">
                 <StatRow label="Lesson notes" value={formatNumber(learning.notesTotal)} />
-                <StatRow label="Lesson progress rows" value={formatNumber(learning.progressRows)} />
+                <StatRow label="Lessons started" value={formatNumber(learning.progressRows)} />
             </SectionCard>
         </div>
     );
