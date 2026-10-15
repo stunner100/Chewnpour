@@ -38,10 +38,19 @@ const escapeLike = (value) => String(value).replace(/[\\%_]/g, (char) => `\\${ch
 const PAST_PAPER_TYPES = {
     pdf: "application/pdf",
     docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    png: "image/png",
+    jpg: "image/jpeg",
+    webp: "image/webp",
 };
 
+// Photos of papers can be viewed and downloaded, but the study pipeline does
+// not extract text from images, so they cannot be practised as an exam.
+export const isPracticablePastPaperType = (fileType) =>
+    fileType === "pdf" || fileType === "docx";
+
 export const resolvePastPaperFileType = ({ fileName = "", contentType = "" } = {}) => {
-    const extension = String(fileName).toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || "";
+    const rawExtension = String(fileName).toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || "";
+    const extension = rawExtension === "jpeg" ? "jpg" : rawExtension;
     const mime = String(contentType || "").trim().toLowerCase();
     for (const [type, typeMime] of Object.entries(PAST_PAPER_TYPES)) {
         if (extension === type || mime === typeMime) {
@@ -168,6 +177,7 @@ export const toClientPastPaper = (row, { admin = false } = {}) => {
         level: row.level || "",
         fileType: row.file_type,
         fileSize: Number(row.file_size || 0),
+        canPractice: isPracticablePastPaperType(row.file_type),
     };
     if (admin) {
         paper.status = row.status;
@@ -239,6 +249,9 @@ const findPracticeUploadRow = async (userId, paperId) => {
  */
 export const startPastPaperPracticeForUser = async (userId, paperId) => {
     const paper = await getPublishedPaperRow(paperId);
+    if (!isPracticablePastPaperType(paper.file_type)) {
+        throw httpError(400, "Pictures of past papers can be viewed and downloaded, but not practised as an exam.", "PAST_PAPER_NOT_PRACTICABLE");
+    }
     let row = await findPracticeUploadRow(userId, paper.id);
 
     if (!row) {
@@ -311,7 +324,7 @@ export const initPastPaperUpload = async ({ adminUserId, input = {} }) => {
     const fileSize = Number(input.fileSize || 0);
     const type = resolvePastPaperFileType({ fileName, contentType: input.contentType });
     if (!fileName || !type) {
-        throw httpError(400, "Upload a PDF or DOCX file.", "UNSUPPORTED_FILE_TYPE");
+        throw httpError(400, "Upload a PDF, DOCX, or picture (PNG, JPG, WEBP).", "UNSUPPORTED_FILE_TYPE");
     }
     if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > MAX_PAST_PAPER_BYTES) {
         throw httpError(400, "File must be smaller than 50MB.", "INVALID_FILE_SIZE");

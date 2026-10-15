@@ -13,6 +13,7 @@ const {
     compactCourseCode,
     normalizePastPaperInput,
     practiceFileNameFor,
+    isPracticablePastPaperType,
     resolvePastPaperFileType,
     toClientPastPaper,
 } = await import("../server/pastPapers.js");
@@ -67,12 +68,23 @@ const {
     assert.deepEqual(normalizePastPaperInput({ status: "published" }, { partial: true, now }), { status: "published" });
 }
 
-// 3. Only PDF and DOCX papers are accepted (both run through the study pipeline).
+// 3. PDF, DOCX, and pictures are accepted; only PDF/DOCX can be practised
+//    because the study pipeline does not extract text from images.
 {
     assert.equal(resolvePastPaperFileType({ fileName: "paper.PDF" }).fileType, "pdf");
     assert.equal(resolvePastPaperFileType({ fileName: "x", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }).fileType, "docx");
-    assert.equal(resolvePastPaperFileType({ fileName: "scan.png", contentType: "image/png" }), null);
+    assert.deepEqual(resolvePastPaperFileType({ fileName: "scan.png" }), { fileType: "png", contentType: "image/png" });
+    assert.deepEqual(resolvePastPaperFileType({ fileName: "photo.JPEG" }), { fileType: "jpg", contentType: "image/jpeg" });
+    assert.equal(resolvePastPaperFileType({ fileName: "photo", contentType: "image/webp" }).fileType, "webp");
     assert.equal(resolvePastPaperFileType({ fileName: "slides.pptx" }), null);
+    assert.equal(resolvePastPaperFileType({ fileName: "anim.gif", contentType: "image/gif" }), null);
+    assert.ok(isPracticablePastPaperType("pdf") && isPracticablePastPaperType("docx"));
+    assert.ok(!isPracticablePastPaperType("png") && !isPracticablePastPaperType("jpg"));
+
+    const migration = await read("supabase/migrations/20261015120000_past_papers.sql");
+    for (const mime of ["image/png", "image/jpeg", "image/webp"]) {
+        assert.ok(migration.includes(`'${mime}'`), `bucket allows ${mime}`);
+    }
 }
 
 // 4. Practice copy name feeds the course title; client payload hides storage.
@@ -86,6 +98,8 @@ const {
     const client = toClientPastPaper(row);
     assert.equal(client.courseCode, "CSCD 201");
     assert.equal(client.fileSize, 1024);
+    assert.equal(client.canPractice, true);
+    assert.equal(toClientPastPaper({ ...row, file_type: "jpg" }).canPractice, false);
     assert.ok(!("storagePath" in client) && !("status" in client), "students do not see storage or status");
     assert.equal(toClientPastPaper(row, { admin: true }).status, "published");
 }

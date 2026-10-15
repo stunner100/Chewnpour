@@ -28,7 +28,9 @@ const PaperRow = ({ paper, busy, onOpen, onDownload, onPractice }) => (
     <li className="flex flex-col gap-3 border-t border-border-subtle py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
             <p className="text-body-sm font-semibold text-text-primary">{describePaper(paper)}</p>
-            <p className="text-caption uppercase tracking-wide text-text-muted">{paper.fileType}</p>
+            <p className="text-caption uppercase tracking-wide text-text-muted">
+                {paper.canPractice ? paper.fileType : 'Picture'}
+            </p>
         </div>
         <div className="flex flex-wrap gap-2">
             <button
@@ -50,15 +52,17 @@ const PaperRow = ({ paper, busy, onOpen, onDownload, onPractice }) => (
                 <AppIcon name="download" className="text-[16px]" />
                 Download
             </button>
-            <button
-                type="button"
-                className="btn-primary inline-flex min-h-11 items-center gap-1.5 px-4 text-body-sm"
-                onClick={() => onPractice(paper)}
-                disabled={Boolean(busy)}
-            >
-                <AppIcon name={busy === 'practice' ? 'progress_activity' : 'timer'} className={`text-[16px] ${busy === 'practice' ? 'animate-spin' : ''}`} />
-                {busy === 'practice' ? 'Preparing…' : 'Practise as exam'}
-            </button>
+            {paper.canPractice ? (
+                <button
+                    type="button"
+                    className="btn-primary inline-flex min-h-11 items-center gap-1.5 px-4 text-body-sm"
+                    onClick={() => onPractice(paper)}
+                    disabled={Boolean(busy)}
+                >
+                    <AppIcon name={busy === 'practice' ? 'progress_activity' : 'timer'} className={`text-[16px] ${busy === 'practice' ? 'animate-spin' : ''}`} />
+                    {busy === 'practice' ? 'Preparing…' : 'Practise as exam'}
+                </button>
+            ) : null}
         </div>
     </li>
 );

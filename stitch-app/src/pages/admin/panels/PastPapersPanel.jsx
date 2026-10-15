@@ -75,7 +75,7 @@ export const PastPapersPanel = () => {
     const submit = async (event) => {
         event.preventDefault();
         if (!file) {
-            setError('Choose a PDF or DOCX file.');
+            setError('Choose a PDF, DOCX, or picture.');
             return;
         }
         setSubmitting(true);
@@ -179,12 +179,12 @@ export const PastPapersPanel = () => {
                     <Field label="Level">
                         <input value={form.level} onChange={update('level')} className={inputClass} placeholder="200" />
                     </Field>
-                    <Field label="File (PDF or DOCX, max 50MB)">
+                    <Field label="File (PDF, DOCX, or picture; max 50MB)">
                         <input
                             ref={fileInputRef}
                             required
                             type="file"
-                            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
                             onChange={(event) => setFile(event.target.files?.[0] || null)}
                             className="block w-full text-sm text-text-secondary"
                         />
