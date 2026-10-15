@@ -31,12 +31,12 @@ if (!/\/api\/progress/.test(page)) {
 }
 
 const viteConfig = await fs.readFile(path.join(root, 'vite.config.js'), 'utf8');
-if (!/['"]\/api\/progress['"]/.test(viteConfig)) {
+if (!/'\/api': \{/.test(viteConfig)) {
   throw new Error('Expected Vite to proxy /api/progress.');
 }
 
 const devAuth = await fs.readFile(path.join(root, 'scripts', 'dev-auth-server.mjs'), 'utf8');
-if (!/\/api\/progress/.test(devAuth)) {
+if (!devAuth.includes('importApi("router.js")') || !/\/api\/progress/.test(await fs.readFile(path.join(root, 'api', 'router.js'), 'utf8'))) {
   throw new Error('Expected dev-auth server to route /api/progress.');
 }
 

@@ -81,7 +81,7 @@ if (!/\/api\/uploads\/init/.test(page) || !/finalize/.test(page)) {
 }
 
 const viteConfig = await fs.readFile(path.join(root, 'vite.config.js'), 'utf8');
-if (!/['"]\/api\/uploads['"]/.test(viteConfig)) {
+if (!/'\/api': \{/.test(viteConfig)) {
   throw new Error('Expected Vite to proxy /api/uploads to the local API server.');
 }
 
