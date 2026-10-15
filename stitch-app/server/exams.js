@@ -94,6 +94,8 @@ export const startExamForCourse = async ({
         throw error;
     }
 
+    await closeExpiredAttemptsForCourse(userId, courseId);
+
     const db = getPool();
     const existingAttempt = await db.query(
         `SELECT id
@@ -194,6 +196,10 @@ export const getExamAttemptForUser = async (userId, examId) => {
         error.status = 404;
         throw error;
     }
+    if (attempt.status === "in_progress" && isPastSubmitDeadline(attempt)) {
+        await closeExpiredAttempt(userId, attempt);
+        return getExamAttemptForUser(userId, examId);
+    }
 
     const questionIds = Array.isArray(attempt.question_ids)
         ? attempt.question_ids
@@ -276,6 +282,41 @@ export const saveExamAnswers = async ({ userId, examId, answers = {} }) => {
     return { saved: true, examId };
 };
 
+export const isPastSubmitDeadline = (attempt, now = Date.now()) => {
+    if (!attempt?.ends_at) return false;
+    return now > new Date(attempt.ends_at).getTime() + GRACE_SECONDS * 1000;
+};
+
+const savedAnswersOf = (attempt) =>
+    attempt?.answers && typeof attempt.answers === "object" && !Array.isArray(attempt.answers)
+        ? attempt.answers
+        : {};
+
+// Expired attempts are graded from the answers autosaved before the deadline,
+// so a missed submit (closed tab, dropped network, skewed clock) still scores.
+const closeExpiredAttempt = async (userId, attempt) =>
+    gradeAndCloseAttempt({
+        userId,
+        attempt,
+        answers: savedAnswersOf(attempt),
+        status: "expired",
+    });
+
+export const closeExpiredAttemptsForCourse = async (userId, courseId) => {
+    const db = getPool();
+    const result = await db.query(
+        `SELECT * FROM exam_attempts
+         WHERE user_id = $1
+           AND course_id = $2
+           AND status = 'in_progress'
+           AND ends_at < NOW() - make_interval(secs => $3)`,
+        [userId, courseId, GRACE_SECONDS],
+    );
+    for (const attempt of result.rows) {
+        await closeExpiredAttempt(userId, attempt);
+    }
+};
+
 export const submitExamAttempt = async ({ userId, examId, answers = {} }) => {
     const db = getPool();
     const attemptResult = await db.query(
@@ -288,27 +329,21 @@ export const submitExamAttempt = async ({ userId, examId, answers = {} }) => {
         error.status = 404;
         throw error;
     }
-    if (attempt.status === "submitted") {
+    if (attempt.status !== "in_progress") {
         return getExamAttemptForUser(userId, examId);
     }
 
-    const now = Date.now();
-    const endsAtMs = attempt.ends_at
-        ? new Date(attempt.ends_at).getTime()
-        : now;
-    if (now > endsAtMs + GRACE_SECONDS * 1000) {
-        await db.query(
-            `UPDATE exam_attempts
-             SET status = 'expired', updated_at = NOW()
-             WHERE id = $1 AND user_id = $2 AND status = 'in_progress'`,
-            [examId, userId],
-        );
-        const error = new Error("Exam time is up. This attempt can no longer be submitted.");
-        error.status = 400;
-        error.code = "EXAM_EXPIRED";
-        throw error;
+    if (isPastSubmitDeadline(attempt)) {
+        await closeExpiredAttempt(userId, attempt);
+    } else {
+        await gradeAndCloseAttempt({ userId, attempt, answers, status: "submitted" });
     }
+    return getExamAttemptForUser(userId, examId);
+};
 
+const gradeAndCloseAttempt = async ({ userId, attempt, answers = {}, status }) => {
+    const db = getPool();
+    const examId = attempt.id;
     const questionIds = Array.isArray(attempt.question_ids)
         ? attempt.question_ids
         : JSON.parse(attempt.question_ids || "[]");
@@ -341,23 +376,23 @@ export const submitExamAttempt = async ({ userId, examId, answers = {} }) => {
     const total = questionIds.length || 1;
     const score = Math.round((correctCount / total) * 1000) / 10;
 
+    // The status guard makes concurrent submits idempotent: the first wins.
     await db.query(
         `UPDATE exam_attempts
          SET answers = $3::jsonb,
              score = $4,
              correct_count = $5,
              submitted_at = NOW(),
-             status = 'submitted',
+             status = $6,
              updated_at = NOW()
-         WHERE id = $1 AND user_id = $2`,
+         WHERE id = $1 AND user_id = $2 AND status = 'in_progress'`,
         [
             examId,
             userId,
             JSON.stringify(normalizedAnswers),
             score,
             correctCount,
+            status,
         ],
     );
-
-    return getExamAttemptForUser(userId, examId);
 };

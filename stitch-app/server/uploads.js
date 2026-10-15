@@ -39,6 +39,10 @@ const OCR_UNSUPPORTED_HINT =
 
 const MAX_EXTRACT_TEXT_CHARS = 500_000;
 
+// An 'extracting' row untouched for longer than the serverless max duration
+// (300s) belongs to a killed request, so finalize may claim it again.
+export const EXTRACTION_STALE_SECONDS = 360;
+
 const ALLOWED_STUDY_FILE_TYPES = new Set([
     "pdf",
     "docx",
@@ -58,7 +62,12 @@ export const isAllowedStudyUploadType = ({
     fileName = "",
 } = {}) => {
     const source = `${fileType} ${contentType} ${fileName}`.toLowerCase();
-    if (source.includes("image") || /\.(png|jpe?g|webp|gif)\b/.test(source)) {
+    // Judge images by MIME type and extension, never by words in the file name.
+    const isImage =
+        /^image\//.test(String(contentType || "").trim().toLowerCase()) ||
+        /^(png|jpe?g|webp|gif)$/.test(String(fileType || "").trim().toLowerCase()) ||
+        /\.(png|jpe?g|webp|gif)$/.test(String(fileName || "").trim().toLowerCase());
+    if (isImage) {
         return false;
     }
     if (isAudioUploadType({ fileType, contentType, fileName })) {
@@ -565,9 +574,15 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
              updated_at = NOW()
          WHERE id = $1
            AND user_id = $2
-           AND status IN ('pending', 'error', 'extracting')
+           AND (
+                status IN ('pending', 'error')
+                OR (
+                    status = 'extracting'
+                    AND updated_at < NOW() - make_interval(secs => $3)
+                )
+           )
          RETURNING *`,
-        [uploadId, userId],
+        [uploadId, userId, EXTRACTION_STALE_SECONDS],
     );
     if (!claimed.rows[0]) {
         const latest = await getUploadRowForUser(userId, uploadId);

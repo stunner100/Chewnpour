@@ -380,9 +380,12 @@ const ExamMode = () => {
       }
       setResult(payload.exam || null);
       setExam(null);
+      const expired = payload.exam?.status === 'expired';
       watermelonToast(
-        timedOut ? 'Time’s up — your answers were submitted' : 'Exam submitted',
-        { type: timedOut ? 'warning' : 'success' },
+        expired
+          ? 'Time ran out — graded from your saved answers'
+          : timedOut ? 'Time’s up — your answers were submitted' : 'Exam submitted',
+        { type: expired || timedOut ? 'warning' : 'success' },
       );
     } catch (err) {
       watermelonToast(err.message || 'Could not submit exam', { type: 'error' });
