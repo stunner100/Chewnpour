@@ -9,6 +9,7 @@ import { LearningPanel } from './panels/LearningPanel';
 import { ContentPanel } from './panels/ContentPanel';
 import { UsersPanel } from './panels/UsersPanel';
 import { UploadsPanel } from './panels/UploadsPanel';
+import { PastPapersPanel } from './panels/PastPapersPanel';
 
 const TAB_KEYS = new Set(TABS.map((tab) => tab.key));
 
@@ -74,6 +75,7 @@ export default function AdminDashboard() {
         if (activeTab === 'content') return <ContentPanel snapshot={snapshot} />;
         if (activeTab === 'users') return <UsersPanel snapshot={snapshot} />;
         if (activeTab === 'uploads') return <UploadsPanel snapshot={snapshot} />;
+        if (activeTab === 'past-papers') return <PastPapersPanel />;
         return <OverviewPanel snapshot={snapshot} />;
     }, [activeTab, snapshot]);
 

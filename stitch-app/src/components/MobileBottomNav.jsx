@@ -22,6 +22,7 @@ const returningMoreItems = [
     { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', description: 'Study plan and mastery' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Open the course Chewnpour generated from each upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
+    { label: 'Past questions', icon: 'description', path: '/dashboard/past-questions', description: 'Browse and practise past exam papers' },
     { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
     { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
 ];
@@ -30,6 +31,7 @@ const firstRunMoreItems = [
     { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz', description: 'Practice after your first lesson is ready' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Open the course Chewnpour generated from each upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },
+    { label: 'Past questions', icon: 'description', path: '/dashboard/past-questions', description: 'Browse and practise past exam papers' },
     { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', description: 'Listen to study podcasts from your materials' },
     { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor', description: 'Ask follow-up questions' },
     { label: 'Settings', icon: 'settings', path: '/dashboard/settings', description: 'Account and preferences' },
