@@ -14,7 +14,7 @@ const Toast = ({ message, onClose, type = 'success' }) => {
     return (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 animate-slide-up" role="alert" aria-live="assertive">
             <div className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2">
-                <AppIcon name={icon} />
+                <AppIcon name={icon} className={iconColor} />
                 <span className="text-sm font-medium">{message}</span>
                 {onClose && (
                     <button

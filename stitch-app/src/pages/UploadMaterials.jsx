@@ -8,6 +8,11 @@ import { isUploadStudyReady, buildFirstLessonHref } from '../lib/uploadReadiness
 import { GENERATION_STAGES, resolveGenerationStageIndex } from '../lib/generationStages';
 import GenerationStageList from '../components/materials/GenerationStageList';
 import { SpinLoader } from '../components/opensource-ui/SpinLoader';
+import {
+    buildUploadOpenHref,
+    describeUploadFailure,
+    putFileWithProgress,
+} from '../lib/uploadTransfer';
 
 const typeConfig = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -25,7 +30,6 @@ const SUPPORTED_STUDY_MIME_TYPES = new Map([
     ['audio/mpeg', 'mp3'],
     ['audio/mp3', 'mp3'],
     ['audio/mp4', 'm4a'],
-    ['video/mp4', 'mp4'],
     ['audio/x-m4a', 'm4a'],
     ['audio/wav', 'wav'],
     ['audio/x-wav', 'wav'],
@@ -41,7 +45,6 @@ const SUPPORTED_STUDY_EXTENSIONS = new Set([
     'docx',
     'mp3',
     'm4a',
-    'mp4',
     'wav',
     'webm',
     'ogg',
@@ -49,8 +52,8 @@ const SUPPORTED_STUDY_EXTENSIONS = new Set([
     'flac',
 ]);
 
-const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.aac,.flac';
-const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, or audio (MP3, M4A, MP4, WAV, and similar)';
+const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.wav,.webm,.ogg,.aac,.flac';
+const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, or audio (MP3, M4A, WAV, and similar)';
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const resolveStudyUploadFileType = (file) => {
@@ -67,7 +70,7 @@ const resolveFileKind = (fileType = '', fileName = '') => {
     if (source.includes('pdf')) return 'pdf';
     if (source.includes('ppt') || source.includes('presentation')) return 'pptx';
     if (source.includes('doc')) return 'docx';
-    if (source.includes('audio') || /\.(mp3|wav|m4a|aac|flac|ogg|webm|mp4)\b/.test(source)) return 'audio';
+    if (source.includes('audio') || /\.(mp3|wav|m4a|aac|flac|ogg|webm)\b/.test(source)) return 'audio';
     if (source.includes('image') || /\.(png|jpe?g|webp)\b/.test(source)) return 'image';
     if (source.includes('text') || /\.(txt|md)\b/.test(source)) return 'txt';
     return 'docx';
@@ -219,6 +222,8 @@ const UploadMaterials = () => {
     const [readyCourse, setReadyCourse] = useState(null);
     const [uploadError, setUploadError] = useState('');
     const [isDragging, setIsDragging] = useState(false);
+    const [uploadPercent, setUploadPercent] = useState(null);
+    const [retryingUploadId, setRetryingUploadId] = useState(null);
 
     const userId = user?.id || '';
 
@@ -303,7 +308,9 @@ const UploadMaterials = () => {
         );
     }, [activeStageIndex, activeUploadId, courses, isUploading, uploads]);
 
-    const dropzoneStageLabel = GENERATION_STAGES[Math.max(0, dropzoneStageIndex)]?.label || 'Uploading';
+    const dropzoneStageLabel = uploadPercent != null
+        ? `Uploading ${uploadPercent}%`
+        : GENERATION_STAGES[Math.max(0, dropzoneStageIndex)]?.label || 'Uploading';
 
     const handleFile = useCallback(async (file) => {
         if (!file) return;
@@ -335,16 +342,14 @@ const UploadMaterials = () => {
                 contentType: file.type || 'application/octet-stream',
             });
 
-            const putResponse = await fetch(init.signedUrl, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': file.type || 'application/octet-stream',
-                },
-                body: file,
+            setUploadPercent(0);
+            await putFileWithProgress({
+                url: init.signedUrl,
+                file,
+                contentType: file.type || 'application/octet-stream',
+                onProgress: setUploadPercent,
             });
-            if (!putResponse.ok) {
-                throw new Error(`Storage responded with ${putResponse.status}`);
-            }
+            setUploadPercent(null);
 
             setActiveUploadId(init.upload.id);
             setActiveStageIndex(1);
@@ -388,8 +393,38 @@ const UploadMaterials = () => {
         } finally {
             setIsUploading(false);
             setActiveUploadId(null);
+            setUploadPercent(null);
         }
     }, [presentReadyCourse, userId]);
+
+    const handleRetryUpload = useCallback(async (upload) => {
+        if (!upload?.id || retryingUploadId) return;
+        setUploadError('');
+        setRetryingUploadId(upload.id);
+        setUploads((current) => (current || []).map((item) => (
+            item.id === upload.id
+                ? { ...item, status: 'extracting', extractionStatus: 'running', processingStep: 'extracting', errorMessage: null }
+                : item
+        )));
+        try {
+            const finalized = await finalizeUpload(upload.id);
+            setUploads((current) => (current || []).map((item) => (item.id === finalized.id ? finalized : item)));
+            if (isUploadStudyReady(finalized)) {
+                presentReadyCourse({
+                    title: finalized.fileName || 'Your material',
+                    lessonsHref: buildFirstLessonHref({ upload: finalized }),
+                    courseHref: buildUploadOpenHref({ upload: finalized }),
+                    topics: finalized.topicCount,
+                    quizzes: finalized.quizzesReady,
+                });
+            }
+        } catch (err) {
+            setUploadError(String(err?.message || 'Retry failed. Please try again.'));
+            await refreshUploads({ silent: true });
+        } finally {
+            setRetryingUploadId(null);
+        }
+    }, [presentReadyCourse, refreshUploads, retryingUploadId]);
 
     const handleInputChange = useCallback((event) => {
         const file = event.target.files?.[0];
@@ -622,23 +657,30 @@ const UploadMaterials = () => {
                                                 {statusConfig.isProcessing ? (
                                                     <GenerationStageList stageIndex={Math.max(0, stageIndex)} />
                                                 ) : null}
+                                                {statusConfig.isError ? (
+                                                    <p className="mt-1 text-body-sm text-warning">
+                                                        {describeUploadFailure(upload)}
+                                                    </p>
+                                                ) : null}
                                             </div>
                                         </div>
                                         {!statusConfig.isProcessing && !statusConfig.isError && (
                                             <Link
-                                                to="/dashboard/library"
+                                                to={buildUploadOpenHref({ upload, course: matchedCourse })}
                                                 className="btn-secondary inline-flex min-h-10 shrink-0 self-start text-body-sm sm:self-center"
                                             >
                                                 Open
                                             </Link>
                                         )}
                                         {statusConfig.isError && (
-                                            <Link
-                                                to="/dashboard/upload"
-                                                className="btn-secondary inline-flex min-h-10 shrink-0 self-start text-body-sm sm:self-center"
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRetryUpload(upload)}
+                                                disabled={Boolean(retryingUploadId) || isUploading}
+                                                className="btn-secondary inline-flex min-h-10 shrink-0 self-start text-body-sm disabled:opacity-60 sm:self-center"
                                             >
-                                                Try again
-                                            </Link>
+                                                {retryingUploadId === upload.id ? 'Retrying…' : 'Try again'}
+                                            </button>
                                         )}
                                     </div>
                                 );

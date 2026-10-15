@@ -39,7 +39,7 @@ const parseOptions = (raw) => {
     return Array.isArray(options) ? options : [];
 };
 
-const toReviewItems = (orderedQuestions, answers = {}) =>
+export const toReviewItems = (orderedQuestions, answers = {}) =>
     orderedQuestions.map((row) => {
         const options = parseOptions(row.options);
         const selectedRaw = answers?.[row.id];
@@ -57,6 +57,9 @@ const toReviewItems = (orderedQuestions, answers = {}) =>
             selectedIndex: Number.isFinite(selectedIndex) ? selectedIndex : null,
             correctIndex: Number.isFinite(correctIndex) ? correctIndex : null,
             isCorrect,
+            explanation: row.explanation || "",
+            topicId: row.topic_id || null,
+            topicTitle: row.topic_title || "",
         };
     });
 
@@ -68,6 +71,16 @@ const shuffle = (items) => {
         [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
+};
+
+// Exam-only questions (never shown in topic quizzes) come first; topic-quiz
+// questions only fill the remaining slots, e.g. for courses generated before the
+// exam pool existed.
+export const selectExamQuestions = (rows, limit) => {
+    const list = Array.isArray(rows) ? rows : [];
+    const examOnly = list.filter((row) => row?.surface === "exam");
+    const quiz = list.filter((row) => row?.surface !== "exam");
+    return shuffle([...shuffle(examOnly), ...shuffle(quiz)].slice(0, limit));
 };
 
 const getCourseOwnedByUser = async (userId, courseId) => {
@@ -90,6 +103,8 @@ export const startExamForCourse = async ({
         error.status = 404;
         throw error;
     }
+
+    await closeExpiredAttemptsForCourse(userId, courseId);
 
     const db = getPool();
     const existingAttempt = await db.query(
@@ -114,7 +129,7 @@ export const startExamForCourse = async ({
          WHERE q.course_id = $1
            AND q.user_id = $2
            AND COALESCE(q.question_type, 'multiple_choice') = 'multiple_choice'
-           AND COALESCE(q.surface, 'quiz') = 'quiz'
+           AND COALESCE(q.surface, 'quiz') IN ('quiz', 'exam')
            AND COALESCE(jsonb_array_length(q.options), 0) >= 2
          ORDER BY t.sort_order ASC, q.sort_order ASC, q.id ASC`,
         [courseId, userId],
@@ -136,7 +151,7 @@ export const startExamForCourse = async ({
             DEFAULT_QUESTION_LIMIT,
         ),
     );
-    const selected = shuffle(questionsResult.rows).slice(0, limit);
+    const selected = selectExamQuestions(questionsResult.rows, limit);
     const questionIds = selected.map((row) => row.id);
     const durationSeconds = Math.min(
         MAX_DURATION_SECONDS,
@@ -191,14 +206,20 @@ export const getExamAttemptForUser = async (userId, examId) => {
         error.status = 404;
         throw error;
     }
+    if (attempt.status === "in_progress" && isPastSubmitDeadline(attempt)) {
+        await closeExpiredAttempt(userId, attempt);
+        return getExamAttemptForUser(userId, examId);
+    }
 
     const questionIds = Array.isArray(attempt.question_ids)
         ? attempt.question_ids
         : JSON.parse(attempt.question_ids || "[]");
 
     const questionsResult = await db.query(
-        `SELECT * FROM questions
-         WHERE user_id = $1 AND id = ANY($2::text[])`,
+        `SELECT q.*, t.title AS topic_title
+         FROM questions q
+         LEFT JOIN topics t ON t.id = q.topic_id
+         WHERE q.user_id = $1 AND q.id = ANY($2::text[])`,
         [userId, questionIds],
     );
     const byId = new Map(questionsResult.rows.map((row) => [row.id, row]));
@@ -271,6 +292,41 @@ export const saveExamAnswers = async ({ userId, examId, answers = {} }) => {
     return { saved: true, examId };
 };
 
+export const isPastSubmitDeadline = (attempt, now = Date.now()) => {
+    if (!attempt?.ends_at) return false;
+    return now > new Date(attempt.ends_at).getTime() + GRACE_SECONDS * 1000;
+};
+
+const savedAnswersOf = (attempt) =>
+    attempt?.answers && typeof attempt.answers === "object" && !Array.isArray(attempt.answers)
+        ? attempt.answers
+        : {};
+
+// Expired attempts are graded from the answers autosaved before the deadline,
+// so a missed submit (closed tab, dropped network, skewed clock) still scores.
+const closeExpiredAttempt = async (userId, attempt) =>
+    gradeAndCloseAttempt({
+        userId,
+        attempt,
+        answers: savedAnswersOf(attempt),
+        status: "expired",
+    });
+
+export const closeExpiredAttemptsForCourse = async (userId, courseId) => {
+    const db = getPool();
+    const result = await db.query(
+        `SELECT * FROM exam_attempts
+         WHERE user_id = $1
+           AND course_id = $2
+           AND status = 'in_progress'
+           AND ends_at < NOW() - make_interval(secs => $3)`,
+        [userId, courseId, GRACE_SECONDS],
+    );
+    for (const attempt of result.rows) {
+        await closeExpiredAttempt(userId, attempt);
+    }
+};
+
 export const submitExamAttempt = async ({ userId, examId, answers = {} }) => {
     const db = getPool();
     const attemptResult = await db.query(
@@ -283,27 +339,21 @@ export const submitExamAttempt = async ({ userId, examId, answers = {} }) => {
         error.status = 404;
         throw error;
     }
-    if (attempt.status === "submitted") {
+    if (attempt.status !== "in_progress") {
         return getExamAttemptForUser(userId, examId);
     }
 
-    const now = Date.now();
-    const endsAtMs = attempt.ends_at
-        ? new Date(attempt.ends_at).getTime()
-        : now;
-    if (now > endsAtMs + GRACE_SECONDS * 1000) {
-        await db.query(
-            `UPDATE exam_attempts
-             SET status = 'expired', updated_at = NOW()
-             WHERE id = $1 AND user_id = $2 AND status = 'in_progress'`,
-            [examId, userId],
-        );
-        const error = new Error("Exam time is up. This attempt can no longer be submitted.");
-        error.status = 400;
-        error.code = "EXAM_EXPIRED";
-        throw error;
+    if (isPastSubmitDeadline(attempt)) {
+        await closeExpiredAttempt(userId, attempt);
+    } else {
+        await gradeAndCloseAttempt({ userId, attempt, answers, status: "submitted" });
     }
+    return getExamAttemptForUser(userId, examId);
+};
 
+const gradeAndCloseAttempt = async ({ userId, attempt, answers = {}, status }) => {
+    const db = getPool();
+    const examId = attempt.id;
     const questionIds = Array.isArray(attempt.question_ids)
         ? attempt.question_ids
         : JSON.parse(attempt.question_ids || "[]");
@@ -336,23 +386,23 @@ export const submitExamAttempt = async ({ userId, examId, answers = {} }) => {
     const total = questionIds.length || 1;
     const score = Math.round((correctCount / total) * 1000) / 10;
 
+    // The status guard makes concurrent submits idempotent: the first wins.
     await db.query(
         `UPDATE exam_attempts
          SET answers = $3::jsonb,
              score = $4,
              correct_count = $5,
              submitted_at = NOW(),
-             status = 'submitted',
+             status = $6,
              updated_at = NOW()
-         WHERE id = $1 AND user_id = $2`,
+         WHERE id = $1 AND user_id = $2 AND status = 'in_progress'`,
         [
             examId,
             userId,
             JSON.stringify(normalizedAnswers),
             score,
             correctCount,
+            status,
         ],
     );
-
-    return getExamAttemptForUser(userId, examId);
 };

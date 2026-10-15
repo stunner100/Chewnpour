@@ -9,6 +9,7 @@ import {
     initUploadForUser,
     isAllowedStudyUploadType,
     listUploadsForUser,
+    UNSUPPORTED_TYPE_MESSAGE,
 } from "./uploads.js";
 import { asciiDownloadFilename } from "./materialExport.js";
 
@@ -94,7 +95,7 @@ export const handleUploadsRequest = async (req, res) => {
             }
             if (!isAllowedStudyUploadType({ fileType, contentType, fileName })) {
                 return sendJson(res, 400, {
-                    error: "Only PDF, DOCX, and PPTX files are supported right now.",
+                    error: UNSUPPORTED_TYPE_MESSAGE,
                     code: "UNSUPPORTED_FILE_TYPE",
                 });
             }

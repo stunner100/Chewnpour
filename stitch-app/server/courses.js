@@ -147,69 +147,65 @@ export const getCourseByUploadId = async (userId, uploadId) => {
     return result.rows[0] || null;
 };
 
-export const ensureCourseFromUpload = async ({
-    userId,
-    uploadId,
-    fileName,
-    extractedText,
-}) => {
-    const existing = await getCourseByUploadId(userId, uploadId);
-    if (existing) {
-        return getCourseForUser(userId, existing.id);
-    }
+// A 'generating' claim older than the serverless max duration (300s) belongs
+// to a request that was killed, so another finalize may take it over.
+export const COURSE_GENERATION_STALE_SECONDS = 360;
 
-    const text = String(extractedText || "").trim();
-    if (!text) {
-        const error = new Error(
-            "Cannot generate a course without extracted text.",
-        );
-        error.status = 400;
-        error.code = "EXTRACTION_INCOMPLETE";
-        throw error;
-    }
-
-    const title = stripCourseTitle(fileName) || "Study material";
-    const curriculum = await generateCourseCurriculumWithAi({
-        fileName,
-        extractedText: text,
-    });
-    const topicSpecs = Array.isArray(curriculum.topics) ? curriculum.topics : [];
-    const courseId = nanoid();
+// Claim generation for an upload before any AI call. Returns the claimed
+// course id, or null when another live request owns it (or it is ready).
+const claimCourseGeneration = async ({ userId, uploadId, title }) => {
     const db = getPool();
-    const truncatedNote = curriculum.sourceTruncated
-        ? " \u2014 covers the first section of a longer source"
-        : "";
-    const description = (String(curriculum.backend || "").includes("heuristic")
-        ? "Generated from your upload"
-        : "AI-generated from your upload") + truncatedNote;
-
+    const courseId = nanoid();
     try {
         await db.query(
-            `INSERT INTO courses (
-                id, user_id, upload_id, title, description, status, generation_backend
-             ) VALUES ($1, $2, $3, $4, $5, 'ready', $6)`,
-            [
-                courseId,
-                userId,
-                uploadId,
-                title.slice(0, 180),
-                description,
-                curriculum.backend || "heuristic",
-            ],
+            `INSERT INTO courses (id, user_id, upload_id, title, status)
+             VALUES ($1, $2, $3, $4, 'generating')`,
+            [courseId, userId, uploadId, title.slice(0, 180)],
+        );
+        return courseId;
+    } catch (error) {
+        if (error?.code !== "23505") throw error;
+    }
+    const takeover = await db.query(
+        `UPDATE courses
+         SET updated_at = NOW()
+         WHERE user_id = $1
+           AND upload_id = $2
+           AND status = 'generating'
+           AND updated_at < NOW() - make_interval(secs => $3)
+         RETURNING id`,
+        [userId, uploadId, COURSE_GENERATION_STALE_SECONDS],
+    );
+    return takeover.rows[0]?.id || null;
+};
+
+// Mirrors course-generation progress onto the upload row so the upload page can
+// show the real stage. Best-effort: a failed write never blocks generation.
+const setUploadGenerationStep = async (uploadId, step, { fromStep = null } = {}) => {
+    try {
+        await getPool().query(
+            `UPDATE uploads
+             SET processing_step = $2, updated_at = NOW()
+             WHERE id = $1
+               AND status = 'ready'
+               AND ($3::text IS NULL OR processing_step = $3)`,
+            [uploadId, step, fromStep],
         );
     } catch (error) {
-        // Unique upload_id race: another finalize already created the course.
-        if (error?.code === "23505") {
-            const raced = await getCourseByUploadId(userId, uploadId);
-            if (raced) return getCourseForUser(userId, raced.id);
-        }
-        throw error;
+        console.warn("[courses] failed to record generation step", {
+            uploadId,
+            step,
+            message: error?.message || String(error),
+        });
     }
+};
 
+const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs }) => {
+    const inserted = [];
     for (let index = 0; index < topicSpecs.length; index += 1) {
         const spec = topicSpecs[index];
         const topicId = nanoid();
-        await db.query(
+        await client.query(
             `INSERT INTO topics (
                 id, course_id, user_id, upload_id, title, description, content, sort_order
              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -237,7 +233,7 @@ export const ensureCourseFromUpload = async ({
         ];
         for (const question of questionSpecs) {
             if (!question?.prompt) continue;
-            await db.query(
+            await client.query(
                 `INSERT INTO questions (
                     id, topic_id, course_id, user_id, prompt, options, correct_index, explanation, sort_order,
                     question_type, payload, hint, surface
@@ -269,14 +265,119 @@ export const ensureCourseFromUpload = async ({
                 ],
             );
         }
+        inserted.push({ topicId, content: String(spec.content || "") });
+    }
+    return inserted;
+};
 
+export const ensureCourseFromUpload = async ({
+    userId,
+    uploadId,
+    fileName,
+    extractedText,
+}) => {
+    const existing = await getCourseByUploadId(userId, uploadId);
+    if (existing?.status === "ready") {
+        return getCourseForUser(userId, existing.id);
+    }
+
+    const text = String(extractedText || "").trim();
+    if (!text) {
+        const error = new Error(
+            "Cannot generate a course without extracted text.",
+        );
+        error.status = 400;
+        error.code = "EXTRACTION_INCOMPLETE";
+        throw error;
+    }
+
+    const title = stripCourseTitle(fileName) || "Study material";
+    const courseId = await claimCourseGeneration({ userId, uploadId, title });
+    if (!courseId) {
+        // Another request is generating (or just finished); report its state.
+        const current = await getCourseByUploadId(userId, uploadId);
+        return current ? getCourseForUser(userId, current.id) : null;
+    }
+
+    const db = getPool();
+    let curriculum;
+    let lastStep = "structuring";
+    await setUploadGenerationStep(uploadId, lastStep);
+    try {
+        curriculum = await generateCourseCurriculumWithAi({
+            fileName,
+            extractedText: text,
+            // Only move forward: generation abandoned at the deadline can still
+            // report "writing" after the course has moved on to saving.
+            onProgress: async (stage) => {
+                if (stage !== "writing" || lastStep !== "structuring") return;
+                lastStep = stage;
+                await setUploadGenerationStep(uploadId, stage, { fromStep: "structuring" });
+            },
+        });
+    } catch (error) {
+        await setUploadGenerationStep(uploadId, "ready");
+        await db.query(
+            `DELETE FROM courses WHERE id = $1 AND status = 'generating'`,
+            [courseId],
+        );
+        throw error;
+    }
+    const topicSpecs = Array.isArray(curriculum.topics) ? curriculum.topics : [];
+    const truncatedNote = curriculum.sourceTruncated
+        ? " — sampled from across a longer source"
+        : "";
+    const description = (String(curriculum.backend || "").includes("heuristic")
+        ? "Generated from your upload"
+        : "AI-generated from your upload") + truncatedNote;
+
+    // Topics, questions and the 'ready' flip commit together, so a killed
+    // request never leaves a ready course with missing topics.
+    lastStep = "saving";
+    await setUploadGenerationStep(uploadId, lastStep);
+    const client = await db.connect();
+    let inserted;
+    try {
+        await client.query("BEGIN");
+        // A stale takeover may find rows from a run that died mid-insert.
+        await client.query(`DELETE FROM topics WHERE course_id = $1`, [courseId]);
+        inserted = await insertCurriculum(client, {
+            courseId,
+            userId,
+            uploadId,
+            topicSpecs,
+        });
+        await client.query(
+            `UPDATE courses
+             SET status = 'ready',
+                 description = $2,
+                 generation_backend = $3,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [courseId, description, curriculum.backend || "heuristic"],
+        );
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        client.release();
+        await setUploadGenerationStep(uploadId, "ready");
+        await db.query(
+            `DELETE FROM courses WHERE id = $1 AND status = 'generating'`,
+            [courseId],
+        );
+        throw error;
+    }
+    client.release();
+    await setUploadGenerationStep(uploadId, "ready");
+
+    for (const { topicId, content } of inserted) {
         try {
             await indexTopicPassages({
                 topicId,
                 courseId,
                 uploadId,
                 userId,
-                content: String(spec.content || ""),
+                content,
             });
         } catch (error) {
             console.warn("[courses] topic passage indexing failed", {
@@ -346,6 +447,7 @@ export const listCoursesForUser = async (userId) => {
               AND qq3.question_count > 0
          ) quiz_topics ON TRUE
          WHERE c.user_id = $1
+           AND c.status = 'ready'
          ORDER BY c.created_at DESC`,
         [userId],
     );

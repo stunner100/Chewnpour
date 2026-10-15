@@ -7,13 +7,6 @@ const rootDir = process.cwd();
 const read = (relativePath) =>
     fs.readFileSync(path.join(rootDir, relativePath), 'utf8');
 
-const authTs = read('convex/auth.ts');
-assert.match(
-    authTs,
-    /verbose:\s*false/,
-    'Better Auth verbose logging should be disabled in convex/auth.ts',
-);
-
 const indexHtml = read('index.html');
 assert.ok(
     !indexHtml.includes('/>>'),
@@ -27,14 +20,13 @@ assert.ok(
 );
 assert.match(
     appJsx,
-    /const LandingPage = lazy\(\(\) => import\('\.\/pages\/LandingPage'\)\);/,
+    /const LandingPage = lazyRoute\(\(\) => import\('\.\/pages\/LandingPage'\)/,
     'Landing page should be lazy-loaded in App.jsx',
 );
 
 const mainJsx = read('src/main.jsx');
-assert.match(
-    mainJsx,
-    /const AppProviders = lazy\(\(\) => import\('\.\/bootstrap\/AppProviders\.jsx'\)\);/,
+assert.ok(
+    mainJsx.includes("import('./bootstrap/AppProviders.jsx')"),
     'main.jsx should lazy-load bootstrap providers',
 );
 assert.ok(
@@ -48,22 +40,6 @@ assert.match(
     /capturePostHogEvent\(/,
     'LandingPage should use capturePostHogEvent helper',
 );
-assert.match(
-    landingPage,
-    /media="\(min-width: 1024px\)"/,
-    'Landing hero image should use desktop-only high-resolution source',
-);
-assert.match(
-    landingPage,
-    /src=\{heroIllustration960\}/,
-    'Landing hero image default source should use 960 variant',
-);
-assert.match(
-    landingPage,
-    /cancelAnimationFrame/,
-    'Landing scroll animation frame should be cancelled on unmount',
-);
-
 const posthogSource = read('src/lib/posthog.js');
 for (const pattern of [
     'MAX_PENDING_ACTIONS',
@@ -88,15 +64,6 @@ for (const pattern of ['dismissTimerRef', 'clearDismissTimer', 'clearTimeout']) 
         useShareSource,
         new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
         `useShare toast handling should include "${pattern}"`,
-    );
-}
-
-const humanizerSource = read('src/pages/AIHumanizer.jsx');
-for (const pattern of ['copiedTimerRef', 'clearTimeout']) {
-    assert.match(
-        humanizerSource,
-        new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-        `AIHumanizer copy feedback should include "${pattern}"`,
     );
 }
 

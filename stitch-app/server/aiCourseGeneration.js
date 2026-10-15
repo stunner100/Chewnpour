@@ -23,6 +23,10 @@ const MAX_SOURCE_CHARS = 12000;
 const MAX_SOURCE_CHUNKS = 5;
 const MAX_TOPICS = 5;
 const MAX_QUESTIONS_PER_TOPIC = 3;
+// Extra grounded MCQs per topic reserved for the timed exam, so the exam is not
+// a replay of topic-quiz questions whose answers the student has already seen.
+export const MAX_EXAM_QUESTIONS_PER_TOPIC = 3;
+const MAX_GENERATED_MCQS_PER_TOPIC = MAX_QUESTIONS_PER_TOPIC + MAX_EXAM_QUESTIONS_PER_TOPIC;
 const MAX_TOPIC_CONTENT_CHARS = 8000;
 const TOPIC_SNIPPET_CHARS = 2500;
 const TOPIC_GEN_CONCURRENCY = 3;
@@ -168,7 +172,7 @@ const normalizeTopicQuestions = (item, { title, content, sourceText = "" }) => {
     const questions = [];
     const questionItems = Array.isArray(item?.questions) ? item.questions : [];
     for (const question of questionItems) {
-        if (questions.length >= MAX_QUESTIONS_PER_TOPIC) break;
+        if (questions.length >= MAX_GENERATED_MCQS_PER_TOPIC) break;
         if (question?.questionType === "ordering") continue;
         const prompt = normalizeWhitespace(question?.prompt || question?.question);
         const options = normalizeOptions(question?.options);
@@ -213,6 +217,9 @@ const normalizeTopicQuestions = (item, { title, content, sourceText = "" }) => {
         questions,
     });
     const quizPrompts = questions.map((question) => question.prompt);
+    // The first MAX_QUESTIONS_PER_TOPIC valid MCQs are the topic quiz; the rest
+    // are held back for the timed exam.
+    let quizCount = 0;
     const inLessonChecks = normalizeInLessonChecks(item?.inLessonChecks, {
         content,
         title,
@@ -220,11 +227,15 @@ const normalizeTopicQuestions = (item, { title, content, sourceText = "" }) => {
         ordering,
     });
     return {
-        questions: questions.map((question) => ({
-            ...question,
-            surface: "quiz",
-            questionType: question.questionType || "multiple_choice",
-        })),
+        questions: questions.map((question) => {
+            const isQuiz = quizCount < MAX_QUESTIONS_PER_TOPIC;
+            if (isQuiz) quizCount += 1;
+            return {
+                ...question,
+                surface: isQuiz ? "quiz" : "exam",
+                questionType: question.questionType || "multiple_choice",
+            };
+        }),
         inLessonChecks,
         orderingCheck: inLessonChecks.find((check) => check.questionType === "ordering") || null,
     };
@@ -349,7 +360,7 @@ const generateOneTopic = async ({
         "Write a full grounded lesson in markdown: at least four paragraphs plus headings. Do not shrink the lesson to three sentences or flashcards.",
         promptBlockForLessonKind(lessonKind),
         "Do not write a Quick Check Q/A section.",
-        `Create 2-${MAX_QUESTIONS_PER_TOPIC} topic-quiz multiple-choice questions from THIS snippet only in questions[].`,
+        `Create ${MAX_QUESTIONS_PER_TOPIC + 1}-${MAX_GENERATED_MCQS_PER_TOPIC} distinct multiple-choice questions from THIS snippet only in questions[]. The first ${MAX_QUESTIONS_PER_TOPIC} are the topic quiz; the rest are held back for the course exam, so each must test a different fact.`,
         `Also create inLessonChecks: at most one check per major H2 (not Word Bank or Recap from Memory), cap 4. Use sectionTitle values from: ${spineForLessonKind(lessonKind).join(", ")}. questionType may be multiple_choice or true_false (options True/False).`,
         "correctIndex must point at the correct option. Options must be unique. Prompts must not restate the topic title.",
         "inLessonChecks must not duplicate the topic-quiz questions.",
@@ -448,7 +459,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline 
     for (let index = 0; index < normalized.topics.length; index += 1) {
         const topic = normalized.topics[index];
         const mcqCount = (topic.questions || []).filter(
-            (question) => question.questionType !== "ordering",
+            (question) => question.questionType !== "ordering" && question.surface !== "exam",
         ).length;
         if (mcqCount >= 2) continue;
         try {
@@ -504,7 +515,7 @@ const generateCurriculumSinglePass = async ({ fileName, extractedText, clipped, 
         "Return ONLY valid JSON with this shape:",
         '{"topics":[{"title":"string","description":"string","content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"inLessonChecks":[{"sectionTitle":"string","questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}]}',
         `${topicCountPrompt(maxTopics)} grounded only in the source text.`,
-        `Each topic needs 2-${MAX_QUESTIONS_PER_TOPIC} topic-quiz multiple-choice questions in questions[].`,
+        `Each topic needs ${MAX_QUESTIONS_PER_TOPIC + 1}-${MAX_GENERATED_MCQS_PER_TOPIC} distinct multiple-choice questions in questions[]. The first ${MAX_QUESTIONS_PER_TOPIC} are the topic quiz; the rest are held back for the course exam, so each must test a different fact.`,
         "Assign each topic a kind: narrative, procedure, concept, or argument. Different topics must use different H2 spines when the source supports more than one kind. Do not use the same nine-section template for every topic.",
         `Narrative H2s: ${spineForLessonKind("narrative").join(", ")}.`,
         `Procedure H2s: ${spineForLessonKind("procedure").join(", ")}.`,
@@ -551,12 +562,29 @@ const generateCurriculumSinglePass = async ({ fileName, extractedText, clipped, 
     };
 };
 
-const chunkSourceText = (text, size = MAX_SOURCE_CHARS, maxChunks = MAX_SOURCE_CHUNKS) => {
+// Sources that fit the chunk budget are split sequentially. Longer sources get
+// maxChunks windows spread evenly from start to end, so a long document's
+// course covers its whole span instead of only the opening pages.
+export const chunkSourceText = (text, size = MAX_SOURCE_CHARS, maxChunks = MAX_SOURCE_CHUNKS) => {
     const source = String(text || "");
     if (!source) return [];
+    if (source.length <= size * maxChunks) {
+        const chunks = [];
+        for (let offset = 0; offset < source.length; offset += size) {
+            chunks.push(source.slice(offset, offset + size));
+        }
+        return chunks;
+    }
+    const lastStart = source.length - size;
     const chunks = [];
-    for (let offset = 0; offset < source.length && chunks.length < maxChunks; offset += size) {
-        chunks.push(source.slice(offset, offset + size));
+    for (let index = 0; index < maxChunks; index += 1) {
+        let start = Math.round((index * lastStart) / (maxChunks - 1));
+        if (index > 0 && index < maxChunks - 1) {
+            // Start on a line boundary when one is close, so a window does not open mid-sentence.
+            const newline = source.indexOf("\n", start);
+            if (newline !== -1 && newline - start < 400) start = newline + 1;
+        }
+        chunks.push(source.slice(start, start + size));
     }
     return chunks;
 };
@@ -574,11 +602,12 @@ const titlesOverlap = (left, right) => {
 
 // The outline -> per-topic -> single-pass -> heuristic ladder, over a single
 // chunk of source text. Never rejects; always returns a usable curriculum.
-const generateCurriculumFromText = async ({ fileName, extractedText, maxTopics = MAX_TOPICS }) => {
+const generateCurriculumFromText = async ({ fileName, extractedText, maxTopics = MAX_TOPICS, onProgress }) => {
     const text = String(extractedText || "").trim();
     const clipped = text.slice(0, MAX_SOURCE_CHARS);
     try {
         const outline = await generateOutline({ fileName, clipped, maxTopics });
+        notifyProgress(onProgress, "writing");
         return await generateCurriculumFromOutline({
             fileName,
             extractedText: text,
@@ -606,6 +635,13 @@ const generateCurriculumFromText = async ({ fileName, extractedText, maxTopics =
             };
         }
     }
+};
+
+const notifyProgress = (onProgress, stage) => {
+    if (typeof onProgress !== "function") return;
+    Promise.resolve()
+        .then(() => onProgress(stage))
+        .catch(() => {});
 };
 
 const raceWithDeadline = (promise, { fallback, timeoutMs }) =>
@@ -664,7 +700,9 @@ const mergeChunkCurricula = (results, { fileName, extractedText }) => {
     };
 };
 
-export const generateCourseCurriculumWithAi = async ({ fileName, extractedText }) => {
+// onProgress(stage) is best-effort: "writing" fires once an outline exists and
+// per-topic lessons and questions are being written.
+export const generateCourseCurriculumWithAi = async ({ fileName, extractedText, onProgress }) => {
     const text = String(extractedText || "").trim();
     if (!text) {
         return {
@@ -693,7 +731,7 @@ export const generateCourseCurriculumWithAi = async ({ fileName, extractedText }
 
     const work = (async () => {
         const results = await mapWithConcurrency(chunks, 2, (chunk) =>
-            generateCurriculumFromText({ fileName, extractedText: chunk, maxTopics: perChunkMax }),
+            generateCurriculumFromText({ fileName, extractedText: chunk, maxTopics: perChunkMax, onProgress }),
         );
         if (results.length === 1) {
             return { ...results[0], sourceTruncated };

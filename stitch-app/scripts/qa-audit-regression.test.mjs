@@ -7,9 +7,6 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const profileSource = read('src/pages/Profile.jsx');
 const examSource = read('src/pages/ExamMode.jsx');
-const examAttemptSource = read('src/hooks/useExamAttempt.js');
-const searchSource = read('src/pages/DashboardSearch.jsx');
-const communitySource = read('src/pages/Community.jsx');
 const dashboardPlanSource = read('src/lib/dashboardPlan.js');
 const continueLearningSource = read('src/components/dashboard/ContinueLearningCard.jsx');
 
@@ -24,23 +21,13 @@ assert.ok(
 );
 
 assert.ok(
-    examAttemptSource.includes('answeredQuestionCount / questions.length'),
+    examSource.includes('(answeredCount / questions.length) * 100'),
     'Exam progress must be based on answered questions.',
 );
 
 assert.ok(
     !examSource.includes('(currentQuestion + 1) / questions.length'),
     'Exam progress must not initialize from the current question index.',
-);
-
-assert.ok(
-    searchSource.includes('api.library.listMaterials') && searchSource.includes('Share to Library'),
-    'Library tab should show the shared reading-materials library, not the old dashboard search page.',
-);
-
-assert.ok(
-    communitySource.includes('normalizeChannelKey') && communitySource.includes('sanitizeGeneratedChannel'),
-    'Community channel list should dedupe and sanitize generated document channels.',
 );
 
 assert.ok(

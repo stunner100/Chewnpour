@@ -17,7 +17,8 @@ assert.match(examsSource, /startExamForCourse/, 'exams must support start');
 assert.match(examsSource, /submitExamAttempt/, 'exams must support submit');
 assert.match(examsSource, /toPlayableQuestion/, 'GET path must strip answers');
 assert.match(examsSource, /toReviewItems/, 'submitted exams must build review');
-assert.match(examsSource, /EXAM_EXPIRED/, 'late submit must reject');
+assert.match(examsSource, /closeExpiredAttempt/, 'late submit must grade the autosaved answers');
+assert.doesNotMatch(examsSource, /EXAM_EXPIRED/, 'late submit must not discard the attempt');
 assert.doesNotMatch(
   examsSource.slice(
     examsSource.indexOf('const toPlayableQuestion'),

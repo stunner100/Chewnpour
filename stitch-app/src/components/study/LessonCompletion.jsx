@@ -24,6 +24,8 @@ const LessonCompletion = ({
     onReviewLabel = 'Review lesson',
     onComplete,
     completed = false,
+    nextLesson = null,
+    examHref = '',
 }) => {
     const reduceMotion = useReducedMotion();
     const liveTutorEnabled = isLiveTutorUiEnabled() && Boolean(topicId);
@@ -110,6 +112,27 @@ const LessonCompletion = ({
                         <AppIcon name="arrow_back" className="text-[16px]" />
                         {onReviewLabel}
                     </button>
+                ) : null}
+                {nextLesson?.href ? (
+                    <Link
+                        to={nextLesson.href}
+                        className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm"
+                        onClick={() => onComplete?.()}
+                    >
+                        <span className="line-clamp-1">
+                            {nextLesson.title ? `Next: ${nextLesson.title}` : 'Next lesson'}
+                        </span>
+                        <AppIcon name="arrow_forward" className="shrink-0 text-[16px]" />
+                    </Link>
+                ) : examHref ? (
+                    <Link
+                        to={examHref}
+                        className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm"
+                        onClick={() => onComplete?.()}
+                    >
+                        <AppIcon name="timer" className="text-[16px]" />
+                        Take the course exam
+                    </Link>
                 ) : null}
             </div>
         </div>

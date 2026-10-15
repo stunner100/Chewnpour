@@ -185,7 +185,7 @@ assert.doesNotMatch(
 assert.match(hook, /\/dashboard\/lessons\?courseId=/);
 assert.doesNotMatch(hook, /\/dashboard\/course\/\$\{courseId\}/);
 assert.doesNotMatch(results, /Try the essay/);
-assert.match(results, /Retry with new questions/);
+assert.match(results, /Retry quiz/);
 assert.match(sourcePanel, /Passage \{passage.page\}/);
 assert.match(sourcePanel, /cleanInlineText\(passage\.text\)/, 'Source passages must render cleaned text, not raw markdown markers.');
 assert.match(useTutorChat, /historyLoading/, 'Tutor reopen must wait for saved history before showing starter prompts.');

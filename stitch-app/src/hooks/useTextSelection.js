@@ -4,19 +4,13 @@ export function useTextSelection(containerRef, ready = true) {
     const [selection, setSelection] = useState(null);
     const debounceRef = useRef(null);
     // Track when the container element is available (refs don't trigger re-renders)
-    const [container, setContainer] = useState(null);
+    const [attachedContainer, setContainer] = useState(null);
+    const container = ready ? attachedContainer : null;
 
     // Lesson content mounts after progress loads, so keep trying until the
     // article exists instead of attaching once on the empty preparing state.
     useEffect(() => {
-        if (!ready) {
-            setContainer(null);
-            return undefined;
-        }
-        if (containerRef?.current) {
-            setContainer(containerRef.current);
-            return undefined;
-        }
+        if (!ready) return undefined;
         let cancelled = false;
         const attach = () => {
             if (!cancelled && containerRef?.current) {

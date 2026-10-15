@@ -23,7 +23,22 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // Server handlers, serverless entrypoints and regression scripts run on Node.
+    files: ['server/**/*.js', 'api/**/*.js', 'scripts/**/*.{js,mjs}', '*.config.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+  {
+    // Vendored shadcn/ui and AI Elements components export variant helpers and
+    // contexts next to components by design.
+    files: ['src/components/ui/**/*.jsx', 'src/components/ai-elements/**/*.jsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

@@ -165,6 +165,9 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     }, [selection]);
 
     useLayoutEffect(() => {
+        // Measure-then-position must run before paint; updatePlacement bails out
+        // when the measured position is unchanged, so this cannot loop.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         updatePlacement();
     }, [updatePlacement, mode, explanation, error]);
 

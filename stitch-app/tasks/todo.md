@@ -1,3 +1,20 @@
+# Cloudflare migration (2026-10-14)
+
+- [x] Audit the active application and identify Cloudflare runtime/data blockers.
+- [x] Verify current Google OAuth health after Supabase resumed.
+- [x] Record the target architecture, migration sequence and acceptance checks in
+  `docs/cloudflare-migration.md`.
+- [ ] Resolve full Cloudflare versus hosting-only scope with the user.
+- [ ] Restore Cloudflare CLI authentication and verify the destination account.
+- [ ] Establish authorized export access to production database and objects.
+- [ ] Implement and test the selected migration in an isolated preview.
+- [ ] Rehearse data migration and reconcile records, files and vectors.
+- [ ] Complete the production cutover and end-to-end verification.
+
+Review: discovery is complete; runtime implementation has not started. Wrangler
+authentication is expired, and the connected Supabase account cannot access the
+production project. Production remains on its working Vercel/Supabase deployment.
+
 # Convex SQLite and Postgres Website Benchmark
 
 ## Plan

@@ -17,9 +17,12 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
     const handleClearAvailable = useCallback((nextClear) => {
         setClearChat(() => nextClear || null);
     }, []);
-    const [selectedPersona, setSelectedPersona] = useState(
-        profile?.studyPreferences?.preferredPersona || DEFAULT_TUTOR_PERSONA,
-    );
+    const studyPreferences = profile?.studyPreferences;
+    // A pick made in this panel wins; otherwise follow the saved profile preference.
+    const [personaOverride, setPersonaOverride] = useState(null);
+    const selectedPersona = personaOverride
+        || studyPreferences?.preferredPersona
+        || DEFAULT_TUTOR_PERSONA;
     const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
     const closingTimerRef = useRef(null);
     const personaMenuRef = useRef(null);
@@ -42,11 +45,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
         containerRef: panelRef,
         trapFocus: !isDesktop,
     });
-
-    useEffect(() => {
-        const preferred = profile?.studyPreferences?.preferredPersona;
-        if (preferred) setSelectedPersona(preferred);
-    }, [profile?.studyPreferences?.preferredPersona]);
 
     useEffect(() => {
         if (!personaMenuOpen) return;
@@ -102,10 +100,18 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
         if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
     }, []);
 
+    // Reopening during the exit animation cancels the close.
+    const [wasOpen, setWasOpen] = useState(open);
+    if (open !== wasOpen) {
+        setWasOpen(open);
+        if (open && isClosing) setIsClosing(false);
+    }
+
     useEffect(() => {
-        if (!open) return undefined;
-        setIsClosing(false);
-        return undefined;
+        if (open && closingTimerRef.current) {
+            clearTimeout(closingTimerRef.current);
+            closingTimerRef.current = null;
+        }
     }, [open]);
 
     useEffect(() => {
@@ -119,18 +125,18 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, cours
 
     const handlePersonaChange = useCallback(async (personaKey) => {
         const normalized = String(personaKey || DEFAULT_TUTOR_PERSONA);
-        setSelectedPersona(normalized);
+        setPersonaOverride(normalized);
         try {
             await updateProfile({
                 studyPreferences: {
-                    ...(profile?.studyPreferences || {}),
+                    ...(studyPreferences || {}),
                     preferredPersona: normalized,
                 },
             });
         } catch (err) {
             setError(err.message || 'Could not save tutor style. Please try again.');
         }
-    }, [profile?.studyPreferences, updateProfile]);
+    }, [studyPreferences, updateProfile]);
 
     if ((!open && !isClosing) || typeof document === 'undefined') return null;
     // Desktop Study Mode owns the in-flow rail. The sheet is portaled to

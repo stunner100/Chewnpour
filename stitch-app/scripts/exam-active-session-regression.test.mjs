@@ -15,7 +15,7 @@ if (examModeSource.includes("from '../components/ExamActiveSession'")) {
 for (const snippet of [
     'sticky top-0',
     'sticky bottom-0',
-    'to="/dashboard/exam"',
+    'onClick={() => setExitConfirmOpen(true)}',
     'min-h-11',
     'setImmersiveMobile',
 ]) {

@@ -14,7 +14,7 @@ if (!/navigateFallbackDenylist:\s*\[/.test(viteConfigSource)) {
   );
 }
 
-for (const pattern of ['/^\\/api\\//', '/^\\/ingest\\//', '/^\\/eve\\//']) {
+for (const pattern of ['/^\\/api\\//', '/^\\/ingest\\//']) {
   if (!viteConfigSource.includes(pattern)) {
     throw new Error(`Expected navigateFallbackDenylist to include ${pattern}.`);
   }

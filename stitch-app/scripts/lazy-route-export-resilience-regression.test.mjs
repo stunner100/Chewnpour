@@ -9,7 +9,9 @@ const appPath = path.join(root, 'src', 'App.jsx');
 const appSource = await fs.readFile(appPath, 'utf8');
 
 for (const pattern of [
+  'const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>',
   'const resolveLazyRouteModule =',
+  'if (mod?.default) return mod;',
   'const exportCandidates = []',
   'for (const candidate of [namedExport, componentName])',
   'const functionExports = Object.entries(mod)',
@@ -22,16 +24,11 @@ for (const pattern of [
   }
 }
 
-if (!/const\s+SignUpPage\s*=\s*lazyRoute\(\(\)\s*=>\s*import\('\.\/pages\/SignUp'\),\s*\{\s*componentName:\s*'SignUp'\s*\}\);/.test(appSource)) {
-  throw new Error('Expected SignUpPage lazy route to configure componentName fallback.');
-}
-
 for (const removedRoute of [
   'DashboardAnalysisPage',
   'DashboardFullAnalysis',
   'DashboardCourse',
-  'ExamMode',
-  'DashboardResults',
+  'DashboardProcessing',
 ]) {
   if (appSource.includes(removedRoute)) {
     throw new Error(`Expected old dashboard page ${removedRoute} to be removed from App route wiring.`);

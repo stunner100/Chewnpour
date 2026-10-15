@@ -28,7 +28,7 @@ for (const pattern of [
   'sticky top-0',
   'requestSubmit',
   'setImmersiveMobile(questions.length > 0)',
-  'to="/dashboard/exam"',
+  'onClick={() => setExitConfirmOpen(true)}',
 ]) {
   if (!examModeSource.includes(pattern)) {
     throw new Error(`Expected ExamMode sticky exam chrome to include "${pattern}".`);
