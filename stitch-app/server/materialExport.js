@@ -90,10 +90,13 @@ export const buildQuizzesMarkdown = ({ quizzes = [] } = {}) => {
         questions.forEach((question, index) => {
             const prompt = asText(question?.prompt) || `Question ${index + 1}`;
             const options = parseOptions(question?.options);
+            const surfaceKey = String(question?.surface || "quiz").toLowerCase();
             const surface =
-                String(question?.surface || "quiz").toLowerCase() === "in_lesson"
+                surfaceKey === "in_lesson"
                     ? "In-lesson check"
-                    : "Quiz";
+                    : surfaceKey === "exam"
+                        ? "Exam"
+                        : "Quiz";
             blocks.push(`### ${index + 1}. ${prompt}`, "", `_${surface}_`, "");
             options.forEach((option, optionIndex) => {
                 const letter = OPTION_LETTERS[optionIndex] || String(optionIndex + 1);

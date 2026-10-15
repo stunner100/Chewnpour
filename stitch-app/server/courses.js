@@ -179,6 +179,27 @@ const claimCourseGeneration = async ({ userId, uploadId, title }) => {
     return takeover.rows[0]?.id || null;
 };
 
+// Mirrors course-generation progress onto the upload row so the upload page can
+// show the real stage. Best-effort: a failed write never blocks generation.
+const setUploadGenerationStep = async (uploadId, step, { fromStep = null } = {}) => {
+    try {
+        await getPool().query(
+            `UPDATE uploads
+             SET processing_step = $2, updated_at = NOW()
+             WHERE id = $1
+               AND status = 'ready'
+               AND ($3::text IS NULL OR processing_step = $3)`,
+            [uploadId, step, fromStep],
+        );
+    } catch (error) {
+        console.warn("[courses] failed to record generation step", {
+            uploadId,
+            step,
+            message: error?.message || String(error),
+        });
+    }
+};
+
 const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs }) => {
     const inserted = [];
     for (let index = 0; index < topicSpecs.length; index += 1) {
@@ -280,12 +301,22 @@ export const ensureCourseFromUpload = async ({
 
     const db = getPool();
     let curriculum;
+    let lastStep = "structuring";
+    await setUploadGenerationStep(uploadId, lastStep);
     try {
         curriculum = await generateCourseCurriculumWithAi({
             fileName,
             extractedText: text,
+            // Only move forward: generation abandoned at the deadline can still
+            // report "writing" after the course has moved on to saving.
+            onProgress: async (stage) => {
+                if (stage !== "writing" || lastStep !== "structuring") return;
+                lastStep = stage;
+                await setUploadGenerationStep(uploadId, stage, { fromStep: "structuring" });
+            },
         });
     } catch (error) {
+        await setUploadGenerationStep(uploadId, "ready");
         await db.query(
             `DELETE FROM courses WHERE id = $1 AND status = 'generating'`,
             [courseId],
@@ -294,7 +325,7 @@ export const ensureCourseFromUpload = async ({
     }
     const topicSpecs = Array.isArray(curriculum.topics) ? curriculum.topics : [];
     const truncatedNote = curriculum.sourceTruncated
-        ? " — covers the first section of a longer source"
+        ? " — sampled from across a longer source"
         : "";
     const description = (String(curriculum.backend || "").includes("heuristic")
         ? "Generated from your upload"
@@ -302,6 +333,8 @@ export const ensureCourseFromUpload = async ({
 
     // Topics, questions and the 'ready' flip commit together, so a killed
     // request never leaves a ready course with missing topics.
+    lastStep = "saving";
+    await setUploadGenerationStep(uploadId, lastStep);
     const client = await db.connect();
     let inserted;
     try {
@@ -327,6 +360,7 @@ export const ensureCourseFromUpload = async ({
     } catch (error) {
         await client.query("ROLLBACK").catch(() => {});
         client.release();
+        await setUploadGenerationStep(uploadId, "ready");
         await db.query(
             `DELETE FROM courses WHERE id = $1 AND status = 'generating'`,
             [courseId],
@@ -334,6 +368,7 @@ export const ensureCourseFromUpload = async ({
         throw error;
     }
     client.release();
+    await setUploadGenerationStep(uploadId, "ready");
 
     for (const { topicId, content } of inserted) {
         try {

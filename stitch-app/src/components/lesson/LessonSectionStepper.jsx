@@ -37,6 +37,8 @@ export default function LessonSectionStepper({
     lessonCompleted = false,
     initialIndex = 0,
     initialFinished = false,
+    nextLesson = null,
+    examHref = '',
     onAskTutor,
     requestedIndex = null,
     onRequestConsumed,
@@ -145,6 +147,8 @@ export default function LessonSectionStepper({
                 onReviewLabel="Review lesson"
                 onComplete={onFinishLesson}
                 completed={lessonCompleted}
+                nextLesson={nextLesson}
+                examHref={examHref}
             />
         );
     }

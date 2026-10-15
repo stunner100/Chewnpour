@@ -16,6 +16,8 @@ const TopicContentPanel = ({
     isPlaying,
     isVoiceSupported,
     lessonSteps,
+    nextLesson = null,
+    examHref = '',
     normalizedContent,
     objectiveExamRoute,
     pauseVoice,
@@ -119,6 +121,8 @@ const TopicContentPanel = ({
                         topicProgress?.studyPosition?.finished && topicProgress?.completedAt
                     )}
                     onAskTutor={handleAskTutor}
+                    nextLesson={nextLesson}
+                    examHref={examHref}
                     requestedIndex={requestedSectionIndex}
                     onRequestConsumed={onRequestConsumed}
                 />

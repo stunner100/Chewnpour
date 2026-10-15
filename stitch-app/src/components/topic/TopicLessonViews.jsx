@@ -63,7 +63,7 @@ export const TopicStudyModeView = ({
     </div>
 );
 
-export const TopicLessonMainColumn = ({ controller }) => {
+export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref = '' }) => {
     const {
         cleanInline,
         cleanLine,
@@ -125,6 +125,8 @@ export const TopicLessonMainColumn = ({ controller }) => {
                 isPlaying={isPlaying}
                 isVoiceSupported={isVoiceSupported}
                 lessonSteps={lessonSteps}
+                nextLesson={nextLesson}
+                examHref={examHref}
                 normalizedContent={normalizedContent}
                 objectiveExamRoute={objectiveExamRoute}
                 openSource={openSource}
@@ -450,7 +452,16 @@ export const TopicLessonShell = ({ controller }) => {
                     />
                 )}
             >
-                <TopicLessonMainColumn controller={controller} />
+                <TopicLessonMainColumn
+                    controller={controller}
+                    nextLesson={nextTopic ? {
+                        href: `/dashboard/topic/${encodeURIComponent(nextTopic.id || nextTopic._id)}`,
+                        title: nextTopic.title || '',
+                    } : null}
+                    examHref={!nextTopic && currentIndex >= 0 && topic?.courseId
+                        ? `/dashboard/exam?courseId=${encodeURIComponent(topic.courseId)}`
+                        : ''}
+                />
                 <TopicLessonNav prevTopic={prevTopic} nextTopic={nextTopic} />
             </StudyShell>
 

@@ -80,7 +80,7 @@ assert.ok(normalized.topics[0].inLessonChecks.every((check) => check.surface ===
 const courses = await fs.readFile(path.join(root, "server/courses.js"), "utf8");
 const exams = await fs.readFile(path.join(root, "server/exams.js"), "utf8");
 assert.match(courses, /surface, 'quiz'\) = 'quiz'/, "topic quizzes must exclude in-lesson rows");
-assert.match(exams, /surface, 'quiz'\) = 'quiz'/, "timed exams must exclude in-lesson and ordering rows");
+assert.match(exams, /surface, 'quiz'\) IN \('quiz', 'exam'\)/, "timed exams must exclude in-lesson and ordering rows");
 assert.doesNotMatch(
   exams,
   /question_type = 'ordering'/,

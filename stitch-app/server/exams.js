@@ -73,6 +73,16 @@ const shuffle = (items) => {
     return copy;
 };
 
+// Exam-only questions (never shown in topic quizzes) come first; topic-quiz
+// questions only fill the remaining slots, e.g. for courses generated before the
+// exam pool existed.
+export const selectExamQuestions = (rows, limit) => {
+    const list = Array.isArray(rows) ? rows : [];
+    const examOnly = list.filter((row) => row?.surface === "exam");
+    const quiz = list.filter((row) => row?.surface !== "exam");
+    return shuffle([...shuffle(examOnly), ...shuffle(quiz)].slice(0, limit));
+};
+
 const getCourseOwnedByUser = async (userId, courseId) => {
     const db = getPool();
     const result = await db.query(
@@ -119,7 +129,7 @@ export const startExamForCourse = async ({
          WHERE q.course_id = $1
            AND q.user_id = $2
            AND COALESCE(q.question_type, 'multiple_choice') = 'multiple_choice'
-           AND COALESCE(q.surface, 'quiz') = 'quiz'
+           AND COALESCE(q.surface, 'quiz') IN ('quiz', 'exam')
            AND COALESCE(jsonb_array_length(q.options), 0) >= 2
          ORDER BY t.sort_order ASC, q.sort_order ASC, q.id ASC`,
         [courseId, userId],
@@ -141,7 +151,7 @@ export const startExamForCourse = async ({
             DEFAULT_QUESTION_LIMIT,
         ),
     );
-    const selected = shuffle(questionsResult.rows).slice(0, limit);
+    const selected = selectExamQuestions(questionsResult.rows, limit);
     const questionIds = selected.map((row) => row.id);
     const durationSeconds = Math.min(
         MAX_DURATION_SECONDS,

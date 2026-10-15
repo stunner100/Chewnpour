@@ -58,6 +58,6 @@ assert.doesNotMatch(hook, /quickcheck_widget/, "topic hook must not inject markd
 assert.match(quizPlayer, /\/api\/topics\/\$\{encodeURIComponent\(topicId\)\}\/quiz/, "quiz route must stay MCQ quiz API");
 assert.doesNotMatch(quizPlayer, /autostart/, "quiz player must not consume the dead autostart param");
 assert.match(courses, /surface, 'quiz'\) = 'quiz'/, "quiz queries must require surface=quiz");
-assert.match(exams, /surface, 'quiz'\) = 'quiz'/, "exams must exclude in-lesson checks");
+assert.match(exams, /surface, 'quiz'\) IN \('quiz', 'exam'\)/, "exams must exclude in-lesson checks");
 
 console.log("lesson-section-stepper-regression.test.mjs passed");

@@ -2,12 +2,14 @@ export const GENERATION_STAGES = [
     { id: 'uploading', label: 'Uploading' },
     { id: 'extracting', label: 'Extracting content' },
     { id: 'structuring', label: 'Structuring course' },
-    { id: 'lessons', label: 'Creating lessons' },
-    { id: 'quizzes', label: 'Generating quizzes' },
+    { id: 'lessons', label: 'Writing lessons and questions' },
+    { id: 'quizzes', label: 'Saving your course' },
     { id: 'ready', label: 'Ready' },
 ];
 
 const EXTRACTION_STEPS = new Set(['extracting', 'ocr', 'transcribing']);
+// Course-generation steps the server records on the upload row once text is extracted.
+const GENERATION_STEP_INDEX = { structuring: 2, writing: 3, saving: 4 };
 
 export const resolveGenerationStageIndex = ({
     status,
@@ -28,6 +30,14 @@ export const resolveGenerationStageIndex = ({
     }
     if (studyReady || (normalizedStatus === 'ready' && extraction === 'complete' && topics > 0 && quizzes > 0)) {
         return 5;
+    }
+    if (
+        normalizedStatus === 'ready'
+        && extraction === 'complete'
+        && topics === 0
+        && GENERATION_STEP_INDEX[step] != null
+    ) {
+        return GENERATION_STEP_INDEX[step];
     }
     if (topics > 0 && quizzes === 0) return 4;
     if (topics > 0) return 3;
