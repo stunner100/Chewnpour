@@ -1,18 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import QuizProgress from '../components/quiz/QuizProgress';
 import QuizQuestion from '../components/quiz/QuizQuestion';
-import { describeQuizRefresh } from '../lib/quizRefresh';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const TopicQuizPlayer = () => {
     const { topicId } = useParams();
-    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const wantsFresh = searchParams.get('fresh') === '1';
     const reduceMotion = useReducedMotion();
     const [quiz, setQuiz] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -20,7 +18,6 @@ const TopicQuizPlayer = () => {
     const [answers, setAnswers] = useState({});
     const [questionIndex, setQuestionIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
-    const [refreshNotice, setRefreshNotice] = useState(null);
 
     const load = useCallback(async () => {
         if (!user?.id || !topicId) {
@@ -31,22 +28,6 @@ const TopicQuizPlayer = () => {
         setLoading(true);
         setError('');
         try {
-            if (wantsFresh) {
-                const regenerated = await fetch(`/api/topics/${encodeURIComponent(topicId)}/quiz/regenerate`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { Accept: 'application/json' },
-                });
-                const regeneratedPayload = await regenerated.json().catch(() => ({}));
-                if (regenerated.ok && regeneratedPayload?.topic) {
-                    setRefreshNotice(describeQuizRefresh(regeneratedPayload));
-                    setQuiz(regeneratedPayload);
-                    setAnswers({});
-                    setQuestionIndex(0);
-                    navigate(`/dashboard/quiz/${encodeURIComponent(topicId)}`, { replace: true });
-                    return;
-                }
-            }
             const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
                 credentials: 'include',
                 headers: { Accept: 'application/json' },
@@ -61,11 +42,13 @@ const TopicQuizPlayer = () => {
         } finally {
             setLoading(false);
         }
-    }, [topicId, user?.id, wantsFresh, navigate]);
+    }, [topicId, user?.id]);
 
     useEffect(() => {
         load();
     }, [load]);
+
+    useDocumentTitle(quiz?.topic?.title ? `${quiz.topic.title} quiz` : '');
 
     const questions = useMemo(
         () => (Array.isArray(quiz?.questions) ? quiz.questions : []),
@@ -209,19 +192,6 @@ const TopicQuizPlayer = () => {
                         </div>
                     )}
                 </header>
-
-                {refreshNotice && (
-                    <div
-                        role="status"
-                        className={`mx-4 mt-5 rounded-[16px] border px-4 py-3 text-body-sm md:mx-8 ${
-                            refreshNotice.tone === 'success'
-                                ? 'border-success/30 bg-success-soft text-success'
-                                : 'border-border-subtle bg-surface-soft text-text-secondary'
-                        }`}
-                    >
-                        {refreshNotice.message}
-                    </div>
-                )}
 
                 {error && (
                     <div role="alert" className="mx-4 mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error md:mx-8">

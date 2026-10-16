@@ -19,12 +19,12 @@ const PostQuizSharePrompt = ({ percentage, topicTitle, profile }) => {
     const courseName = topicTitle || 'a course';
 
     const handleShareWhatsApp = () => {
-        const text = `I scored ${percentage}% on ${courseName} using Chew & Pour! Can you beat me? Try it free:\n\n${referralLink}`;
+        const text = `I scored ${percentage}% on ${courseName} using ChewnPour! Can you beat me? Try it free:\n\n${referralLink}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleShareTelegram = () => {
-        const text = `I scored ${percentage}% on ${courseName} using Chew & Pour! Can you beat me? Try it free:`;
+        const text = `I scored ${percentage}% on ${courseName} using ChewnPour! Can you beat me? Try it free:`;
         window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(text)}`, '_blank');
     };
 
@@ -330,7 +330,7 @@ const DashboardResults = () => {
                                 </a>
                             ) : null}
                             <Link
-                                to={`/dashboard/quiz/${attempt.topicId}?fresh=1`}
+                                to={`/dashboard/quiz/${attempt.topicId}`}
                                 className={`${incorrectCount > 0 || skippedCount > 0 ? 'btn-secondary' : 'btn-primary'} inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-body-sm`}
                             >
                                 <AppIcon name="refresh" className="text-[18px]" />

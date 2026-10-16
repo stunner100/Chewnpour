@@ -59,7 +59,7 @@ const MaterialCard = ({
             </h2>
             <p className="mt-1 text-caption font-medium text-text-muted">
                 {material.studyReady
-                    ? 'Chewnpour turned this file into a course.'
+                    ? 'ChewnPour turned this file into a course.'
                     : material.failed
                         ? 'This upload could not be turned into a course.'
                         : `Uploaded ${material.uploadedLabel}`}

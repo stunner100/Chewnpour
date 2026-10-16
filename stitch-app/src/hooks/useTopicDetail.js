@@ -867,10 +867,12 @@ export const useTopicDetail = () => {
 
     const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
     const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
+    // Lessons built without the model have no quiz questions; offer no quiz CTA.
+    const topicHasQuiz = Number(topic?.questionCount || 0) > 0;
     const examTopicId = isTopicQuizRoute
-        ? topicId
+        ? (topicHasQuiz ? topicId : null)
         : (finalAssessmentTopic?._id || null);
-    const objectiveExamRoute = buildTopicQuizRoute(examTopicId);
+    const objectiveExamRoute = examTopicId ? buildTopicQuizRoute(examTopicId) : '';
     void buildEssayQuizRoute;
     const timedExamRoute = buildTimedExamRoute(courseId);
     const timedExamAvailable = Number(topic?.questionCount || 0) > 0;

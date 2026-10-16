@@ -12,6 +12,8 @@ import TopicContentPanel from './TopicContentPanel';
 import StudyShell from '../study/StudyShell';
 import StudyTopBar from '../study/StudyTopBar';
 import { formatCourseTitle } from '../../lib/courseTitle';
+import { lessonSectionPercent } from '../../lib/lessonSectionProgress';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import AppIcon from '../AppIcon';
 
 export const TopicEmptyState = ({ title, description, action }) => (
@@ -362,9 +364,11 @@ export const TopicLessonShell = ({ controller }) => {
         sourceOpen,
         topic,
         topicId,
+        topicProgress,
     } = controller;
 
     const [coursePayload, setCoursePayload] = useState(null);
+    useDocumentTitle(resolvedTopicTitle || topic?.title || '');
 
     useEffect(() => {
         const lock = contentsOpen || moreOpen || chatOpen || notesOpen || sourceOpen;
@@ -421,7 +425,11 @@ export const TopicLessonShell = ({ controller }) => {
                         topicTitle={resolvedTopicTitle}
                         sectionIndex={currentStepIndex}
                         sectionCount={sectionCount}
-                        percent={sectionCount > 0 ? Math.round(((currentStepIndex + 1) / sectionCount) * 100) : 0}
+                        percent={lessonSectionPercent({
+                            sectionIndex: currentStepIndex,
+                            sectionCount,
+                            completed: Boolean(topicProgress?.completedAt),
+                        })}
                         onOpenNotes={openNotes}
                         onOpenChat={openChat}
                         onOpenMore={() => setMoreOpen(true)}

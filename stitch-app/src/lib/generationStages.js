@@ -28,7 +28,9 @@ export const resolveGenerationStageIndex = ({
     if (normalizedStatus === 'error' || extraction === 'failed' || step.includes('fail')) {
         return -1;
     }
-    if (studyReady || (normalizedStatus === 'ready' && extraction === 'complete' && topics > 0 && quizzes > 0)) {
+    // Topics and the course 'ready' flip commit together, so a ready upload with
+    // topics is study-ready even when no quiz questions were generated.
+    if (studyReady || (normalizedStatus === 'ready' && extraction === 'complete' && topics > 0)) {
         return 5;
     }
     if (

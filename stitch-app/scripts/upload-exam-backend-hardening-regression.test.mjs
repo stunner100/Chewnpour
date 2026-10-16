@@ -27,7 +27,7 @@ const state = {
     questions: [],
     attempts: [],
     log: [],
-    failOnQuestionInsert: null,
+    failOnTopicInsert: null,
 };
 
 const uniqueViolation = () => Object.assign(new Error('duplicate key'), { code: '23505' });
@@ -76,14 +76,14 @@ const runQuery = async (rawSql, params = []) => {
         return { rows: [] };
     }
     if (sql.startsWith('INSERT INTO topics')) {
+        if (state.failOnTopicInsert != null) {
+            state.failOnTopicInsert -= 1;
+            if (state.failOnTopicInsert < 0) throw new Error('connection terminated');
+        }
         state.topics.push({ id: params[0], course_id: params[1], user_id: params[2] });
         return { rows: [] };
     }
     if (sql.startsWith('INSERT INTO questions')) {
-        if (state.failOnQuestionInsert != null) {
-            state.failOnQuestionInsert -= 1;
-            if (state.failOnQuestionInsert < 0) throw new Error('connection terminated');
-        }
         state.questions.push({ id: params[0], course_id: params[2] });
         return { rows: [] };
     }
@@ -143,7 +143,7 @@ const reset = () => {
     state.questions = [];
     state.attempts = [];
     state.log = [];
-    state.failOnQuestionInsert = null;
+    state.failOnTopicInsert = null;
 };
 
 const sourceText = [
@@ -178,7 +178,7 @@ assert.ok(beginAt >= 0 && beginAt < firstTopicAt && firstTopicAt < readyAt && re
 
 // 1b. A failure mid-insert rolls back and releases the claim instead of leaving a ready, partial course.
 reset();
-state.failOnQuestionInsert = 1;
+state.failOnTopicInsert = 1;
 await assert.rejects(() => ensureCourseFromUpload(upload), /connection terminated/);
 assert.ok(state.log.includes('ROLLBACK'));
 assert.equal(state.courses.length, 0, 'failed generation must not leave a course behind');

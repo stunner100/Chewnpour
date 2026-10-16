@@ -70,7 +70,7 @@ const normalized = normalizeAiCoursePayload(
             },
         ],
     },
-    { fileName: 'memory.pdf', extractedText: 'fallback' },
+    { fileName: 'memory.pdf', extractedText: 'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.' },
 );
 assert.equal(normalized.topics[0].questions.filter((q) => q.questionType !== 'ordering').length, 1);
 

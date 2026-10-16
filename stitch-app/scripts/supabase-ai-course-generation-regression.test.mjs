@@ -60,7 +60,7 @@ const normalized = normalizeAiCoursePayload(
       },
     ],
   },
-  { fileName: 'memory.pdf', extractedText: 'fallback' },
+  { fileName: 'memory.pdf', extractedText: 'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.' },
 );
 
 if (normalized.backend !== 'deepseek' || normalized.topics.length !== 1) {

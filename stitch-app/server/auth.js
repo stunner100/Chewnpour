@@ -96,6 +96,7 @@ export const auth = betterAuth({
     },
     emailAndPassword: {
         enabled: true,
+        minPasswordLength: 8,
         autoSignIn: true,
         resetPasswordTokenExpiresIn: 3600,
         sendResetPassword: async ({ user, url }) => {

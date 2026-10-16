@@ -93,7 +93,12 @@ const { resolveGenerationStageIndex, GENERATION_STAGES } = await import("../src/
     assert.equal(resolveGenerationStageIndex({ ...base, processingStep: "writing" }), 3);
     assert.equal(resolveGenerationStageIndex({ ...base, processingStep: "saving" }), 4);
     assert.equal(resolveGenerationStageIndex({ ...base, processingStep: "ready", topicCount: 3, quizzesReady: 3 }), 5);
+    // A ready course with topics but no quiz questions is study-ready, not "Saving".
+    assert.equal(resolveGenerationStageIndex({ ...base, processingStep: "ready", topicCount: 3, quizzesReady: 0 }), 5);
     assert.equal(GENERATION_STAGES[3].label, "Writing lessons and questions");
+
+    const library = await read("src/pages/MyMaterialsLibrary.jsx");
+    assert.match(library, /const studyReady = stageIndex === GENERATION_STAGES\.length - 1;/, "the material card button follows the resolved stage");
 
     const courses = await read("server/courses.js");
     for (const step of ['"structuring"', '"writing"', '"saving"']) {

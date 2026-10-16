@@ -68,7 +68,7 @@ const StudyProgressMastery = () => {
     const courses = progress?.courses || EMPTY_LIST;
 
     const streakDays = Math.max(0, Math.round(Number(userStats?.streakDays || 0)));
-    const topicsPracticed = Math.max(0, Math.round(Number(userStats?.topics || 0)));
+    const topicsStudied = Math.max(0, Math.round(Number(userStats?.topics || 0)));
     const quizAverage = Math.max(
         0,
         Math.min(
@@ -115,7 +115,7 @@ const StudyProgressMastery = () => {
 
                 <ActivityStatsRow
                     streakDays={streakDays}
-                    topicsPracticed={topicsPracticed}
+                    topicsStudied={topicsStudied}
                     quizAverage={quizAverage}
                 />
 

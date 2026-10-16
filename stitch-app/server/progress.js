@@ -33,7 +33,7 @@ const computeStreakDays = (timestamps) => {
 
 export const getProgressSnapshotForUser = async (userId) => {
     const db = getPool();
-    const [profile, courses, attemptsResult, topicsResult, progressResult, examResult] = await Promise.all([
+    const [profile, courses, attemptsResult, topicsResult, progressResult, examResult, completedResult] = await Promise.all([
         getProfileForUser(userId),
         listCoursesForUser(userId),
         db.query(
@@ -103,14 +103,29 @@ export const getProgressSnapshotForUser = async (userId) => {
              LIMIT 1`,
             [userId],
         ),
+        db.query(
+            `SELECT topic_id, completed_at
+             FROM topic_progress
+             WHERE user_id = $1
+               AND completed_at IS NOT NULL`,
+            [userId],
+        ),
     ]);
 
     const attempts = attemptsResult.rows || [];
     const topics = topicsResult.rows || [];
-    const uniqueTopicIds = new Set(attempts.map((row) => String(row.topic_id)));
-    const streakFromAttempts = computeStreakDays(
-        attempts.map((row) => new Date(row.created_at).getTime()),
-    );
+    const completedLessons = completedResult.rows || [];
+    const completedTopicIds = new Set(completedLessons.map((row) => String(row.topic_id)));
+    // A topic is studied once its lesson is finished or its quiz attempted;
+    // quiz scores stay separate (accuracy, performance insights).
+    const studiedTopicIds = new Set([
+        ...attempts.map((row) => String(row.topic_id)),
+        ...completedTopicIds,
+    ]);
+    const streakDays = computeStreakDays([
+        ...attempts.map((row) => new Date(row.created_at).getTime()),
+        ...completedLessons.map((row) => new Date(row.completed_at).getTime()),
+    ]);
 
     let totalScore = 0;
     let totalQuestions = 0;
@@ -159,13 +174,16 @@ export const getProgressSnapshotForUser = async (userId) => {
     const coursesWithProgress = courses.slice(0, 12).map((course) => {
         const courseTopics = topicsByCourse.get(String(course.id)) || [];
         const topicCount = courseTopics.length || Number(course.topicCount || 0);
-        const practiced = courseTopics.filter((topic) => topicBest.has(String(topic.id))).length;
-        const progress = topicCount > 0 ? Math.round((practiced / topicCount) * 100) : 0;
+        const studied = courseTopics.filter((topic) => studiedTopicIds.has(String(topic.id))).length;
+        const lessonsCompleted = courseTopics.filter((topic) => completedTopicIds.has(String(topic.id))).length;
+        const progress = topicCount > 0 ? Math.round((studied / topicCount) * 100) : 0;
         return {
             id: course.id,
             _id: course.id,
             title: course.title,
             topicCount,
+            studied,
+            lessonsCompleted,
             progress,
         };
     });
@@ -234,11 +252,12 @@ export const getProgressSnapshotForUser = async (userId) => {
 
     return {
         stats: {
-            topics: uniqueTopicIds.size,
+            topics: studiedTopicIds.size,
+            lessonsCompleted: completedTopicIds.size,
             accuracy: overallPreparedness || accuracy,
             courses: courses.length,
             studyTime: Number(profile?.totalStudyHours || 0),
-            streakDays: streakFromAttempts || Number(profile?.streakDays || 0),
+            streakDays: streakDays || Number(profile?.streakDays || 0),
         },
         performanceInsights: insightTopics.length
             ? {

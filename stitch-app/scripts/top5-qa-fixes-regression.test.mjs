@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildQuestionsForTopic } from '../server/courseGeneration.js';
 import { extractTextFromOcrSpaceResult } from '../server/ocrSpaceClient.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -60,18 +59,4 @@ const ocrText = extractTextFromOcrSpaceResult({
 });
 assert.equal(ocrText.includes('Photosynthesis'), true);
 
-const questions = buildQuestionsForTopic({
-  topicTitle: 'Biology',
-  topicContent:
-    'Photosynthesis converts light energy into chemical energy in plants. Mitochondria produce ATP during cellular respiration. DNA stores genetic information in the nucleus.',
-  limit: 3,
-});
-assert.ok(questions.length > 0, 'heuristic questions should generate');
-for (const question of questions) {
-  assert.ok(question.options.length >= 2);
-  assert.ok(question.correctIndex >= 0 && question.correctIndex < question.options.length);
-}
-
-console.log('top5-qa-fixes-regression.test.mjs passed', {
-  questionCount: questions.length,
-});
+console.log('top5-qa-fixes-regression.test.mjs passed');

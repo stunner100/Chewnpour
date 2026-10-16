@@ -47,7 +47,7 @@ export const buildCourseRows = (courses) =>
                 title: formatCourseTitle(course.title) || String(course.title || 'Untitled course'),
                 topicCount,
                 progress,
-                practiced: Math.min(topicCount, Math.round((progress / 100) * topicCount)),
+                studied: Math.min(topicCount, Math.max(0, Number(course.studied || 0))),
             };
         });
 

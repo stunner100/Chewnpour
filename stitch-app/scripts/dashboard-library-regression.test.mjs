@@ -79,7 +79,7 @@ requireIncludes(downloadHelperSource, "triggerBrowserDownload", "downloadFile.js
 if (!navSource.includes("label: 'My Materials'") || !navSource.includes("path: '/dashboard/library'")) {
   throw new Error("Dashboard navigation should route materials to /dashboard/library.");
 }
-if (!navSource.includes("Open the course Chewnpour generated from each upload")) {
+if (!navSource.includes("Open the course ChewnPour generated from each upload")) {
   throw new Error("My Materials nav copy should describe generated courses.");
 }
 if (!commandPaletteSource.includes("value: '/dashboard/library'")) {

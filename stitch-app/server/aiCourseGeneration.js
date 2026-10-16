@@ -1,17 +1,10 @@
 import { callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
-import {
-    buildQuestionsForTopic,
-    buildTopicsFromExtractedText,
-} from "./courseGeneration.js";
+import { buildTopicsFromExtractedText } from "./courseGeneration.js";
 import { dedupeCourseTopics, isValidMcq, jaccardSimilarity } from "./questionDedup.js";
 import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { pickTopicOrdering, snippetHasProcess } from "./processOrdering.js";
 import { normalizeInLessonChecks } from "./inLessonChecks.js";
 import { isTextGroundedInSource } from "./grounding.js";
-import {
-    splitMarkdownIntoSections,
-    eligibleLessonSectionTitles,
-} from "../src/lib/lessonSections.js";
 import {
     classifyLessonKind,
     normalizeLessonKind,
@@ -115,47 +108,15 @@ export const sliceSourceForTopic = (source, { title = "", focus = "", index = 0,
     return text.slice(start, start + sliceSize);
 };
 
+// Without the model there is no way to write distractors that are verifiably
+// false, so heuristic topics ship as lessons only: no quiz, no in-lesson checks.
 const heuristicTopics = ({ fileName, extractedText }) =>
-    buildTopicsFromExtractedText({ fileName, extractedText }).map((topic) => {
-        const quizQuestions = buildQuestionsForTopic({
-            topicTitle: topic.title,
-            topicContent: topic.content,
-            limit: MAX_QUESTIONS_PER_TOPIC,
-        }).map((question) => ({
-            ...question,
-            questionType: "multiple_choice",
-            surface: "quiz",
-            payload: {},
-        }));
-        const sections = eligibleLessonSectionTitles(splitMarkdownIntoSections(topic.content));
-        const inLessonChecks = normalizeInLessonChecks(
-            sections.slice(0, 4).map((sectionTitle, index) => {
-                const generated = buildQuestionsForTopic({
-                    topicTitle: sectionTitle,
-                    topicContent: topic.content,
-                    limit: 1,
-                })[0];
-                if (!generated) return null;
-                return {
-                    ...generated,
-                    sectionTitle,
-                    questionType: "multiple_choice",
-                    sortOrder: index,
-                };
-            }).filter(Boolean),
-            {
-                content: topic.content,
-                title: topic.title,
-                quizPrompts: quizQuestions.map((question) => question.prompt),
-            },
-        );
-        return {
-            ...topic,
-            questions: quizQuestions,
-            inLessonChecks,
-            orderingCheck: null,
-        };
-    });
+    buildTopicsFromExtractedText({ fileName, extractedText }).map((topic) => ({
+        ...topic,
+        questions: [],
+        inLessonChecks: [],
+        orderingCheck: null,
+    }));
 
 const sanitizeMcqHint = (question) =>
     sanitizeGeneratedHint({
@@ -195,21 +156,6 @@ const normalizeTopicQuestions = (item, { title, content, sourceText = "" }) => {
             ...candidate,
             hint: sanitizeMcqHint(candidate),
         });
-    }
-
-    if (questions.length === 0) {
-        questions.push(
-            ...buildQuestionsForTopic({
-                topicTitle: title,
-                topicContent: content,
-                limit: MAX_QUESTIONS_PER_TOPIC,
-            }).map((question) => ({
-                ...question,
-                questionType: "multiple_choice",
-                payload: {},
-                hint: sanitizeMcqHint(question),
-            })),
-        );
     }
 
     const ordering = pickTopicOrdering(item?.ordering || item?.orderingCheck, {
