@@ -3,6 +3,27 @@ import { SectionCard } from '../../../components/admin/AdminUi';
 import { formatDateTime } from '../../../lib/admin/formatters';
 import { grantAdminAccess } from '../../../lib/admin/ui';
 
+const ACTIVITY_STEPS = [
+    { key: 'uploaded', label: 'Uploaded' },
+    { key: 'studied', label: 'Studied a lesson' },
+    { key: 'quizzed', label: 'Took a quiz or exam' },
+];
+
+// What the student has done so far; replaces the retired onboarding flag.
+const StudentActivity = ({ activity }) => {
+    const done = ACTIVITY_STEPS.filter((step) => activity?.[step.key]);
+    if (!done.length) return <span className="text-text-muted">No activity yet</span>;
+    return (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Student activity">
+            {done.map((step) => (
+                <li key={step.key} className="rounded-full bg-surface-soft px-2 py-0.5 text-xs font-medium text-text-secondary">
+                    {step.label}
+                </li>
+            ))}
+        </ul>
+    );
+};
+
 export const UsersPanel = ({ snapshot }) => {
     const recent = Array.isArray(snapshot?.users?.recent) ? snapshot.users.recent : [];
     const [query, setQuery] = useState('');
@@ -87,7 +108,7 @@ export const UsersPanel = ({ snapshot }) => {
                                 <th className="py-2 pr-3 font-medium">Name</th>
                                 <th className="py-2 pr-3 font-medium">Email</th>
                                 <th className="py-2 pr-3 font-medium">Joined</th>
-                                <th className="py-2 pr-3 font-medium">Onboarding</th>
+                                <th className="py-2 pr-3 font-medium">Activity</th>
                                 <th className="py-2 font-medium">Access</th>
                             </tr>
                         </thead>
@@ -101,8 +122,8 @@ export const UsersPanel = ({ snapshot }) => {
                                     <td className="py-2.5 pr-3 text-text-secondary">
                                         {formatDateTime(user.createdAt)}
                                     </td>
-                                    <td className="py-2.5 pr-3 text-text-secondary">
-                                        {user.onboarded ? 'Done' : 'Incomplete'}
+                                    <td className="py-2.5 pr-3">
+                                        <StudentActivity activity={user.activity} />
                                     </td>
                                     <td className="py-2.5 whitespace-nowrap">
                                         {user.isAdmin ? (
