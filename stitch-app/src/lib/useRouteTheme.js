@@ -7,6 +7,8 @@ import {
     resolveInitialTheme,
 } from './theme.js';
 
+export const APP_THEME_CLASS = 'cp-theme';
+
 const PUBLIC_LIGHT_ROUTE_PREFIXES = [
     '/login',
     '/signup',
@@ -38,5 +40,9 @@ export const useRouteTheme = () => {
 
     useLayoutEffect(() => {
         applyTheme(resolveRouteTheme(pathname));
+        // Radix dialogs, menus and sheets portal to <body>, outside any page's
+        // `.cp-theme` wrapper, so the app theme has to live on <body> itself.
+        // Public pages stay light-only and keep their own styling.
+        document.body.classList.toggle(APP_THEME_CLASS, !isPublicLightRoute(pathname));
     }, [pathname]);
 };
