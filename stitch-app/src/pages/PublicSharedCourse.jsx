@@ -4,6 +4,7 @@ import PublicShell from '../components/PublicShell';
 import LessonSectionStepper from '../components/lesson/LessonSectionStepper';
 import AppIcon from '../components/AppIcon';
 import { splitMarkdownIntoSections, buildLessonSteps } from '../lib/lessonSections';
+import { normalizeLessonContent } from '../lib/topicContentFormatting';
 
 const PublicSharedCourse = () => {
     const { token } = useParams();
@@ -49,7 +50,7 @@ const PublicSharedCourse = () => {
     const lessonSteps = useMemo(() => {
         if (!topic) return [];
         return buildLessonSteps({
-            sections: splitMarkdownIntoSections(topic.content),
+            sections: splitMarkdownIntoSections(normalizeLessonContent(topic.content)),
             checks: topic.inLessonChecks || [],
             wordBankTerms: [],
             studyMode: 'full',
@@ -117,7 +118,6 @@ const PublicSharedCourse = () => {
                                 topicId={topic.id}
                                 shareToken={token}
                                 lessonChecks={{}}
-                                cleanInline={(text) => text}
                             />
                         </div>
                     ) : null}

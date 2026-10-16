@@ -6,7 +6,7 @@ import { useRouteResolvedTopic } from './useRouteResolvedTopic';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import useReadingProgress from '../components/lesson/useReadingProgress';
 import { useTextSelection } from './useTextSelection';
-import { cleanDisplayLine, cleanInlineText } from '../lib/topicContentFormatting';
+import { cleanDisplayLine, cleanInlineText, normalizeLessonContent } from '../lib/topicContentFormatting';
 import { isPlaceholderTopicIllustration, resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import {
     buildTopicQuizRoute,
@@ -15,13 +15,8 @@ import {
     getCurrentHashTargetId,
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
-import {
-    buildLessonStepsFromBlocks,
-    filterBlocksByStudyMode,
-    parseLessonBlocks,
-    prepareLessonContent,
-    resolveWordBankTerms,
-} from '../lib/lessonBlocks';
+import { buildLessonView } from '../lib/lessonView';
+import { splitMarkdownIntoSections } from '../lib/lessonSections';
 import { useStudyProgress } from './useStudyProgress';
 
 const fetchTopicPayload = async (topicId) => {
@@ -73,7 +68,6 @@ export const useTopicDetail = () => {
     const [overrideContent, setOverrideContent] = useState('');
     const [explanationView, setExplanationView] = useState('original');
     const [cachedContent, setCachedContent] = useState('');
-    const [shouldAnimateBlocks, setShouldAnimateBlocks] = useState(false);
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     const [contentsOpen, setContentsOpen] = useState(false);
@@ -331,13 +325,7 @@ export const useTopicDetail = () => {
     const content = explanationView === 'simplified' && overrideContent
         ? overrideContent
         : originalLessonContent;
-    const normalizedContent = useMemo(
-        () => prepareLessonContent({ content, title: topic?.title, description: topic?.description }),
-        [content, topic?.title, topic?.description],
-    );
-    const contentLines = typeof normalizedContent === 'string'
-        ? normalizedContent.split(/\\n|\n/).filter(Boolean)
-        : null;
+    const normalizedContent = useMemo(() => normalizeLessonContent(content), [content]);
     const previousVoiceModeRef = useRef(voiceModeEnabled);
 
     useEffect(() => {
@@ -347,31 +335,6 @@ export const useTopicDetail = () => {
         previousVoiceModeRef.current = voiceModeEnabled;
     }, [voiceModeEnabled, stopVoice]);
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return undefined;
-        const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const updateAnimationPreference = () => {
-            const desktopViewport = window.innerWidth >= 1024;
-            setShouldAnimateBlocks(!motionQuery.matches && desktopViewport);
-        };
-
-        updateAnimationPreference();
-        window.addEventListener('resize', updateAnimationPreference, { passive: true });
-        if (motionQuery.addEventListener) {
-            motionQuery.addEventListener('change', updateAnimationPreference);
-        } else if (motionQuery.addListener) {
-            motionQuery.addListener(updateAnimationPreference);
-        }
-
-        return () => {
-            window.removeEventListener('resize', updateAnimationPreference);
-            if (motionQuery.removeEventListener) {
-                motionQuery.removeEventListener('change', updateAnimationPreference);
-            } else if (motionQuery.removeListener) {
-                motionQuery.removeListener(updateAnimationPreference);
-            }
-        };
-    }, []);
 
     // Scroll to top on mount/navigation
     useEffect(() => {
@@ -403,15 +366,8 @@ export const useTopicDetail = () => {
             .trim();
     };
     const firstLessonHeading = useMemo(() => {
-        if (!normalizedContent || typeof normalizedContent !== 'string') return '';
-        const lines = normalizedContent.split(/\n/);
-        for (const line of lines) {
-            const match = line.trim().match(/^#{1,6}\s+(.+)$/);
-            if (match) {
-                return cleanLine(match[1]);
-            }
-        }
-        return '';
+        const heading = splitMarkdownIntoSections(normalizedContent).find((section) => section.level > 0);
+        return heading ? cleanDisplayLine(heading.title) : '';
     }, [normalizedContent]);
     const cleanedTopicTitle = sanitizeTopicTitle(topic?.title || '');
     const looksBrokenTopicTitle = (() => {
@@ -445,28 +401,20 @@ export const useTopicDetail = () => {
         setVoiceSaving(false);
     };
 
-    const parsed = useMemo(() => parseLessonBlocks(normalizedContent), [normalizedContent]);
-
     // Prefer structured definitions from the DB over the markdown parse.
     const dbDefinitions = topic?.structuredDefinitions ?? topic?.contentGraph?.definitions;
-    const wordBankTerms = useMemo(
-        () => resolveWordBankTerms({ dbDefinitions, parsedTerms: parsed.wordBankTerms }),
-        [dbDefinitions, parsed.wordBankTerms],
-    );
-
-    // Section filtering by study mode
-    const filteredBlocks = useMemo(
-        () => filterBlocksByStudyMode(parsed.blocks, studyMode),
-        [parsed.blocks, studyMode],
-    );
-
-    const lessonSteps = useMemo(() => buildLessonStepsFromBlocks({
-        blocks: filteredBlocks,
+    const lessonView = useMemo(() => buildLessonView({
+        content: normalizedContent,
         topicTitle: resolvedTopicTitle,
         checks: topic?.inLessonChecks || [],
-        wordBankTerms,
         studyMode,
-    }), [filteredBlocks, resolvedTopicTitle, topic?.inLessonChecks, wordBankTerms, studyMode]);
+        dbDefinitions,
+    }), [normalizedContent, resolvedTopicTitle, topic?.inLessonChecks, studyMode, dbDefinitions]);
+    const { steps: lessonSteps, wordBankTerms } = lessonView;
+    const lessonToc = useMemo(
+        () => lessonView.sections.map((section, index) => ({ id: `lesson-section-${index}`, text: section.title, level: 2 })),
+        [lessonView.sections],
+    );
 
     const {
         currentStepIndex,
@@ -574,14 +522,14 @@ export const useTopicDetail = () => {
         : 'This topic will be assessed in the course quiz.';
 
     const { progress: readingProgress, activeId: activeSectionId } = useReadingProgress({
-        toc: parsed.toc,
+        toc: lessonToc,
         headerOffset: 108,
     });
     const activeSectionLabel = useMemo(() => {
-        if (!activeSectionId || !Array.isArray(parsed.toc)) return '';
-        const found = parsed.toc.find((entry) => entry.id === activeSectionId);
+        if (!activeSectionId) return '';
+        const found = lessonToc.find((entry) => entry.id === activeSectionId);
         return found?.text || '';
-    }, [activeSectionId, parsed.toc]);
+    }, [activeSectionId, lessonToc]);
     const lessonStatusBadge = useMemo(() => {
         if (topicProgress?.completedAt) {
             return { label: 'Completed', icon: 'check_circle', className: 'bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-900/25 dark:text-emerald-300 dark:border-emerald-800/40' };
@@ -751,13 +699,11 @@ export const useTopicDetail = () => {
         closeNotes,
         closeSource,
         contentsOpen,
-        contentLines,
         contentRef,
         courseHref,
         courseId,
         examTopicId,
         explanationView,
-        filteredBlocks,
         hasReexplainedLesson,
         handleAskTutor,
         handleLessonStepChange,
@@ -789,7 +735,6 @@ export const useTopicDetail = () => {
         openContents,
         openNotes,
         openSource,
-        parsed,
         pauseVoice,
         playVoice,
         podcastEnabled,
@@ -820,7 +765,6 @@ export const useTopicDetail = () => {
         setReExplainStyle,
         setSettingsOpen,
         settingsOpen,
-        shouldAnimateBlocks,
         showTopicIllustration,
         showScrollTop,
         sourceOpen,

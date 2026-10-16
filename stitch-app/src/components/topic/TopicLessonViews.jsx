@@ -67,9 +67,6 @@ export const TopicStudyModeView = ({
 
 export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref = '' }) => {
     const {
-        cleanInline,
-        cleanLine,
-        contentLines,
         contentRef,
         explanationView,
         handleAskTutor,
@@ -86,7 +83,6 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
         normalizedContent,
         objectiveExamRoute,
         openSource,
-        parsed,
         pauseVoice,
         playVoice,
         podcastEnabled,
@@ -96,7 +92,6 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
         resolvedTopicTitle,
         setExplanationView,
         resumeVoice,
-        shouldAnimateBlocks,
         showTopicIllustration,
         speechText,
         stopVoice,
@@ -112,9 +107,6 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
     return (
         <main ref={mainRef} className="min-w-0">
             <TopicContentPanel
-                cleanInline={cleanInline}
-                cleanLine={cleanLine}
-                contentLines={contentLines}
                 contentRef={contentRef}
                 explanationView={explanationView}
                 handleAskTutor={handleAskTutor}
@@ -132,7 +124,6 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
                 normalizedContent={normalizedContent}
                 objectiveExamRoute={objectiveExamRoute}
                 openSource={openSource}
-                parsed={parsed}
                 pauseVoice={pauseVoice}
                 playVoice={playVoice}
                 podcastEnabled={podcastEnabled}
@@ -142,7 +133,6 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
                 resolvedTopicTitle={resolvedTopicTitle}
                 setExplanationView={setExplanationView}
                 resumeVoice={resumeVoice}
-                shouldAnimateBlocks={shouldAnimateBlocks}
                 showTopicIllustration={showTopicIllustration}
                 speechText={speechText}
                 stopVoice={stopVoice}

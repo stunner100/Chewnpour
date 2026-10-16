@@ -111,15 +111,22 @@ export const normalizeInLessonChecks = (
         if (sectionTitle && (isSkippedStepperTitle(sectionTitle) || isWordBankStepperTitle(sectionTitle))) {
             return;
         }
-        if (sectionKey && !eligibleSet.has(sectionKey) && eligibleSet.size > 0) {
-            const fallback = eligible.find((item) => !seenSections.has(normalizeSectionTitle(item)));
-            if (fallback) raw = { ...raw, sectionTitle: fallback };
+        const type = String(raw?.questionType || raw?.type || "multiple_choice").trim();
+        // An unknown or missing section binds to the first section without a
+        // check; an ordering check prefers one that describes a process.
+        const unseen = eligible.filter((item) => !seenSections.has(normalizeSectionTitle(item)));
+        const sectionContent = (title) =>
+            sections.find((section) => normalizeSectionTitle(section.title) === normalizeSectionTitle(title))?.content || "";
+        const fallbackTitle = type === "ordering"
+            ? unseen.find((item) => snippetHasProcess(sectionContent(item))) || ""
+            : unseen[0] || "";
+        if (!sectionKey || (!eligibleSet.has(sectionKey) && eligibleSet.size > 0)) {
+            if (fallbackTitle) raw = { ...raw, sectionTitle: fallbackTitle };
         }
-        const boundTitle = normalizeWhitespace(raw?.sectionTitle || eligible[kept.length] || "");
+        const boundTitle = normalizeWhitespace(raw?.sectionTitle || "");
         const boundKey = normalizeSectionTitle(boundTitle);
         if (boundKey && seenSections.has(boundKey)) return;
 
-        const type = String(raw?.questionType || raw?.type || "multiple_choice").trim();
         let normalized = null;
         if (type === "ordering") {
             if (hasOrdering) return;

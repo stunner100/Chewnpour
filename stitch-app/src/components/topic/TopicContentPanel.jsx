@@ -3,7 +3,6 @@ import TopicVoiceToolbar from './TopicVoiceToolbar';
 import LessonSectionStepper from '../lesson/LessonSectionStepper';
 
 const TopicContentPanel = ({
-    cleanInline,
     contentRef,
     explanationView = 'original',
     handleAskTutor,
@@ -28,7 +27,6 @@ const TopicContentPanel = ({
     resolvedTopicTitle,
     setExplanationView,
     resumeVoice,
-    shouldAnimateBlocks,
     showTopicIllustration = false,
     speechText,
     stopVoice,
@@ -108,11 +106,9 @@ const TopicContentPanel = ({
                     quizHref={objectiveExamRoute}
                     quizLabel="Start quiz"
                     onStepChange={handleLessonStepChange}
-                    cleanInline={cleanInline}
                     wordBankTerms={wordBankTerms}
                     starredTerms={topicProgress?.termsStarred}
                     onTermsStarred={handleTermsStarred}
-                    shouldAnimateBlocks={shouldAnimateBlocks}
                     contentRef={contentRef}
                     onFinishLesson={handleFinishLesson}
                     lessonCompleted={Boolean(topicProgress?.completedAt)}
