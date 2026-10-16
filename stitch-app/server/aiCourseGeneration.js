@@ -247,8 +247,8 @@ const parseOutlinePayload = (parsed, minTopics = 2) => {
     return topics.length >= Math.max(1, minTopics) ? topics : null;
 };
 
-const generateOutline = async ({ fileName, clipped, maxTopics = MAX_TOPICS }) => {
-    const result = await callCourseLlmChat({
+const generateOutline = async ({ chat, fileName, clipped, maxTopics = MAX_TOPICS }) => {
+    const result = await chat({
         messages: [
             {
                 role: "system",
@@ -282,6 +282,7 @@ const generateOutline = async ({ fileName, clipped, maxTopics = MAX_TOPICS }) =>
 };
 
 const generateOneTopic = async ({
+    chat,
     fileName,
     title,
     description,
@@ -323,7 +324,7 @@ const generateOneTopic = async ({
         .filter(Boolean)
         .join(" ");
 
-    const result = await callCourseLlmChat({
+    const result = await chat({
         messages: [
             { role: "system", content: system },
             {
@@ -348,7 +349,7 @@ const generateOneTopic = async ({
     return parsed;
 };
 
-const generateCurriculumFromOutline = async ({ fileName, extractedText, outline }) => {
+const generateCurriculumFromOutline = async ({ chat, fileName, extractedText, outline }) => {
     const snippets = outline.topics.map((topic, index) =>
         sliceSourceForTopic(extractedText, {
             title: topic.title,
@@ -364,6 +365,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline 
         async (topic, index) => {
             try {
                 return await generateOneTopic({
+                    chat,
                     fileName,
                     title: topic.title,
                     description: topic.description,
@@ -410,6 +412,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline 
         if (mcqCount >= 2) continue;
         try {
             const extra = await generateOneTopic({
+                chat,
                 fileName,
                 title: topic.title,
                 description: topic.description,
@@ -455,7 +458,7 @@ const generateCurriculumFromOutline = async ({ fileName, extractedText, outline 
     return normalized;
 };
 
-const generateCurriculumSinglePass = async ({ fileName, extractedText, clipped, maxTopics = MAX_TOPICS }) => {
+const generateCurriculumSinglePass = async ({ chat, fileName, extractedText, clipped, maxTopics = MAX_TOPICS }) => {
     const system = [
         "You are ChewnPour's study curriculum generator.",
         "Return ONLY valid JSON with this shape:",
@@ -477,7 +480,7 @@ const generateCurriculumSinglePass = async ({ fileName, extractedText, clipped, 
         SOURCE_DATA_RULE,
     ].join(" ");
 
-    const result = await callCourseLlmChat({
+    const result = await chat({
         messages: [
             { role: "system", content: system },
             {
@@ -548,13 +551,14 @@ const titlesOverlap = (left, right) => {
 
 // The outline -> per-topic -> single-pass -> heuristic ladder, over a single
 // chunk of source text. Never rejects; always returns a usable curriculum.
-const generateCurriculumFromText = async ({ fileName, extractedText, maxTopics = MAX_TOPICS, onProgress }) => {
+const generateCurriculumFromText = async ({ chat, fileName, extractedText, maxTopics = MAX_TOPICS, onProgress }) => {
     const text = String(extractedText || "").trim();
     const clipped = text.slice(0, MAX_SOURCE_CHARS);
     try {
-        const outline = await generateOutline({ fileName, clipped, maxTopics });
+        const outline = await generateOutline({ chat, fileName, clipped, maxTopics });
         notifyProgress(onProgress, "writing");
         return await generateCurriculumFromOutline({
+            chat,
             fileName,
             extractedText: text,
             outline,
@@ -565,6 +569,7 @@ const generateCurriculumFromText = async ({ fileName, extractedText, maxTopics =
         });
         try {
             return await generateCurriculumSinglePass({
+                chat,
                 fileName,
                 extractedText: text,
                 clipped,
@@ -647,8 +652,16 @@ const mergeChunkCurricula = (results, { fileName, extractedText }) => {
 };
 
 // onProgress(stage) is best-effort: "writing" fires once an outline exists and
-// per-topic lessons and questions are being written.
-export const generateCourseCurriculumWithAi = async ({ fileName, extractedText, onProgress }) => {
+// per-topic lessons and questions are being written. chat, aiEnabled and
+// timeoutMs default to the live providers; regression scripts stub them.
+export const generateCourseCurriculumWithAi = async ({
+    fileName,
+    extractedText,
+    onProgress,
+    chat = callCourseLlmChat,
+    aiEnabled = isCourseAiEnabled,
+    timeoutMs = GENERATION_TIMEOUT_MS,
+}) => {
     const text = String(extractedText || "").trim();
     if (!text) {
         return {
@@ -658,7 +671,7 @@ export const generateCourseCurriculumWithAi = async ({ fileName, extractedText, 
         };
     }
 
-    if (!isCourseAiEnabled()) {
+    if (!aiEnabled()) {
         return {
             backend: "heuristic",
             topics: dedupeCourseTopics(heuristicTopics({ fileName, extractedText: text })),
@@ -677,7 +690,7 @@ export const generateCourseCurriculumWithAi = async ({ fileName, extractedText, 
 
     const work = (async () => {
         const results = await mapWithConcurrency(chunks, 2, (chunk) =>
-            generateCurriculumFromText({ fileName, extractedText: chunk, maxTopics: perChunkMax, onProgress }),
+            generateCurriculumFromText({ chat, fileName, extractedText: chunk, maxTopics: perChunkMax, onProgress }),
         );
         if (results.length === 1) {
             return { ...results[0], sourceTruncated };
@@ -685,5 +698,5 @@ export const generateCourseCurriculumWithAi = async ({ fileName, extractedText, 
         return { ...mergeChunkCurricula(results, { fileName, extractedText: text }), sourceTruncated };
     })();
 
-    return raceWithDeadline(work, { fallback, timeoutMs: GENERATION_TIMEOUT_MS });
+    return raceWithDeadline(work, { fallback, timeoutMs });
 };
