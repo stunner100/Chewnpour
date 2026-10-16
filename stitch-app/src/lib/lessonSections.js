@@ -1,3 +1,8 @@
+// Shared by the server (check binding, course eval) and the lesson page, so a
+// check bound to a section title on the server finds the same section on the
+// client. A section is an H1 or H2 heading plus the markdown below it; H3+
+// stay inside the section body.
+
 const SKIP_STEPPER_TITLES = new Set([
     "quick check",
     "self-check",
@@ -6,6 +11,8 @@ const SKIP_STEPPER_TITLES = new Set([
 ]);
 
 const WORDBANK_STEPPER_TITLES = new Set(["word bank", "quick glossary", "glossary"]);
+
+const INTRODUCTION_TITLE = "Introduction";
 
 export const normalizeSectionTitle = (value) =>
     String(value || "")
@@ -19,56 +26,44 @@ export const isSkippedStepperTitle = (title) =>
 export const isWordBankStepperTitle = (title) =>
     WORDBANK_STEPPER_TITLES.has(normalizeSectionTitle(title));
 
+const FENCE_RE = /^\s{0,3}(`{3,}|~{3,})/;
+const SECTION_HEADING_RE = /^\s{0,3}(#{1,2})\s+(.+?)\s*#*\s*$/;
+
+// level is 0 for text before the first heading, else the heading level (1-2).
 export const splitMarkdownIntoSections = (markdown) => {
     const lines = String(markdown || "").split(/\r?\n/);
     const sections = [];
-    let current = { title: "Introduction", lines: [] };
+    let current = { title: INTRODUCTION_TITLE, level: 0, lines: [] };
+    let fence = null;
 
     const pushCurrent = () => {
         const content = current.lines.join("\n").trim();
-        if (!current.title && !content) return;
-        sections.push({ title: current.title, content });
+        if (!content) return;
+        sections.push({ title: current.title, level: current.level, content });
     };
 
     for (const line of lines) {
-        const heading = line.match(/^#{1,3}\s+(.+)$/);
+        const fenceMatch = line.match(FENCE_RE);
+        if (fenceMatch) {
+            const marker = fenceMatch[1];
+            if (!fence) {
+                fence = marker;
+            } else if (marker[0] === fence[0] && marker.length >= fence.length) {
+                fence = null;
+            }
+            current.lines.push(line);
+            continue;
+        }
+        const heading = fence ? null : line.match(SECTION_HEADING_RE);
         if (heading) {
             pushCurrent();
-            current = { title: heading[1].trim(), lines: [] };
+            current = { title: heading[2].trim(), level: heading[1].length, lines: [] };
             continue;
         }
         current.lines.push(line);
     }
     pushCurrent();
     return sections.filter((section) => section.content.length >= 20 || !isSkippedStepperTitle(section.title));
-};
-
-export const splitBlocksIntoSections = (blocks) => {
-    const sections = [];
-    let current = { title: "Introduction", blocks: [] };
-
-    const pushCurrent = () => {
-        if (!current.title && current.blocks.length === 0) return;
-        const hasBody = current.blocks.some((block) => block.type !== "header");
-        if (!hasBody && isSkippedStepperTitle(current.title)) return;
-        sections.push({ title: current.title, blocks: current.blocks });
-    };
-
-    for (const block of Array.isArray(blocks) ? blocks : []) {
-        if (block?.type === "header" && Number(block.level || 2) <= 2) {
-            if (current.blocks.length > 0 || current.title !== "Introduction") {
-                pushCurrent();
-            }
-            current = { title: String(block.text || "Section").trim(), blocks: [block] };
-            continue;
-        }
-        current.blocks.push(block);
-    }
-    pushCurrent();
-    return sections.filter((section) => {
-        if (isSkippedStepperTitle(section.title)) return false;
-        return section.blocks.some((block) => block.type !== "header") || isWordBankStepperTitle(section.title);
-    });
 };
 
 export const matchCheckToSection = (check, sectionTitle) =>
@@ -79,63 +74,8 @@ export const eligibleLessonSectionTitles = (sections) =>
         .filter((section) => !isSkippedStepperTitle(section.title) && !isWordBankStepperTitle(section.title))
         .map((section) => section.title);
 
-export const markdownToSimpleBlocks = (title, content, keyPrefix = "s") => {
-    const blocks = [];
-    if (title) {
-        blocks.push({
-            type: "header",
-            level: 2,
-            text: title,
-            key: `${keyPrefix}-h`,
-            id: normalizeSectionTitle(title).replace(/\s+/g, "-") || "section",
-        });
-    }
-    const chunks = String(content || "")
-        .split(/\n{2,}/)
-        .map((chunk) => chunk.trim())
-        .filter(Boolean);
-    chunks.forEach((chunk, index) => {
-        if (/^#{1,3}\s+/.test(chunk.split("\n")[0] || "")) {
-            const lines = chunk.split("\n");
-            const heading = lines[0].replace(/^#{1,3}\s+/, "").trim();
-            if (normalizeSectionTitle(heading) === normalizeSectionTitle(title)) {
-                chunk = lines.slice(1).join("\n").trim();
-                if (!chunk) return;
-            }
-        }
-        const lines = chunk.split("\n");
-        const bulletLines = lines.filter((line) => line.trim());
-        if (bulletLines.length > 0 && bulletLines.every((line) => /^[-*]\s+/.test(line))) {
-            bulletLines.forEach((line, bulletIndex) => {
-                blocks.push({
-                    type: "bullet",
-                    text: line.replace(/^[-*]\s+/, "").trim(),
-                    key: `${keyPrefix}-b-${index}-${bulletIndex}`,
-                });
-            });
-            return;
-        }
-        blocks.push({
-            type: "paragraph",
-            text: chunk,
-            key: `${keyPrefix}-p-${index}`,
-        });
-    });
-    return blocks;
-};
-
-export const blocksToSpeechText = (blocks) =>
-    (Array.isArray(blocks) ? blocks : [])
-        .map((block) => String(block?.text || "").trim())
-        .filter(Boolean)
-        .join(" ")
-        .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-        .replace(/\*\*(.*?)\*\*/g, "$1")
-        .replace(/\*(.*?)\*/g, "$1")
-        .replace(/[#>`_~-]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
+// A Word Bank section becomes the word bank widget only when its terms were
+// parsed; otherwise it stays a readable section so its content is never lost.
 export const buildLessonSteps = ({
     sections = [],
     checks = [],
@@ -143,11 +83,11 @@ export const buildLessonSteps = ({
     studyMode = "full",
 } = {}) => {
     const remaining = [...(Array.isArray(checks) ? checks : [])];
+    const hasWordBank = Array.isArray(wordBankTerms) && wordBankTerms.length > 0;
     const steps = [];
     for (const section of Array.isArray(sections) ? sections : []) {
-        if (isSkippedStepperTitle(section.title) || isWordBankStepperTitle(section.title)) {
-            continue;
-        }
+        if (isSkippedStepperTitle(section.title)) continue;
+        if (hasWordBank && isWordBankStepperTitle(section.title)) continue;
         const matchIndex = remaining.findIndex((check) => matchCheckToSection(check, section.title));
         let check = null;
         if (matchIndex >= 0) {
@@ -156,17 +96,15 @@ export const buildLessonSteps = ({
         steps.push({
             type: "section",
             title: section.title,
-            blocks: Array.isArray(section.blocks) && section.blocks.length > 0
-                ? section.blocks
-                : markdownToSimpleBlocks(section.title, section.content, `sec-${steps.length}`),
+            markdown: section.content,
             check,
         });
     }
-    if (Array.isArray(wordBankTerms) && wordBankTerms.length > 0) {
+    if (hasWordBank) {
         steps.push({
             type: "wordbank",
             title: "Word Bank",
-            blocks: [{ type: "wordbank_widget", key: "wordbank-step" }],
+            markdown: "",
             check: null,
         });
     }

@@ -580,6 +580,70 @@ html.is-safari .safari-backdrop {
     background: rgba(168, 123, 247, 0.18);
     color: #d4bdfb;
 }
+.lesson-prose ul { list-style: disc; }
+.lesson-prose ol { list-style: decimal; }
+.lesson-prose li > ul,
+.lesson-prose li > ol { margin-top: 0.4rem; margin-bottom: 0.4rem; }
+.lesson-prose li > p { margin-bottom: 0.4rem; }
+.lesson-prose a {
+    color: #0066D6;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.dark .lesson-prose a { color: #8ab8ff; }
+.lesson-prose pre {
+    margin: 1.25rem 0;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    border-radius: 12px;
+    background: #f4f4f6;
+    border: 1px solid #e7e7ea;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+.dark .lesson-prose pre {
+    background: #141518;
+    border-color: #2a2b30;
+}
+.lesson-prose pre code {
+    background: none;
+    color: #1f1f24;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+    white-space: pre;
+}
+.dark .lesson-prose pre code { color: #e4e4ea; }
+.lesson-prose .lesson-table-scroll {
+    margin: 1.25rem 0;
+    overflow-x: auto;
+    border: 1px solid #e7e7ea;
+    border-radius: 12px;
+}
+.dark .lesson-prose .lesson-table-scroll { border-color: #2a2b30; }
+.lesson-prose table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+}
+.lesson-prose th,
+.lesson-prose td {
+    padding: 0.55rem 0.85rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #eeeef0;
+    color: #2a2a30;
+}
+.lesson-prose th {
+    font-weight: 600;
+    color: #0f0f12;
+    background: #f7f7f9;
+}
+.lesson-prose tr:last-child td { border-bottom: 0; }
+.dark .lesson-prose th,
+.dark .lesson-prose td { border-bottom-color: #2a2b30; color: #c8c8d0; }
+.dark .lesson-prose th { color: #f4f4f7; background: #18191c; }
 
 /* Dedicated lesson reading surface — keeps prose off chrome, checks, and tools. */
 .lesson-reading-stage {

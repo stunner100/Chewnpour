@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import LessonContentRenderer from '../LessonContentRenderer';
+import InteractiveWordBank from '../InteractiveWordBank';
 import LessonInlineCheck from './LessonInlineCheck';
 import LessonCompletion from '../study/LessonCompletion';
 import AppIcon from '../AppIcon';
-import { blocksToSpeechText } from '../../lib/lessonSections';
+import { markdownToSpeechText } from '../../lib/lessonMarkdown';
 
 const scrollLessonToTop = (reduceMotion) => {
     if (typeof document === 'undefined') return;
@@ -26,12 +27,9 @@ export default function LessonSectionStepper({
     quizHref,
     quizLabel = 'Start quiz',
     onStepChange,
-    cleanInline,
-    onViewSource,
     wordBankTerms,
     starredTerms,
     onTermsStarred,
-    shouldAnimateBlocks = false,
     contentRef,
     onFinishLesson,
     lessonCompleted = false,
@@ -62,18 +60,7 @@ export default function LessonSectionStepper({
     const step = safeSteps[clampedIndex] || null;
     const canContinue = Boolean(step) && (!step.check || attemptedIds.has(step.check.id));
 
-    const speechText = useMemo(() => blocksToSpeechText(step?.blocks || []), [step]);
-    const renderBlocks = useMemo(() => {
-        const blocks = Array.isArray(step?.blocks) ? step.blocks : [];
-        const first = blocks[0];
-        if (
-            first?.type === 'header'
-            && String(first.text || '').trim().toLowerCase() === String(step?.title || '').trim().toLowerCase()
-        ) {
-            return blocks.slice(1);
-        }
-        return blocks;
-    }, [step]);
+    const speechText = useMemo(() => markdownToSpeechText(step?.markdown || ''), [step]);
 
     useEffect(() => {
         onStepChange?.({
@@ -178,16 +165,19 @@ export default function LessonSectionStepper({
                         >
                             {step.title}
                         </h2>
-                        <LessonContentRenderer
-                            blocks={renderBlocks}
-                            shouldAnimateBlocks={shouldAnimateBlocks}
-                            cleanInline={cleanInline}
-                            onViewSource={onViewSource}
-                            wordBankTerms={wordBankTerms}
-                            topicId={topicId}
-                            starredTerms={starredTerms}
-                            onTermsStarred={onTermsStarred}
-                        />
+                        {step.type === 'wordbank' ? (
+                            <div id="topic-wordbank" style={{ scrollMarginTop: 108 }}>
+                                <InteractiveWordBank
+                                    key={starredTerms ? `wb-${starredTerms.length}` : 'wb-0'}
+                                    terms={wordBankTerms}
+                                    topicId={topicId}
+                                    starredTerms={starredTerms}
+                                    onTermsStarred={onTermsStarred}
+                                />
+                            </div>
+                        ) : (
+                            <LessonContentRenderer markdown={step.markdown} />
+                        )}
                     </article>
 
                     {step.check ? (

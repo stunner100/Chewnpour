@@ -8,6 +8,7 @@ import {
   promptBlockForLessonKind,
   spineForLessonKind,
 } from "../src/lib/lessonKind.js";
+import { splitMarkdownIntoSections } from "../src/lib/lessonSections.js";
 
 const root = process.cwd();
 
@@ -90,12 +91,11 @@ assert.match(
   /Different topics must use different H2 spines/,
 );
 
-const formatting = await fs.readFile(
-  path.join(root, "src", "lib", "topicContentFormatting.js"),
-  "utf8",
-);
-assert.match(formatting, /Why This Matters/);
-assert.match(formatting, /Causal Chain/);
-assert.match(formatting, /The Attractive Wrong Idea/);
+// Every spine title becomes its own stepper section, whatever the kind.
+for (const kind of ["narrative", "procedure", "concept", "argument"]) {
+  const spine = spineForLessonKind(kind);
+  const markdown = spine.map((title) => `## ${title}\n\nA full paragraph of lesson text for ${title}.`).join("\n\n");
+  assert.deepEqual(splitMarkdownIntoSections(markdown).map((section) => section.title), spine);
+}
 
 console.log("lesson-kind-adaptive-structure-regression.test.mjs passed");

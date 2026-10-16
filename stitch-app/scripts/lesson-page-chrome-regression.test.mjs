@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildLessonStepsFromBlocks } from '../src/lib/lessonBlocks.js';
+import { buildLessonView } from '../src/lib/lessonView.js';
 
 const root = resolve(import.meta.dirname, '..');
 const read = (relativePath) => readFileSync(resolve(root, relativePath), 'utf8');
@@ -12,7 +12,6 @@ const content = read('src/components/topic/TopicContentPanel.jsx');
 const stepper = read('src/components/lesson/LessonSectionStepper.jsx');
 const mobileActions = read('src/components/lesson/MobileLessonActions.jsx');
 const hook = read('src/hooks/useTopicDetail.js');
-const renderer = read('src/components/LessonContentRenderer.jsx');
 const css = read('src/index.css');
 
 assert.match(
@@ -84,18 +83,14 @@ assert.match(css, /\.lesson-reading-stage/, 'Reading stage must have a dedicated
 assert.match(hook, /handleFinishLesson/, 'Hook must expose persisted finish.');
 assert.match(hook, /completedAt: Date\.now\(\)/, 'Finish must write completed_at.');
 assert.match(hook, /handleSaveSelectionToNotes/, 'Hook must save selections into notes.');
-const titleSteps = buildLessonStepsFromBlocks({
-  blocks: [
-    { type: 'header', level: 1, text: 'Cell Structure', key: 'h0' },
-    { type: 'header', level: 2, text: 'The Idea', key: 'h1' },
-    { type: 'paragraph', text: 'Cells have parts.', key: 'p1' },
-  ],
+const titleSteps = buildLessonView({
+  content: '# Cell Structure\n\n## The Idea\n\nCells have parts that do different jobs.',
   topicTitle: 'Cell Structure',
-});
+}).steps;
 assert.deepEqual(
   titleSteps.map((step) => step.title),
   ['The Idea'],
-  'Duplicate page-title H1 must be stripped from article blocks.',
+  'Duplicate page-title H1 must be stripped from the lesson sections.',
 );
 assert.match(hook, /showTopicIllustration/, 'Hook must expose illustration gating.');
 assert.match(hook, /hasSourcePassages && \{/, 'Source tool must hide while passages are empty.');
@@ -103,8 +98,6 @@ assert.match(hook, /id: 'settings'/, 'More tools should include voice settings.'
 assert.match(hook, /currentStepIndex/, 'Hook must track the active lesson step.');
 assert.doesNotMatch(hook, /id: 'm-quiz'/, 'Mobile bar must not duplicate the quiz dock.');
 
-assert.match(renderer, /SectionAskMenu/, 'Section tutor chips must collapse into one Ask menu.');
-assert.match(renderer, /Ask about this section/, 'Section ask control must use a single overflow entry.');
 
 assert.match(css, /\.dark \.cp-theme \.bg-success-soft/, 'Dark mode must remap success-soft fills.');
 assert.match(css, /\.dark \.cp-theme \.bg-warning-soft/, 'Dark mode must remap warning-soft fills.');

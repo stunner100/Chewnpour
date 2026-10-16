@@ -1,5 +1,3 @@
-import { SECTION_TITLE_PATTERN } from './topicContentFormatting.js';
-
 export const isReExplainQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();
     if (code === 'REEXPLAIN_QUOTA_EXCEEDED') return true;
@@ -13,13 +11,7 @@ export const SECTION_SETS = {
     practice_only: null,
     full: null,
 };
-export const EMBEDDED_SECTION_SPLIT_PATTERN = new RegExp(`((?:^|\\s)(?:${SECTION_TITLE_PATTERN})\\s*(?:[:\\-]|\\b))`, 'i');
 export const SECTION_TEXT_STRIP_PATTERN = /[^a-z\s]/g;
-export const QUICK_CHECK_SECTION_PATTERN = /\bquick check\b/;
-export const WORD_BANK_SECTION_PATTERN = /\b(word bank|glossary|quick glossary)\b/;
-export const ANALOGY_SECTION_PATTERN = /\b(analog|everyday analog)\b/;
-export const COMMON_MISTAKE_SECTION_PATTERN = /\b(common mistake|misconception)\b/;
-export const STEP_TERM_PATTERN = /step/i;
 
 export const buildTopicQuizRoute = (topicId) =>
     topicId ? `/dashboard/quiz/${topicId}` : '/dashboard';
