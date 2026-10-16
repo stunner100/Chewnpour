@@ -336,7 +336,7 @@ export const FileUploadFieldInput = forwardRef<
                 "group relative aspect-[4/3] cursor-pointer overflow-hidden rounded-xl border outline-none ring-0 transition-[border-color,background-color] duration-200 focus:border-text-primary focus:ring-0",
                 dragging && !showError && "border-text-primary bg-surface-soft",
                 showError && "border-error/40 bg-error-soft",
-                !dragging && !showError && "border-border-subtle bg-surface-soft hover:border-border-default hover:bg-surface-soft/80",
+                !dragging && !showError && "border-border-subtle bg-surface-soft hover:border-border-default hover:bg-surface-variant",
                 disabled && "cursor-not-allowed opacity-60",
               )}
             >
@@ -472,7 +472,7 @@ export const FileUploadFieldInput = forwardRef<
               {entries.map((entry) => (
                 <li
                   key={entry.id}
-                  className="flex items-center gap-3 rounded-xl border border-border-subtle bg-surface-soft/80 p-2.5"
+                  className="flex items-center gap-3 rounded-xl border border-border-subtle bg-surface-soft p-2.5"
                 >
                   {entry.previewUrl ? (
                     <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-surface">

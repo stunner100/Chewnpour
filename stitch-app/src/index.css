@@ -21,6 +21,7 @@
     --sidebar-ring: 0 122 255;
     --popover: 255 255 255;
     --popover-foreground: 10 10 10;
+    --surface: 255 255 255;          /* #FFFFFF — cards, sticky bars */
     --cp-mobile-tab-bar: 4rem;
     --cp-mobile-lesson-bar: 3.5rem;
     --cp-mobile-quiz-bar: 4.5rem;
@@ -52,6 +53,7 @@
     --sidebar-ring: 90 200 250;
     --popover: 22 23 25;             /* #161719 */
     --popover-foreground: 233 233 238;
+    --surface: 22 23 25;             /* #161719 */
 }
 
 @layer base {
@@ -681,6 +683,8 @@ html.is-safari .safari-backdrop {
     --background: 249 249 249;
     --cp-primary: #007AFF;
     --cp-primary-hover: #0066D6;
+    /* Filled primary surfaces carry white text, so they get their own value. */
+    --cp-primary-fill: #007AFF;
     --cp-cta: #111111;
     --cp-cta-hover: #000000;
     --cp-cta-foreground: #FFFFFF;
@@ -689,7 +693,10 @@ html.is-safari .safari-backdrop {
 .dark .cp-theme {
     --background: 12 13 16;
     --cp-primary: #5AC8FA;
-    --cp-primary-hover: #94C2FF;
+    /* Light blue reads well as text on dark, but white text on it is 1.9:1, so
+       fills (and their hover) stay a deep blue that keeps white text >= 4.5:1. */
+    --cp-primary-hover: #0055B3;
+    --cp-primary-fill: #0066D6;
     --cp-cta: #FFFFFF;
     --cp-cta-hover: #E5E5EA;
     --cp-cta-foreground: #0A0A0A;
@@ -701,7 +708,7 @@ html.is-safari .safari-backdrop {
 
 .cp-theme .bg-primary,
 .cp-theme .bg-primary-500 {
-    background-color: var(--cp-primary) !important;
+    background-color: var(--cp-primary-fill) !important;
 }
 
 .cp-theme .text-primary,
@@ -719,7 +726,7 @@ html.is-safari .safari-backdrop {
 }
 
 .cp-theme .hover\:bg-primary:hover {
-    background-color: var(--cp-primary) !important;
+    background-color: var(--cp-primary-fill) !important;
 }
 
 .cp-theme .hover\:text-primary:hover {
@@ -750,13 +757,8 @@ html.is-safari .safari-backdrop {
     color: #007AFF !important;
 }
 
-.cp-theme .bg-gradient-to-r.from-surface {
-    --tw-gradient-from: #FFFFFF !important;
-    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
-}
-
 .cp-theme .bg-surface {
-  background-color: #FFFFFF !important;
+    background-color: rgb(var(--surface)) !important;
 }
 
 .cp-theme .bg-cta,
@@ -779,7 +781,6 @@ html.is-safari .safari-backdrop {
 }
 
 .dark .cp-theme .bg-background-light,
-.dark .cp-theme .bg-surface,
 .dark .cp-theme .bg-white {
     background-color: #161719 !important;
 }
@@ -813,7 +814,11 @@ html.is-safari .safari-backdrop {
 
 .dark .cp-theme .text-text-muted,
 .dark .cp-theme .text-text-faint-light {
-    color: #7b7b84 !important;
+    color: #8e8e98 !important;
+}
+
+.dark .cp-theme .text-success {
+    color: #30d158 !important;
 }
 
 .dark .cp-theme .border-border-subtle,

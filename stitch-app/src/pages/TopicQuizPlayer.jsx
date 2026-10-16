@@ -173,7 +173,7 @@ const TopicQuizPlayer = () => {
     return (
         <div className="flex h-full min-h-0 flex-1 flex-col bg-background-light">
             <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-                <header className="sticky top-0 z-30 bg-background-light/95 px-4 py-3 backdrop-blur md:static md:bg-transparent md:px-8 md:py-0 md:backdrop-blur-none md:pt-8">
+                <header className="sticky top-0 z-30 bg-background/95 px-4 py-3 backdrop-blur md:static md:bg-transparent md:px-8 md:py-0 md:backdrop-blur-none md:pt-8">
                     <div className="flex items-center justify-between gap-3">
                         <Link
                             to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard/quiz'}
@@ -242,7 +242,7 @@ const TopicQuizPlayer = () => {
                         </div>
 
                         <div
-                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background-light/95 px-4 py-3 backdrop-blur safe-area-bottom md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
+                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background/95 px-4 py-3 backdrop-blur safe-area-bottom md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
                             data-cp-bottom-chrome="quiz"
                         >
                             <button

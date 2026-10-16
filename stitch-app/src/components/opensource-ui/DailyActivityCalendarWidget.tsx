@@ -76,24 +76,24 @@ export const DailyActivityCalendarWidget = forwardRef<
         data-slot="daily-activity-calendar-widget"
         data-year={year}
         className={cn(
-          "flex h-44 w-44 flex-col overflow-hidden rounded-3xl bg-cta p-3 font-sans text-white shadow-lg",
+          "flex h-44 w-44 flex-col overflow-hidden rounded-3xl bg-[#111111] p-3 font-sans text-white shadow-lg dark:bg-surface-elevated dark:ring-1 dark:ring-white/10",
           className,
         )}
         {...props}
       >
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold">Daily Activity</p>
-          <Clock size={14} className="text-text-muted" />
+          <Clock size={14} className="text-neutral-400" />
         </div>
 
         <div className="mb-2 flex items-center justify-between">
           <span className="rounded-full bg-neutral-700 px-2 py-0.5 text-[9px]">
             {monthBadge}
           </span>
-          <span className="text-[10px] text-text-muted">{monthLabel}</span>
+          <span className="text-[10px] text-neutral-400">{monthLabel}</span>
         </div>
 
-        <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[8px] text-text-secondary">
+        <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[8px] text-neutral-400">
           {WEEKDAY_HEADERS.map(({ id, label }) => (
             <span key={id}>{label}</span>
           ))}
@@ -117,8 +117,8 @@ export const DailyActivityCalendarWidget = forwardRef<
                     isActive &&
                       "scale-100 bg-success font-semibold text-white",
                     isHighlight &&
-                      "scale-100 bg-orange-500 font-semibold text-white",
-                    isIdle && "text-text-muted",
+                      "scale-100 bg-orange-700 font-semibold text-white",
+                    isIdle && "text-neutral-400",
                   )}
                 >
                   {day}

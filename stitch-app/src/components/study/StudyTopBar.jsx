@@ -21,7 +21,7 @@ const StudyTopBar = ({
     chatOpen = false,
     notesOpen = false,
 }) => (
-    <div className="sticky top-0 z-40 border-b border-border-subtle bg-background-light/95 backdrop-blur">
+    <div className="sticky top-0 z-40 border-b border-border-subtle bg-background/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-1.5 px-4 py-2 md:px-6">
             <div className="flex min-h-11 items-center gap-2">
                 <Link

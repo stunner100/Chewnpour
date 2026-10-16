@@ -76,7 +76,7 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
                 </div>
 
                 {typeof onStartExam === 'function' && (
-                    <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-soft-light/80 dark:bg-surface-soft-dark/60 p-4">
+                    <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-soft p-4">
                         <div className="flex items-start gap-3">
                             <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                 <AppIcon name="school" className="text-[20px]" />

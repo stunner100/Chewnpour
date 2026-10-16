@@ -129,7 +129,7 @@ export const PomodoroWidget = forwardRef<HTMLButtonElement, PomodoroWidgetProps>
           <p
             className={cn(
               "mt-2 text-[10px] font-medium tracking-[0.14em] uppercase",
-              running ? "text-[#E85D4C]/80" : "text-white/30",
+              running ? "text-[#E85D4C]" : "text-white/60",
             )}
           >
             {isDone ? "Done" : running ? "Running" : label}
@@ -137,7 +137,7 @@ export const PomodoroWidget = forwardRef<HTMLButtonElement, PomodoroWidgetProps>
         </div>
 
         <span
-          className="absolute right-3.5 bottom-3.5 z-10 flex size-7 items-center justify-center rounded-full bg-surface/[0.07] text-white/70"
+          className="absolute right-3.5 bottom-3.5 z-10 flex size-7 items-center justify-center rounded-full bg-white/[0.07] text-white/70"
           aria-hidden
         >
           {running ? (

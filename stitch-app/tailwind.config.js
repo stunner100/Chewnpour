@@ -82,6 +82,7 @@ export default {
                 "background-light": "#F9F9F9",
                 "background-dark": "#0c0d10",
                 surface: {
+                    DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
                     light: "#ffffff",
                     dark: "#161719",
                     elevated: "#1c1d20",
@@ -169,6 +170,8 @@ export default {
                 "success": "#15803D",
                 "warning": "#FF9F0A",
                 "error": "#FF3B30",
+                /* shadcn/ui primitives (button, input, badge…) style invalid/danger states with this. */
+                "destructive": "#FF3B30",
                 "info": "#007AFF",
                 "mastery": "#007AFF",
             },

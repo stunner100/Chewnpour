@@ -2,7 +2,7 @@ import React from 'react';
 
 const MaintenanceScreen = () => (
     <main className="min-h-screen bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark flex items-center justify-center px-6 py-12">
-        <section className="w-full max-w-xl rounded-[2rem] border border-border-light dark:border-border-dark bg-white/90 dark:bg-card-dark/90 shadow-xl p-8 sm:p-10 text-center">
+        <section className="w-full max-w-xl rounded-[2rem] border border-border-light dark:border-border-dark bg-white/90 dark:bg-surface-dark/90 shadow-xl p-8 sm:p-10 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary mb-4">
                 Scheduled maintenance
             </p>

@@ -159,7 +159,7 @@ export function HeroHeader({ onCtaClick = () => {} }) {
         <header>
             <nav
                 data-state={menuState && 'active'}
-                className="group fixed z-20 w-full bg-[#0a0a0a] border-b border-white/8"
+                className="group fixed z-20 w-full bg-[#0a0a0a] border-b border-white/[0.08]"
             >
                 <div className="mx-auto max-w-7xl px-6 lg:px-8">
                     <div className="flex items-center justify-between h-14">
@@ -219,7 +219,7 @@ export function HeroHeader({ onCtaClick = () => {} }) {
                     </div>
 
                     {/* Mobile menu */}
-                    <div className="group-data-[state=active]:block hidden lg:hidden pb-4 border-t border-white/8 mt-0 pt-4">
+                    <div className="group-data-[state=active]:block hidden lg:hidden pb-4 border-t border-white/[0.08] mt-0 pt-4">
                         <ul className="flex flex-col gap-1 mb-4">
                             {menuItems.map((item) => (
                                 <li key={item.name}>
