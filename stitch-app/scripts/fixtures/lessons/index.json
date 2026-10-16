@@ -7,7 +7,7 @@
     "checks": [
       {
         "id": "check-concept-idea",
-        "sectionTitle": "The Idea",
+        "sectionIndex": 2,
         "questionType": "multiple_choice",
         "prompt": "Where does a prokaryote keep its DNA?",
         "options": [
@@ -21,7 +21,7 @@
       },
       {
         "id": "check-concept-wrong",
-        "sectionTitle": "The Attractive Wrong Idea",
+        "sectionIndex": 4,
         "questionType": "true_false",
         "prompt": "The nucleoid is surrounded by a membrane.",
         "options": [
@@ -41,7 +41,7 @@
     "checks": [
       {
         "id": "check-procedure-steps",
-        "sectionTitle": "The Steps",
+        "sectionIndex": 2,
         "questionType": "multiple_choice",
         "prompt": "What must end the line that starts a for loop?",
         "options": [
@@ -63,7 +63,7 @@
     "checks": [
       {
         "id": "check-narrative-chain",
-        "sectionTitle": "Causal Chain",
+        "sectionIndex": 3,
         "questionType": "multiple_choice",
         "prompt": "Which event came directly before internal self-government?",
         "options": [
@@ -85,7 +85,7 @@
     "checks": [
       {
         "id": "check-argument-evidence",
-        "sectionTitle": "Evidence from the Source",
+        "sectionIndex": 2,
         "questionType": "multiple_choice",
         "prompt": "Which states did Card and Krueger compare?",
         "options": [

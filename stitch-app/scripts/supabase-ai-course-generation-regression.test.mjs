@@ -42,8 +42,13 @@ const normalized = normalizeAiCoursePayload(
       {
         title: 'Memory systems',
         description: 'Working and long-term memory',
-        content:
-          'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.',
+        lesson: {
+          sections: [{
+            title: 'How working and long-term memory differ',
+            role: 'core',
+            body: 'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.',
+          }],
+        },
         questions: [
           {
             prompt: 'What does working memory do?',
@@ -71,7 +76,7 @@ if (normalized.topics[0].questions.length < 1) {
 }
 
 const invalidFallback = normalizeAiCoursePayload(
-  { topics: [{ title: 'x', content: 'too short' }] },
+  { topics: [{ title: 'x', lesson: { sections: [{ title: 'x', role: 'core', body: 'too short' }] } }] },
   {
     fileName: 'memory.pdf',
     extractedText:

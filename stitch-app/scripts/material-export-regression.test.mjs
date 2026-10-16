@@ -26,7 +26,7 @@ const lessons = buildLessonsMarkdown({
   title: "German History",
   fileName: "notes.pdf",
   topics: [
-    { title: "Fragmentation", description: "Why power split", content: "Local princes kept authority." },
+    { title: "Fragmentation", description: "Why power split", lesson: { sections: [{ title: "Who held power", role: "core", body: "Local princes kept authority." }] } },
   ],
 });
 assert.match(lessons, /# German History/);
@@ -54,7 +54,7 @@ const exported = buildTransformedExportZip({
   extractedText: "Source text here.",
   pageCount: 2,
   charCount: 16,
-  topics: [{ title: "Fragmentation", content: "Lesson body." }],
+  topics: [{ title: "Fragmentation", lesson: { sections: [{ title: "Who held power", role: "core", body: "Lesson body." }] } }],
   quizzes: [
     {
       topicTitle: "Fragmentation",

@@ -1,23 +1,16 @@
 import { getPool } from "./db.js";
 
-const SKIP_TITLES = new Set([
-    "quick check",
-    "self-check",
-    "self-check prompts",
-    "review questions",
-]);
+const clip = (value, max = 4000) => {
+    const text = String(value || "").trim();
+    if (text.length <= max) return text;
+    return `${text.slice(0, max).trim()}…`;
+};
 
 const normalizeTitle = (value) =>
     String(value || "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, " ")
         .trim();
-
-const clip = (value, max = 4000) => {
-    const text = String(value || "").trim();
-    if (text.length <= max) return text;
-    return `${text.slice(0, max).trim()}…`;
-};
 
 const tokenize = (value) =>
     String(value || "")
@@ -26,47 +19,24 @@ const tokenize = (value) =>
         .filter((token) => token.length > 2);
 
 // ---------------------------------------------------------------------------
-// Markdown → sections
+// Lesson → sections
 // ---------------------------------------------------------------------------
 
-export const splitMarkdownIntoSections = (markdown) => {
-    const lines = String(markdown || "").split(/\r?\n/);
-    const sections = [];
-    let current = { title: "Introduction", lines: [] };
-
-    const pushCurrent = () => {
-        const content = current.lines.join("\n").trim();
-        if (!current.title && !content) return;
-        sections.push({
-            index: sections.length,
-            title: current.title,
-            content,
-        });
-    };
-
-    for (const line of lines) {
-        const heading = line.match(/^#{1,3}\s+(.+)$/);
-        if (heading) {
-            pushCurrent();
-            current = { title: heading[1].trim(), lines: [] };
-            continue;
-        }
-        current.lines.push(line);
-    }
-    pushCurrent();
-
-    // Exclude quiz/self-check sections that contain answer keys.
-    return sections.filter(
-        (section) => !SKIP_TITLES.has(normalizeTitle(section.title)),
-    );
-};
+// The tools read a topic's structured lesson (topics.lesson) section by section.
+export const lessonSectionsOf = (topic) =>
+    (Array.isArray(topic?.lesson?.sections) ? topic.lesson.sections : []).map((section, index) => ({
+        index,
+        title: section.title,
+        role: section.role,
+        content: section.body,
+    }));
 
 // ---------------------------------------------------------------------------
 // Tool: search lesson sections by keyword
 // ---------------------------------------------------------------------------
 
 export const searchLessonSections = (lesson, query, limit = 4) => {
-    const sections = splitMarkdownIntoSections(lesson.content);
+    const sections = lessonSectionsOf(lesson);
     const terms = tokenize(query);
     if (terms.length === 0) {
         return sections.slice(0, Math.max(1, limit)).map((section) => ({
@@ -101,7 +71,7 @@ export const searchLessonSections = (lesson, query, limit = 4) => {
 // ---------------------------------------------------------------------------
 
 export const findLessonSection = (lesson, input) => {
-    const sections = splitMarkdownIntoSections(lesson.content);
+    const sections = lessonSectionsOf(lesson);
     if (typeof input.index === "number" && Number.isFinite(input.index)) {
         const exact = sections.find((section) => section.index === input.index);
         if (exact) return { ...exact, content: clip(exact.content) };
@@ -127,7 +97,7 @@ export const findLessonSection = (lesson, input) => {
 // ---------------------------------------------------------------------------
 
 export const toOutline = (lesson) => {
-    const sections = splitMarkdownIntoSections(lesson.content);
+    const sections = lessonSectionsOf(lesson);
     return {
         topicId: lesson.id,
         title: lesson.title,

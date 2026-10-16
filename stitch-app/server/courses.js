@@ -3,6 +3,7 @@ import { getPool } from "./db.js";
 import { generateCourseCurriculumWithAi } from "./aiCourseGeneration.js";
 import { stripCourseTitle } from "./courseGeneration.js";
 import { indexTopicPassages } from "./topicPassages.js";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const toClientCourse = (row, extras = {}) => {
     if (!row) return null;
@@ -49,7 +50,7 @@ const toClientTopic = (row, extras = {}) => {
         sourceUploadId: row.upload_id || null,
         title: row.title,
         description: row.description || "",
-        content: row.content || "",
+        lesson: parsePayload(row.lesson),
         sortOrder: Number(row.sort_order || 0),
         questionCount: Number(extras.questionCount ?? row.question_count ?? 0),
         orderingCheck: extras.orderingCheck ?? row.orderingCheck ?? null,
@@ -120,7 +121,7 @@ const toPlayableInLessonCheck = (row) => {
         prompt: row.prompt,
         options,
         questionType,
-        sectionTitle: payload.sectionTitle || "",
+        sectionIndex: Number.isInteger(payload.sectionIndex) ? payload.sectionIndex : null,
         sortOrder: Number(row.sort_order || 0),
     };
 };
@@ -207,8 +208,8 @@ const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs
         const topicId = nanoid();
         await client.query(
             `INSERT INTO topics (
-                id, course_id, user_id, upload_id, title, description, content, sort_order
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                id, course_id, user_id, upload_id, title, description, lesson, sort_order
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
             [
                 topicId,
                 courseId,
@@ -216,7 +217,7 @@ const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs
                 uploadId,
                 String(spec.title || `Topic ${index + 1}`).slice(0, 180),
                 String(spec.description || "").slice(0, 280) || null,
-                String(spec.content || ""),
+                JSON.stringify(spec.lesson),
                 index,
             ],
         );
@@ -255,7 +256,7 @@ const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs
                     question.questionType || "multiple_choice",
                     JSON.stringify({
                         ...(question.payload && typeof question.payload === "object" ? question.payload : {}),
-                        ...(question.sectionTitle ? { sectionTitle: question.sectionTitle } : {}),
+                        ...(Number.isInteger(question.sectionIndex) ? { sectionIndex: question.sectionIndex } : {}),
                         ...(question.questionType === "ordering"
                             ? { stepsInOrder: question.stepsInOrder || question.options || [] }
                             : {}),
@@ -265,7 +266,7 @@ const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs
                 ],
             );
         }
-        inserted.push({ topicId, content: String(spec.content || "") });
+        inserted.push({ topicId, content: lessonToMarkdown(spec.lesson) });
     }
     return inserted;
 };
@@ -770,7 +771,7 @@ export const getPublicCourseByShareToken = async (token) => {
     if (!course) return null;
 
     const topicsResult = await db.query(
-        `SELECT id, title, description, content, sort_order
+        `SELECT id, title, description, lesson, sort_order
          FROM topics
          WHERE course_id = $1
          ORDER BY sort_order ASC, created_at ASC`,
@@ -797,7 +798,7 @@ export const getPublicCourseByShareToken = async (token) => {
             id: row.id,
             title: row.title,
             description: row.description || "",
-            content: row.content || "",
+            lesson: parsePayload(row.lesson),
             sortOrder: Number(row.sort_order || 0),
             inLessonChecks: (checksByTopic.get(row.id) || []).filter(Boolean),
         })),

@@ -41,13 +41,22 @@ const filterSectionsByStudyMode = (sections, studyMode) => {
     });
 };
 
-const wordBankTermsFrom = (sections, dbDefinitions) => {
-    if (dbDefinitions?.length > 0) {
-        return dbDefinitions.map((d, i) => ({ term: d.term, definition: d.meaning, key: `db-${i}` }));
+const wordBankTermsFrom = (sections, wordBank) => {
+    if (Array.isArray(wordBank) && wordBank.length > 0) {
+        return wordBank.map((entry, i) => ({ term: entry.term, definition: entry.definition, key: `wb-${i}` }));
     }
     return sections
         .filter((section) => isWordBankStepperTitle(section.title))
         .flatMap((section) => parseWordBankTerms(section.content));
+};
+
+// In-lesson checks are stored against a section index of topics.lesson; the
+// stepper matches them to sections by title.
+export const checksWithSectionTitles = (checks, lesson) => {
+    const sections = Array.isArray(lesson?.sections) ? lesson.sections : [];
+    return (Array.isArray(checks) ? checks : [])
+        .map((check) => ({ ...check, sectionTitle: sections[check?.sectionIndex]?.title || '' }))
+        .filter((check) => check.sectionTitle);
 };
 
 export const buildLessonView = ({
@@ -55,11 +64,11 @@ export const buildLessonView = ({
     topicTitle = '',
     checks = [],
     studyMode = 'full',
-    dbDefinitions = null,
+    wordBank = null,
 } = {}) => {
     const markdown = normalizeLessonContent(content);
     const sections = dropTitleHeading(splitMarkdownIntoSections(markdown), topicTitle);
-    const wordBankTerms = wordBankTermsFrom(sections, dbDefinitions);
+    const wordBankTerms = wordBankTermsFrom(sections, wordBank);
     const steps = buildLessonSteps({
         sections: filterSectionsByStudyMode(sections, studyMode),
         checks,

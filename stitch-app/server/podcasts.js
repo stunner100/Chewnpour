@@ -14,6 +14,7 @@ import {
     getStorageBucket,
     uploadObject,
 } from "./supabase.js";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const DEFAULT_HOST_VOICE = "aura-2-apollo-en";
 const DEFAULT_GUEST_VOICE = "aura-2-luna-en";
@@ -145,7 +146,7 @@ const capScriptTurns = (turns) => {
 
 const buildFallbackScript = (topic) => {
     const title = String(topic?.title || "this lesson").trim();
-    const content = String(topic?.content || "")
+    const content = lessonToMarkdown(topic?.lesson)
         .replace(/[#>*_`]/g, " ")
         .replace(/\s+/g, " ")
         .trim()
@@ -184,7 +185,7 @@ const generatePodcastScript = async (topic) => {
                     role: "user",
                     content:
                         `LESSON TITLE: ${topic.title || ""}\n` +
-                        `LESSON:\n"""\n${String(topic.content || "").slice(0, 8000)}\n"""`,
+                        `LESSON:\n"""\n${lessonToMarkdown(topic.lesson).slice(0, 8000)}\n"""`,
                 },
             ],
             temperature: 0.4,

@@ -1,101 +1,59 @@
+// Lessons are written as content-titled sections with roles. The outline's
+// kind only hints which optional roles fit; there is no fixed section template
+// and no keyword classifier.
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import path from "node:path";
-import process from "node:process";
-import {
-  classifyLessonKind,
-  LESSON_KIND_SPINES,
-  promptBlockForLessonKind,
-  spineForLessonKind,
-} from "../src/lib/lessonKind.js";
-import { splitMarkdownIntoSections } from "../src/lib/lessonSections.js";
+import * as lessonKind from "../src/lib/lessonKind.js";
+import { generateCourseCurriculumWithAi } from "../server/aiCourseGeneration.js";
 
-const root = process.cwd();
+const { LESSON_KINDS, normalizeLessonKind, promptBlockForLessonKind } = lessonKind;
 
-assert.equal(
-  classifyLessonKind({
-    title: "The Holy Roman Empire and Early German Fragmentation",
-    snippet: "After 1648 the empire stayed a patchwork of princes and electors.",
-  }),
-  "narrative",
-);
-assert.equal(
-  classifyLessonKind({
-    title: "German History",
-    description: "A survey of medieval and early modern Germany",
-  }),
-  "narrative",
-);
-assert.equal(
-  classifyLessonKind({
-    title: "How to balance a redox equation",
-    snippet: "First assign oxidation numbers, then set up the half-reactions.",
-  }),
-  "procedure",
-);
-assert.equal(
-  classifyLessonKind({
-    title: "What is photosynthesis",
-    snippet: "Photosynthesis is the process plants use to convert light into chemical energy.",
-  }),
-  "concept",
-);
-assert.equal(
-  classifyLessonKind({
-    title: "Should the emperor share power with the electors?",
-    snippet: "The debate turns on whether imperial authority should yield to princely rights.",
-  }),
-  "argument",
-);
+assert.deepEqual(LESSON_KINDS, ["narrative", "procedure", "concept", "argument"]);
+assert.equal(lessonKind.classifyLessonKind, undefined, "the keyword classifier is gone (L7)");
+assert.equal(lessonKind.spineForLessonKind, undefined, "fixed section templates are gone");
+assert.equal(normalizeLessonKind("Procedure"), "procedure");
+assert.equal(normalizeLessonKind("recipe"), null);
 
-assert.notDeepEqual(
-  spineForLessonKind("narrative"),
-  spineForLessonKind("procedure"),
-);
-assert.notDeepEqual(
-  spineForLessonKind("concept"),
-  spineForLessonKind("argument"),
-);
+const hints = LESSON_KINDS.map((kind) => promptBlockForLessonKind(kind));
+assert.equal(new Set(hints).size, 4, "each kind has its own hint");
+assert.equal(promptBlockForLessonKind(null), promptBlockForLessonKind("concept"), "unknown kinds read as concept");
+assert.match(promptBlockForLessonKind("procedure"), /steps section/);
+assert.match(promptBlockForLessonKind("narrative"), /Do not invent steps, calculations or rival accounts/);
+assert.match(promptBlockForLessonKind("argument"), /opposing view only if the snippet states one/);
 
-for (const kind of ["narrative", "procedure", "concept", "argument"]) {
-  const titles = spineForLessonKind(kind);
-  assert.ok(titles.length >= 5, `${kind} spine should keep full lesson depth`);
-  assert.equal(titles.includes("Simple Introduction"), false);
-  assert.equal(titles.includes("Everyday Analogy"), false);
-  const prompt = promptBlockForLessonKind(kind);
-  assert.match(prompt, /Do not use the same nine-section template/);
-  assert.ok(
-    titles.every((title) => prompt.includes(title)),
-    `${kind} prompt must name its H2 spine`,
-  );
+// The lesson writer's prompt asks for content titles, roles and index-bound checks.
+const prompts = [];
+const chat = async ({ messages }) => {
+    const system = messages[0].content;
+    if (system.startsWith("You are ChewnPour's study curriculum planner.")) {
+        return {
+            text: JSON.stringify({
+                topics: [
+                    { title: "Balancing redox equations", description: "Half-reactions", focus: "half-reactions", kind: "procedure" },
+                    { title: "Oxidation numbers", description: "Assigning them", focus: "oxidation numbers", kind: "concept" },
+                ],
+            }),
+            provider: "stub",
+        };
+    }
+    prompts.push(system);
+    throw new Error("stub: stop after the prompt");
+};
+console.warn = () => {};
+await generateCourseCurriculumWithAi({
+    fileName: "redox.pdf",
+    extractedText: "Assign oxidation numbers first. Then write the half-reactions and balance electrons. Oxidation numbers track electron transfer.",
+    chat,
+    aiEnabled: () => true,
+});
+const [procedurePrompt, conceptPrompt] = prompts;
+for (const prompt of [procedurePrompt, conceptPrompt]) {
+    assert.match(prompt, /"lesson":\{"hook":"string","sections":\[\{"title":"string","role":"core\|steps\|example\|misconception\|practice"/);
+    assert.match(prompt, /Never use generic titles such as Why This Matters, Key Terms, Introduction, Overview, The Idea, Summary or Recap\./);
+    assert.match(prompt, /only when the source supports that section; otherwise leave it out/);
+    assert.match(prompt, /sectionIndex is the 0-based index in lesson\.sections/);
+    assert.doesNotMatch(prompt, /Use exactly these H2 titles/);
 }
-
-assert.ok(LESSON_KIND_SPINES.procedure.includes("The Steps"));
-assert.ok(LESSON_KIND_SPINES.narrative.includes("Causal Chain"));
-assert.ok(LESSON_KIND_SPINES.concept.includes("The Attractive Wrong Idea"));
-assert.ok(LESSON_KIND_SPINES.argument.includes("The Counterargument"));
-
-const generation = await fs.readFile(
-  path.join(root, "server", "aiCourseGeneration.js"),
-  "utf8",
-);
-assert.match(generation, /promptBlockForLessonKind/);
-assert.match(generation, /classifyLessonKind/);
-assert.doesNotMatch(
-  generation,
-  /Use these H2 titles where they fit/,
-  "Generation must not force the old nine-section list onto every topic.",
-);
-assert.match(
-  generation,
-  /Different topics must use different H2 spines/,
-);
-
-// Every spine title becomes its own stepper section, whatever the kind.
-for (const kind of ["narrative", "procedure", "concept", "argument"]) {
-  const spine = spineForLessonKind(kind);
-  const markdown = spine.map((title) => `## ${title}\n\nA full paragraph of lesson text for ${title}.`).join("\n\n");
-  assert.deepEqual(splitMarkdownIntoSections(markdown).map((section) => section.title), spine);
-}
+assert.ok(procedurePrompt.includes(promptBlockForLessonKind("procedure")));
+assert.ok(conceptPrompt.includes(promptBlockForLessonKind("concept")));
 
 console.log("lesson-kind-adaptive-structure-regression.test.mjs passed");

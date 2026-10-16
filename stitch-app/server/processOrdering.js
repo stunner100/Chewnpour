@@ -35,6 +35,7 @@ export const pickTopicOrdering = (rawOrdering, { content = "", questions = [] } 
     }
     if (!snippetHasProcess(content) && !rawOrdering) return null;
     const ordering = normalizeOrderingQuestion(rawOrdering, { sourceText: content });
-    const sectionTitle = String(rawOrdering?.sectionTitle || "").trim();
-    return ordering && sectionTitle ? { ...ordering, sectionTitle } : ordering;
+    return ordering && rawOrdering?.sectionIndex != null
+        ? { ...ordering, sectionIndex: rawOrdering.sectionIndex }
+        : ordering;
 };

@@ -1,4 +1,5 @@
 import { strToU8, zipSync } from "fflate";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const OPTION_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -66,7 +67,7 @@ export const buildLessonsMarkdown = ({ title = "", fileName = "", topics = [] } 
     (Array.isArray(topics) ? topics : []).forEach((topic, index) => {
         const topicTitle = asText(topic?.title) || `Lesson ${index + 1}`;
         const description = asText(topic?.description);
-        const content = asText(topic?.content);
+        const content = asText(lessonToMarkdown(topic?.lesson));
         blocks.push(`## ${index + 1}. ${topicTitle}`, "");
         if (description) blocks.push(description, "");
         blocks.push(content || "(No lesson content.)", "", "");

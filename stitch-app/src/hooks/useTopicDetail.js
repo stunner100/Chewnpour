@@ -15,7 +15,8 @@ import {
     getCurrentHashTargetId,
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
-import { buildLessonView } from '../lib/lessonView';
+import { buildLessonView, checksWithSectionTitles } from '../lib/lessonView';
+import { lessonToMarkdown } from '../lib/lessonSchema';
 import { splitMarkdownIntoSections } from '../lib/lessonSections';
 import { useStudyProgress } from './useStudyProgress';
 
@@ -310,17 +311,19 @@ export const useTopicDetail = () => {
         }
     }, [contentCacheKey]);
 
+    const topicLessonMarkdown = useMemo(() => lessonToMarkdown(topic?.lesson), [topic?.lesson]);
+
     useEffect(() => {
         if (!contentCacheKey) return;
-        if (!topic?.content) return;
+        if (!topicLessonMarkdown) return;
         try {
-            localStorage.setItem(contentCacheKey, topic.content);
+            localStorage.setItem(contentCacheKey, topicLessonMarkdown);
         } catch (error) {
             console.warn('Failed to cache topic content', error);
         }
-    }, [contentCacheKey, topic?.content]);
+    }, [contentCacheKey, topicLessonMarkdown]);
 
-    const originalLessonContent = topic?.content || cachedContent;
+    const originalLessonContent = topicLessonMarkdown || cachedContent;
     const hasReexplainedLesson = Boolean(overrideContent);
     const content = explanationView === 'simplified' && overrideContent
         ? overrideContent
@@ -401,15 +404,13 @@ export const useTopicDetail = () => {
         setVoiceSaving(false);
     };
 
-    // Prefer structured definitions from the DB over the markdown parse.
-    const dbDefinitions = topic?.structuredDefinitions ?? topic?.contentGraph?.definitions;
     const lessonView = useMemo(() => buildLessonView({
         content: normalizedContent,
         topicTitle: resolvedTopicTitle,
-        checks: topic?.inLessonChecks || [],
+        checks: checksWithSectionTitles(topic?.inLessonChecks, topic?.lesson),
         studyMode,
-        dbDefinitions,
-    }), [normalizedContent, resolvedTopicTitle, topic?.inLessonChecks, studyMode, dbDefinitions]);
+        wordBank: topic?.lesson?.wordBank,
+    }), [normalizedContent, resolvedTopicTitle, topic?.inLessonChecks, topic?.lesson, studyMode]);
     const { steps: lessonSteps, wordBankTerms } = lessonView;
     const lessonToc = useMemo(
         () => lessonView.sections.map((section, index) => ({ id: `lesson-section-${index}`, text: section.title, level: 2 })),

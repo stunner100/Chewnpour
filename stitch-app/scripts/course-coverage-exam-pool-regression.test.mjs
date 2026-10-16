@@ -48,12 +48,14 @@ const { resolveGenerationStageIndex, GENERATION_STAGES } = await import("../src/
     const source = "Mitochondria produce ATP. The Nucleus holds DNA. The Ribosome builds proteins. "
         + "The Golgi apparatus packages proteins. The Lysosome digests waste. The Vacuole stores water. "
         + "The Centriole organizes the spindle.";
-    const content = `## Cell organelles\n\n${source}\n\n${source}`;
+    const lesson = {
+        sections: [{ title: "What each organelle does", role: "core", body: `${source}\n\n${source}` }],
+    };
     const payload = {
         topics: [{
             title: "Cell organelles",
             description: "Parts of the cell",
-            content,
+            lesson,
             questions: facts.map(([prompt, answer, distractors]) => ({
                 prompt,
                 options: [answer, ...distractors],

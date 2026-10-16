@@ -14,6 +14,7 @@ import {
     loadTopicTutorSnapshot,
     sanitizeStudyContext,
 } from "./tutorStudyContext.js";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const MAX_MESSAGE_LENGTH = 4000;
 
@@ -49,7 +50,7 @@ const formatHistoryForPrompt = (messages) => {
 };
 
 const buildFallbackAnswer = ({ topic }) => {
-    const content = String(topic?.content || "").replace(/\s+/g, " ").trim();
+    const content = lessonToMarkdown(topic?.lesson).replace(/\s+/g, " ").trim();
     const snippet = content.slice(0, 420);
     const title = String(topic?.title || "this lesson").trim();
     if (!snippet) {
@@ -178,7 +179,7 @@ export const askTopicTutor = async ({
     }
 
     const lessonBody = evidenceBlock
-        || String(topic.content || "").slice(0, 12000);
+        || lessonToMarkdown(topic.lesson).slice(0, 12000);
     let snapshot = null;
     try {
         snapshot = await loadTopicTutorSnapshot({ userId, topicId });

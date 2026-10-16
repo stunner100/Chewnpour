@@ -71,12 +71,17 @@ const LOOP_TOPICS = [
 const DISTRACTORS = ['the plasma spindle', 'a lipid ribbon', 'the nuclear bridge'];
 
 const lessonJson = (topic, { code = false } = {}) => ({
-    content: [
-        `## Why This Matters\n\n${topic.title} comes up in every test on this unit.`,
-        `## The Idea\n\nThe notes describe ${topic.facts.join(', ')}.`,
-        code ? '## Worked Example\n\n```python\nfor n in range(10):\n    print(n)\n```' : '',
-        `## Word Bank\n\n- **${topic.title}**: the focus of this lesson`,
-    ].filter(Boolean).join('\n\n'),
+    lesson: {
+        hook: `${topic.title} comes up in every test on this unit.`,
+        sections: [
+            { title: `What the notes say about ${topic.title}`, role: 'core', body: `The notes describe ${topic.facts.join(', ')}.` },
+            code
+                ? { title: 'Looping over a range', role: 'example', body: 'Count to nine:\n\n```python\nfor n in range(10):\n    print(n)\n```' }
+                : null,
+        ].filter(Boolean),
+        recap: [{ prompt: `Name one fact about ${topic.title}.`, answer: topic.facts[0] }],
+        wordBank: [{ term: topic.title, definition: 'the focus of this lesson' }],
+    },
     questions: topic.facts.map((fact, index) => ({
         prompt: topic.prompts[index],
         options: [fact, ...DISTRACTORS],
@@ -147,7 +152,9 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
     assert.equal(result.backend, 'stub');
     assert.deepEqual(result.topics.map((topic) => topic.title), ['For Loops', 'While Loops and Errors']);
     for (const topic of result.topics) {
-        assert.ok(topic.content.includes('```python\nfor n in range(10):\n    print(n)\n```'), 'code block survives generation intact');
+        assert.equal(topic.lesson.sections.length, 2, 'both sections are kept');
+        assert.ok(topic.lesson.sections[1].body.includes('```python\nfor n in range(10):\n    print(n)\n```'), 'code block survives generation intact');
+        assert.equal(topic.lesson.sections[1].role, 'example');
         assert.equal(topic.questions.filter((question) => question.surface === 'quiz').length, 3, 'three quiz MCQs per topic');
         assert.equal(topic.questions.filter((question) => question.surface === 'exam').length, 1, 'remaining MCQs go to the exam');
     }
@@ -167,7 +174,8 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
     knownBug(
         'H1 (truncation ships raw text)',
         result.topics.map((topic) => ({
-            rawSnippet: topic.content === topicCalls.find((call) => call.title === topic.title).snippet,
+            rawSnippet: topic.lesson.sections.length === 1
+                && topic.lesson.sections[0].body === topicCalls.find((call) => call.title === topic.title).snippet,
             questions: topic.questions.length,
         })),
         CELL_TOPICS.map(() => ({ rawSnippet: true, questions: 0 })),
@@ -196,8 +204,8 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
     assert.equal(result.topics.length, 3, 'the other topics are kept');
     knownBug(
         'H1 (failed topic ships raw text, unflagged)',
-        { headings: /^## /m.test(failed.content), questions: failed.questions.length, flagged: 'status' in failed },
-        { headings: false, questions: 0, flagged: false },
+        { sections: failed.lesson.sections.length, questions: failed.questions.length, flagged: 'status' in failed },
+        { sections: 1, questions: 0, flagged: false },
         'the failed topic carries a failed status the UI can show, with a Regenerate action',
     );
     assert.ok(
