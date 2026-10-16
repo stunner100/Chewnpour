@@ -113,6 +113,24 @@ export const STATUS_BREAKDOWN_SQL = `
     GROUP BY 2
 `;
 
+// What a student has actually done, replacing the retired onboarding flag.
+// "Studied" means opening a lesson (any topic_progress row with activity);
+// "quizzed" counts a topic quiz or a submitted timed exam.
+const STUDIED_LESSON_SQL = (userColumn) => `EXISTS (
+    SELECT 1 FROM topic_progress tp
+    WHERE tp.user_id = ${userColumn}
+      AND (tp.last_studied_at IS NOT NULL OR tp.completed_at IS NOT NULL)
+)`;
+const TOOK_QUIZ_SQL = (userColumn) => `(
+    EXISTS (SELECT 1 FROM quiz_attempts qa WHERE qa.user_id = ${userColumn})
+    OR EXISTS (SELECT 1 FROM exam_attempts ea WHERE ea.user_id = ${userColumn} AND ea.submitted_at IS NOT NULL)
+)`;
+const UPLOADED_SQL = (userColumn) => `EXISTS (SELECT 1 FROM uploads up WHERE up.user_id = ${userColumn})`;
+const USER_MILESTONE_COLUMNS = `
+    ${UPLOADED_SQL("u.id")} AS has_uploaded,
+    ${STUDIED_LESSON_SQL("u.id")} AS has_studied,
+    ${TOOK_QUIZ_SQL("u.id")} AS has_quizzed`;
+
 export const getAdminSnapshot = async ({ fresh = false } = {}) => {
     if (!fresh && cachedSnapshot && Date.now() - cachedSnapshot.at < SNAPSHOT_TTL_MS) {
         return cachedSnapshot.value;
@@ -141,7 +159,9 @@ const loadAdminSnapshot = async () => {
                 (SELECT count(*)::int FROM "user") AS users_total,
                 (SELECT count(*)::int FROM "user" WHERE created_at >= NOW() - INTERVAL '1 day') AS users_1d,
                 (SELECT count(*)::int FROM "user" WHERE created_at >= NOW() - INTERVAL '7 days') AS users_7d,
-                (SELECT count(*)::int FROM profiles WHERE onboarding_completed = TRUE) AS onboarded_users,
+                (SELECT count(*)::int FROM "user" u WHERE ${UPLOADED_SQL("u.id")}) AS uploaded_users,
+                (SELECT count(*)::int FROM "user" u WHERE ${STUDIED_LESSON_SQL("u.id")}) AS studied_users,
+                (SELECT count(*)::int FROM "user" u WHERE ${TOOK_QUIZ_SQL("u.id")}) AS quizzed_users,
                 (SELECT count(*)::int FROM uploads) AS uploads_total,
                 (SELECT count(*)::int FROM courses) AS courses_total,
                 (SELECT count(*)::int FROM topics) AS topics_total,
@@ -173,7 +193,7 @@ const loadAdminSnapshot = async () => {
                 u.created_at,
                 u.email_verified,
                 p.full_name,
-                p.onboarding_completed
+                ${USER_MILESTONE_COLUMNS}
             FROM "user" u
             LEFT JOIN profiles p ON p.user_id = u.id
             ORDER BY u.created_at DESC
@@ -214,7 +234,9 @@ const loadAdminSnapshot = async () => {
             users1d: toInt(totals.users_1d),
             users7d: toInt(totals.users_7d),
             users30d: toInt(totals.users_30d),
-            onboardedUsers: toInt(totals.onboarded_users),
+            uploadedUsers: toInt(totals.uploaded_users),
+            studiedUsers: toInt(totals.studied_users),
+            quizzedUsers: toInt(totals.quizzed_users),
             active1d: toInt(totals.active_1d),
             active7d: toInt(totals.active_7d),
             active30d: toInt(totals.active_30d),
@@ -277,7 +299,11 @@ const toAdminUser = (row, dashboardAdminIds = new Set()) => {
         name: row.full_name || row.name || "",
         email: row.email,
         emailVerified,
-        onboarded: Boolean(row.onboarding_completed),
+        activity: {
+            uploaded: row.has_uploaded === true,
+            studied: row.has_studied === true,
+            quizzed: row.has_quizzed === true,
+        },
         isAdmin: adminSourcesFor({ email: row.email, id: row.id, emailVerified }, dashboardAdminIds).length > 0,
         createdAt: toIso(row.created_at),
     };
@@ -289,7 +315,8 @@ export const searchAdminUsers = async (query) => {
     const pattern = `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
     const result = await getPool().query(
         `
-        SELECT u.id, u.name, u.email, u.created_at, u.email_verified, p.full_name, p.onboarding_completed
+        SELECT u.id, u.name, u.email, u.created_at, u.email_verified, p.full_name,
+            ${USER_MILESTONE_COLUMNS}
         FROM "user" u
         LEFT JOIN profiles p ON p.user_id = u.id
         WHERE u.email ILIKE $1 OR u.name ILIKE $1 OR p.full_name ILIKE $1

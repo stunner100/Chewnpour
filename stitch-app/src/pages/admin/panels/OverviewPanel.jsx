@@ -68,9 +68,19 @@ export const OverviewPanel = ({ snapshot }) => {
                     <StatRow label="Joined this week" value={formatNumber(overview.users7d)} />
                     <StatRow label="Joined this month" value={formatNumber(overview.users30d)} />
                     <StatRow
-                        label="Finished onboarding"
-                        value={formatNumber(overview.onboardedUsers)}
-                        detail={shareOfStudents(overview.onboardedUsers, total)}
+                        label="Uploaded material"
+                        value={formatNumber(overview.uploadedUsers)}
+                        detail={shareOfStudents(overview.uploadedUsers, total)}
+                    />
+                    <StatRow
+                        label="Studied a lesson"
+                        value={formatNumber(overview.studiedUsers)}
+                        detail={shareOfStudents(overview.studiedUsers, total)}
+                    />
+                    <StatRow
+                        label="Took a quiz or exam"
+                        value={formatNumber(overview.quizzedUsers)}
+                        detail={shareOfStudents(overview.quizzedUsers, total)}
                     />
                 </SectionCard>
                 <SectionCard title="Usage">
