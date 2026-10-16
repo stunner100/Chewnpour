@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { buildLessonStepsFromBlocks } from '../src/lib/lessonBlocks.js';
 
 const root = resolve(import.meta.dirname, '..');
 const read = (relativePath) => readFileSync(resolve(root, relativePath), 'utf8');
@@ -83,7 +84,19 @@ assert.match(css, /\.lesson-reading-stage/, 'Reading stage must have a dedicated
 assert.match(hook, /handleFinishLesson/, 'Hook must expose persisted finish.');
 assert.match(hook, /completedAt: Date\.now\(\)/, 'Finish must write completed_at.');
 assert.match(hook, /handleSaveSelectionToNotes/, 'Hook must save selections into notes.');
-assert.match(hook, /skippedDuplicateTitle/, 'Duplicate page-title H1 must be stripped from article blocks.');
+const titleSteps = buildLessonStepsFromBlocks({
+  blocks: [
+    { type: 'header', level: 1, text: 'Cell Structure', key: 'h0' },
+    { type: 'header', level: 2, text: 'The Idea', key: 'h1' },
+    { type: 'paragraph', text: 'Cells have parts.', key: 'p1' },
+  ],
+  topicTitle: 'Cell Structure',
+});
+assert.deepEqual(
+  titleSteps.map((step) => step.title),
+  ['The Idea'],
+  'Duplicate page-title H1 must be stripped from article blocks.',
+);
 assert.match(hook, /showTopicIllustration/, 'Hook must expose illustration gating.');
 assert.match(hook, /hasSourcePassages && \{/, 'Source tool must hide while passages are empty.');
 assert.match(hook, /id: 'settings'/, 'More tools should include voice settings.');

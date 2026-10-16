@@ -1,4 +1,4 @@
-import { SECTION_TITLE_PATTERN } from './topicContentFormatting';
+import { SECTION_TITLE_PATTERN } from './topicContentFormatting.js';
 
 export const isReExplainQuotaExceededError = (error) => {
     const code = String(error?.data?.code || '').trim().toUpperCase();

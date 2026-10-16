@@ -114,6 +114,60 @@ const ensureEnvFile = async () => {
     return values;
 };
 
+// One course per lesson kind, owned by the local admin, built from the same
+// fixtures the render regression uses. Re-running replaces it with the
+// current fixture files.
+const FIXTURE_LESSON_DIR = path.join(root, "scripts", "fixtures", "lessons");
+const FIXTURE_COURSE_ID = "fixture-course-lessons";
+const FIXTURE_UPLOAD_ID = "fixture-upload-lessons";
+
+const seedFixtureLessons = async (userId) => {
+    const fixtures = JSON.parse(await fs.readFile(path.join(FIXTURE_LESSON_DIR, "index.json"), "utf8"));
+    await pool.query(`DELETE FROM courses WHERE id = $1`, [FIXTURE_COURSE_ID]);
+    await pool.query(
+        `INSERT INTO uploads (id, user_id, file_name, file_type, file_size, storage_bucket, storage_path, status)
+         VALUES ($1, $2, 'Lesson fixtures.pdf', 'pdf', 204800, 'study-uploads', $3, 'ready')
+         ON CONFLICT (id) DO NOTHING`,
+        [FIXTURE_UPLOAD_ID, userId, `${userId}/lesson-fixtures.pdf`],
+    );
+    await pool.query(
+        `INSERT INTO courses (id, user_id, upload_id, title, description, status)
+         VALUES ($1, $2, $3, 'Lesson fixtures', 'One lesson per lesson kind', 'ready')`,
+        [FIXTURE_COURSE_ID, userId, FIXTURE_UPLOAD_ID],
+    );
+    for (const [index, fixture] of fixtures.entries()) {
+        const topicId = `fixture-topic-${fixture.kind}`;
+        const content = await fs.readFile(path.join(FIXTURE_LESSON_DIR, fixture.file), "utf8");
+        await pool.query(
+            `INSERT INTO topics (id, user_id, course_id, upload_id, title, description, content, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [topicId, userId, FIXTURE_COURSE_ID, FIXTURE_UPLOAD_ID, fixture.title, fixture.description, content, index],
+        );
+        for (const [checkIndex, check] of fixture.checks.entries()) {
+            await pool.query(
+                `INSERT INTO questions (
+                    id, topic_id, course_id, user_id, prompt, options, correct_index, explanation,
+                    sort_order, question_type, payload, surface
+                 ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11::jsonb, 'in_lesson')`,
+                [
+                    check.id,
+                    topicId,
+                    FIXTURE_COURSE_ID,
+                    userId,
+                    check.prompt,
+                    JSON.stringify(check.options),
+                    check.correctIndex,
+                    check.explanation,
+                    checkIndex,
+                    check.questionType,
+                    JSON.stringify({ sectionTitle: check.sectionTitle }),
+                ],
+            );
+        }
+    }
+    console.log(`seeded ${fixtures.length} fixture lessons at /dashboard/topic/fixture-topic-<kind>`);
+};
+
 const seed = async (env) => {
     for (const [key, value] of Object.entries(env)) process.env[key] = value;
     const { auth } = await import("../server/auth.js");
@@ -185,6 +239,7 @@ const seed = async (env) => {
         );
         console.log("seeded sample students, uploads, courses, chats, exams, past papers");
     }
+    await seedFixtureLessons(admin.id);
     await getPool().end();
 };
 
