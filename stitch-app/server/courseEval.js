@@ -1,8 +1,5 @@
 import { jaccardSimilarity } from "./questionDedup.js";
-import {
-    eligibleLessonSectionTitles,
-    splitMarkdownIntoSections,
-} from "../src/lib/lessonSections.js";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const answerText = (question) => {
     if (question?.questionType === "ordering") {
@@ -28,14 +25,14 @@ export const scoreCourseCurriculum = (curriculum, { sourceText = "", expectProce
         (Array.isArray(topic.questions) ? topic.questions : []).map((question) => ({
             ...question,
             topicTitle: topic.title,
-            topicContent: topic.content,
+            topicContent: lessonToMarkdown(topic.lesson),
         })),
     );
     const inLessonChecks = topics.flatMap((topic) =>
         (Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : []).map((question) => ({
             ...question,
             topicTitle: topic.title,
-            topicContent: topic.content,
+            topicContent: lessonToMarkdown(topic.lesson),
         })),
     );
     const mcqs = questions.filter((question) => question.questionType !== "ordering" && question.surface !== "in_lesson");
@@ -57,14 +54,12 @@ export const scoreCourseCurriculum = (curriculum, { sourceText = "", expectProce
         topics.every(
             (topic) =>
                 String(topic.title || "").trim() &&
-                String(topic.content || "").trim().length >= 40 &&
+                Array.isArray(topic.lesson?.sections) &&
+                topic.lesson.sections.some((section) => section.role === "core") &&
                 Array.isArray(topic.questions),
         );
     const processOk = !expectProcess || ordering.length >= 1;
-    const multiSectionTopics = topics.filter((topic) => {
-        const eligible = eligibleLessonSectionTitles(splitMarkdownIntoSections(topic.content));
-        return eligible.length >= 2;
-    });
+    const multiSectionTopics = topics.filter((topic) => (topic.lesson?.sections || []).length >= 2);
     const inLessonCoverageOk = multiSectionTopics.every((topic) =>
         (Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : []).length >= 2,
     );

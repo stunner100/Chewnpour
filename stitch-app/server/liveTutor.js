@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { nanoid } from "nanoid";
 import { getTopicForUser } from "./courses.js";
 import { getPool } from "./db.js";
-import { splitMarkdownIntoSections } from "./tutorTools.js";
+import { lessonSectionsOf } from "./tutorTools.js";
 
 export const LIVE_TUTOR_MAX_EXCERPT = 1200;
 export const DEFAULT_GEMINI_LIVE_MODEL = "gemini-3.8-live";
@@ -72,9 +72,9 @@ export const checkLiveTutorQuota = ({ hourCount = 0, dayCount = 0, limits = getL
     return { allowed: true };
 };
 
-export const buildLiveTutorPrompt = ({ title, content } = {}) => {
+export const buildLiveTutorPrompt = ({ title, lesson } = {}) => {
     const lessonTitle = String(title || "Untitled lesson").trim() || "Untitled lesson";
-    const sections = splitMarkdownIntoSections(content);
+    const sections = lessonSectionsOf({ lesson });
     const lines = [
         "You are ChewnPour's live oral tutor.",
         "Speak and transcribe only in English. Stay in English for the whole review.",
@@ -104,7 +104,7 @@ export const buildLiveTutorPrompt = ({ title, content } = {}) => {
     return lines.join("\n");
 };
 
-export const mintLiveTutorSession = async ({ title, content } = {}) => {
+export const mintLiveTutorSession = async ({ title, lesson } = {}) => {
     const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
     if (!apiKey) {
         const error = new Error("Live tutor is not enabled");
@@ -113,7 +113,7 @@ export const mintLiveTutorSession = async ({ title, content } = {}) => {
     }
 
     const model = getGeminiLiveModel();
-    const prompt = buildLiveTutorPrompt({ title, content });
+    const prompt = buildLiveTutorPrompt({ title, lesson });
     const expireTime = new Date(Date.now() + LIVE_TUTOR_SESSION_MINUTES * 60 * 1000).toISOString();
     const newSessionExpireTime = new Date(Date.now() + 60 * 1000).toISOString();
 
@@ -234,7 +234,7 @@ export const createLiveTutorSession = async ({ userId, topicId }) => {
     try {
         const session = await mintLiveTutorSession({
             title: payload.topic.title,
-            content: payload.topic.content,
+            lesson: payload.topic.lesson,
         });
         return { ...session, sessionId };
     } catch (error) {

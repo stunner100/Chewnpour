@@ -30,7 +30,7 @@ const paragraphs = normalizeAiCoursePayload(
   { fileName: 'notes.pdf', extractedText: source.replace(/^# .*$/gm, '').trim() },
 );
 for (const topic of [...fallback.topics, ...paragraphs.topics]) {
-  assert.ok(String(topic.content || '').trim(), 'heuristic topics keep the lesson text');
+  assert.ok(String(topic.lesson?.sections?.[0]?.body || '').trim(), 'heuristic topics keep the lesson text');
   assert.deepEqual(topic.questions, [], 'heuristic topics must not ship quiz MCQs');
   assert.deepEqual(topic.inLessonChecks, [], 'heuristic topics must not ship in-lesson checks');
 }
@@ -41,7 +41,7 @@ const ungrounded = normalizeAiCoursePayload(
     topics: [
       {
         title: 'Cell Theory',
-        content: source,
+        lesson: { sections: [{ title: 'What cell theory says', role: 'core', body: source }] },
         questions: [
           {
             prompt: 'What is the smallest unit of life?',

@@ -15,6 +15,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { lessonFromMarkdown } from "../src/lib/lessonSchema.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LOCAL_DB_URL =
@@ -117,6 +118,12 @@ const ensureEnvFile = async () => {
 // One course per lesson kind, owned by the local admin, built from the same
 // fixtures the render regression uses. Re-running replaces it with the
 // current fixture files.
+const SEED_CELLS_LESSON = {
+    hook: "",
+    sections: [{ title: "Cells", role: "core", body: "Cells are the unit of life." }],
+    recap: [],
+    wordBank: [],
+};
 const FIXTURE_LESSON_DIR = path.join(root, "scripts", "fixtures", "lessons");
 const FIXTURE_COURSE_ID = "fixture-course-lessons";
 const FIXTURE_UPLOAD_ID = "fixture-upload-lessons";
@@ -137,11 +144,12 @@ const seedFixtureLessons = async (userId) => {
     );
     for (const [index, fixture] of fixtures.entries()) {
         const topicId = `fixture-topic-${fixture.kind}`;
-        const content = await fs.readFile(path.join(FIXTURE_LESSON_DIR, fixture.file), "utf8");
+        const markdown = await fs.readFile(path.join(FIXTURE_LESSON_DIR, fixture.file), "utf8");
+        const lesson = lessonFromMarkdown(markdown, { topicTitle: fixture.title });
         await pool.query(
-            `INSERT INTO topics (id, user_id, course_id, upload_id, title, description, content, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [topicId, userId, FIXTURE_COURSE_ID, FIXTURE_UPLOAD_ID, fixture.title, fixture.description, content, index],
+            `INSERT INTO topics (id, user_id, course_id, upload_id, title, description, lesson, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
+            [topicId, userId, FIXTURE_COURSE_ID, FIXTURE_UPLOAD_ID, fixture.title, fixture.description, JSON.stringify(lesson), index],
         );
         for (const [checkIndex, check] of fixture.checks.entries()) {
             await pool.query(
@@ -160,7 +168,7 @@ const seedFixtureLessons = async (userId) => {
                     check.explanation,
                     checkIndex,
                     check.questionType,
-                    JSON.stringify({ sectionTitle: check.sectionTitle }),
+                    JSON.stringify({ sectionIndex: check.sectionIndex }),
                 ],
             );
         }
@@ -209,8 +217,8 @@ const seed = async (env) => {
                 [`seed-course-${i}`, userId, `seed-upload-${i}`, `Biology ${i}`],
             );
             await pool.query(
-                `INSERT INTO topics (id, user_id, course_id, title, content, sort_order) VALUES ($1, $2, $3, 'Cells', 'Cells are the unit of life.', 0)`,
-                [`seed-topic-${i}`, userId, `seed-course-${i}`],
+                `INSERT INTO topics (id, user_id, course_id, title, lesson, sort_order) VALUES ($1, $2, $3, 'Cells', $4::jsonb, 0)`,
+                [`seed-topic-${i}`, userId, `seed-course-${i}`, JSON.stringify(SEED_CELLS_LESSON)],
             );
             if (i < 4) {
                 await pool.query(

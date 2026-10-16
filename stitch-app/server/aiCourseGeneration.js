@@ -5,12 +5,8 @@ import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { pickTopicOrdering, snippetHasProcess } from "./processOrdering.js";
 import { normalizeInLessonChecks } from "./inLessonChecks.js";
 import { isTextGroundedInSource } from "./grounding.js";
-import {
-    classifyLessonKind,
-    normalizeLessonKind,
-    promptBlockForLessonKind,
-    spineForLessonKind,
-} from "../src/lib/lessonKind.js";
+import { normalizeLessonKind, promptBlockForLessonKind } from "../src/lib/lessonKind.js";
+import { lessonToMarkdown, normalizeLesson } from "../src/lib/lessonSchema.js";
 
 const MAX_SOURCE_CHARS = 12000;
 const MAX_SOURCE_CHUNKS = 5;
@@ -20,7 +16,6 @@ const MAX_QUESTIONS_PER_TOPIC = 3;
 // a replay of topic-quiz questions whose answers the student has already seen.
 export const MAX_EXAM_QUESTIONS_PER_TOPIC = 3;
 const MAX_GENERATED_MCQS_PER_TOPIC = MAX_QUESTIONS_PER_TOPIC + MAX_EXAM_QUESTIONS_PER_TOPIC;
-const MAX_TOPIC_CONTENT_CHARS = 8000;
 const TOPIC_SNIPPET_CHARS = 2500;
 const TOPIC_GEN_CONCURRENCY = 3;
 const GENERATION_TIMEOUT_MS = Number(process.env.COURSE_GENERATION_TIMEOUT_MS || 150000);
@@ -33,6 +28,36 @@ const SOURCE_DATA_RULE =
 
 const untrustedSourceBlock = (source, label = "Source text") =>
     `${label} (untrusted data):\n\`\`\`\n${source}\n\`\`\``;
+
+const LESSON_JSON_SHAPE =
+    '{"hook":"string","sections":[{"title":"string","role":"core|steps|example|misconception|practice","body":"markdown","sourceQuote":"string"}],"recap":[{"prompt":"string","answer":"string"}],"wordBank":[{"term":"string","definition":"string"}]}';
+
+const CHECK_JSON_SHAPE =
+    '{"sectionIndex":0,"questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}';
+
+const MCQ_JSON_SHAPE =
+    '{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}';
+
+// How a lesson is written. Shared by the per-topic and single-pass prompts.
+const LESSON_WRITING_RULES = [
+    "Write the lesson as 3-6 sections, fewer when the source is short.",
+    "Each section title says what that section teaches, in plain words (for example \"Where a prokaryote keeps its DNA\"). Never use generic titles such as Why This Matters, Key Terms, Introduction, Overview, The Idea, Summary or Recap.",
+    "Give each section a role. At least one section is core (explains the material). Use steps (a process the learner performs, as a numbered list), example (a concrete case from the source), misconception (a mistake students make, then the correct account) or practice (a short task to try) only when the source supports that section; otherwise leave it out.",
+    "Never invent examples, events, numbers, opposing views or mistakes that the source does not contain.",
+    "A section body is markdown: paragraphs, lists, tables or code blocks as the material needs. Use ### for a sub-heading; never # or ## inside a body. Write for a student, in plain language.",
+    "sourceQuote is a short phrase copied word for word from the source that the section rests on.",
+    "hook is one sentence on why the topic matters, only if the source gives a reason; otherwise an empty string.",
+    "recap is 3-4 short recall questions about the lesson, each with a one-line answer.",
+    "wordBank lists 4-8 terms from the source with plain definitions. Bold each term where it first appears in a section body.",
+].join(" ");
+
+// A lesson made of one source excerpt, for topics the model could not write.
+export const excerptLesson = (title, text) => ({
+    hook: "",
+    sections: [{ title: String(title || "Lesson").slice(0, 120), role: "core", body: String(text || "").trim() }],
+    recap: [],
+    wordBank: [],
+});
 
 // Keep the primary path's topic count identical to the original (3-MAX_TOPICS);
 // only chunked mode asks for fewer topics per chunk.
@@ -111,8 +136,10 @@ export const sliceSourceForTopic = (source, { title = "", focus = "", index = 0,
 // Without the model there is no way to write distractors that are verifiably
 // false, so heuristic topics ship as lessons only: no quiz, no in-lesson checks.
 const heuristicTopics = ({ fileName, extractedText }) =>
-    buildTopicsFromExtractedText({ fileName, extractedText }).map((topic) => ({
-        ...topic,
+    buildTopicsFromExtractedText({ fileName, extractedText }).map(({ title, description, content }) => ({
+        title,
+        description,
+        lesson: excerptLesson(title, content),
         questions: [],
         inLessonChecks: [],
         orderingCheck: null,
@@ -129,7 +156,7 @@ const sanitizeMcqHint = (question) =>
             : "",
     });
 
-const normalizeTopicQuestions = (item, { title, content, sourceText = "" }) => {
+const normalizeTopicQuestions = (item, { title, lesson, sourceText = "" }) => {
     const questions = [];
     const questionItems = Array.isArray(item?.questions) ? item.questions : [];
     for (const question of questionItems) {
@@ -159,7 +186,7 @@ const normalizeTopicQuestions = (item, { title, content, sourceText = "" }) => {
     }
 
     const ordering = pickTopicOrdering(item?.ordering || item?.orderingCheck, {
-        content,
+        content: lessonToMarkdown(lesson),
         questions,
     });
     const quizPrompts = questions.map((question) => question.prompt);
@@ -167,7 +194,7 @@ const normalizeTopicQuestions = (item, { title, content, sourceText = "" }) => {
     // are held back for the timed exam.
     let quizCount = 0;
     const inLessonChecks = normalizeInLessonChecks(item?.inLessonChecks, {
-        content,
+        lesson,
         title,
         quizPrompts,
         ordering,
@@ -197,17 +224,17 @@ export const normalizeAiCoursePayload = (
     for (const item of topicsInput) {
         if (topics.length >= MAX_TOPICS) break;
         const title = normalizeWhitespace(item?.title).slice(0, 180);
-        const content = String(item?.content || "").trim().slice(0, MAX_TOPIC_CONTENT_CHARS);
-        if (!title || content.length < 40) continue;
+        const lesson = normalizeLesson(item?.lesson);
+        if (!title || !lesson) continue;
         const { questions, orderingCheck, inLessonChecks } = normalizeTopicQuestions(item, {
             title,
-            content,
+            lesson,
             sourceText: extractedText,
         });
         topics.push({
             title,
-            description: normalizeWhitespace(item?.description || content).slice(0, 280),
-            content,
+            description: normalizeWhitespace(item?.description || lesson.hook || lesson.sections[0].body).slice(0, 280),
+            lesson,
             questions,
             inLessonChecks,
             orderingCheck,
@@ -290,9 +317,7 @@ const generateOneTopic = async ({
     kind = null,
     previousQuestions = [],
 }) => {
-    const lessonKind =
-        normalizeLessonKind(kind) ||
-        classifyLessonKind({ title, description, snippet });
+    const lessonKind = normalizeLessonKind(kind) || "concept";
     const allowOrdering =
         lessonKind === "procedure" ||
         lessonKind === "narrative" ||
@@ -303,17 +328,17 @@ const generateOneTopic = async ({
     const system = [
         "You are ChewnPour's study lesson writer.",
         "Return ONLY valid JSON with this shape:",
-        '{"content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"inLessonChecks":[{"sectionTitle":"string","questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}',
-        "Write a full grounded lesson in markdown: at least four paragraphs plus headings. Do not shrink the lesson to three sentences or flashcards.",
+        `{"lesson":${LESSON_JSON_SHAPE},"questions":[${MCQ_JSON_SHAPE}],"inLessonChecks":[${CHECK_JSON_SHAPE}],"ordering":null}`,
+        "The source is the topic snippet below.",
+        LESSON_WRITING_RULES,
         promptBlockForLessonKind(lessonKind),
-        "Do not write a Quick Check Q/A section.",
         `Create ${MAX_QUESTIONS_PER_TOPIC + 1}-${MAX_GENERATED_MCQS_PER_TOPIC} distinct multiple-choice questions from THIS snippet only in questions[]. The first ${MAX_QUESTIONS_PER_TOPIC} are the topic quiz; the rest are held back for the course exam, so each must test a different fact.`,
-        `Also create inLessonChecks: at most one check per major H2 (not Word Bank or Recap from Memory), cap 4. Use sectionTitle values from: ${spineForLessonKind(lessonKind).join(", ")}. questionType may be multiple_choice or true_false (options True/False).`,
+        "Also create inLessonChecks: at most one per section, cap 4, none on a practice section. sectionIndex is the 0-based index in lesson.sections of the section the check tests. questionType may be multiple_choice or true_false (options True/False).",
         "correctIndex must point at the correct option. Options must be unique. Prompts must not restate the topic title.",
         "inLessonChecks must not duplicate the topic-quiz questions.",
         "Hints must not name the correct option, unique answer terms, a true/false verdict, or the ordered steps.",
         allowOrdering
-            ? `If the snippet describes a process or sequence, include at most one ordering check in inLessonChecks or set ordering to {"prompt":"string","stepsInOrder":["step 1","step 2","step 3"],"explanation":"string","hint":"string","sectionTitle":"${lessonKind === "narrative" ? "Causal Chain" : "The Steps"}"} with exactly 3 source-backed steps. Otherwise set ordering to null.`
+            ? 'If the snippet describes a process or sequence, include at most one ordering check in inLessonChecks or set ordering to {"prompt":"string","stepsInOrder":["step 1","step 2","step 3"],"explanation":"string","hint":"string","sectionIndex":0} with exactly 3 source-backed steps and the sectionIndex of the section that teaches the process. Otherwise set ordering to null.'
             : "Set ordering to null. Do not invent a process check.",
         "Do not invent facts that are absent from the snippet.",
         SOURCE_DATA_RULE,
@@ -378,7 +403,7 @@ const generateCurriculumFromOutline = async ({ chat, fileName, extractedText, ou
                     message: error?.message || String(error),
                 });
                 return {
-                    content: snippets[index] || `## ${topic.title}\n\n${topic.description}`,
+                    lesson: excerptLesson(topic.title, snippets[index] || topic.description),
                     questions: [],
                     inLessonChecks: [],
                     ordering: null,
@@ -391,7 +416,7 @@ const generateCurriculumFromOutline = async ({ chat, fileName, extractedText, ou
         topics: outline.topics.map((topic, index) => ({
             title: topic.title,
             description: topic.description,
-            content: generated[index]?.content,
+            lesson: generated[index]?.lesson,
             questions: generated[index]?.questions,
             inLessonChecks: generated[index]?.inLessonChecks,
             ordering: generated[index]?.ordering,
@@ -420,20 +445,23 @@ const generateCurriculumFromOutline = async ({ chat, fileName, extractedText, ou
                 kind: outline.topics[index]?.kind,
                 previousQuestions: collectPrompts(normalized.topics),
             });
+            // Checks bind by section index, so they must come from the same
+            // lesson they were written for.
+            const useExtraLesson = Boolean(normalizeLesson(extra.lesson));
             const merged = normalizeAiCoursePayload(
                 {
                     topics: [
                         {
                             ...topic,
-                            content: extra.content || topic.content,
+                            lesson: useExtraLesson ? extra.lesson : topic.lesson,
                             questions: [
                                 ...(topic.questions || []).filter(
                                     (question) => question.questionType !== "ordering" && question.surface !== "in_lesson",
                                 ),
                                 ...(Array.isArray(extra.questions) ? extra.questions : []),
                             ],
-                            inLessonChecks: extra.inLessonChecks || topic.inLessonChecks,
-                            ordering: extra.ordering || topic.orderingCheck,
+                            inLessonChecks: useExtraLesson ? extra.inLessonChecks : topic.inLessonChecks,
+                            ordering: useExtraLesson ? extra.ordering : topic.orderingCheck,
                         },
                     ],
                 },
@@ -462,19 +490,14 @@ const generateCurriculumSinglePass = async ({ chat, fileName, extractedText, cli
     const system = [
         "You are ChewnPour's study curriculum generator.",
         "Return ONLY valid JSON with this shape:",
-        '{"topics":[{"title":"string","description":"string","content":"markdown lesson string","questions":[{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"inLessonChecks":[{"sectionTitle":"string","questionType":"multiple_choice","prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}],"ordering":null}]}',
+        `{"topics":[{"title":"string","description":"string","kind":"narrative|procedure|concept|argument","lesson":${LESSON_JSON_SHAPE},"questions":[${MCQ_JSON_SHAPE}],"inLessonChecks":[${CHECK_JSON_SHAPE}],"ordering":null}]}`,
         `${topicCountPrompt(maxTopics)} grounded only in the source text.`,
         `Each topic needs ${MAX_QUESTIONS_PER_TOPIC + 1}-${MAX_GENERATED_MCQS_PER_TOPIC} distinct multiple-choice questions in questions[]. The first ${MAX_QUESTIONS_PER_TOPIC} are the topic quiz; the rest are held back for the course exam, so each must test a different fact.`,
-        "Assign each topic a kind: narrative, procedure, concept, or argument. Different topics must use different H2 spines when the source supports more than one kind. Do not use the same nine-section template for every topic.",
-        `Narrative H2s: ${spineForLessonKind("narrative").join(", ")}.`,
-        `Procedure H2s: ${spineForLessonKind("procedure").join(", ")}.`,
-        `Concept H2s: ${spineForLessonKind("concept").join(", ")}.`,
-        `Argument H2s: ${spineForLessonKind("argument").join(", ")}.`,
-        "Use exactly the H2 list for that topic's kind, then ## Word Bank. Do not write Quick Check Q/A pairs.",
-        "Write full markdown lessons, at least four paragraphs each. Do not shrink lessons to three sentences.",
-        "Also include inLessonChecks: at most one check per major H2, cap 4, distinct from the quiz bank.",
+        "Assign each topic a kind: narrative (history and events), procedure (a process the learner performs), concept (ideas and mechanisms) or argument (claims and debates). The kind decides which optional section roles fit.",
+        LESSON_WRITING_RULES,
+        "Also include inLessonChecks: at most one per section, cap 4, distinct from the quiz bank; sectionIndex is the 0-based index in that topic's lesson.sections.",
         "correctIndex must point at the correct option. Options must be unique.",
-        "If a topic describes a process, include at most one ordering check; otherwise set ordering to null.",
+        "If a topic describes a process, include at most one ordering check with the sectionIndex of the section that teaches it; otherwise set ordering to null.",
         "Hints must not leak answers.",
         "Do not invent facts that are absent from the source.",
         SOURCE_DATA_RULE,

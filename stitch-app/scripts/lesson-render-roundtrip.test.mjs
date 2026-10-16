@@ -1,6 +1,7 @@
-// Runs realistic generated lessons (scripts/fixtures/lessons) through the same
-// pipeline the topic page uses (buildLessonView), then renders section bodies
-// with the real LessonContentRenderer to check the HTML students see.
+// Runs realistic lessons (scripts/fixtures/lessons) through the production
+// path: markdown -> stored lesson (lessonFromMarkdown, as the topic-lesson
+// migration converts old lessons) -> the topic page's view (buildLessonView),
+// then renders section bodies with the real LessonContentRenderer.
 //
 // knownBug() pins behavior that is still wrong so a fix shows up as a failing
 // assertion. When a fix lands, replace that knownBug() with a plain assertion
@@ -12,7 +13,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { transformWithEsbuild } from 'vite';
-import { buildLessonView } from '../src/lib/lessonView.js';
+import { buildLessonView, checksWithSectionTitles } from '../src/lib/lessonView.js';
+import { lessonFromMarkdown, lessonToMarkdown } from '../src/lib/lessonSchema.js';
 import { markdownToSpeechText } from '../src/lib/lessonMarkdown.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -31,12 +33,16 @@ const loadRenderer = async () => {
 const LessonContentRenderer = await loadRenderer();
 const renderHtml = (markdown) => renderToStaticMarkup(React.createElement(LessonContentRenderer, { markdown }));
 
-const render = (fixture, studyMode = 'full') => buildLessonView({
-    content: fs.readFileSync(path.join(fixtureDir, fixture.file), 'utf8'),
-    topicTitle: fixture.title,
-    checks: fixture.checks,
-    studyMode,
-});
+const render = (fixture, studyMode = 'full') => {
+    const lesson = lessonFromMarkdown(fs.readFileSync(path.join(fixtureDir, fixture.file), 'utf8'), { topicTitle: fixture.title });
+    return buildLessonView({
+        content: lessonToMarkdown(lesson),
+        topicTitle: fixture.title,
+        checks: checksWithSectionTitles(fixture.checks, lesson),
+        studyMode,
+        wordBank: lesson.wordBank,
+    });
+};
 
 const byKind = Object.fromEntries(fixtures.map((fixture) => [fixture.kind, fixture]));
 const titles = (steps) => steps.map((step) => step.title);

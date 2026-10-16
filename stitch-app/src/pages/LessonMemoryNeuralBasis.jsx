@@ -349,7 +349,7 @@ const LessonMemoryNeuralBasis = () => {
                                                 {formatCourseTitle(topic.title) || topic.title}
                                             </h2>
                                             <p className="mt-2 line-clamp-3 text-body-sm text-text-secondary">
-                                                {topic.description || topic.content}
+                                                {topic.description || topic.lesson?.hook}
                                             </p>
                                         </div>
                                         <div className="flex shrink-0 flex-wrap gap-2">

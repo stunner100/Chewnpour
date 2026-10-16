@@ -3,10 +3,11 @@
 // client. A section is an H1 or H2 heading plus the markdown below it; H3+
 // stay inside the section body.
 
+// Normalized titles (see normalizeSectionTitle).
 const SKIP_STEPPER_TITLES = new Set([
     "quick check",
-    "self-check",
-    "self-check prompts",
+    "self check",
+    "self check prompts",
     "review questions",
 ]);
 
@@ -27,7 +28,9 @@ export const isWordBankStepperTitle = (title) =>
     WORDBANK_STEPPER_TITLES.has(normalizeSectionTitle(title));
 
 const FENCE_RE = /^\s{0,3}(`{3,}|~{3,})/;
-const SECTION_HEADING_RE = /^\s{0,3}(#{1,2})\s+(.+?)\s*#*\s*$/;
+const SECTION_HEADING_RE = /^\s{0,3}(#{1,2})\s+(.+)$/;
+// A closing run of #s counts only after a space, so "## C#" keeps its #.
+const CLOSING_HASHES_RE = /\s+#+\s*$/;
 
 // level is 0 for text before the first heading, else the heading level (1-2).
 export const splitMarkdownIntoSections = (markdown) => {
@@ -57,7 +60,7 @@ export const splitMarkdownIntoSections = (markdown) => {
         const heading = fence ? null : line.match(SECTION_HEADING_RE);
         if (heading) {
             pushCurrent();
-            current = { title: heading[2].trim(), level: heading[1].length, lines: [] };
+            current = { title: heading[2].replace(CLOSING_HASHES_RE, "").trim(), level: heading[1].length, lines: [] };
             continue;
         }
         current.lines.push(line);

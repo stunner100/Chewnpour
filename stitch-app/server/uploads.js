@@ -214,7 +214,7 @@ export const exportTransformedContentForUser = async (userId, uploadId) => {
 
     if (course?.id) {
         const topicsResult = await db.query(
-            `SELECT title, description, content, sort_order
+            `SELECT title, description, lesson, sort_order
              FROM topics
              WHERE course_id = $1 AND user_id = $2
              ORDER BY sort_order ASC, created_at ASC`,

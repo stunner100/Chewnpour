@@ -2,13 +2,7 @@ import { isValidMcq, isNearDuplicatePrompt } from "./questionDedup.js";
 import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { normalizeOrderingQuestion, snippetHasProcess } from "./processOrdering.js";
 import { isTextGroundedInSource } from "./grounding.js";
-import {
-    eligibleLessonSectionTitles,
-    isSkippedStepperTitle,
-    isWordBankStepperTitle,
-    normalizeSectionTitle,
-    splitMarkdownIntoSections,
-} from "../src/lib/lessonSections.js";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const MAX_IN_LESSON_CHECKS = 4;
 
@@ -21,7 +15,7 @@ const trueFalseOptions = (options) => {
     return ["True", "False"];
 };
 
-const normalizeTrueFalse = (raw, { sectionTitle = "" } = {}) => {
+const normalizeTrueFalse = (raw, { sectionIndex }) => {
     const prompt = normalizeWhitespace(raw?.prompt || raw?.question).slice(0, 400);
     if (!prompt || prompt.length < 12) return null;
     const options = trueFalseOptions(raw?.options);
@@ -42,10 +36,8 @@ const normalizeTrueFalse = (raw, { sectionTitle = "" } = {}) => {
         hint: String(raw?.hint || "").trim().slice(0, 280),
         questionType: "true_false",
         surface: "in_lesson",
-        sectionTitle: normalizeWhitespace(raw?.sectionTitle || sectionTitle).slice(0, 180),
-        payload: {
-            sectionTitle: normalizeWhitespace(raw?.sectionTitle || sectionTitle).slice(0, 180),
-        },
+        sectionIndex,
+        payload: { sectionIndex },
         sortOrder: 0,
     };
     candidate.hint = sanitizeGeneratedHint({
@@ -58,7 +50,7 @@ const normalizeTrueFalse = (raw, { sectionTitle = "" } = {}) => {
     return candidate;
 };
 
-const normalizeInLessonMcq = (raw, { sectionTitle = "", title = "", sourceText = "" } = {}) => {
+const normalizeInLessonMcq = (raw, { sectionIndex, title = "", sourceText = "" }) => {
     const prompt = normalizeWhitespace(raw?.prompt || raw?.question).slice(0, 400);
     const options = (Array.isArray(raw?.options) ? raw.options : [])
         .map((item) => normalizeWhitespace(item))
@@ -72,10 +64,8 @@ const normalizeInLessonMcq = (raw, { sectionTitle = "", title = "", sourceText =
         hint: String(raw?.hint || "").trim().slice(0, 280),
         questionType: "multiple_choice",
         surface: "in_lesson",
-        sectionTitle: normalizeWhitespace(raw?.sectionTitle || sectionTitle).slice(0, 180),
-        payload: {
-            sectionTitle: normalizeWhitespace(raw?.sectionTitle || sectionTitle).slice(0, 180),
-        },
+        sectionIndex,
+        payload: { sectionIndex },
         sortOrder: 0,
     };
     if (!isValidMcq(candidate, { title })) return null;
@@ -92,53 +82,49 @@ const normalizeInLessonMcq = (raw, { sectionTitle = "", title = "", sourceText =
     return candidate;
 };
 
+// Checks bind to a lesson section by its index in lesson.sections. A check
+// whose index does not name a section is dropped, never moved elsewhere. An
+// ordering check without an index binds to the first steps section, or the
+// first section that describes a process.
 export const normalizeInLessonChecks = (
     rawChecks,
-    { content = "", title = "", quizPrompts = [], ordering = null } = {},
+    { lesson = null, title = "", quizPrompts = [], ordering = null } = {},
 ) => {
-    const sections = splitMarkdownIntoSections(content);
-    const eligible = eligibleLessonSectionTitles(sections);
-    const eligibleSet = new Set(eligible.map((item) => normalizeSectionTitle(item)));
+    const sections = Array.isArray(lesson?.sections) ? lesson.sections : [];
+    const lessonText = lessonToMarkdown(lesson);
     const incoming = Array.isArray(rawChecks) ? rawChecks : [];
     const kept = [];
     const seenSections = new Set();
     let hasOrdering = false;
 
+    const validIndex = (value) => {
+        const index = Number(value);
+        return Number.isInteger(index) && index >= 0 && index < sections.length ? index : null;
+    };
+
     const consider = (raw) => {
         if (kept.length >= MAX_IN_LESSON_CHECKS) return;
-        const sectionTitle = normalizeWhitespace(raw?.sectionTitle || "");
-        const sectionKey = normalizeSectionTitle(sectionTitle);
-        if (sectionTitle && (isSkippedStepperTitle(sectionTitle) || isWordBankStepperTitle(sectionTitle))) {
-            return;
-        }
         const type = String(raw?.questionType || raw?.type || "multiple_choice").trim();
-        // An unknown or missing section binds to the first section without a
-        // check; an ordering check prefers one that describes a process.
-        const unseen = eligible.filter((item) => !seenSections.has(normalizeSectionTitle(item)));
-        const sectionContent = (title) =>
-            sections.find((section) => normalizeSectionTitle(section.title) === normalizeSectionTitle(title))?.content || "";
-        const fallbackTitle = type === "ordering"
-            ? unseen.find((item) => snippetHasProcess(sectionContent(item))) || ""
-            : unseen[0] || "";
-        if (!sectionKey || (!eligibleSet.has(sectionKey) && eligibleSet.size > 0)) {
-            if (fallbackTitle) raw = { ...raw, sectionTitle: fallbackTitle };
+        let sectionIndex = validIndex(raw?.sectionIndex);
+        if (sectionIndex === null && type === "ordering") {
+            const fallback = sections.findIndex((section, index) => !seenSections.has(index)
+                && (section.role === "steps" || snippetHasProcess(section.body)));
+            sectionIndex = fallback >= 0 ? fallback : null;
         }
-        const boundTitle = normalizeWhitespace(raw?.sectionTitle || "");
-        const boundKey = normalizeSectionTitle(boundTitle);
-        if (boundKey && seenSections.has(boundKey)) return;
+        if (sectionIndex === null || seenSections.has(sectionIndex)) return;
+        const section = sections[sectionIndex];
 
         let normalized = null;
         if (type === "ordering") {
             if (hasOrdering) return;
-            const source = sections.find((section) => normalizeSectionTitle(section.title) === boundKey)?.content || content;
-            if (!snippetHasProcess(source) && !raw?.stepsInOrder) return;
-            normalized = normalizeOrderingQuestion(raw, { sourceText: source });
+            if (!snippetHasProcess(section.body) && !raw?.stepsInOrder) return;
+            normalized = normalizeOrderingQuestion(raw, { sourceText: section.body });
             if (!normalized) return;
             normalized = {
                 ...normalized,
                 surface: "in_lesson",
-                sectionTitle: boundTitle,
-                payload: { ...(normalized.payload || {}), sectionTitle: boundTitle },
+                sectionIndex,
+                payload: { ...(normalized.payload || {}), sectionIndex },
                 hint: sanitizeGeneratedHint({
                     hint: normalized.hint,
                     questionType: "ordering",
@@ -147,9 +133,9 @@ export const normalizeInLessonChecks = (
             };
             hasOrdering = true;
         } else if (type === "true_false") {
-            normalized = normalizeTrueFalse(raw, { sectionTitle: boundTitle });
+            normalized = normalizeTrueFalse(raw, { sectionIndex });
         } else {
-            normalized = normalizeInLessonMcq(raw, { sectionTitle: boundTitle, title, sourceText: content });
+            normalized = normalizeInLessonMcq(raw, { sectionIndex, title, sourceText: lessonText });
         }
         if (!normalized) return;
         const duplicate = kept.some((existing) => isNearDuplicatePrompt(existing.prompt, normalized.prompt))
@@ -157,12 +143,12 @@ export const normalizeInLessonChecks = (
                 isNearDuplicatePrompt(prompt, normalized.prompt),
             );
         if (duplicate) return;
-        if (boundKey) seenSections.add(boundKey);
+        seenSections.add(sectionIndex);
         kept.push({ ...normalized, sortOrder: kept.length });
     };
 
     for (const raw of incoming) consider(raw);
-    if (ordering) consider({ ...ordering, questionType: "ordering", sectionTitle: ordering.sectionTitle });
+    if (ordering) consider({ ...ordering, questionType: "ordering" });
 
     return kept;
 };

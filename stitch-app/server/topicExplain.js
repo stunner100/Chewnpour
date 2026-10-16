@@ -1,5 +1,6 @@
 import { getTopicForUser } from "./courses.js";
 import { callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const STYLE_PROMPTS = {
     explain:
@@ -48,7 +49,7 @@ const buildExplainFallback = ({ selectedText, style }) => {
 
 const buildReExplainFallback = ({ topic, style }) => {
     const title = String(topic?.title || "this lesson").trim();
-    const content = String(topic?.content || "").trim();
+    const content = lessonToMarkdown(topic?.lesson).trim();
     const intro =
         style === "Teach me like I'm 12"
             ? `Let's make "${title}" easier.\n\n`
@@ -107,7 +108,7 @@ export const explainTopicSelection = async ({
                         content:
                             `STYLE INSTRUCTION: ${STYLE_PROMPTS[normalizedStyle]}\n\n` +
                             `LESSON TITLE: ${topic.title || ""}\n` +
-                            `LESSON CONTEXT:\n"""\n${String(topic.content || "").slice(0, 6000)}\n"""\n\n` +
+                            `LESSON CONTEXT:\n"""\n${lessonToMarkdown(topic.lesson).slice(0, 6000)}\n"""\n\n` +
                             `SELECTED TEXT:\n"""\n${cleaned}\n"""`,
                     },
                 ],
@@ -172,7 +173,7 @@ export const reExplainTopicContent = async ({ userId, topicId, style }) => {
                             `STYLE: ${resolvedStyle}\n\n` +
                             `TITLE: ${topic.title || ""}\n` +
                             `DESCRIPTION: ${topic.description || ""}\n` +
-                            `CONTENT:\n"""\n${String(topic.content || "").slice(0, 10000)}\n"""`,
+                            `CONTENT:\n"""\n${lessonToMarkdown(topic.lesson).slice(0, 10000)}\n"""`,
                     },
                 ],
                 temperature: 0.3,
