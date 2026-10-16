@@ -188,8 +188,8 @@ const SignUp = () => {
             });
             return;
         }
-        if (password.length < 6) {
-            dispatchSignUp({ type: 'submitFailed', error: 'Password must be at least 6 characters' });
+        if (password.length < 8) {
+            dispatchSignUp({ type: 'submitFailed', error: 'Password must be at least 8 characters' });
             return;
         }
 
@@ -381,7 +381,7 @@ const SignUp = () => {
                                     id="signup-password"
                                     name="password"
                                     autoComplete="new-password"
-                                    placeholder="At least 6 characters"
+                                    placeholder="At least 8 characters"
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(event) => dispatchSignUp({
@@ -389,7 +389,7 @@ const SignUp = () => {
                                         field: 'password',
                                         value: event.target.value,
                                     })}
-                                    minLength={6}
+                                    minLength={8}
                                     required
                                 />
                                 <button
@@ -413,6 +413,17 @@ const SignUp = () => {
                             )}
                         </button>
                     </form>
+
+                    <p className="mt-4 text-center text-xs leading-5" style={{ color: SUBTEXT }}>
+                        By creating an account, you agree to our{' '}
+                        <Link to="/terms" className="font-semibold underline-offset-2 hover:underline" style={{ color: ACCENT }}>
+                            Terms of Service
+                        </Link>{' '}
+                        and{' '}
+                        <Link to="/privacy" className="font-semibold underline-offset-2 hover:underline" style={{ color: ACCENT }}>
+                            Privacy Policy
+                        </Link>.
+                    </p>
 
                     <p className="mt-6 text-center text-sm" style={{ color: SUBTEXT }}>
                         Already have an account?{' '}

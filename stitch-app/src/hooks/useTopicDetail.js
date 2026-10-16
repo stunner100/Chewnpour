@@ -867,13 +867,13 @@ export const useTopicDetail = () => {
 
     const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
     const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
+    const topicHasQuiz = Number(topic?.questionCount || 0) > 0;
     const examTopicId = isTopicQuizRoute
-        ? topicId
+        ? (topicHasQuiz ? topicId : null)
         : (finalAssessmentTopic?._id || null);
-    const objectiveExamRoute = buildTopicQuizRoute(examTopicId);
+    const objectiveExamRoute = examTopicId ? buildTopicQuizRoute(examTopicId) : '';
     void buildEssayQuizRoute;
     const timedExamRoute = buildTimedExamRoute(courseId);
-    const timedExamAvailable = Number(topic?.questionCount || 0) > 0;
     const handleStartExam = useCallback(() => {
         navigate(timedExamRoute);
     }, [navigate, timedExamRoute]);
@@ -1148,7 +1148,7 @@ export const useTopicDetail = () => {
         studyMode,
         studyToolActions,
         studyToolSecondary,
-        timedExamAvailable,
+        timedExamAvailable: topicHasQuiz,
         topic,
         topicId,
         topicIllustrationUrl,

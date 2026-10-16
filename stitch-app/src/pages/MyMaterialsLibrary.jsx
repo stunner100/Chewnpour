@@ -8,7 +8,7 @@ import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { downloadAuthenticatedFile } from '../lib/downloadFile';
 import { buildFirstLessonHref, isUploadStudyReady } from '../lib/uploadReadiness';
-import { resolveGenerationStageIndex } from '../lib/generationStages';
+import { GENERATION_STAGES, resolveGenerationStageIndex } from '../lib/generationStages';
 import { FilterSortDropdown } from '../components/opensource-ui/FilterSortDropdown';
 import { SearchInput } from '../components/opensource-ui/SearchInput';
 import { SegmentedToggleButton } from '../components/opensource-ui/SegmentedToggleButton';
@@ -178,7 +178,6 @@ const MyMaterialsLibrary = () => {
             const topicCount = Number(course?.topicCount || upload.topicCount || 0);
             const quizzesReady = Number(course?.quizzesReady || upload.quizzesReady || 0);
             const extractionStatus = String(upload.extractionStatus || '').toLowerCase();
-            const studyReady = isUploadStudyReady(upload, course);
             const failed = upload.status === 'error' || extractionStatus === 'failed';
             const stageIndex = resolveGenerationStageIndex({
                 status: upload.status,
@@ -186,8 +185,10 @@ const MyMaterialsLibrary = () => {
                 processingStep: upload.processingStep || '',
                 topicCount,
                 quizzesReady,
-                studyReady,
+                studyReady: isUploadStudyReady(upload, course),
             });
+            // The card's status, stage list and button all follow the resolved stage.
+            const studyReady = stageIndex === GENERATION_STAGES.length - 1;
             return {
                 uploadId: upload.id,
                 courseId: course?.id || upload.courseId || null,

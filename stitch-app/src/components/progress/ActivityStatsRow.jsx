@@ -25,10 +25,10 @@ const StatCard = ({ icon, iconTone, label, value, unit, hint }) => (
 );
 
 /**
- * Calm, truthful activity stats: streak, topics practiced, quiz average.
+ * Calm, truthful activity stats: streak, topics studied, quiz average.
  * No charts, no invented metrics.
  */
-const ActivityStatsRow = ({ streakDays, topicsPracticed, quizAverage }) => {
+const ActivityStatsRow = ({ streakDays, topicsStudied, quizAverage }) => {
     const reduceMotion = useReducedMotion();
     return (
         <Motion.section
@@ -50,15 +50,15 @@ const ActivityStatsRow = ({ streakDays, topicsPracticed, quizAverage }) => {
                     label="Study streak"
                     value={streakDays}
                     unit={streakDays === 1 ? 'day' : 'days'}
-                    hint="Consecutive days with a quiz attempt."
+                    hint="Consecutive days with a finished lesson or a quiz attempt."
                 />
                 <StatCard
                     icon="menu_book"
                     iconTone="bg-info-soft text-info"
-                    label="Topics practiced"
-                    value={topicsPracticed}
-                    unit={topicsPracticed === 1 ? 'topic' : 'topics'}
-                    hint="Topics where you have submitted at least one quiz."
+                    label="Topics studied"
+                    value={topicsStudied}
+                    unit={topicsStudied === 1 ? 'topic' : 'topics'}
+                    hint="Topics where you finished the lesson or submitted a quiz."
                 />
                 <StatCard
                     icon="analytics"
@@ -68,7 +68,7 @@ const ActivityStatsRow = ({ streakDays, topicsPracticed, quizAverage }) => {
                     hint="Average of your best quiz scores. This is quiz performance, not a concept-level score."
                 />
                 <p className="sr-only">
-                    Topics practiced counts topics with a quiz attempt. Quiz average is the mean of your best quiz scores, not a concept-level score.
+                    Topics studied counts topics with a finished lesson or a quiz attempt. Quiz average is the mean of your best quiz scores, not a concept-level score.
                 </p>
             </div>
         </Motion.section>

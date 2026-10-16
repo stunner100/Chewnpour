@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useLayoutEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { LazyMotion, domAnimation } from 'motion/react';
 import { useAuth } from './contexts/AuthContext';
@@ -12,6 +12,7 @@ import {
   stashPendingCampaignAttribution,
 } from './lib/campaignAttribution';
 import { capturePostHogEvent, capturePostHogPageView } from './lib/posthog';
+import { resolveRouteTitle } from './lib/documentTitle';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import PublicShell, { ArrowBadge } from './components/PublicShell';
@@ -133,6 +134,12 @@ function RouteChangeTracker() {
   const routerLocation = useLocation();
 
   useRouteTheme();
+
+  // Layout effects run before any page's passive effects, so a page's own
+  // useDocumentTitle always wins over this route default.
+  useLayoutEffect(() => {
+    document.title = resolveRouteTitle(routerLocation.pathname);
+  }, [routerLocation.pathname]);
 
   useEffect(() => {
     addSentryBreadcrumb({

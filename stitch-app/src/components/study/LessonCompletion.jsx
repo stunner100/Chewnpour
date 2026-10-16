@@ -81,7 +81,7 @@ const LessonCompletion = ({
             ) : null}
 
             <p className="mt-7 text-body-sm text-text-secondary">
-                Ready to test what you remember?
+                {quizHref ? 'Ready to test what you remember?' : 'Mark this lesson done to track your progress.'}
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                 {quizHref ? (

@@ -58,15 +58,23 @@ assert.match(continueCard, /resumeCopy\.cta/, 'resume card CTA must use the copy
 assert.match(continueCard, /progressPercent/, 'resume card must surface real progress percent');
 
 // ── Truthful activity stats only ──
-assert.match(statsRow, /Consecutive days with a quiz attempt/, 'streak must explain what it measures');
-assert.match(statsRow, /Topics where you have submitted at least one quiz/, 'topics practiced must explain what it measures');
+assert.match(statsRow, /Consecutive days with a finished lesson or a quiz attempt/, 'streak must explain what it measures');
+assert.match(statsRow, /Topics where you finished the lesson or submitted a quiz/, 'topics studied must explain what it measures');
 assert.match(statsRow, /Average of your best quiz scores/, 'quiz average must explain what it measures');
 assert.match(page, /overallPreparedness \?\? userStats\?\.accuracy/, 'quiz average must prefer overallPreparedness and fall back to stats.accuracy');
 
-// ── Courses: "X of Y topics practiced" + progress bar ──
-assert.match(courseList, /topics practiced/, 'course rows must say "topics practiced"');
+// ── Courses: "X of Y topics studied" + progress bar ──
+assert.match(courseList, /topics studied/, 'course rows must say "topics studied"');
 assert.match(courseList, /role="progressbar"/, 'course rows must include a progress bar');
-assert.match(model, /Math\.round\(\(progress \/ 100\) \* topicCount\)/, 'practiced count must derive from progress % * topicCount');
+assert.match(model, /studied: Math\.min\(topicCount, Math\.max\(0, Number\(course\.studied \|\| 0\)\)\)/, 'studied count comes from the server');
+
+// ── Finished lessons count toward course progress and streak; quiz scores stay separate ──
+const progressServer = readFileSync(join(root, 'server/progress.js'), 'utf8');
+assert.match(progressServer, /completed_at IS NOT NULL/, 'progress must load every finished lesson');
+assert.match(progressServer, /\.\.\.completedLessons\.map\(\(row\) => new Date\(row\.completed_at\)\.getTime\(\)\)/, 'finished lessons extend the streak');
+assert.match(progressServer, /\.\.\.completedTopicIds,\n\s*\]\);/, 'finished lessons count as studied topics');
+assert.match(progressServer, /const progress = topicCount > 0 \? Math\.round\(\(studied \/ topicCount\) \* 100\) : 0;/);
+assert.match(progressServer, /accuracy: overallPreparedness \|\| accuracy/, 'accuracy stays quiz-only');
 
 // ── Honest topic status labels; quiz scores are never "mastery" ──
 for (const label of ['Strong', 'Developing', 'Needs review', 'Not practiced']) {

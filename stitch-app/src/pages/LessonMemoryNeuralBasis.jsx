@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const LessonsSkeleton = () => (
     <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -164,6 +165,7 @@ const LessonMemoryNeuralBasis = () => {
         () => (Array.isArray(selectedCourse?.topics) ? selectedCourse.topics : []),
         [selectedCourse],
     );
+    useDocumentTitle(selectedCourse ? (formatCourseTitle(selectedCourse.title) || selectedCourse.title) : '');
 
     if (loading) {
         return <LessonsSkeleton />;

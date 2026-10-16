@@ -27,8 +27,8 @@ const CourseProgressList = ({ courses }) => {
                     Your courses
                 </h2>
             </div>
-            <p className="mt-1 text-body-sm text-text-secondary" title="Course progress is the share of topics in that course with at least one quiz attempt.">
-                Course progress is the share of topics you have quizzed, not a concept-level score.
+            <p className="mt-1 text-body-sm text-text-secondary" title="Course progress is the share of topics in that course where you finished the lesson or took the quiz.">
+                Course progress is the share of topics you have studied: lesson finished or quiz taken.
             </p>
             {rows.length > 0 ? (
                 <ul className="mt-5 flex flex-col gap-3">
@@ -43,8 +43,8 @@ const CourseProgressList = ({ courses }) => {
                                         {course.title}
                                     </p>
                                     <p className="mt-1 text-caption text-text-muted">
-                                        {course.practiced} of {course.topicCount}{' '}
-                                        {course.topicCount === 1 ? 'topic' : 'topics'} practiced
+                                        {course.studied} of {course.topicCount}{' '}
+                                        {course.topicCount === 1 ? 'topic' : 'topics'} studied
                                     </p>
                                 </div>
                                 <span className="shrink-0 text-body-sm font-semibold text-primary">
@@ -56,7 +56,7 @@ const CourseProgressList = ({ courses }) => {
                                     className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
                                     style={{ width: `${course.progress}%` }}
                                     role="progressbar"
-                                    aria-label={`${course.title} topics practiced`}
+                                    aria-label={`${course.title} topics studied`}
                                     aria-valuemin={0}
                                     aria-valuemax={100}
                                     aria-valuenow={course.progress}

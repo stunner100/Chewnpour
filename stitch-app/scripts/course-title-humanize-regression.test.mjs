@@ -12,7 +12,16 @@ assert.equal(
   'AI-Powered Food Delivery Operations',
 );
 assert.equal(formatCourseTitle('intro-to-microeconomics.pdf'), 'Intro-to-Microeconomics');
-assert.equal(formatCourseTitle('BIOL_201 - Cell Biology Lecture 1'), 'Biol 201 - Cell Biology Lecture 1');
+assert.equal(formatCourseTitle('BIOL_201 - Cell Biology Lecture 1'), 'BIOL 201 - Cell Biology Lecture 1');
+// Course codes and deliberate all-caps words keep their casing.
+assert.equal(formatCourseTitle('BIOL 101'), 'BIOL 101');
+assert.equal(formatCourseTitle('MATH151'), 'MATH151');
+assert.equal(formatCourseTitle('math151 notes'), 'MATH151 Notes');
+assert.equal(formatCourseTitle('Intro to MATLAB'), 'Intro to MATLAB');
+assert.equal(formatCourseTitle('CS 50 LECTURE 3'), 'CS 50 Lecture 3');
+// A fully upper-case file name is not a run of acronyms.
+assert.equal(formatCourseTitle('GERMAN_HISTORY.pdf'), 'German History');
+assert.equal(formatCourseTitle('WEEK 3 SLIDES'), 'Week 3 Slides');
 assert.equal(formatCourseTitle('German History'), 'German History');
 assert.equal(formatCourseTitle(''), '');
 assert.equal(formatCourseTitle(null), '');

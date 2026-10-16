@@ -54,9 +54,10 @@ const normalized = normalizeAiCoursePayload(
 );
 
 assert.equal(normalized.topics.length, 1);
-assert.ok(
-    normalized.topics[0].questions.length >= 1,
-    "a topic with no grounded AI questions must keep heuristic questions",
+assert.equal(
+    normalized.topics[0].questions.length,
+    0,
+    "a topic with no grounded AI questions ships without a quiz, never heuristic filler",
 );
 assert.ok(
     normalized.topics[0].questions.every(
