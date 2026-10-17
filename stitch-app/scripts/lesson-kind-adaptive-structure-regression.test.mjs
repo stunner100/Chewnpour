@@ -44,12 +44,15 @@ const chat = async ({ messages }) => {
     prompts.push(system);
     const title = messages[1].content.match(/^Lesson title: (.+)$/m)[1];
     const body = `${title} is explained here in plain sentences for the student.`;
+    // Quote the first sentence of the lesson's source, as a grounded lesson would.
+    const source = messages[1].content.split(/`{3,}\n/)[1];
+    const sourceQuote = source.split("\n").find((line) => line.trim() && !line.startsWith("#")).split(".")[0];
     return {
         text: JSON.stringify({
             lesson: {
                 sections: [
-                    { title: `How ${title} works`, role: "core", body },
-                    { title: `Practise ${title}`, role: "practice", body },
+                    { title: `How ${title} works`, role: "core", body, sourceQuote },
+                    { title: `Practise ${title}`, role: "practice", body, sourceQuote },
                 ],
             },
         }),

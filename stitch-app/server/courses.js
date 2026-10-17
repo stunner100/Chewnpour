@@ -3,7 +3,6 @@ import { getPool } from "./db.js";
 import { generateCourseCurriculumWithAi } from "./aiCourseGeneration.js";
 import { stripCourseTitle } from "./courseGeneration.js";
 import { indexTopicPassages } from "./topicPassages.js";
-import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const toClientCourse = (row, extras = {}) => {
     if (!row) return null;
@@ -55,6 +54,8 @@ const toClientTopic = (row, extras = {}) => {
         title: row.title,
         description: row.description || "",
         lesson: parsePayload(row.lesson),
+        // { needsReview, droppedSections, unsupportedCoreSections, droppedTerms }
+        grounding: parsePayload(row.grounding),
         sortOrder: Number(row.sort_order || 0),
         questionCount: Number(extras.questionCount ?? row.question_count ?? 0),
         orderingCheck: extras.orderingCheck ?? row.orderingCheck ?? null,
@@ -212,8 +213,8 @@ const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs
         const topicId = nanoid();
         await client.query(
             `INSERT INTO topics (
-                id, course_id, user_id, upload_id, title, description, lesson, sort_order
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
+                id, course_id, user_id, upload_id, title, description, lesson, sort_order, grounding
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9::jsonb)`,
             [
                 topicId,
                 courseId,
@@ -223,6 +224,7 @@ const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs
                 String(spec.description || "").slice(0, 280) || null,
                 JSON.stringify(spec.lesson),
                 index,
+                JSON.stringify(spec.grounding || {}),
             ],
         );
 
@@ -270,9 +272,16 @@ const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs
                 ],
             );
         }
-        inserted.push({ topicId, content: lessonToMarkdown(spec.lesson) });
+        inserted.push({ topicId });
     }
     return inserted;
+};
+
+// The span of the upload's extracted text a topic was written from.
+export const topicSourceText = ({ spec, plan, extractedText }) => {
+    const entry = Number.isInteger(spec?.planIndex) ? plan[spec.planIndex] : null;
+    if (!entry || !Number.isInteger(entry.start) || !Number.isInteger(entry.end)) return "";
+    return String(extractedText || "").slice(entry.start, entry.end).trim();
 };
 
 export const ensureCourseFromUpload = async ({
@@ -395,7 +404,11 @@ export const ensureCourseFromUpload = async ({
     client.release();
     await setUploadGenerationStep(uploadId, "ready");
 
-    for (const { topicId, content } of inserted) {
+    // Passages ("View source", tutor retrieval) are the lesson's own part of
+    // the upload, never the generated lesson.
+    for (const [index, { topicId }] of inserted.entries()) {
+        const content = topicSourceText({ spec: topicSpecs[index], plan, extractedText: text });
+        if (!content) continue;
         try {
             await indexTopicPassages({
                 topicId,
