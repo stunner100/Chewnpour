@@ -7,8 +7,15 @@ import {
 } from "./anydocClient.js";
 import {
     callLocalExtract,
+    countPdfPages,
     isLocalExtractable,
 } from "./localExtract.js";
+import {
+    charsPerPage,
+    isThinTextLayer,
+    pickThinLayerText,
+    prepareExtractedText,
+} from "./extractionQuality.js";
 import {
     callOcrSpace,
     isOcrSpaceEnabled,
@@ -366,8 +373,16 @@ const updateUploadRow = async (uploadId, fields) => {
     return result.rows[0] || null;
 };
 
+const isPdfUpload = (row) => /\bpdf\b/.test(`${row.file_type} ${row.content_type} ${row.file_name}`.toLowerCase());
+
+// payload.paged: the text comes from a paged document (PDF), so page numbers
+// and running headers and footers are removed.
 const persistExtractedUpload = async (uploadId, payload) => {
-    const text = String(payload?.text || "").slice(0, MAX_EXTRACT_TEXT_CHARS);
+    const text = prepareExtractedText({
+        text: String(payload?.text || ""),
+        pageCount: payload?.pageCount,
+        paged: Boolean(payload?.paged),
+    }).slice(0, MAX_EXTRACT_TEXT_CHARS);
     return updateUploadRow(uploadId, {
         status: "ready",
         processing_step: "ready",
@@ -473,21 +488,21 @@ const tryDeepgramTranscribe = async ({ row, fileBuffer }) => {
     }
 };
 
-const tryOcrSpaceFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
+// Runs OCR.space. Returns { payload } with text, or { failure: { message,
+// warnings } }.
+const runOcrSpace = async ({ row, fileBuffer }) => {
     await updateUploadRow(row.id, {
         processing_step: "ocr",
         extraction_status: "running",
     });
 
     if (!isOcrSpaceEnabled()) {
-        return persistExtractionFailure(
-            row.id,
-            "Scanned or image-only document. OCR is not configured. Upload a text-based PDF, DOCX, or PPTX.",
-            [
-                ...priorWarnings,
-                "OCR.space is not configured (OCR_SPACE_API_KEY).",
-            ],
-        );
+        return {
+            failure: {
+                message: "Scanned or image-only document. OCR is not configured. Upload a text-based PDF, DOCX, or PPTX.",
+                warnings: ["OCR.space is not configured (OCR_SPACE_API_KEY)."],
+            },
+        };
     }
 
     try {
@@ -498,42 +513,87 @@ const tryOcrSpaceFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
             fileType: row.file_type,
         });
         if (payload?.skipped) {
-            return persistExtractionFailure(
-                row.id,
-                EXTRACTION_FAILED_MESSAGE,
-                [...priorWarnings, payload.reason || "ocr_space_skipped"],
-            );
+            return { failure: { message: EXTRACTION_FAILED_MESSAGE, warnings: [payload.reason || "ocr_space_skipped"] } };
         }
         const text = String(payload?.text || "").trim();
         if (!text) {
-            return persistExtractionFailure(
-                row.id,
-                "OCR ran but found no readable text in this document.",
-                [...priorWarnings, ...(payload?.warnings || [])],
-            );
+            return {
+                failure: {
+                    message: "OCR ran but found no readable text in this document.",
+                    warnings: payload?.warnings || [],
+                },
+            };
         }
-        return persistExtractedUpload(row.id, {
-            text,
-            pageCount: payload?.pageCount,
-            backend: payload?.backend || "ocr_space",
-            parser: payload?.parser || "ocr.space",
-            warnings: [
-                ...priorWarnings,
-                ...(payload?.warnings || []),
-                "Used OCR.space because selectable text was unavailable.",
-            ],
-        });
+        return {
+            payload: {
+                text,
+                pageCount: payload?.pageCount,
+                paged: isPdfUpload(row),
+                backend: payload?.backend || "ocr_space",
+                parser: payload?.parser || "ocr.space",
+                warnings: payload?.warnings || [],
+            },
+        };
     } catch (error) {
         console.warn("[uploads] OCR.space failed", {
             uploadId: row.id,
             message: error?.message || String(error),
         });
-        return persistExtractionFailure(
-            row.id,
-            `OCR failed: ${error?.message || "unknown error"}`,
-            priorWarnings,
-        );
+        return { failure: { message: `OCR failed: ${error?.message || "unknown error"}`, warnings: [] } };
     }
+};
+
+const tryOcrSpaceFallback = async ({ row, fileBuffer, priorWarnings = [] }) => {
+    const { payload, failure } = await runOcrSpace({ row, fileBuffer });
+    if (failure) {
+        return persistExtractionFailure(row.id, failure.message, [...priorWarnings, ...failure.warnings]);
+    }
+    return persistExtractedUpload(row.id, {
+        ...payload,
+        warnings: [
+            ...priorWarnings,
+            ...payload.warnings,
+            "Used OCR.space because selectable text was unavailable.",
+        ],
+    });
+};
+
+// Stores text an extractor returned, unless the text layer is too thin to be
+// the document's real text (a scan with page numbers, say). Then OCR runs, and
+// its text is kept when it reads more. Thin text with no better OCR result is
+// kept only if it has a page's worth of readable text.
+const persistDocumentText = async ({ row, fileBuffer, payload }) => {
+    const paged = isPdfUpload(row);
+    const pageCount = Number(payload?.pageCount) > 0
+        ? Number(payload.pageCount)
+        : paged ? await countPdfPages(fileBuffer).catch(() => null) : null;
+    const extracted = { ...payload, pageCount, paged, warnings: payload?.warnings || [] };
+    const text = prepareExtractedText(extracted);
+    if (!isThinTextLayer({ text, pageCount })) {
+        return persistExtractedUpload(row.id, extracted);
+    }
+
+    const thinWarning = `The text layer has about ${Math.round(charsPerPage({ text, pageCount }))} readable characters per page, so it looks scanned; tried OCR.`;
+    const { payload: ocr, failure } = await runOcrSpace({ row, fileBuffer });
+    const choice = pickThinLayerText({ text, ocrText: ocr ? prepareExtractedText(ocr) : "" });
+    if (choice === "ocr") {
+        return persistExtractedUpload(row.id, {
+            ...ocr,
+            warnings: [...extracted.warnings, thinWarning, ...ocr.warnings, "Used OCR.space because the text layer was too thin."],
+        });
+    }
+    const ocrWarnings = failure ? failure.warnings : ["OCR found no more text than the text layer."];
+    if (choice === "extracted") {
+        return persistExtractedUpload(row.id, {
+            ...extracted,
+            warnings: [...extracted.warnings, thinWarning, ...ocrWarnings],
+        });
+    }
+    return persistExtractionFailure(
+        row.id,
+        failure?.message || "This document looks scanned and OCR found no readable text in it.",
+        [...extracted.warnings, thinWarning, ...ocrWarnings],
+    );
 };
 
 const finishReadyIfComplete = async ({ readyRow }) => {
@@ -668,12 +728,16 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
                     readyRow: readyOrFailed,
                 });
             }
-            const ready = await persistExtractedUpload(uploadId, {
-                text,
-                pageCount: payload?.pageCount,
-                backend: payload?.backend || "anydoc",
-                parser: payload?.parser || "anydoc",
-                warnings: payload?.warnings || [],
+            const ready = await persistDocumentText({
+                row,
+                fileBuffer,
+                payload: {
+                    text,
+                    pageCount: payload?.pageCount,
+                    backend: payload?.backend || "anydoc",
+                    parser: payload?.parser || "anydoc",
+                    warnings: payload?.warnings || [],
+                },
             });
             return finishReadyIfComplete({ userId, uploadId, readyRow: ready });
         } catch (error) {
@@ -727,9 +791,10 @@ export const finalizeUploadForUser = async (userId, uploadId) => {
                         `Anydoc unavailable (${extractionErrors[0]}). Used local text extraction.`,
                     );
                 }
-                const ready = await persistExtractedUpload(uploadId, {
-                    ...payload,
-                    warnings,
+                const ready = await persistDocumentText({
+                    row,
+                    fileBuffer,
+                    payload: { ...payload, warnings },
                 });
                 return finishReadyIfComplete({ userId, uploadId, readyRow: ready });
             }
