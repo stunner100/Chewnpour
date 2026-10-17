@@ -137,6 +137,8 @@ import {
   WrenchIcon,
   XIcon,
   ZapIcon,
+  GalleryHorizontalIcon,
+  Rows3Icon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -224,6 +226,8 @@ const MATERIAL_TO_LUCIDE = {
   lightbulb_circle: LightbulbIcon,
   link: LinkIcon,
   list: ListIcon,
+  view_agenda: Rows3Icon,
+  view_carousel: GalleryHorizontalIcon,
   local_fire_department: FlameIcon,
   lock: LockIcon,
   login: LogInIcon,

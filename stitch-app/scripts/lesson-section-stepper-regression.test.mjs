@@ -41,7 +41,9 @@ assert.match(studyProgress, /\/passages/, "study progress must fetch real source
 assert.doesNotMatch(hook, /const sourcePassages = \[\]/, "source passages must not stay hardcoded empty");
 assert.match(stepper, /LessonCompletion/, "finishing must show the completion moment");
 assert.ok(
-    stepper.indexOf("</Motion.div>") < stepper.indexOf("border-t border-border-subtle"),
+    // The step-by-step view is the last one in the file; its controls follow
+    // the animated section.
+    stepper.indexOf("</Motion.div>") < stepper.lastIndexOf("border-t border-border-subtle"),
     "progression controls must follow the section content",
 );
 assert.match(stepper, /LessonInlineCheck/, "stepper must render the inline check");

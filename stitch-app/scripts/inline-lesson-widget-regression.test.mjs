@@ -25,7 +25,7 @@ if (!lessonView.includes("type: 'wordbank'")) {
   throw new Error("lessonView must keep Word Bank as its own stepper step.");
 }
 
-if (!stepper.includes("step.type === 'wordbank'") || !stepper.includes("<InteractiveWordBank")) {
+if (!stepper.includes("entry.type === 'wordbank'") || !stepper.includes("<InteractiveWordBank")) {
   throw new Error("Word Bank must still render inside the stepper.");
 }
 

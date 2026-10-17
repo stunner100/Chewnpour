@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TopicNotesPanel from '../TopicNotesPanel';
 import TopicChatPanel from '../TopicChatPanel';
@@ -15,6 +15,8 @@ import { formatCourseTitle } from '../../lib/courseTitle';
 import { lessonSectionPercent } from '../../lib/lessonSectionProgress';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import AppIcon from '../AppIcon';
+import LessonSheet from '../lesson/LessonSheet';
+import LessonContentsList from '../lesson/LessonContentsList';
 
 export const TopicEmptyState = ({ title, description, action }) => (
     <div className="min-h-screen flex items-center justify-center bg-background-light">
@@ -360,6 +362,7 @@ export const TopicLessonShell = ({ controller }) => {
     } = controller;
 
     const [coursePayload, setCoursePayload] = useState(null);
+    const closeMore = useCallback(() => setMoreOpen(false), [setMoreOpen]);
     useDocumentTitle(resolvedTopicTitle || topic?.title || '');
 
     useEffect(() => {
@@ -467,80 +470,36 @@ export const TopicLessonShell = ({ controller }) => {
 
             <TopicLessonPanels controller={controller} />
 
-            {contentsOpen ? (
-                <>
-                    <button
-                        type="button"
-                        className="fixed inset-0 z-[55] border-0 bg-black/40"
-                        aria-label="Close lesson contents"
-                        onClick={closeContents}
-                    />
-                    <div
-                        role="dialog"
-                        aria-label="Lesson contents"
-                        className="fixed inset-x-3 z-[70] max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border-subtle bg-surface px-3 py-3 shadow-lg sm:inset-x-auto sm:right-4 sm:w-80"
-                        style={{ bottom: 'calc(var(--lesson-action-height) + var(--safe-bottom) + 0.75rem)' }}
-                    >
-                        <div className="mb-2 flex items-center justify-between px-2">
-                            <h2 className="text-body-sm font-semibold text-text-primary">Contents</h2>
-                            <button type="button" className="btn-icon size-11" onClick={closeContents} aria-label="Close contents">
-                                <AppIcon name="close" className="text-[16px]" />
-                            </button>
-                        </div>
-                        <ol className="space-y-1">
-                            {(Array.isArray(lessonSteps) ? lessonSteps : []).map((step, index) => (
-                                <li key={`${step?.title || 'section'}-${index}`}>
-                                    <button
-                                        type="button"
-                                        onClick={() => requestSectionIndex(index)}
-                                        className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body-sm ${
-                                            index === currentStepIndex
-                                                ? 'bg-primary-subtle font-semibold text-primary'
-                                                : 'text-text-primary hover:bg-surface-soft'
-                                        }`}
-                                    >
-                                        <span className="w-6 text-caption text-text-muted">{index + 1}</span>
-                                        <span className="line-clamp-2">{step?.title || `Section ${index + 1}`}</span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ol>
-                    </div>
-                </>
-            ) : null}
+            <LessonSheet open={contentsOpen} onClose={closeContents} title="Contents" closeLabel="Close contents" className="sm:w-80">
+                <LessonContentsList
+                    steps={lessonSteps}
+                    currentIndex={currentStepIndex}
+                    onSelect={requestSectionIndex}
+                />
+            </LessonSheet>
 
-            {moreOpen ? (
-                <>
+            <LessonSheet
+                open={moreOpen}
+                onClose={closeMore}
+                title="More study tools"
+                closeLabel="Close study tools"
+                className="sm:w-72"
+            >
+                {(controller.studyToolSecondary || []).map((tool) => (
                     <button
+                        key={tool.id}
                         type="button"
-                        className="fixed inset-0 z-[55] border-0 bg-black/40"
-                        aria-label="Close study tools"
-                        onClick={() => setMoreOpen(false)}
-                    />
-                    <div
-                        role="menu"
-                        aria-label="More study tools"
-                        className="fixed inset-x-3 z-[70] max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border-subtle bg-surface px-3 py-3 shadow-lg sm:inset-x-auto sm:right-4 sm:w-72"
-                        style={{ bottom: 'calc(var(--lesson-action-height) + var(--safe-bottom) + 0.75rem)' }}
+                        onClick={() => {
+                            closeMore();
+                            tool.onClick?.();
+                        }}
+                        className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body-sm font-medium text-text-primary hover:bg-surface-soft"
                     >
-                        {(controller.studyToolSecondary || []).map((tool) => (
-                            <button
-                                key={tool.id}
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    tool.onClick?.();
-                                    setMoreOpen(false);
-                                }}
-                                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-body-sm font-medium text-text-primary hover:bg-surface-soft"
-                            >
-                                <AppIcon name={tool.icon} className="text-[20px] text-primary" />
-                                {tool.label}
-                            </button>
-                        ))}
-                    </div>
-                </>
-            ) : null}
+                        <AppIcon name={tool.icon} className="text-[20px] text-primary" />
+                        {tool.label}
+                    </button>
+                ))}
+            </LessonSheet>
         </div>
     );
 };
