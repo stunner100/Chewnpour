@@ -20,8 +20,10 @@ assert.match(promptBlockForLessonKind("procedure"), /steps section/);
 assert.match(promptBlockForLessonKind("narrative"), /Do not invent steps, calculations or rival accounts/);
 assert.match(promptBlockForLessonKind("argument"), /opposing view only if the snippet states one/);
 
-// The lesson writer's prompt asks for content titles, roles and index-bound checks.
+// The lesson writer's prompt asks for content titles and roles; the quiz
+// writer's prompt binds checks to the lesson's sections by index.
 const prompts = [];
+const quizPrompts = [];
 const chat = async ({ messages }) => {
     const system = messages[0].content;
     if (system.startsWith("You are ChewnPour's study curriculum planner.")) {
@@ -35,8 +37,24 @@ const chat = async ({ messages }) => {
             provider: "stub",
         };
     }
+    if (system.startsWith("You are ChewnPour's quiz writer.")) {
+        quizPrompts.push(messages);
+        return { text: JSON.stringify({ questions: [], inLessonChecks: [], ordering: null }), provider: "stub" };
+    }
     prompts.push(system);
-    throw new Error("stub: stop after the prompt");
+    const title = messages[1].content.match(/^Lesson title: (.+)$/m)[1];
+    const body = `${title} is explained here in plain sentences for the student.`;
+    return {
+        text: JSON.stringify({
+            lesson: {
+                sections: [
+                    { title: `How ${title} works`, role: "core", body },
+                    { title: `Practise ${title}`, role: "practice", body },
+                ],
+            },
+        }),
+        provider: "stub",
+    };
 };
 console.warn = () => {};
 await generateCourseCurriculumWithAi({
@@ -55,9 +73,14 @@ for (const prompt of [procedurePrompt, conceptPrompt]) {
     assert.match(prompt, /"lesson":\{"hook":"string","sections":\[\{"title":"string","role":"core\|steps\|example\|misconception\|practice"/);
     assert.match(prompt, /Never use generic titles such as Why This Matters, Key Terms, Introduction, Overview, The Idea, Summary or Recap\./);
     assert.match(prompt, /only when the source supports that section; otherwise leave it out/);
-    assert.match(prompt, /sectionIndex is the 0-based index in lesson\.sections/);
     assert.doesNotMatch(prompt, /Use exactly these H2 titles/);
 }
+for (const [system, user] of quizPrompts.map((messages) => [messages[0].content, messages[1].content])) {
+    assert.match(system, /sectionIndex is the 0-based index in the lesson's section list below/);
+    assert.match(system, /none on a practice section/);
+    assert.match(user, /Lesson sections:\n\[0\] \(core\) How .+ works\n\[1\] \(practice\) Practise /);
+}
+assert.equal(quizPrompts.length, 4, "each lesson gets a quiz call, re-run once when it returns too few questions");
 assert.ok(procedurePrompt.includes(promptBlockForLessonKind("procedure")));
 assert.ok(conceptPrompt.includes(promptBlockForLessonKind("concept")));
 

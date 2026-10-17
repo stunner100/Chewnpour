@@ -134,17 +134,15 @@ for (const name of ['toc-heavy-cell-biology.md', 'python-loops-notes.md', 'pdf-r
                 }),
             };
         }
-        const title = messages[1].content.match(/^Topic title: (.+)$/m)[1];
+        const title = messages[1].content.match(/^Lesson title: (.+)$/m)[1];
+        if (system.startsWith("You are ChewnPour's quiz writer.")) {
+            return { provider: 'stub', text: JSON.stringify({ questions: [], inLessonChecks: [], ordering: null }) };
+        }
         lessonCalls.push(title);
         const body = `${title} covers its chapter in full sentences for the student.`;
         return {
             provider: 'stub',
-            text: JSON.stringify({
-                lesson: { sections: [{ title: `What ${title} teaches`, role: 'core', body }], recap: [], wordBank: [] },
-                questions: [],
-                inLessonChecks: [],
-                ordering: null,
-            }),
+            text: JSON.stringify({ lesson: { sections: [{ title: `What ${title} teaches`, role: 'core', body }], recap: [], wordBank: [] } }),
         };
     };
     const result = await generateCourseCurriculumWithAi({ fileName: 'book.pdf', extractedText: source, chat, aiEnabled: () => true });

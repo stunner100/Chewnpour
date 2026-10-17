@@ -179,6 +179,7 @@ assert.deepEqual(
     'the stored lesson plan links each written lesson to its topic, in order',
 );
 assert.ok(state.courses[0].lesson_plan.every((entry) => entry.end > entry.start && entry.title));
+assert.ok(state.courses[0].lesson_plan.every((entry) => entry.status === 'written'), 'written lessons are marked written');
 const beginAt = state.log.indexOf('BEGIN');
 const readyAt = state.log.findIndex((sql) => sql.startsWith("UPDATE courses SET status = 'ready'"));
 const commitAt = state.log.indexOf('COMMIT');

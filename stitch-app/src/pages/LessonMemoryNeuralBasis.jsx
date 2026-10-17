@@ -111,15 +111,17 @@ const CourseShareControls = ({ course, onCourseChange }) => {
     );
 };
 
-// Long uploads are planned in full, but lessons are written for the first
-// parts only. This lists the parts that have no lesson yet, in order.
+// Parts of the upload with no lesson: long uploads are planned in full but
+// lessons are written for the first parts only, and a part whose lesson could
+// not be written is listed too. Numbers follow the document.
 const PartsWithoutLessons = ({ course }) => {
     const plan = Array.isArray(course?.lessonPlan) ? course.lessonPlan : [];
-    const waiting = plan
+    const missing = plan
         .map((entry, index) => ({ ...entry, number: index + 1 }))
         .filter((entry) => !entry.topicId);
-    if (waiting.length === 0) return null;
-    const written = plan.length - waiting.length;
+    if (missing.length === 0) return null;
+    const written = plan.length - missing.length;
+    const anyPending = missing.some((entry) => entry.status !== 'failed');
     return (
         <section
             aria-labelledby="parts-without-lessons"
@@ -129,13 +131,17 @@ const PartsWithoutLessons = ({ course }) => {
                 Parts without lessons yet
             </h2>
             <p className="mt-1 text-body-sm text-text-secondary">
-                Your file is long, so lessons were made for the first {written} of its {plan.length} parts.
-                These parts don&apos;t have lessons yet:
+                {anyPending
+                    ? `Lessons were made for ${written} of the ${plan.length} parts of your file. These parts don\u2019t have lessons yet:`
+                    : 'Lessons couldn\u2019t be made for these parts of your file:'}
             </p>
             <ol className="mt-3 list-decimal space-y-1 pl-6 text-body-sm text-text-secondary">
-                {waiting.map((entry) => (
+                {missing.map((entry) => (
                     <li key={`${entry.start}-${entry.end}`} value={entry.number}>
                         {formatCourseTitle(entry.title) || entry.title}
+                        {entry.status === 'failed' && anyPending ? (
+                            <span className="text-text-muted"> (couldn&apos;t be generated)</span>
+                        ) : null}
                     </li>
                 ))}
             </ol>

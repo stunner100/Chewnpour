@@ -1,4 +1,4 @@
-import { callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
+import { LlmAbortedError, LlmTruncatedError, callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
 import { SOURCE_DATA_RULE, extractJsonObject, untrustedSourceBlock } from "./promptSafety.js";
 import { dedupeCourseTopics, isValidMcq } from "./questionDedup.js";
 import { sanitizeGeneratedHint } from "./hintSanitize.js";
@@ -13,20 +13,26 @@ import {
     planLessons,
 } from "./lessonPlanning.js";
 import { formatCourseTitle } from "../src/lib/courseTitle.js";
-import { normalizeLessonKind, promptBlockForLessonKind } from "../src/lib/lessonKind.js";
+import { promptBlockForLessonKind } from "../src/lib/lessonKind.js";
 import { lessonToMarkdown, normalizeLesson } from "../src/lib/lessonSchema.js";
 
 // Course generation: split the extracted text into segments, plan lessons
 // over all of them in document order (lessonPlanning.js), then write the first
-// MAX_GENERATED_LESSONS lessons from their own source spans. The full plan is
-// returned so the course can show which parts have no lesson yet.
+// MAX_GENERATED_LESSONS lessons from their own source spans: one call writes
+// the lesson, a second writes its quiz and in-lesson checks. The full plan is
+// returned with each entry's status (written, failed or pending) so the
+// course can show which parts have no lesson yet.
 
 const MAX_QUESTIONS_PER_TOPIC = 3;
 // Extra grounded MCQs per topic reserved for the timed exam, so the exam is not
 // a replay of topic-quiz questions whose answers the student has already seen.
 export const MAX_EXAM_QUESTIONS_PER_TOPIC = 3;
 const MAX_GENERATED_MCQS_PER_TOPIC = MAX_QUESTIONS_PER_TOPIC + MAX_EXAM_QUESTIONS_PER_TOPIC;
-const TOPIC_GEN_CONCURRENCY = 3;
+const TOPIC_GEN_CONCURRENCY = 4;
+const LESSON_MAX_TOKENS = 6000;
+const QUESTIONS_MAX_TOKENS = 3000;
+// A reply cut off at max_tokens is retried once with this much more room.
+const TRUNCATION_RETRY_FACTOR = 1.6;
 const GENERATION_TIMEOUT_MS = Number(process.env.COURSE_GENERATION_TIMEOUT_MS || 150000);
 
 const LESSON_JSON_SHAPE =
@@ -38,7 +44,7 @@ const CHECK_JSON_SHAPE =
 const MCQ_JSON_SHAPE =
     '{"prompt":"string","options":["A","B","C","D"],"correctIndex":0,"explanation":"string","hint":"string"}';
 
-// How a lesson is written. Shared by the per-topic and single-pass prompts.
+// How a lesson is written.
 const LESSON_WRITING_RULES = [
     "Write the lesson as 3-6 sections, fewer when the source is short.",
     "Each section title says what that section teaches, in plain words (for example \"Where a prokaryote keeps its DNA\"). Never use generic titles such as Why This Matters, Key Terms, Introduction, Overview, The Idea, Summary or Recap.",
@@ -51,7 +57,7 @@ const LESSON_WRITING_RULES = [
     "wordBank lists 4-8 terms from the source with plain definitions. Bold each term where it first appears in a section body.",
 ].join(" ");
 
-// A lesson made of one source excerpt, for topics the model could not write.
+// A lesson made of one source excerpt, for the course built without the model.
 export const excerptLesson = (title, text) => ({
     hook: "",
     sections: [{ title: String(title || "Lesson").slice(0, 120), role: "core", body: String(text || "").trim() }],
@@ -193,77 +199,131 @@ const normalizeTopicQuestions = (item, { title, lesson, sourceText = "" }) => {
     };
 };
 
-export const normalizeAiCoursePayload = (
-    payload,
-    { fileName = "", extractedText = "", backend = "deepseek" } = {},
-) => {
-    const topicsInput = Array.isArray(payload?.topics) ? payload.topics : [];
-    const topics = [];
-
-    for (const item of topicsInput) {
-        const title = normalizeWhitespace(item?.title).slice(0, 180);
-        const lesson = normalizeLesson(item?.lesson);
-        if (!title || !lesson) continue;
-        const { questions, orderingCheck, inLessonChecks } = normalizeTopicQuestions(item, {
-            title,
-            lesson,
-            sourceText: extractedText,
-        });
-        topics.push({
-            title,
-            description: normalizeWhitespace(item?.description || lesson.hook || lesson.sections[0].body).slice(0, 280),
-            lesson,
-            questions,
-            inLessonChecks,
-            orderingCheck,
-            ...(Number.isInteger(item?.planIndex) ? { planIndex: item.planIndex } : {}),
-        });
-    }
-
-    if (topics.length === 0) {
-        return heuristicCurriculum({ fileName, segments: segmentSource(extractedText).segments });
-    }
-
+// One model-written topic, validated: a usable lesson, grounded MCQs split
+// into quiz and exam, and in-lesson checks bound to the lesson's sections.
+// Returns null when the lesson is unusable.
+export const normalizeAiTopic = (item, { extractedText = "" } = {}) => {
+    const title = normalizeWhitespace(item?.title).slice(0, 180);
+    const lesson = normalizeLesson(item?.lesson);
+    if (!title || !lesson) return null;
+    const { questions, orderingCheck, inLessonChecks } = normalizeTopicQuestions(item, {
+        title,
+        lesson,
+        sourceText: extractedText,
+    });
     return {
-        backend,
-        topics: dedupeCourseTopics(topics),
+        title,
+        description: normalizeWhitespace(item?.description || lesson.hook || lesson.sections[0].body).slice(0, 280),
+        lesson,
+        questions,
+        inLessonChecks,
+        orderingCheck,
+        ...(Number.isInteger(item?.planIndex) ? { planIndex: item.planIndex } : {}),
     };
 };
 
-const collectPrompts = (topics) =>
-    (Array.isArray(topics) ? topics : []).flatMap((topic) =>
-        (Array.isArray(topic?.questions) ? topic.questions : [])
-            .filter((question) => question?.questionType !== "ordering")
-            .map((question) => question.prompt),
-    );
+// Course-wide de-duplication can drop questions from any topic, so the
+// quiz/exam split is made after it: the first MAX_QUESTIONS_PER_TOPIC MCQs
+// left in each topic are its quiz, the rest go to the exam.
+const dedupeAndSplitQuestions = (topics) => dedupeCourseTopics(topics).map((topic) => {
+    let quizCount = 0;
+    return {
+        ...topic,
+        questions: (topic.questions || []).map((question) => {
+            if (question.questionType === "ordering") return question;
+            const isQuiz = quizCount < MAX_QUESTIONS_PER_TOPIC;
+            if (isQuiz) quizCount += 1;
+            return { ...question, surface: isQuiz ? "quiz" : "exam" };
+        }),
+    };
+});
 
-const generateOneTopic = async ({
-    chat,
-    fileName,
-    title,
-    description,
-    snippet,
-    kind = null,
-    previousQuestions = [],
-}) => {
-    const lessonKind = normalizeLessonKind(kind) || "concept";
-    const allowOrdering =
-        lessonKind === "procedure" ||
-        lessonKind === "narrative" ||
-        snippetHasProcess(snippet);
-    const previous = (Array.isArray(previousQuestions) ? previousQuestions : [])
-        .filter(Boolean)
-        .slice(-12);
+export const normalizeAiCoursePayload = (
+    payload,
+    { fileName = "", extractedText = "", backend = "ai" } = {},
+) => {
+    const topics = (Array.isArray(payload?.topics) ? payload.topics : [])
+        .map((item) => normalizeAiTopic(item, { extractedText }))
+        .filter(Boolean);
+    if (topics.length === 0) {
+        return heuristicCurriculum({ fileName, segments: segmentSource(extractedText).segments });
+    }
+    return { backend, topics: dedupeAndSplitQuestions(topics) };
+};
+
+const quizPrompts = (topic) =>
+    (Array.isArray(topic?.questions) ? topic.questions : [])
+        .filter((question) => question?.questionType !== "ordering")
+        .map((question) => question.prompt);
+
+// Calls the model for JSON. A reply cut off at max_tokens is retried once
+// with more room; any other failure is thrown to the caller.
+const chatJson = async (chat, args, what) => {
+    let request = args;
+    for (let attempt = 1; ; attempt += 1) {
+        try {
+            const result = await chat(request);
+            const parsed = extractJsonObject(result.text);
+            if (!parsed) throw new Error(`AI returned non-JSON ${what}.`);
+            return parsed;
+        } catch (error) {
+            if (!(error instanceof LlmTruncatedError) || attempt === 2) throw error;
+            request = {
+                ...args,
+                maxTokens: Math.round(args.maxTokens * TRUNCATION_RETRY_FACTOR),
+                run: { ...args.run, purpose: `${args.run.purpose}_retry` },
+            };
+        }
+    }
+};
+
+const sourceMessage = ({ fileName, title, source, extra = [] }) => [
+    `Source file name: ${fileName || "upload"}`,
+    `Lesson title: ${title}`,
+    ...extra,
+    "",
+    untrustedSourceBlock(source, "Lesson source text"),
+].join("\n");
+
+// Call A: the lesson itself.
+const writeLessonCall = async ({ chat, fileName, title, kind, source }) => {
     const system = [
         "You are ChewnPour's study lesson writer.",
         "Return ONLY valid JSON with this shape:",
-        `{"lesson":${LESSON_JSON_SHAPE},"questions":[${MCQ_JSON_SHAPE}],"inLessonChecks":[${CHECK_JSON_SHAPE}],"ordering":null}`,
+        `{"lesson":${LESSON_JSON_SHAPE}}`,
         "The source is this lesson's part of the uploaded document, given below.",
         LESSON_WRITING_RULES,
-        promptBlockForLessonKind(lessonKind),
-        `Create ${MAX_QUESTIONS_PER_TOPIC + 1}-${MAX_GENERATED_MCQS_PER_TOPIC} distinct multiple-choice questions from THIS source text only in questions[]. The first ${MAX_QUESTIONS_PER_TOPIC} are the topic quiz; the rest are held back for the course exam, so each must test a different fact.`,
-        "Also create inLessonChecks: at most one per section, cap 4, none on a practice section. sectionIndex is the 0-based index in lesson.sections of the section the check tests. questionType may be multiple_choice or true_false (options True/False).",
-        "correctIndex must point at the correct option. Options must be unique. Prompts must not restate the topic title.",
+        promptBlockForLessonKind(kind),
+        "Do not invent facts that are absent from the source text.",
+        SOURCE_DATA_RULE,
+    ].join(" ");
+    const parsed = await chatJson(chat, {
+        messages: [
+            { role: "system", content: system },
+            { role: "user", content: sourceMessage({ fileName, title, source }) },
+        ],
+        temperature: 0.2,
+        maxTokens: LESSON_MAX_TOKENS,
+        responseFormat: "json_object",
+        run: { purpose: "lesson", label: title },
+    }, "lesson");
+    const lesson = normalizeLesson(parsed?.lesson);
+    if (!lesson) throw new Error("AI returned an unusable lesson.");
+    return lesson;
+};
+
+// Call B: the topic quiz, exam questions, in-lesson checks and an optional
+// ordering check, from the same source and the lesson's section list.
+const writeQuestionsCall = async ({ chat, fileName, title, kind, source, lesson, avoidPrompts = [], isRetry = false }) => {
+    const allowOrdering = kind === "procedure" || kind === "narrative" || snippetHasProcess(source);
+    const avoid = avoidPrompts.filter(Boolean).slice(-12);
+    const system = [
+        "You are ChewnPour's quiz writer.",
+        "Return ONLY valid JSON with this shape:",
+        `{"questions":[${MCQ_JSON_SHAPE}],"inLessonChecks":[${CHECK_JSON_SHAPE}],"ordering":null}`,
+        `Create ${MAX_QUESTIONS_PER_TOPIC + 1}-${MAX_GENERATED_MCQS_PER_TOPIC} distinct multiple-choice questions from THIS source text only in questions[]. The first ${MAX_QUESTIONS_PER_TOPIC} are the topic quiz; the rest are held back for the course exam, so each must test a different fact. The correct option must be stated in the source.`,
+        "Also create inLessonChecks: at most one per section, cap 4, none on a practice section. sectionIndex is the 0-based index in the lesson's section list below. questionType may be multiple_choice or true_false (options True/False).",
+        "correctIndex must point at the correct option. Options must be unique. Prompts must not restate the lesson title.",
         "inLessonChecks must not duplicate the topic-quiz questions.",
         "Hints must not name the correct option, unique answer terms, a true/false verdict, or the ordered steps.",
         allowOrdering
@@ -271,150 +331,108 @@ const generateOneTopic = async ({
             : "Set ordering to null. Do not invent a process check.",
         "Do not invent facts that are absent from the source text.",
         SOURCE_DATA_RULE,
-        previous.length
-            ? `Do not repeat or paraphrase any of these existing questions: ${JSON.stringify(previous)}`
-            : "",
-    ]
-        .filter(Boolean)
-        .join(" ");
-
-    const result = await chat({
+        avoid.length ? `Do not repeat or paraphrase any of these existing questions: ${JSON.stringify(avoid)}` : "",
+    ].filter(Boolean).join(" ");
+    const sections = lesson.sections.map((section, index) => `[${index}] (${section.role}) ${section.title}`);
+    return chatJson(chat, {
         messages: [
             { role: "system", content: system },
-            {
-                role: "user",
-                content: [
-                    `Source file name: ${fileName || "upload"}`,
-                    `Topic title: ${title}`,
-                    `Topic description: ${description || title}`,
-                    "",
-                    untrustedSourceBlock(snippet, "Lesson source text"),
-                ].join("\n"),
-            },
+            { role: "user", content: sourceMessage({ fileName, title, source, extra: ["Lesson sections:", ...sections] }) },
         ],
-        temperature: previous.length ? 0.35 : 0.2,
-        maxTokens: 4096,
+        temperature: isRetry ? 0.35 : 0.2,
+        maxTokens: QUESTIONS_MAX_TOKENS,
         responseFormat: "json_object",
-        run: { purpose: previous.length ? "lesson_questions_retry" : "lesson", label: title },
-    });
-    const parsed = extractJsonObject(result.text);
-    if (!parsed) {
-        throw new Error("AI returned non-JSON topic payload.");
+        run: { purpose: isRetry ? "lesson_questions_retry" : "lesson_questions", label: title },
+    }, "questions");
+};
+
+const isAbort = (error) => error instanceof LlmAbortedError;
+
+const countQuizQuestions = (topic) =>
+    (topic?.questions || []).filter((question) => question.surface === "quiz").length;
+
+// Writes one planned lesson. A lesson that cannot be written throws; a lesson
+// whose questions fail is kept without a quiz. Too few usable quiz questions
+// re-runs only the questions call.
+const writeTopic = async ({ chat, fileName, extractedText, entry, planIndex, source, seenPrompts }) => {
+    const { title, kind } = entry;
+    const lesson = await writeLessonCall({ chat, fileName, title, kind, source });
+    const build = (payload) => normalizeAiTopic({ title, lesson, planIndex, ...payload }, { extractedText });
+    let topic = build({});
+    try {
+        topic = build(await writeQuestionsCall({ chat, fileName, title, kind, source, lesson, avoidPrompts: seenPrompts }));
+        if (countQuizQuestions(topic) < 2) {
+            const retry = build(await writeQuestionsCall({
+                chat,
+                fileName,
+                title,
+                kind,
+                source,
+                lesson,
+                avoidPrompts: [...seenPrompts, ...quizPrompts(topic)],
+                isRetry: true,
+            }));
+            if (countQuizQuestions(retry) > countQuizQuestions(topic)) topic = retry;
+        }
+    } catch (error) {
+        if (isAbort(error)) throw error;
+        console.warn("[aiCourseGeneration] questions failed; keeping the lesson without a quiz", {
+            title,
+            message: error?.message || String(error),
+        });
     }
-    return parsed;
+    seenPrompts.push(...quizPrompts(topic));
+    return topic;
 };
 
 // Writes the first MAX_GENERATED_LESSONS planned lessons, each from its full
-// source span. Every topic keeps the index of its plan entry.
-const writeLessons = async ({ chat, fileName, extractedText, segments, plan, provider, model }) => {
-    const lessons = plan.slice(0, MAX_GENERATED_LESSONS);
-    const snippets = lessons.map((entry) => lessonSourceText(entry, segments));
-
-    let failedLessons = 0;
-    const generated = await mapWithConcurrency(
-        lessons,
+// source span. Every plan entry ends with a status: written, failed (the
+// model could not write it) or pending (not reached before the deadline).
+const writeLessons = async ({ chat, signal, fileName, extractedText, segments, plan, provider, model }) => {
+    const statuses = plan.map(() => ({ status: "pending" }));
+    const seenPrompts = [];
+    const written = await mapWithConcurrency(
+        plan.slice(0, MAX_GENERATED_LESSONS),
         TOPIC_GEN_CONCURRENCY,
-        async (topic, index) => {
+        async (entry, planIndex) => {
+            if (signal.aborted) return null;
             try {
-                return await generateOneTopic({
+                const topic = await writeTopic({
                     chat,
                     fileName,
-                    title: topic.title,
-                    snippet: snippets[index],
-                    kind: topic.kind,
+                    extractedText,
+                    entry,
+                    planIndex,
+                    source: lessonSourceText(entry, segments),
+                    seenPrompts,
                 });
+                statuses[planIndex] = { status: "written" };
+                return topic;
             } catch (error) {
-                failedLessons += 1;
-                console.warn("[aiCourseGeneration] topic generation failed", {
-                    title: topic.title,
+                if (isAbort(error) || signal.aborted) return null;
+                console.warn("[aiCourseGeneration] lesson failed", {
+                    title: entry.title,
                     message: error?.message || String(error),
                 });
-                return {
-                    lesson: excerptLesson(topic.title, snippets[index]),
-                    questions: [],
-                    inLessonChecks: [],
-                    ordering: null,
-                };
+                statuses[planIndex] = { status: "failed", error: String(error?.message || error).slice(0, 200) };
+                return null;
             }
         },
     );
-
+    const topics = written.filter(Boolean);
     // Nothing the model wrote survived: this is the heuristic course.
-    if (failedLessons === lessons.length) {
-        return { ...heuristicCurriculum({ fileName, segments }), backend: "heuristic_fallback" };
+    if (topics.length === 0) {
+        return {
+            ...heuristicCurriculum({ fileName, segments }),
+            backend: signal.aborted ? "heuristic_timeout" : "heuristic_fallback",
+        };
     }
-
-    const assembled = {
-        topics: lessons.map((topic, index) => ({
-            title: topic.title,
-            lesson: generated[index]?.lesson,
-            questions: generated[index]?.questions,
-            inLessonChecks: generated[index]?.inLessonChecks,
-            ordering: generated[index]?.ordering,
-            planIndex: index,
-        })),
-    };
-
-    const backend = provider || "ai";
-    let normalized = normalizeAiCoursePayload(assembled, { fileName, extractedText, backend });
-    if (normalized.backend === "heuristic") return heuristicCurriculum({ fileName, segments });
-
-    for (let index = 0; index < normalized.topics.length; index += 1) {
-        const topic = normalized.topics[index];
-        const mcqCount = (topic.questions || []).filter(
-            (question) => question.questionType !== "ordering" && question.surface !== "exam",
-        ).length;
-        if (mcqCount >= 2) continue;
-        try {
-            const extra = await generateOneTopic({
-                chat,
-                fileName,
-                title: topic.title,
-                description: topic.description,
-                snippet: snippets[topic.planIndex],
-                kind: lessons[topic.planIndex]?.kind,
-                previousQuestions: collectPrompts(normalized.topics),
-            });
-            // Checks bind by section index, so they must come from the same
-            // lesson they were written for.
-            const useExtraLesson = Boolean(normalizeLesson(extra.lesson));
-            const merged = normalizeAiCoursePayload(
-                {
-                    topics: [
-                        {
-                            ...topic,
-                            lesson: useExtraLesson ? extra.lesson : topic.lesson,
-                            questions: [
-                                ...(topic.questions || []).filter(
-                                    (question) => question.questionType !== "ordering" && question.surface !== "in_lesson",
-                                ),
-                                ...(Array.isArray(extra.questions) ? extra.questions : []),
-                            ],
-                            inLessonChecks: useExtraLesson ? extra.inLessonChecks : topic.inLessonChecks,
-                            ordering: useExtraLesson ? extra.ordering : topic.orderingCheck,
-                        },
-                    ],
-                },
-                { fileName, extractedText, backend },
-            );
-            if (merged.topics[0]) {
-                normalized.topics[index] = merged.topics[0];
-            }
-        } catch (error) {
-            console.warn("[aiCourseGeneration] serial question regen failed", {
-                title: topic.title,
-                message: error?.message || String(error),
-            });
-        }
-    }
-
-    normalized = {
-        ...normalized,
-        topics: dedupeCourseTopics(normalized.topics),
+    return {
+        backend: provider || "ai",
         model,
-        plan,
+        topics: dedupeAndSplitQuestions(topics),
+        plan: plan.map((entry, index) => ({ ...entry, ...statuses[index] })),
     };
-    return normalized;
 };
 
 const notifyProgress = (onProgress, stage) => {
@@ -424,30 +442,24 @@ const notifyProgress = (onProgress, stage) => {
         .catch(() => {});
 };
 
-const raceWithDeadline = (promise, { fallback, timeoutMs, onTimeout }) =>
-    new Promise((resolve) => {
-        let settled = false;
-        const timer = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            console.warn(`[aiCourseGeneration] generation exceeded ${timeoutMs}ms; using heuristic fallback`);
-            onTimeout?.();
-            resolve(fallback());
-        }, Math.max(1000, Number(timeoutMs) || GENERATION_TIMEOUT_MS));
-        const finish = (value) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            resolve(value);
-        };
-        Promise.resolve(promise).then(finish, () => finish(fallback()));
-    });
+// Rejects with LlmAbortedError as soon as the signal aborts, even if the
+// underlying call ignores the signal.
+const untilAborted = (promise, signal) => new Promise((resolve, reject) => {
+    if (signal.aborted) {
+        reject(new LlmAbortedError());
+        return;
+    }
+    const onAbort = () => reject(new LlmAbortedError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+});
 
 // onProgress(stage) is best-effort: "writing" fires once the lesson plan
 // exists and lessons and questions are being written. runContext ({ userId,
-// courseId, uploadId }) is attached to every model call's usage record. chat,
-// aiEnabled and timeoutMs default to the live providers; regression scripts
-// stub them.
+// courseId, uploadId }) is attached to every model call's usage record. At
+// the deadline, calls still running are cancelled: finished lessons are
+// kept and the rest stay in the plan as pending. chat, aiEnabled and
+// timeoutMs default to the live providers; regression scripts stub them.
 export const generateCourseCurriculumWithAi = async ({
     fileName,
     extractedText,
@@ -462,16 +474,18 @@ export const generateCourseCurriculumWithAi = async ({
     if (!segments.length || !aiEnabled()) {
         return heuristicCurriculum({ fileName, segments });
     }
-    const fallback = () => ({ ...heuristicCurriculum({ fileName, segments }), backend: "heuristic_timeout" });
-    // Calls still running at the deadline are cancelled, not left to bill.
     const controller = new AbortController();
-    const tracedChat = (args) => chat({
+    const deadline = setTimeout(() => {
+        console.warn(`[aiCourseGeneration] generation reached ${timeoutMs}ms; keeping finished lessons`);
+        controller.abort();
+    }, Math.max(1000, Number(timeoutMs) || GENERATION_TIMEOUT_MS));
+    const tracedChat = (args) => untilAborted(chat({
         ...args,
         signal: controller.signal,
         run: { ...runContext, ...(args.run || {}) },
-    });
+    }), controller.signal);
 
-    const work = (async () => {
+    try {
         let planned;
         try {
             planned = await planLessons({ chat: tracedChat, segments, fileName });
@@ -482,8 +496,9 @@ export const generateCourseCurriculumWithAi = async ({
             planned = { plan: heuristicLessonPlan(segments), provider: null, model: null };
         }
         notifyProgress(onProgress, "writing");
-        return writeLessons({
+        return await writeLessons({
             chat: tracedChat,
+            signal: controller.signal,
             fileName,
             extractedText: text,
             segments,
@@ -491,7 +506,7 @@ export const generateCourseCurriculumWithAi = async ({
             provider: planned.provider,
             model: planned.model,
         });
-    })();
-
-    return raceWithDeadline(work, { fallback, timeoutMs, onTimeout: () => controller.abort() });
+    } finally {
+        clearTimeout(deadline);
+    }
 };

@@ -68,7 +68,7 @@ const normalized = normalizeAiCoursePayload(
   { fileName: 'memory.pdf', extractedText: 'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.' },
 );
 
-if (normalized.backend !== 'deepseek' || normalized.topics.length !== 1) {
+if (normalized.backend !== 'ai' || normalized.topics.length !== 1) {
   throw new Error('Expected normalizeAiCoursePayload to accept a valid AI curriculum.');
 }
 if (normalized.topics[0].questions.length < 1) {
