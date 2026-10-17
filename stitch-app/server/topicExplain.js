@@ -91,6 +91,7 @@ export const explainTopicSelection = async ({
                 ],
                 temperature: 0.2,
                 maxTokens: 700,
+                run: { purpose: "explain_selection", userId, topicId: topic.id, courseId: topic.courseId },
             });
             explanation =
                 toPlainExplanation(llm?.text || "") ||
@@ -129,7 +130,7 @@ const reExplainUnavailable = (message, status = 502) => {
 // else: titles, roles, order, hook, recap and word bank. In-lesson checks bind
 // to a section by index, so they still apply to the rewritten lesson. Throws
 // when the model's answer does not have one usable body per section.
-export const rewriteLessonForStyle = async ({ lesson, title = "", style, chat = callCourseLlmChat }) => {
+export const rewriteLessonForStyle = async ({ lesson, title = "", style, run = {}, chat = callCourseLlmChat }) => {
     const sections = Array.isArray(lesson?.sections) ? lesson.sections : [];
     if (sections.length === 0) {
         throw reExplainUnavailable("This lesson has no sections to re-explain yet.", 409);
@@ -157,6 +158,7 @@ export const rewriteLessonForStyle = async ({ lesson, title = "", style, chat = 
         temperature: 0.3,
         maxTokens: 6000,
         responseFormat: "json_object",
+        run: { purpose: "re_explain", ...run },
     });
     const rewritten = extractJsonObject(llm?.text)?.sections;
     const bodies = (Array.isArray(rewritten) ? rewritten : []).map((item) => String(item?.body || "").trim());
@@ -187,6 +189,7 @@ export const reExplainTopicContent = async ({ userId, topicId, style }) => {
             lesson: topic.lesson,
             title: topic.title || "",
             style: resolvedStyle.instruction,
+            run: { userId, topicId: topic.id, courseId: topic.courseId, label: resolvedStyle.id },
         });
         return { lesson, style: resolvedStyle.id, backend };
     } catch (error) {

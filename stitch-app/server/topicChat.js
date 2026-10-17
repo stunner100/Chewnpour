@@ -231,6 +231,7 @@ export const askTopicTutor = async ({
                 ],
                 temperature: 0.2,
                 maxTokens: 1700,
+                run: { purpose: "topic_chat", userId, topicId: topic.id, courseId: topic.courseId },
             });
             assistantAnswer =
                 stripMarkdownLikeFormatting(llm?.text || "") ||

@@ -190,6 +190,7 @@ const generatePodcastScript = async (topic) => {
             ],
             temperature: 0.4,
             maxTokens: 1800,
+            run: { purpose: "podcast_script", topicId: topic.id, courseId: topic.courseId },
         });
         const parsed = parseDialogueTurns(llm?.text || "");
         if (parsed.length >= 2) return llm.text;

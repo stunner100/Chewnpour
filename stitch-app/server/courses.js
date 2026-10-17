@@ -311,6 +311,7 @@ export const ensureCourseFromUpload = async ({
         curriculum = await generateCourseCurriculumWithAi({
             fileName,
             extractedText: text,
+            runContext: { userId, uploadId, courseId },
             // Only move forward: generation abandoned at the deadline can still
             // report "writing" after the course has moved on to saving.
             onProgress: async (stage) => {

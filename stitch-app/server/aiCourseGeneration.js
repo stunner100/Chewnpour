@@ -295,6 +295,7 @@ const generateOneTopic = async ({
         temperature: previous.length ? 0.35 : 0.2,
         maxTokens: 4096,
         responseFormat: "json_object",
+        run: { purpose: previous.length ? "lesson_questions_retry" : "lesson", label: title },
     });
     const parsed = extractJsonObject(result.text);
     if (!parsed) {
@@ -423,13 +424,14 @@ const notifyProgress = (onProgress, stage) => {
         .catch(() => {});
 };
 
-const raceWithDeadline = (promise, { fallback, timeoutMs }) =>
+const raceWithDeadline = (promise, { fallback, timeoutMs, onTimeout }) =>
     new Promise((resolve) => {
         let settled = false;
         const timer = setTimeout(() => {
             if (settled) return;
             settled = true;
             console.warn(`[aiCourseGeneration] generation exceeded ${timeoutMs}ms; using heuristic fallback`);
+            onTimeout?.();
             resolve(fallback());
         }, Math.max(1000, Number(timeoutMs) || GENERATION_TIMEOUT_MS));
         const finish = (value) => {
@@ -442,12 +444,15 @@ const raceWithDeadline = (promise, { fallback, timeoutMs }) =>
     });
 
 // onProgress(stage) is best-effort: "writing" fires once the lesson plan
-// exists and lessons and questions are being written. chat, aiEnabled and
-// timeoutMs default to the live providers; regression scripts stub them.
+// exists and lessons and questions are being written. runContext ({ userId,
+// courseId, uploadId }) is attached to every model call's usage record. chat,
+// aiEnabled and timeoutMs default to the live providers; regression scripts
+// stub them.
 export const generateCourseCurriculumWithAi = async ({
     fileName,
     extractedText,
     onProgress,
+    runContext = {},
     chat = callCourseLlmChat,
     aiEnabled = isCourseAiEnabled,
     timeoutMs = GENERATION_TIMEOUT_MS,
@@ -458,11 +463,18 @@ export const generateCourseCurriculumWithAi = async ({
         return heuristicCurriculum({ fileName, segments });
     }
     const fallback = () => ({ ...heuristicCurriculum({ fileName, segments }), backend: "heuristic_timeout" });
+    // Calls still running at the deadline are cancelled, not left to bill.
+    const controller = new AbortController();
+    const tracedChat = (args) => chat({
+        ...args,
+        signal: controller.signal,
+        run: { ...runContext, ...(args.run || {}) },
+    });
 
     const work = (async () => {
         let planned;
         try {
-            planned = await planLessons({ chat, segments, fileName });
+            planned = await planLessons({ chat: tracedChat, segments, fileName });
         } catch (error) {
             console.warn("[aiCourseGeneration] lesson plan failed; grouping by headings", {
                 message: error?.message || String(error),
@@ -471,7 +483,7 @@ export const generateCourseCurriculumWithAi = async ({
         }
         notifyProgress(onProgress, "writing");
         return writeLessons({
-            chat,
+            chat: tracedChat,
             fileName,
             extractedText: text,
             segments,
@@ -481,5 +493,5 @@ export const generateCourseCurriculumWithAi = async ({
         });
     })();
 
-    return raceWithDeadline(work, { fallback, timeoutMs });
+    return raceWithDeadline(work, { fallback, timeoutMs, onTimeout: () => controller.abort() });
 };

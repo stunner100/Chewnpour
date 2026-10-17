@@ -166,6 +166,7 @@ export const planLessons = async ({ chat, segments, fileName }) => {
         temperature: 0.2,
         maxTokens: Math.min(8000, Math.max(1200, 400 + 40 * lessonCount)),
         responseFormat: "json_object",
+        run: { purpose: "lesson_plan" },
     });
     const lessons = parseLessonStarts(extractJsonObject(result.text), parts);
     if (!lessons) throw new Error("AI returned an unusable lesson plan.");
