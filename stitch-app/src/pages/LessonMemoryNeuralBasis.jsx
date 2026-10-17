@@ -111,6 +111,38 @@ const CourseShareControls = ({ course, onCourseChange }) => {
     );
 };
 
+// Long uploads are planned in full, but lessons are written for the first
+// parts only. This lists the parts that have no lesson yet, in order.
+const PartsWithoutLessons = ({ course }) => {
+    const plan = Array.isArray(course?.lessonPlan) ? course.lessonPlan : [];
+    const waiting = plan
+        .map((entry, index) => ({ ...entry, number: index + 1 }))
+        .filter((entry) => !entry.topicId);
+    if (waiting.length === 0) return null;
+    const written = plan.length - waiting.length;
+    return (
+        <section
+            aria-labelledby="parts-without-lessons"
+            className="rounded-[24px] border border-dashed border-border-default bg-surface p-5"
+        >
+            <h2 id="parts-without-lessons" className="font-display text-body-lg font-bold text-text-primary">
+                Parts without lessons yet
+            </h2>
+            <p className="mt-1 text-body-sm text-text-secondary">
+                Your file is long, so lessons were made for the first {written} of its {plan.length} parts.
+                These parts don&apos;t have lessons yet:
+            </p>
+            <ol className="mt-3 list-decimal space-y-1 pl-6 text-body-sm text-text-secondary">
+                {waiting.map((entry) => (
+                    <li key={`${entry.start}-${entry.end}`} value={entry.number}>
+                        {formatCourseTitle(entry.title) || entry.title}
+                    </li>
+                ))}
+            </ol>
+        </section>
+    );
+};
+
 const LessonMemoryNeuralBasis = () => {
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
@@ -374,6 +406,7 @@ const LessonMemoryNeuralBasis = () => {
                                 </article>
                             ))
                         )}
+                        {topics.length > 0 ? <PartsWithoutLessons course={selectedCourse} /> : null}
                     </div>
                 )}
             </div>

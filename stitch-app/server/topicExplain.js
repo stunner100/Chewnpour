@@ -1,7 +1,7 @@
 import { getTopicForUser } from "./courses.js";
 import { callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
 import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
-import { extractJsonObject } from "./aiCourseGeneration.js";
+import { extractJsonObject } from "./promptSafety.js";
 import { reExplainStyleById } from "../src/lib/reExplainStyles.js";
 
 const STYLE_PROMPTS = {

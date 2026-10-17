@@ -27,9 +27,9 @@ const chat = async ({ messages }) => {
     if (system.startsWith("You are ChewnPour's study curriculum planner.")) {
         return {
             text: JSON.stringify({
-                topics: [
-                    { title: "Balancing redox equations", description: "Half-reactions", focus: "half-reactions", kind: "procedure" },
-                    { title: "Oxidation numbers", description: "Assigning them", focus: "oxidation numbers", kind: "concept" },
+                lessons: [
+                    { title: "Balancing redox equations", kind: "procedure", firstPart: 0 },
+                    { title: "Oxidation numbers", kind: "concept", firstPart: 1 },
                 ],
             }),
             provider: "stub",
@@ -41,7 +41,12 @@ const chat = async ({ messages }) => {
 console.warn = () => {};
 await generateCourseCurriculumWithAi({
     fileName: "redox.pdf",
-    extractedText: "Assign oxidation numbers first. Then write the half-reactions and balance electrons. Oxidation numbers track electron transfer.",
+    extractedText: [
+        "# Balancing redox equations",
+        "Assign oxidation numbers first. Then write the half-reactions and balance electrons. ".repeat(20),
+        "# Oxidation numbers",
+        "Oxidation numbers track electron transfer between atoms in a reaction. ".repeat(20),
+    ].join("\n\n"),
     chat,
     aiEnabled: () => true,
 });

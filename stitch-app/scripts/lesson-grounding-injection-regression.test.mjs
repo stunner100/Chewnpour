@@ -70,8 +70,14 @@ assert.ok(
 );
 
 const aiSource = await fs.readFile(path.join(root, "server", "aiCourseGeneration.js"), "utf8");
+const promptSafety = await fs.readFile(path.join(root, "server", "promptSafety.js"), "utf8");
+const planningSource = await fs.readFile(path.join(root, "server", "lessonPlanning.js"), "utf8");
+for (const source of [aiSource, planningSource]) {
+    assert.match(source, /SOURCE_DATA_RULE/, "every source-carrying prompt restates the data rule");
+    assert.match(source, /untrustedSourceBlock\(/, "every source-carrying prompt fences the source");
+}
 assert.match(
-    aiSource,
+    promptSafety,
     /untrusted user-uploaded data/,
     "prompts must declare the source text untrusted data",
 );
@@ -82,8 +88,8 @@ assert.match(
 );
 assert.match(
     aiSource,
-    /sourceTruncated/,
-    "long documents must signal source truncation",
+    /MAX_GENERATED_LESSONS/,
+    "long documents are planned in full and written up to a lesson limit",
 );
 
 console.log("lesson-grounding-injection-regression.test.mjs passed");

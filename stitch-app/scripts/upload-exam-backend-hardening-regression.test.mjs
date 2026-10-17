@@ -62,8 +62,13 @@ const runQuery = async (rawSql, params = []) => {
         return { rows: [{ id: row.id }] };
     }
     if (sql.startsWith("UPDATE courses SET status = 'ready'")) {
-        const [id, description, backend] = params;
-        Object.assign(state.courses.find((c) => c.id === id), { status: 'ready', description, generation_backend: backend });
+        const [id, description, backend, lessonPlan] = params;
+        Object.assign(state.courses.find((c) => c.id === id), {
+            status: 'ready',
+            description,
+            generation_backend: backend,
+            lesson_plan: JSON.parse(lessonPlan),
+        });
         return { rows: [] };
     }
     if (sql.startsWith("DELETE FROM courses WHERE id = $1 AND status = 'generating'")) {
@@ -146,13 +151,12 @@ const reset = () => {
     state.failOnTopicInsert = null;
 };
 
+// Two chapters long enough to become two lessons, so a failure on the second
+// topic insert can be simulated.
+const chapter = (title, sentence) => [`# ${title}`, Array.from({ length: 16 }, () => sentence).join(' ')].join('\n\n');
 const sourceText = [
-    '# Cell biology',
-    'The cell membrane controls what enters and leaves the cell. It is a phospholipid bilayer.',
-    '## Mitochondria',
-    'Mitochondria produce ATP through cellular respiration and have their own DNA.',
-    '## Nucleus',
-    'The nucleus stores genetic material and coordinates growth and reproduction.',
+    chapter('Cell membranes', 'The cell membrane controls what enters and leaves the cell and is a phospholipid bilayer.'),
+    chapter('Mitochondria', 'Mitochondria produce ATP through cellular respiration and carry their own circular DNA.'),
 ].join('\n\n');
 
 const upload = { userId: 'user-1', uploadId: 'upload-1', fileName: 'Cell Biology.pdf', extractedText: sourceText };
@@ -169,6 +173,12 @@ const topicInserts = state.log.filter((sql) => sql.startsWith('INSERT INTO topic
 assert.equal(topicInserts, state.topics.length, 'the losing request must not insert topics');
 assert.ok(state.topics.length > 0, 'the winning request inserts topics');
 assert.ok([first, second].some((course) => course?.status === 'ready'));
+assert.deepEqual(
+    state.courses[0].lesson_plan.map((entry) => entry.topicId),
+    state.topics.map((topic) => topic.id),
+    'the stored lesson plan links each written lesson to its topic, in order',
+);
+assert.ok(state.courses[0].lesson_plan.every((entry) => entry.end > entry.start && entry.title));
 const beginAt = state.log.indexOf('BEGIN');
 const readyAt = state.log.findIndex((sql) => sql.startsWith("UPDATE courses SET status = 'ready'"));
 const commitAt = state.log.indexOf('COMMIT');
