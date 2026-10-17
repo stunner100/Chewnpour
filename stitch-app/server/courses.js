@@ -35,8 +35,9 @@ const toClientCourse = (row, extras = {}) => {
         firstTopicId: extras.firstTopicId ?? row.first_topic_id ?? null,
         firstQuizTopicId: extras.firstQuizTopicId ?? row.first_quiz_topic_id ?? null,
         quizTopics,
-        // Plan entries are { title, kind, start, end, chars, topicId }; a null
-        // topicId is a part of the upload that has no lesson yet.
+        // Plan entries are { title, kind, start, end, chars, status, topicId }:
+        // status "written" has a topic; "failed" could not be written;
+        // "pending" has not been written yet.
         lessonPlan: Array.isArray(row.lesson_plan) ? row.lesson_plan : [],
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
@@ -356,14 +357,20 @@ export const ensureCourseFromUpload = async ({
         const topicIdByPlanIndex = new Map(
             inserted.map((row, index) => [topicSpecs[index].planIndex, row.topicId]),
         );
-        const lessonPlan = plan.map((entry, index) => ({
-            title: entry.title,
-            kind: entry.kind || null,
-            start: entry.start,
-            end: entry.end,
-            chars: entry.chars,
-            topicId: topicIdByPlanIndex.get(index) || null,
-        }));
+        const lessonPlan = plan.map((entry, index) => {
+            const topicId = topicIdByPlanIndex.get(index) || null;
+            const status = topicId ? "written" : entry.status === "failed" ? "failed" : "pending";
+            return {
+                title: entry.title,
+                kind: entry.kind || null,
+                start: entry.start,
+                end: entry.end,
+                chars: entry.chars,
+                status,
+                topicId,
+                ...(status === "failed" && entry.error ? { error: entry.error } : {}),
+            };
+        });
         await client.query(
             `UPDATE courses
              SET status = 'ready',

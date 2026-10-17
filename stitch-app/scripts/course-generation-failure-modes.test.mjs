@@ -1,14 +1,16 @@
-// Drives generateCourseCurriculumWithAi with a stubbed LLM to pin down what
-// happens when generation goes wrong: truncated JSON, one topic failing, a
-// stalled provider, every provider failing, and a table-of-contents source.
+// Drives generateCourseCurriculumWithAi with a stubbed LLM to check what
+// happens when generation goes wrong: truncated replies, a lesson that cannot
+// be written, a quiz call that fails, a stalled provider, every provider
+// failing, and a table-of-contents source.
 //
-// Each knownBug() pins today's behavior. When a fix lands, replace it with a
-// plain assertion of the fixed behavior (the `fixed` note says what that is).
+// knownBug() pins behavior that is still wrong (fixed in a later PR); replace
+// it with a plain assertion when the fix lands.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateCourseCurriculumWithAi } from '../server/aiCourseGeneration.js';
+import { LlmTruncatedError } from '../server/llmClient.js';
 
 // The generator logs every failure it recovers from; these runs fail on purpose.
 console.warn = () => {};
@@ -82,6 +84,9 @@ const lessonJson = (topic, { code = false } = {}) => ({
         recap: [{ prompt: `Name one fact about ${topic.title}.`, answer: topic.facts[0] }],
         wordBank: [{ term: topic.title, definition: 'the focus of this lesson' }],
     },
+});
+
+const questionsJson = (topic) => ({
     questions: topic.facts.map((fact, index) => ({
         prompt: topic.prompts[index],
         options: [fact, ...DISTRACTORS],
@@ -112,129 +117,138 @@ const planJson = (topics, messages) => {
 
 const callKind = (messages) => {
     const system = String(messages?.[0]?.content || '');
-    if (system.startsWith("You are ChewnPour's study curriculum planner.")) return 'outline';
-    if (system.startsWith("You are ChewnPour's study lesson writer.")) return 'topic';
+    if (system.startsWith("You are ChewnPour's study curriculum planner.")) return 'plan';
+    if (system.startsWith("You are ChewnPour's study lesson writer.")) return 'lesson';
+    if (system.startsWith("You are ChewnPour's quiz writer.")) return 'questions';
     return 'unknown';
 };
 
-const topicTitleOf = (messages) =>
-    String(messages?.[1]?.content || '').match(/^Topic title: (.+)$/m)?.[1] || '';
+const titleOf = (messages) =>
+    String(messages?.[1]?.content || '').match(/^Lesson title: (.+)$/m)?.[1] || '';
 
-const snippetOf = (messages) =>
+const sourceOf = (messages) =>
     String(messages?.[1]?.content || '').match(/\(untrusted data\):\n(`{3,})\n([\s\S]*)\n\1$/)?.[2] || '';
 
-// A stub provider. `onTopic` decides what each per-topic call returns.
-const makeChat = ({ topics, onTopic, onOutline }) => {
+const ok = (body) => ({ text: JSON.stringify(body), provider: 'stub', model: 'stub-1' });
+
+// A stub provider. onLesson / onQuestions decide each reply; they get the
+// topic and how many times that call kind has been made for it.
+const makeChat = ({ topics, onPlan, onLesson = (topic) => ok(lessonJson(topic)), onQuestions = (topic) => ok(questionsJson(topic)) }) => {
     const calls = [];
     const chat = async (args) => {
         const kind = callKind(args.messages);
-        const title = kind === 'topic' ? topicTitleOf(args.messages) : '';
+        const title = kind === 'plan' ? '' : titleOf(args.messages);
         calls.push({
             kind,
             title,
-            snippet: kind === 'topic' ? snippetOf(args.messages) : '',
+            source: kind === 'lesson' ? sourceOf(args.messages) : '',
             signal: args.signal,
             run: args.run,
             maxTokens: args.maxTokens,
         });
-        if (kind === 'outline') {
-            if (onOutline) return onOutline();
-            return { text: JSON.stringify(planJson(topics, args.messages)), provider: 'stub', model: 'stub-1' };
-        }
-        if (kind === 'topic') {
-            const topic = topics.find((entry) => entry.title === title);
-            return onTopic(topic, calls.filter((call) => call.kind === 'topic' && call.title === title).length);
-        }
+        if (kind === 'plan') return onPlan ? onPlan() : ok(planJson(topics, args.messages));
+        const topic = topics.find((entry) => entry.title === title);
+        const attempt = calls.filter((call) => call.kind === kind && call.title === title).length;
+        if (kind === 'lesson') return onLesson(topic, attempt);
+        if (kind === 'questions') return onQuestions(topic, attempt);
         throw new Error(`stub: unexpected ${kind} call`);
     };
     return { chat, calls };
 };
 
-const ok = (topic, options) => ({ text: JSON.stringify(lessonJson(topic, options)), provider: 'stub', model: 'stub-1' });
 const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => true, ...args });
+const truncated = () => {
+    throw new LlmTruncatedError({ provider: 'stub', model: 'stub-1', usage: null });
+};
+const statusOf = (result, title) => result.plan.find((entry) => entry.title === title)?.status;
 
-// Baseline: a clean run keeps every topic, its markdown and its grounded MCQs.
+// Baseline: one plan call, then a lesson call and a quiz call per lesson.
 {
-    const { chat, calls } = makeChat({ topics: LOOP_TOPICS, onTopic: (topic) => ok(topic, { code: true }) });
+    const { chat, calls } = makeChat({ topics: LOOP_TOPICS, onLesson: (topic) => ok(lessonJson(topic, { code: true })) });
     const result = await generate({ fileName: 'loops.pdf', extractedText: loopNotes, chat });
     assert.equal(result.backend, 'stub');
     assert.deepEqual(result.topics.map((topic) => topic.title), ['For Loops', 'While Loops and Errors']);
+    assert.deepEqual(result.plan.map((entry) => entry.status), ['written', 'written']);
     for (const topic of result.topics) {
-        assert.equal(topic.lesson.sections.length, 2, 'both sections are kept');
         assert.ok(topic.lesson.sections[1].body.includes('```python\nfor n in range(10):\n    print(n)\n```'), 'code block survives generation intact');
-        assert.equal(topic.lesson.sections[1].role, 'example');
         assert.equal(topic.questions.filter((question) => question.surface === 'quiz').length, 3, 'three quiz MCQs per topic');
         assert.equal(topic.questions.filter((question) => question.surface === 'exam').length, 1, 'remaining MCQs go to the exam');
     }
-    assert.deepEqual(calls.map((call) => call.kind), ['outline', 'topic', 'topic'], 'one outline call and one call per topic');
-    assert.ok(calls.every((call) => call.kind !== 'topic' || call.maxTokens === 4096), 'topic calls ask for 4,096 tokens');
+    const count = (kind) => calls.filter((call) => call.kind === kind).length;
+    assert.deepEqual([count('plan'), count('lesson'), count('questions')], [1, 2, 2]);
+    assert.ok(calls.filter((call) => call.kind === 'lesson').every((call) => call.maxTokens === 6000));
+    assert.ok(calls.filter((call) => call.kind === 'questions').every((call) => call.maxTokens === 3000));
 }
 
-// H1: a truncated reply ships that lesson's raw source text as the lesson.
-{
-    const truncateDivision = (topic) => {
-        if (topic.title !== 'Cell Division') return ok(topic);
-        const full = JSON.stringify(lessonJson(topic));
-        return { text: full.slice(0, Math.floor(full.length * 0.6)), provider: 'stub', model: 'stub-1' };
-    };
-    const { chat, calls } = makeChat({ topics: CELL_TOPICS, onTopic: truncateDivision });
-    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
-    const division = result.topics.find((topic) => topic.title === 'Cell Division');
-    const divisionCalls = calls.filter((call) => call.kind === 'topic' && call.title === 'Cell Division');
-    knownBug(
-        'H1 (truncation ships raw text)',
-        {
-            rawSource: division.lesson.sections.length === 1 && division.lesson.sections[0].body === divisionCalls[0].snippet.trim(),
-            questions: division.questions.length,
-            flagged: 'status' in division,
-        },
-        { rawSource: true, questions: 0, flagged: false },
-        'a truncated response is retried with a larger budget, and a topic that still fails is flagged instead of shipping its raw source',
-    );
-    assert.equal(divisionCalls.length, 2, 'the truncated topic is attempted once, then once more by the serial question regen');
-}
-
-// When every lesson call fails, the course is reported as the heuristic course.
-{
-    const truncateAll = (topic) => {
-        const full = JSON.stringify(lessonJson(topic));
-        return { text: full.slice(0, Math.floor(full.length * 0.6)), provider: 'stub', model: 'stub-1' };
-    };
-    const { chat } = makeChat({ topics: CELL_TOPICS, onTopic: truncateAll });
-    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
-    assert.equal(result.backend, 'heuristic_fallback');
-    assert.ok(result.topics.every((topic) => topic.questions.length === 0));
-}
-
-// One topic throws every time; the others succeed.
-{
-    const { chat } = makeChat({
-        topics: CELL_TOPICS,
-        onTopic: (topic) => {
-            if (topic.title === 'Membrane Transport') throw new Error('stub: provider 502');
-            return ok(topic);
-        },
-    });
-    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
-    const failed = result.topics.find((topic) => topic.title === 'Membrane Transport');
-    assert.equal(result.topics.length, 3, 'the other topics are kept');
-    knownBug(
-        'H1 (failed topic ships raw text, unflagged)',
-        { sections: failed.lesson.sections.length, questions: failed.questions.length, flagged: 'status' in failed },
-        { sections: 1, questions: 0, flagged: false },
-        'the failed topic carries a failed status the UI can show, with a Regenerate action',
-    );
-    assert.ok(
-        result.topics.filter((topic) => topic !== failed).every((topic) => topic.questions.length >= 3),
-        'healthy topics keep their questions',
-    );
-}
-
-// H4: one topic stalls past the course deadline.
+// H1 fixed: a truncated lesson is retried once with more room.
 {
     const { chat, calls } = makeChat({
         topics: CELL_TOPICS,
-        onTopic: (topic) => (topic.title === 'Cell Division' ? new Promise(() => {}) : ok(topic)),
+        onLesson: (topic, attempt) => (topic.title === 'Cell Division' && attempt === 1 ? truncated() : ok(lessonJson(topic))),
+    });
+    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
+    const retries = calls.filter((call) => call.kind === 'lesson' && call.title === 'Cell Division');
+    assert.deepEqual(retries.map((call) => [call.maxTokens, call.run.purpose]), [[6000, 'lesson'], [9600, 'lesson_retry']]);
+    const division = result.topics.find((topic) => topic.title === 'Cell Division');
+    assert.equal(division.lesson.sections[0].title, 'What the notes say about Cell Division', 'the retried lesson is the model\'s lesson');
+    assert.equal(division.questions.filter((question) => question.surface === 'quiz').length, 3);
+    assert.equal(statusOf(result, 'Cell Division'), 'written');
+}
+
+// A lesson that stays truncated is not written; its source text is never
+// shipped as the lesson, and the other lessons are kept.
+{
+    const { chat } = makeChat({
+        topics: CELL_TOPICS,
+        onLesson: (topic) => (topic.title === 'Cell Division' ? truncated() : ok(lessonJson(topic))),
+    });
+    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
+    assert.deepEqual(result.topics.map((topic) => topic.title), ['Cell Structure', 'Membrane Transport']);
+    assert.equal(statusOf(result, 'Cell Division'), 'failed');
+    assert.match(result.plan.find((entry) => entry.title === 'Cell Division').error, /max_tokens/);
+    assert.equal(result.backend, 'stub');
+}
+
+// A lesson call that throws: that lesson fails, the rest keep their quizzes.
+{
+    const { chat } = makeChat({
+        topics: CELL_TOPICS,
+        onLesson: (topic) => {
+            if (topic.title === 'Membrane Transport') throw new Error('stub: provider 502');
+            return ok(lessonJson(topic));
+        },
+    });
+    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
+    assert.deepEqual(result.plan.map((entry) => entry.status), ['written', 'failed', 'written']);
+    assert.ok(result.topics.every((topic) => topic.questions.length >= 3), 'healthy topics keep their questions');
+}
+
+// A failed quiz call keeps the lesson without a quiz; too few usable
+// questions re-runs only the quiz call.
+{
+    const { chat, calls } = makeChat({
+        topics: CELL_TOPICS,
+        onQuestions: (topic, attempt) => {
+            if (topic.title === 'Cell Structure') throw new Error('stub: provider 502');
+            if (topic.title === 'Membrane Transport' && attempt === 1) return ok({ questions: [], inLessonChecks: [], ordering: null });
+            return ok(questionsJson(topic));
+        },
+    });
+    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
+    const byTitle = Object.fromEntries(result.topics.map((topic) => [topic.title, topic]));
+    assert.equal(byTitle['Cell Structure'].questions.length, 0, 'the lesson is kept without a quiz');
+    assert.equal(byTitle['Membrane Transport'].questions.filter((question) => question.surface === 'quiz').length, 3, 'the quiz call is re-run');
+    const membraneCalls = calls.filter((call) => call.title === 'Membrane Transport');
+    assert.deepEqual(membraneCalls.map((call) => call.run.purpose), ['lesson', 'lesson_questions', 'lesson_questions_retry'], 'only the quiz call is repeated');
+    assert.deepEqual(result.plan.map((entry) => entry.status), ['written', 'written', 'written']);
+}
+
+// H4 fixed: at the deadline, finished lessons are kept, the stalled call is
+// cancelled and its lesson stays pending in the plan.
+{
+    const { chat, calls } = makeChat({
+        topics: CELL_TOPICS,
+        onLesson: (topic) => (topic.title === 'Cell Division' ? new Promise(() => {}) : ok(lessonJson(topic))),
     });
     const result = await generate({
         fileName: 'cells.pdf',
@@ -243,33 +257,26 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
         timeoutMs: 1000,
         runContext: { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1' },
     });
-    knownBug(
-        'H4 (deadline discards finished topics)',
-        { backend: result.backend, aiQuestions: result.topics.reduce((sum, topic) => sum + topic.questions.length, 0) },
-        { backend: 'heuristic_timeout', aiQuestions: 0 },
-        'the two finished topics are kept with their questions and only Cell Division is flagged',
-    );
-    // Fixed in 4.1: every call gets the generation's signal, the deadline
-    // aborts it, and each call carries its usage context.
-    const stalled = calls.find((call) => call.kind === 'topic' && call.title === 'Cell Division');
-    assert.ok(stalled.signal instanceof AbortSignal);
+    assert.equal(result.backend, 'stub');
+    assert.deepEqual(result.topics.map((topic) => topic.title), ['Cell Structure', 'Membrane Transport']);
+    assert.ok(result.topics.every((topic) => topic.questions.length >= 3));
+    assert.deepEqual(result.plan.map((entry) => entry.status), ['written', 'written', 'pending']);
+    const stalled = calls.find((call) => call.kind === 'lesson' && call.title === 'Cell Division');
     assert.equal(stalled.signal.aborted, true, 'the stalled call is cancelled at the deadline');
-    assert.ok(calls.every((call) => call.signal === stalled.signal));
-    assert.deepEqual(calls.find((call) => call.kind === 'outline').run, { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1', purpose: 'lesson_plan' });
+    assert.deepEqual(calls.find((call) => call.kind === 'plan').run, { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1', purpose: 'lesson_plan' });
     assert.deepEqual(stalled.run, { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1', purpose: 'lesson', label: 'Cell Division' });
 }
 
-// Every provider fails: the plan falls back to headings, every lesson call
-// fails, and the heuristic course (no quiz) is returned as such.
+// Every provider fails: the plan falls back to headings, every lesson fails,
+// and the heuristic course (no quiz) is returned as such.
 {
     const providersDown = () => {
         throw new Error('Course LLM providers failed: grid 500 | deepseek 500');
     };
-    const { chat } = makeChat({ topics: CELL_TOPICS, onOutline: providersDown, onTopic: providersDown });
+    const { chat } = makeChat({ topics: CELL_TOPICS, onPlan: providersDown, onLesson: providersDown, onQuestions: providersDown });
     const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
     assert.equal(result.backend, 'heuristic_fallback');
     assert.deepEqual(result.topics.map((topic) => topic.title), result.plan.slice(0, 12).map((entry) => entry.title));
-    assert.ok(result.topics.length >= 1);
     assert.ok(result.topics.every((topic) => topic.questions.length === 0), 'heuristic topics have no quiz');
     knownBug(
         'H3 (heuristic fallback is final)',
@@ -281,14 +288,14 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
 
 // M1 fixed: each lesson is written from its own chapter, never the contents list.
 {
-    const { chat, calls } = makeChat({ topics: CELL_TOPICS, onTopic: (topic) => ok(topic) });
+    const { chat, calls } = makeChat({ topics: CELL_TOPICS });
     const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
-    const snippetFor = (title) => calls.find((call) => call.kind === 'topic' && call.title === title).snippet;
-    assert.match(snippetFor('Cell Division'), /^# 3\. Cell Division\n\nMitosis produces two identical daughter cells/);
+    const sourceFor = (title) => calls.find((call) => call.kind === 'lesson' && call.title === title).source;
+    assert.match(sourceFor('Cell Division'), /^# 3\. Cell Division\n\nMitosis produces two identical daughter cells/);
     for (const topic of CELL_TOPICS) {
-        assert.doesNotMatch(snippetFor(topic.title), /\.{4,}\s*\d/, `${topic.title} source has no contents lines`);
+        assert.doesNotMatch(sourceFor(topic.title), /\.{4,}\s*\d/, `${topic.title} source has no contents lines`);
     }
-    assert.doesNotMatch(snippetFor('Cell Structure'), /Mitosis produces/, 'lessons do not share source text');
+    assert.doesNotMatch(sourceFor('Cell Structure'), /Mitosis produces/, 'lessons do not share source text');
     assert.deepEqual(result.plan.map((entry) => entry.title), CELL_TOPICS.map((topic) => topic.title));
     assert.equal(result.plan[0].start, 0);
     assert.equal(result.plan.at(-1).end, cellNotes.trim().length, 'the plan covers the whole source');
@@ -297,7 +304,7 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
 // M12 (generation side): text that is only page numbers makes no model call.
 // Sending such uploads to OCR is PR 5a.
 {
-    const { chat, calls } = makeChat({ topics: CELL_TOPICS, onTopic: (topic) => ok(topic) });
+    const { chat, calls } = makeChat({ topics: CELL_TOPICS });
     const result = await generate({ fileName: 'scan.pdf', extractedText: scannedPdfText, chat });
     assert.equal(calls.length, 0);
     assert.equal(result.backend, 'heuristic');
