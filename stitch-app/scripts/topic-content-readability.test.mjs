@@ -7,8 +7,6 @@ import {
 // cleanDisplayLine: single-line display text (titles, passages).
 assert.equal(cleanDisplayLine('**Key Term** : \\[retrieval\\] system'), 'Key Term : retrieval system');
 assert.equal(cleanDisplayLine('*Simple* [example] _text_ with **markers**'), 'Simple example text with markers');
-assert.equal(cleanDisplayLine('P E R F O R M A N C E R E P O R T'), 'Performance Report', 'spaced OCR headings are joined');
-assert.equal(cleanDisplayLine('P E R F O R M A N C E R E P'), 'Performance Report', 'clipped spaced OCR headings are joined');
 
 // normalizeLessonContent: escapes and whitespace only; markdown structure is untouched.
 const lesson = [

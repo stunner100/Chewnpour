@@ -80,11 +80,23 @@ const extractPlainText = (fileBuffer) => {
     };
 };
 
+export const countPdfPages = async (fileBuffer) => {
+    const pdf = await getDocumentProxy(new Uint8Array(fileBuffer), { verbosity: 0 });
+    try {
+        return Number(pdf.numPages) || null;
+    } finally {
+        await pdf.destroy?.().catch(() => undefined);
+    }
+};
+
+// Pages are kept apart by a blank line, so a page break never joins two
+// paragraphs.
 const extractPdfText = async (fileBuffer) => {
     const pdf = await getDocumentProxy(new Uint8Array(fileBuffer), { verbosity: 0 });
     try {
-        const { text, totalPages } = await extractText(pdf, { mergePages: true });
-        const merged = typeof text === "string" ? text.trim() : "";
+        const { text, totalPages } = await extractText(pdf, { mergePages: false });
+        const pages = Array.isArray(text) ? text : [String(text || "")];
+        const merged = pages.map((page) => String(page || "").trim()).filter(Boolean).join("\n\n");
         const warnings = [];
         if (!merged) {
             warnings.push(
@@ -101,20 +113,40 @@ const extractPdfText = async (fileBuffer) => {
     }
 };
 
+// Title and Heading1-3 paragraph styles become markdown headings, which the
+// lesson planner splits on. Headers and footers are left out: they repeat on
+// every page and teach nothing.
+const DOCX_PARAGRAPH_RE = /<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g;
+const docxHeadingLevel = (paragraphXml) => {
+    const style = paragraphXml.match(/<w:pStyle\b[^>]*\bw:val="([^"]+)"/)?.[1] || "";
+    if (/^title$/i.test(style)) return 1;
+    const level = Number(style.match(/^heading\s*([1-9])$/i)?.[1]);
+    return level ? Math.min(level, 3) : 0;
+};
+
+export const docxXmlToMarkdown = (xml) => (String(xml || "").match(DOCX_PARAGRAPH_RE) || [])
+    .map((paragraphXml) => {
+        // Word splits text into runs anywhere, even mid-word, so runs are
+        // joined without a space.
+        const text = decodeXmlEntities(paragraphXml
+            .replace(/<w:(?:tab|br)\b[^>]*\/>/gi, " ")
+            .replace(/<[^>]+>/g, ""))
+            .replace(/\s+/g, " ")
+            .trim();
+        if (!text) return "";
+        const level = docxHeadingLevel(paragraphXml);
+        return level ? `${"#".repeat(level)} ${text}` : text;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
 const extractDocxText = (fileBuffer) => {
     const files = unzipSync(new Uint8Array(fileBuffer));
     const documentXml = files["word/document.xml"];
     if (!documentXml) {
         throw new Error("Invalid DOCX: missing word/document.xml");
     }
-    const parts = [stripXmlToText(new TextDecoder().decode(documentXml))];
-    for (const [name, bytes] of Object.entries(files)) {
-        if (/^word\/(header|footer)\d*\.xml$/i.test(name)) {
-            const extra = stripXmlToText(new TextDecoder().decode(bytes));
-            if (extra) parts.push(extra);
-        }
-    }
-    const text = parts.filter(Boolean).join("\n\n").trim();
+    const text = docxXmlToMarkdown(new TextDecoder().decode(documentXml)).trim();
     return {
         text,
         pageCount: null,
