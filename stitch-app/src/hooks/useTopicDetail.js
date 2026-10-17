@@ -37,6 +37,8 @@ const fetchTopicPayload = async (topicId) => {
         sourceUploadId: topic.sourceUploadId || topic.uploadId || null,
         assessmentRoute: topic.assessmentRoute || 'topic_quiz',
         inLessonChecks: Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : [],
+        // The topic's course, for its lesson plan and any job rewriting it.
+        course: payload?.course || null,
     };
 };
 
@@ -78,6 +80,9 @@ export const useTopicDetail = () => {
     const [chatOpen, setChatOpen] = useState(false);
     const [sourceOpen, setSourceOpen] = useState(false);
     const [topicQueryResult, setTopicQueryResult] = useState(undefined);
+    // Bumped to fetch the topic again (after its lesson is regenerated).
+    const [topicReloadKey, setTopicReloadKey] = useState(0);
+    const reloadTopic = useCallback(() => setTopicReloadKey((key) => key + 1), []);
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
         // Default to full lesson so direct links (e.g. lesson cards) open readable content
@@ -196,7 +201,8 @@ export const useTopicDetail = () => {
         }
 
         let cancelled = false;
-        setTopicQueryResult(undefined);
+        // A reload keeps showing the topic until the new copy arrives.
+        setTopicQueryResult((current) => (current && current._id === routeTopicId ? current : undefined));
 
         fetchTopicPayload(routeTopicId)
             .then((topic) => {
@@ -209,7 +215,7 @@ export const useTopicDetail = () => {
         return () => {
             cancelled = true;
         };
-    }, [routeTopicId, authLoading, user?.id]);
+    }, [routeTopicId, authLoading, user?.id, topicReloadKey]);
 
     const {
         topic,
@@ -319,6 +325,19 @@ export const useTopicDetail = () => {
             console.warn('Failed to cache lesson', error);
         }
     }, [lessonCacheKey, topic?.lesson]);
+
+    // A regenerated lesson replaces the old one: its re-explained version no
+    // longer matches it, so it is dropped.
+    const handleTopicRegenerated = useCallback(() => {
+        try {
+            if (storageKey) localStorage.removeItem(storageKey);
+        } catch {
+            // Storage may be unavailable; the stale copy then stays until replaced.
+        }
+        setSimplifiedLesson(null);
+        setExplanationView('original');
+        reloadTopic();
+    }, [storageKey, reloadTopic]);
 
     const originalLesson = topic?.lesson || cachedLesson;
     const hasReexplainedLesson = Boolean(simplifiedLesson);
@@ -676,6 +695,7 @@ export const useTopicDetail = () => {
     const hasQuizCta = false;
 
     return {
+        reloadTopic: handleTopicRegenerated,
         activeSectionId,
         activeSectionLabel,
         chatInitialPrompt,

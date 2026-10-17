@@ -1,19 +1,22 @@
-// Drives generateCourseCurriculumWithAi with a stubbed LLM to check what
-// happens when generation goes wrong: truncated replies, a lesson that cannot
-// be written, a quiz call that fails, a stalled provider, every provider
+// Runs the background generation job (server/generationJobs.js) on a scratch
+// database with a stubbed LLM to check what happens when generation goes
+// wrong: truncated replies, a lesson that cannot be written, a quiz call that
+// fails, the worker's time budget, a worker killed mid-job, every provider
 // failing, and a table-of-contents source.
-//
-// knownBug() pins behavior that is still wrong (fixed in a later PR); replace
-// it with a plain assertion when the fix lands.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateCourseCurriculumWithAi } from '../server/aiCourseGeneration.js';
+import { createScratchDb, seedCourse } from './lib/scratchDb.mjs';
 import { LlmTruncatedError } from '../server/llmClient.js';
 
 // The generator logs every failure it recovers from; these runs fail on purpose.
 console.warn = () => {};
+
+const scratch = await createScratchDb('failure_modes');
+const { getPool } = await import('../server/db.js');
+const { claimGenerationJob, enqueueGenerationJob, runGenerationJob } = await import('../server/generationJobs.js');
+const db = getPool();
 
 const sourceDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'sources');
 const readSource = (name) => fs.readFileSync(path.join(sourceDir, name), 'utf8');
@@ -21,13 +24,6 @@ const cellNotes = readSource('toc-heavy-cell-biology.md');
 const loopNotes = readSource('python-loops-notes.md');
 const scannedPdfText = readSource('scanned-page-numbers.txt');
 
-const knownBug = (id, actual, expected, fixed) => {
-    assert.deepEqual(
-        actual,
-        expected,
-        `Known bug ${id} no longer reproduces. If this was fixed on purpose, replace this knownBug() with an assertion that ${fixed}.`,
-    );
-};
 
 const CELL_TOPICS = [
     {
@@ -166,7 +162,38 @@ const makeChat = ({ topics, onPlan, onLesson = (topic) => ok(lessonJson(topic)),
     return { chat, calls };
 };
 
-const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => true, ...args });
+const readCourse = async (courseId) => {
+    const course = (await db.query('SELECT * FROM courses WHERE id = $1', [courseId])).rows[0];
+    const topics = (await db.query('SELECT * FROM topics WHERE course_id = $1 ORDER BY sort_order', [courseId])).rows;
+    const questions = (await db.query('SELECT * FROM questions WHERE course_id = $1 ORDER BY sort_order', [courseId])).rows;
+    return {
+        status: course.status,
+        backend: course.generation_backend,
+        plan: course.lesson_plan,
+        topics: topics.map((topic) => ({
+            id: topic.id,
+            title: topic.title,
+            sortOrder: topic.sort_order,
+            lesson: topic.lesson,
+            grounding: topic.grounding,
+            questions: questions
+                .filter((question) => question.topic_id === topic.id)
+                .map((question) => ({ prompt: question.prompt, surface: question.surface, questionType: question.question_type })),
+        })),
+    };
+};
+
+// Seeds an upload and its course, queues the course job and runs it once.
+let seeded = 0;
+const generate = async ({ fileName, extractedText, chat, ...options }) => {
+    seeded += 1;
+    const ids = await seedCourse(db, { id: String(seeded), extractedText, fileName });
+    const queued = await enqueueGenerationJob({ courseId: ids.courseId, userId: ids.userId, uploadId: ids.uploadId });
+    const job = await claimGenerationJob({ jobId: queued.id });
+    const run = await runGenerationJob(job, { chat, aiEnabled: () => true, ...options });
+    return { ...(await readCourse(ids.courseId)), run, ids, jobId: queued.id };
+};
+const jobRow = async (jobId) => (await db.query('SELECT * FROM generation_jobs WHERE id = $1', [jobId])).rows[0];
 const truncated = () => {
     throw new LlmTruncatedError({ provider: 'stub', model: 'stub-1', usage: null });
 };
@@ -259,47 +286,76 @@ const statusOf = (result, title) => result.plan.find((entry) => entry.title === 
     assert.deepEqual(result.plan.map((entry) => entry.status), ['written', 'written', 'written']);
 }
 
-// H4 fixed: at the deadline, finished lessons are kept, the stalled call is
-// cancelled and its lesson stays pending in the plan.
+// H4: the worker stops starting lessons at its time budget and puts the job
+// back in the queue; lessons already written are kept, and the next worker
+// writes the rest. Every call carries the job's context.
 {
-    const { chat, calls } = makeChat({
-        topics: CELL_TOPICS,
-        onLesson: (topic) => (topic.title === 'Cell Division' ? new Promise(() => {}) : ok(lessonJson(topic))),
-    });
-    const result = await generate({
-        fileName: 'cells.pdf',
-        extractedText: cellNotes,
-        chat,
-        timeoutMs: 1000,
-        runContext: { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1' },
-    });
-    assert.equal(result.backend, 'stub');
-    assert.deepEqual(result.topics.map((topic) => topic.title), ['Cell Structure', 'Membrane Transport']);
-    assert.ok(result.topics.every((topic) => topic.questions.length >= 3));
-    assert.deepEqual(result.plan.map((entry) => entry.status), ['written', 'written', 'pending']);
-    const stalled = calls.find((call) => call.kind === 'lesson' && call.title === 'Cell Division');
-    assert.equal(stalled.signal.aborted, true, 'the stalled call is cancelled at the deadline');
-    assert.deepEqual(calls.find((call) => call.kind === 'plan').run, { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1', purpose: 'lesson_plan' });
-    assert.deepEqual(stalled.run, { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1', purpose: 'lesson', label: 'Cell Division' });
+    const { chat, calls } = makeChat({ topics: CELL_TOPICS });
+    let clock = 0;
+    // Each clock read advances 10 s; the budget allows the first lessons only.
+    const now = () => (clock += 10_000);
+    const first = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat, startBudgetMs: 25_000, now });
+    assert.equal(first.run.status, 'requeued');
+    assert.ok(first.topics.length >= 1 && first.topics.length < 3, 'some lessons are written before the budget');
+    assert.equal(first.status, 'generating', 'the course is still being written');
+    assert.equal((await jobRow(first.jobId)).status, 'queued');
+    assert.ok(first.plan.some((entry) => entry.status === 'pending'));
+
+    const resumed = await claimGenerationJob({ jobId: first.jobId });
+    assert.equal(resumed.attempts, 2);
+    const second = await runGenerationJob(resumed, { chat, aiEnabled: () => true });
+    assert.equal(second.status, 'done');
+    const after = await readCourse(first.ids.courseId);
+    assert.equal(after.status, 'ready');
+    assert.deepEqual(after.topics.map((topic) => topic.title), CELL_TOPICS.map((topic) => topic.title), 'lessons are in document order');
+    assert.deepEqual(after.topics.map((topic) => topic.sortOrder), [0, 1, 2]);
+    assert.equal(after.topics[0].id, first.topics[0].id, 'lessons from the first worker are kept');
+    assert.deepEqual(after.plan.map((entry) => entry.status), ['written', 'written', 'written']);
+    assert.deepEqual(after.plan.map((entry) => entry.topicId), after.topics.map((topic) => topic.id));
+    assert.equal(calls.filter((call) => call.kind === 'lesson').length, 3, 'no lesson is written twice');
+    assert.equal((await jobRow(first.jobId)).status, 'done');
+
+    const context = { courseId: first.ids.courseId, uploadId: first.ids.uploadId, userId: first.ids.userId };
+    assert.deepEqual(calls.find((call) => call.kind === 'plan').run, { ...context, purpose: 'lesson_plan' });
+    assert.deepEqual(calls.find((call) => call.kind === 'lesson' && call.title === 'Cell Division').run, { ...context, purpose: 'lesson', label: 'Cell Division' });
 }
 
-// Every provider fails: the plan falls back to headings, every lesson fails,
-// and the heuristic course (no quiz) is returned as such.
+// A worker killed mid-job: its lease runs out and the next claim resumes the
+// job without redoing the lessons it saved.
+{
+    const { chat, calls } = makeChat({ topics: CELL_TOPICS });
+    let clock = 0;
+    const killed = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat, startBudgetMs: 15_000, now: () => (clock += 10_000) });
+    const written = killed.topics.length;
+    // Pretend the worker died while running instead of requeueing.
+    await db.query(`UPDATE generation_jobs SET status = 'running', locked_until = NOW() - INTERVAL '1 second' WHERE id = $1`, [killed.jobId]);
+    assert.equal(await claimGenerationJob({ jobId: killed.jobId }).then(Boolean), true, 'an expired lease can be claimed');
+    await db.query(`UPDATE generation_jobs SET locked_until = NOW() + INTERVAL '90 seconds' WHERE id = $1`, [killed.jobId]);
+    assert.equal(await claimGenerationJob({ jobId: killed.jobId }), null, 'a live lease cannot');
+    const job = await jobRow(killed.jobId);
+    await db.query(`UPDATE generation_jobs SET locked_until = NOW() - INTERVAL '1 second' WHERE id = $1`, [killed.jobId]);
+    const reclaimed = await claimGenerationJob();
+    assert.equal(reclaimed.id, job.id, 'the oldest due job is claimed when none is named');
+    await runGenerationJob(reclaimed, { chat, aiEnabled: () => true });
+    const after = await readCourse(killed.ids.courseId);
+    assert.equal(after.topics.length, 3);
+    assert.equal(calls.filter((call) => call.kind === 'lesson').length, 3, `the ${written} saved lesson(s) are not rewritten`);
+}
+
+// H3 fixed: every provider fails. The plan falls back to headings, every
+// lesson fails with its error recorded, and the course is marked failed so
+// it can be regenerated; no stand-in lessons are shipped.
 {
     const providersDown = () => {
         throw new Error('Course LLM providers failed: grid 500 | deepseek 500');
     };
     const { chat } = makeChat({ topics: CELL_TOPICS, onPlan: providersDown, onLesson: providersDown, onQuestions: providersDown });
     const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
-    assert.equal(result.backend, 'heuristic_fallback');
-    assert.deepEqual(result.topics.map((topic) => topic.title), result.plan.slice(0, 12).map((entry) => entry.title));
-    assert.ok(result.topics.every((topic) => topic.questions.length === 0), 'heuristic topics have no quiz');
-    knownBug(
-        'H3 (heuristic fallback is final)',
-        'status' in result.topics[0],
-        false,
-        'heuristic topics are marked so the course can be regenerated when providers recover',
-    );
+    assert.equal(result.run.status, 'done');
+    assert.equal(result.status, 'failed');
+    assert.equal(result.topics.length, 0);
+    assert.ok(result.plan.length > 0 && result.plan.every((entry) => entry.status === 'failed'));
+    assert.ok(result.plan.every((entry) => /providers failed/.test(entry.error)));
 }
 
 // M1 fixed: each lesson is written from its own chapter, never the contents list.
@@ -318,13 +374,16 @@ const statusOf = (result, title) => result.plan.find((entry) => entry.title === 
 }
 
 // M12 (generation side): text that is only page numbers makes no model call.
-// Sending such uploads to OCR is PR 5a.
+// Extraction (PR 5a) sends such uploads to OCR first.
 {
     const { chat, calls } = makeChat({ topics: CELL_TOPICS });
     const result = await generate({ fileName: 'scan.pdf', extractedText: scannedPdfText, chat });
     assert.equal(calls.length, 0);
     assert.equal(result.backend, 'heuristic');
+    assert.equal(result.status, 'ready');
     assert.match(result.topics[0].lesson.sections[0].body, /no extractable text was found/);
 }
 
+await db.end();
+await scratch.drop();
 console.log('course-generation-failure-modes: ok');

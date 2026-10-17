@@ -27,6 +27,8 @@ export const uploadNeedsReadinessPoll = (upload, course = null) => {
   if (!isUploadTerminal(upload)) return true;
   const extraction = String(upload?.extractionStatus || '').toLowerCase();
   if (extraction !== 'complete') return true;
+  // No lesson could be written; the course page offers Regenerate.
+  if (upload.courseStatus === 'failed' || course?.status === 'failed') return false;
   if (!isUploadStudyReady(upload, course)) {
     // Ready extract but topics not linked yet — keep polling briefly.
     return status === 'ready';

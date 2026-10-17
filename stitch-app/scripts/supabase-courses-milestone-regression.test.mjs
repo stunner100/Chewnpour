@@ -16,7 +16,7 @@ for (const table of ['"courses"', '"topics"', '"questions"', '"quiz_attempts"'])
 
 const coursesSource = await fs.readFile(path.join(root, 'server', 'courses.js'), 'utf8');
 for (const symbol of [
-  'ensureCourseFromUpload',
+  'ensureCourseGeneration',
   'listCoursesForUser',
   'getCourseForUser',
   'getQuizForTopic',
@@ -26,8 +26,8 @@ for (const symbol of [
     throw new Error(`Expected server/courses.js to export ${symbol}.`);
   }
 }
-if (!/generateCourseCurriculumWithAi/.test(coursesSource) || !/generation_backend/.test(coursesSource)) {
-  throw new Error('Expected courses creation to use AI curriculum generation.');
+if (!/enqueueGenerationJob/.test(coursesSource)) {
+  throw new Error('Expected course creation to queue a background generation job.');
 }
 
 const courseHttp = await fs.readFile(path.join(root, 'server', 'courseHttp.js'), 'utf8');

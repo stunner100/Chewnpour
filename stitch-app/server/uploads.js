@@ -32,7 +32,7 @@ import {
     downloadUploadObject,
     getStorageBucket,
 } from "./supabase.js";
-import { ensureCourseFromUpload } from "./courses.js";
+import { ensureCourseGeneration } from "./courses.js";
 import { buildTransformedExportZip } from "./materialExport.js";
 
 const EXTRACTION_FAILED_MESSAGE =
@@ -138,7 +138,7 @@ const toClientUploadWithCourse = async (row) => {
         return upload;
     }
     try {
-        const course = await ensureCourseFromUpload({
+        const course = await ensureCourseGeneration({
             userId: row.user_id,
             uploadId: row.id,
             fileName: row.file_name,
@@ -147,6 +147,10 @@ const toClientUploadWithCourse = async (row) => {
         return {
             ...upload,
             courseId: course?.id || null,
+            // generating (lessons are being written; firstTopicId is set
+            // once the first is saved), ready, or failed (none could be
+            // written; the course can be regenerated).
+            courseStatus: course?.status || null,
             firstTopicId: course?.firstTopicId || null,
             topicCount: course?.topicCount || 0,
             quizzesReady: course?.quizzesReady || 0,

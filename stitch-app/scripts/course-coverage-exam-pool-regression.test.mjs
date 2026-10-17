@@ -94,11 +94,12 @@ const { resolveGenerationStageIndex, GENERATION_STAGES } = await import("../src/
     const library = await read("src/pages/MyMaterialsLibrary.jsx");
     assert.match(library, /const studyReady = stageIndex === GENERATION_STAGES\.length - 1;/, "the material card button follows the resolved stage");
 
-    const courses = await read("server/courses.js");
-    for (const step of ['"structuring"', '"writing"', '"saving"']) {
-        assert.ok(courses.includes(step), `courses.js records the ${step} step`);
+    // The generation job records planning and writing; each lesson is saved
+    // as it is written, so there is no separate saving step.
+    const jobs = await read("server/generationJobs.js");
+    for (const step of ['"structuring"', '"writing"', '"ready"']) {
+        assert.ok(jobs.includes(step), `generationJobs.js records the ${step} step`);
     }
-    assert.match(courses, /fromStep: "structuring"/, "late progress callbacks cannot move the step backwards");
 }
 
 // 5. Lesson completion offers the next lesson, or the course exam after the last one.

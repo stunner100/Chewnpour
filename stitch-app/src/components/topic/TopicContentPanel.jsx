@@ -1,6 +1,7 @@
 import React from 'react';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
 import LessonSectionStepper from '../lesson/LessonSectionStepper';
+import LessonRegenerateBanner from '../lesson/LessonRegenerateBanner';
 
 const TopicContentPanel = ({
     contentRef,
@@ -31,6 +32,8 @@ const TopicContentPanel = ({
     showTopicIllustration = false,
     speechText,
     stopVoice,
+    topic = null,
+    reloadTopic,
     topicId,
     topicIllustrationUrl,
     topicProgress,
@@ -67,6 +70,7 @@ const TopicContentPanel = ({
         </div>
 
         <div className="mx-auto w-full max-w-[720px]">
+            <LessonRegenerateBanner topic={topic} onReload={reloadTopic} />
             {hasReexplainedLesson && setExplanationView ? (
                 <div className="mb-6 inline-flex rounded-full border border-border-subtle bg-surface p-1" role="tablist" aria-label="Lesson explanation">
                     <button

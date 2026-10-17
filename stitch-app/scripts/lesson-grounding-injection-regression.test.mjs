@@ -83,11 +83,6 @@ assert.match(
 );
 assert.match(
     aiSource,
-    /COURSE_GENERATION_TIMEOUT_MS/,
-    "generation must honor an overall deadline budget",
-);
-assert.match(
-    aiSource,
     /MAX_GENERATED_LESSONS/,
     "long documents are planned in full and written up to a lesson limit",
 );

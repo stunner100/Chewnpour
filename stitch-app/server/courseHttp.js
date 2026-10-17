@@ -4,13 +4,16 @@ import { auth } from "./auth.js";
 import {
     disableCourseShare,
     enableCourseShare,
-    ensureCourseFromUpload,
+    ensureCourseGeneration,
+    generatePlannedLessonsForUser,
     getCourseForUser,
     getPublicCourseByShareToken,
     getQuizAttemptForUser,
     getQuizForTopic,
     getTopicForUser,
     listCoursesForUser,
+    regenerateCourseForUser,
+    regenerateTopicForUser,
     submitLessonCheck,
     submitPublicLessonCheck,
     submitQuizAttempt,
@@ -112,7 +115,7 @@ export const handleCoursesRequest = async (req, res) => {
             if (upload.status !== "ready") {
                 return sendJson(res, 400, { error: "Upload is not ready yet" });
             }
-            const course = await ensureCourseFromUpload({
+            const course = await ensureCourseGeneration({
                 userId: user.id,
                 uploadId: upload.id,
                 fileName: upload.file_name,
@@ -127,6 +130,19 @@ export const handleCoursesRequest = async (req, res) => {
                 return sendJson(res, 404, { error: "Course not found" });
             }
             return sendJson(res, 200, { course });
+        }
+
+        // Replaces every lesson in the course: it is planned and written again.
+        if (parts.length === 2 && parts[1] === "regenerate" && method === "POST") {
+            const course = await regenerateCourseForUser(user.id, parts[0]);
+            return sendJson(res, 202, { course });
+        }
+
+        // Writes lessons for planned parts that have none: { planIndexes }.
+        if (parts.length === 2 && parts[1] === "lessons" && method === "POST") {
+            const body = await readJsonBody(req);
+            const course = await generatePlannedLessonsForUser(user.id, parts[0], body.planIndexes);
+            return sendJson(res, 202, { course });
         }
 
         if (parts.length === 2 && parts[1] === "share" && method === "POST") {
@@ -152,6 +168,7 @@ export const handleCoursesRequest = async (req, res) => {
         const status = Number(error?.status) || 500;
         return sendJson(res, status, {
             error: error?.message || "Course request failed",
+            ...(error?.code ? { code: error.code } : {}),
         });
     }
 };
@@ -202,6 +219,12 @@ export const handleTopicsRequest = async (req, res) => {
                 });
             }
             return sendJson(res, 200, { attempt: result });
+        }
+
+        // Rewrites this lesson from its part of the upload, in the background.
+        if (parts.length === 2 && parts[1] === "regenerate" && method === "POST") {
+            const course = await regenerateTopicForUser(user.id, parts[0]);
+            return sendJson(res, 202, { course });
         }
 
         if (parts.length === 2 && parts[1] === "lesson-check" && method === "POST") {
@@ -334,6 +357,7 @@ export const handleTopicsRequest = async (req, res) => {
         const status = Number(error?.status) || 500;
         return sendJson(res, status, {
             error: error?.message || "Topic request failed",
+            ...(error?.code ? { code: error.code } : {}),
         });
     }
 };

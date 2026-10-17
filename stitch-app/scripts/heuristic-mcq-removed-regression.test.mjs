@@ -62,7 +62,7 @@ assert.doesNotMatch(aiSource, /which statement is accurate/);
 
 const courses = read('server/courses.js');
 assert.doesNotMatch(courses, /regenerateQuizForTopic/, 'the heuristic-only quiz regeneration must be gone');
-assert.doesNotMatch(read('server/courseHttp.js'), /"regenerate"/);
+assert.doesNotMatch(read('server/courseHttp.js'), /regenerateQuiz/);
 assert.doesNotMatch(read('src/pages/TopicQuizPlayer.jsx'), /quiz\/regenerate|fresh/);
 assert.doesNotMatch(read('src/pages/DashboardResults.jsx'), /\?fresh=1/);
 

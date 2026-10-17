@@ -99,6 +99,7 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
         speechText,
         stopVoice,
         topic,
+        reloadTopic,
         topicId,
         topicIllustrationUrl,
         topicProgress,
@@ -141,6 +142,7 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
                 speechText={speechText}
                 stopVoice={stopVoice}
                 topic={topic}
+                reloadTopic={reloadTopic}
                 topicId={topicId}
                 topicIllustrationUrl={topicIllustrationUrl}
                 topicProgress={topicProgress}

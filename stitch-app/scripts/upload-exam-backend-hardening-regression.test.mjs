@@ -138,7 +138,6 @@ pg.Pool.prototype.connect = async function connect() {
     return fakeClient;
 };
 
-const { ensureCourseFromUpload, COURSE_GENERATION_STALE_SECONDS } = await import('../server/courses.js');
 const { isAllowedStudyUploadType } = await import('../server/uploads.js');
 const { submitExamAttempt, getExamAttemptForUser } = await import('../server/exams.js');
 
@@ -151,78 +150,9 @@ const reset = () => {
     state.failOnTopicInsert = null;
 };
 
-// Two chapters long enough to become two lessons, so a failure on the second
-// topic insert can be simulated.
-const chapter = (title, sentence) => [`# ${title}`, Array.from({ length: 16 }, () => sentence).join(' ')].join('\n\n');
-const sourceText = [
-    chapter('Cell membranes', 'The cell membrane controls what enters and leaves the cell and is a phospholipid bilayer.'),
-    chapter('Mitochondria', 'Mitochondria produce ATP through cellular respiration and carry their own circular DNA.'),
-].join('\n\n');
-
-const upload = { userId: 'user-1', uploadId: 'upload-1', fileName: 'Cell Biology.pdf', extractedText: sourceText };
-
-// 1a. Concurrent finalize calls: only one generates, and the course turns ready last.
-reset();
-const [first, second] = await Promise.all([
-    ensureCourseFromUpload(upload),
-    ensureCourseFromUpload(upload),
-]);
-assert.equal(state.courses.length, 1, 'only one course row per upload');
-assert.equal(state.courses[0].status, 'ready');
-const topicInserts = state.log.filter((sql) => sql.startsWith('INSERT INTO topics')).length;
-assert.equal(topicInserts, state.topics.length, 'the losing request must not insert topics');
-assert.ok(state.topics.length > 0, 'the winning request inserts topics');
-assert.ok([first, second].some((course) => course?.status === 'ready'));
-assert.deepEqual(
-    state.courses[0].lesson_plan.map((entry) => entry.topicId),
-    state.topics.map((topic) => topic.id),
-    'the stored lesson plan links each written lesson to its topic, in order',
-);
-assert.ok(state.courses[0].lesson_plan.every((entry) => entry.end > entry.start && entry.title));
-assert.ok(state.courses[0].lesson_plan.every((entry) => entry.status === 'written'), 'written lessons are marked written');
-const beginAt = state.log.indexOf('BEGIN');
-const readyAt = state.log.findIndex((sql) => sql.startsWith("UPDATE courses SET status = 'ready'"));
-const commitAt = state.log.indexOf('COMMIT');
-const firstTopicAt = state.log.findIndex((sql) => sql.startsWith('INSERT INTO topics'));
-assert.ok(beginAt >= 0 && beginAt < firstTopicAt && firstTopicAt < readyAt && readyAt < commitAt,
-    'topics and the ready flip must commit in one transaction');
-
-// 1b. A failure mid-insert rolls back and releases the claim instead of leaving a ready, partial course.
-reset();
-state.failOnTopicInsert = 1;
-await assert.rejects(() => ensureCourseFromUpload(upload), /connection terminated/);
-assert.ok(state.log.includes('ROLLBACK'));
-assert.equal(state.courses.length, 0, 'failed generation must not leave a course behind');
-
-// 1c. A stale 'generating' claim from a killed request is taken over and finished.
-reset();
-state.courses.push({
-    id: 'stale-course',
-    user_id: upload.userId,
-    upload_id: upload.uploadId,
-    title: 'Cell Biology',
-    status: 'generating',
-    updated_at: Date.now() - (COURSE_GENERATION_STALE_SECONDS + 5) * 1000,
-});
-state.topics.push({ id: 'orphan', course_id: 'stale-course', user_id: upload.userId });
-const recovered = await ensureCourseFromUpload(upload);
-assert.equal(recovered?.id, 'stale-course');
-assert.equal(state.courses[0].status, 'ready');
-assert.ok(!state.topics.some((topic) => topic.id === 'orphan'), 'orphaned topics from the dead run are replaced');
-
-// 1d. A fresh 'generating' claim is left alone.
-reset();
-state.courses.push({
-    id: 'live-course',
-    user_id: upload.userId,
-    upload_id: upload.uploadId,
-    title: 'Cell Biology',
-    status: 'generating',
-    updated_at: Date.now(),
-});
-const pending = await ensureCourseFromUpload(upload);
-assert.equal(pending?.status, 'generating');
-assert.equal(state.topics.length, 0, 'a live claim must not be regenerated');
+// 1. Course generation runs as a background job: see
+// generation-jobs-regression.test.mjs (one course and one job per upload,
+// leases, resume, regenerate).
 
 // 2. Finalize only re-claims 'extracting' rows once stale.
 const uploadsSource = await fs.readFile(path.join(process.cwd(), 'server', 'uploads.js'), 'utf8');

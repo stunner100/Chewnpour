@@ -17,7 +17,8 @@ import {
     planLessons,
     targetLessonCount,
 } from '../server/lessonPlanning.js';
-import { generateCourseCurriculumWithAi } from '../server/aiCourseGeneration.js';
+import { planCourse } from '../server/aiCourseGeneration.js';
+import { jobTargetIndexes } from '../server/generationJobs.js';
 
 console.warn = () => {};
 const sourceDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'sources');
@@ -145,20 +146,24 @@ for (const name of ['toc-heavy-cell-biology.md', 'python-loops-notes.md', 'pdf-r
             text: JSON.stringify({ lesson: { sections: [{ title: `What ${title} teaches`, role: 'core', body }], recap: [], wordBank: [] } }),
         };
     };
-    const result = await generateCourseCurriculumWithAi({ fileName: 'book.pdf', extractedText: source, chat, aiEnabled: () => true });
+    const result = await planCourse({ fileName: 'book.pdf', extractedText: source, chat, aiEnabled: () => true });
     const { segments } = segmentSource(source);
     checkPlan('long upload', result.plan, segments);
     assert.equal(result.plan.length, 30);
-    assert.equal(result.topics.length, MAX_GENERATED_LESSONS);
-    assert.deepEqual(result.topics.map((topic) => topic.planIndex), Array.from({ length: 12 }, (_, index) => index));
-    assert.deepEqual(result.topics.map((topic) => topic.title), result.plan.slice(0, 12).map((entry) => entry.title));
-    assert.equal(new Set(lessonCalls).size, 12, 'only the first 12 lessons are written');
+    assert.equal(lessonCalls.length, 0, 'planning writes no lessons');
+    // The course job writes the first 12 pending lessons; the rest wait.
+    const plan = result.plan.map((entry) => ({ ...entry, status: 'pending' }));
+    assert.deepEqual(jobTargetIndexes({ kind: 'course' }, plan), Array.from({ length: MAX_GENERATED_LESSONS }, (_, index) => index));
+    plan[0].status = 'written';
+    plan[1].status = 'failed';
+    assert.deepEqual(jobTargetIndexes({ kind: 'course' }, plan), Array.from({ length: 10 }, (_, index) => index + 2), 'a resumed job skips written and failed lessons');
+    assert.deepEqual(jobTargetIndexes({ kind: 'lessons', plan_indexes: [20, 1, 99] }, plan), [20, 1], 'a lessons job writes what it lists');
 }
 
 // With AI off, the heuristic course follows the same plan rules.
 {
     const source = chapters(20, 4000);
-    const result = await generateCourseCurriculumWithAi({ fileName: 'book.pdf', extractedText: source, aiEnabled: () => false });
+    const { heuristic: result } = await planCourse({ fileName: 'book.pdf', extractedText: source, aiEnabled: () => false });
     const { segments } = segmentSource(source);
     checkPlan('heuristic course', result.plan, segments);
     assert.equal(result.backend, 'heuristic');

@@ -3,7 +3,8 @@
 // and no keyword classifier.
 import assert from "node:assert/strict";
 import * as lessonKind from "../src/lib/lessonKind.js";
-import { generateCourseCurriculumWithAi } from "../server/aiCourseGeneration.js";
+import { planCourse, writePlannedLesson } from "../server/aiCourseGeneration.js";
+import { planEntrySource } from "../server/topicWrites.js";
 
 const { LESSON_KINDS, normalizeLessonKind, promptBlockForLessonKind } = lessonKind;
 
@@ -60,17 +61,16 @@ const chat = async ({ messages }) => {
     };
 };
 console.warn = () => {};
-await generateCourseCurriculumWithAi({
-    fileName: "redox.pdf",
-    extractedText: [
-        "# Balancing redox equations",
-        "Assign oxidation numbers first. Then write the half-reactions and balance electrons. ".repeat(20),
-        "# Oxidation numbers",
-        "Oxidation numbers track electron transfer between atoms in a reaction. ".repeat(20),
-    ].join("\n\n"),
-    chat,
-    aiEnabled: () => true,
-});
+const redoxText = [
+    "# Balancing redox equations",
+    "Assign oxidation numbers first. Then write the half-reactions and balance electrons. ".repeat(20),
+    "# Oxidation numbers",
+    "Oxidation numbers track electron transfer between atoms in a reaction. ".repeat(20),
+].join("\n\n");
+const { plan } = await planCourse({ fileName: "redox.pdf", extractedText: redoxText, chat, aiEnabled: () => true });
+for (const [planIndex, entry] of plan.entries()) {
+    await writePlannedLesson({ fileName: "redox.pdf", entry, planIndex, source: planEntrySource(entry, redoxText), chat });
+}
 const [procedurePrompt, conceptPrompt] = prompts;
 for (const prompt of [procedurePrompt, conceptPrompt]) {
     assert.match(prompt, /"lesson":\{"hook":"string","sections":\[\{"title":"string","role":"core\|steps\|example\|misconception\|practice"/);

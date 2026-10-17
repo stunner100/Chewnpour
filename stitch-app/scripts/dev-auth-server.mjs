@@ -28,6 +28,7 @@ const router = await importApi("router.js");
 const standalone = {
     "/api/topic-voice": await importApi("topic-voice.js"),
     "/api/podcast-generate": await importApi("podcast-generate.js"),
+    "/api/generation-worker": await importApi("generation-worker.js"),
     "/api/paystack-webhook": await importApi("paystack-webhook.js"),
     "/api/sentry-tunnel": await importApi("sentry-tunnel.js"),
 };

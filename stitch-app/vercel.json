@@ -9,6 +9,9 @@
     },
     "api/podcast-generate.js": {
       "maxDuration": 300
+    },
+    "api/generation-worker.js": {
+      "maxDuration": 300
     }
   },
   "headers": [
@@ -93,6 +96,10 @@
     {
       "source": "/api/podcast-generate",
       "destination": "/api/podcast-generate"
+    },
+    {
+      "source": "/api/generation-worker",
+      "destination": "/api/generation-worker"
     },
     {
       "source": "/api/:path(.*)",

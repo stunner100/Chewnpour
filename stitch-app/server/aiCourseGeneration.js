@@ -1,6 +1,6 @@
 import { LlmAbortedError, LlmTruncatedError, callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
 import { SOURCE_DATA_RULE, extractJsonObject, untrustedSourceBlock } from "./promptSafety.js";
-import { dedupeCourseTopics, isValidMcq } from "./questionDedup.js";
+import { dedupeCourseTopics, isNearDuplicatePrompt, isValidMcq } from "./questionDedup.js";
 import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { pickTopicOrdering, snippetHasProcess } from "./processOrdering.js";
 import { normalizeInLessonChecks } from "./inLessonChecks.js";
@@ -17,24 +17,21 @@ import { formatCourseTitle } from "../src/lib/courseTitle.js";
 import { promptBlockForLessonKind } from "../src/lib/lessonKind.js";
 import { lessonToMarkdown, normalizeLesson } from "../src/lib/lessonSchema.js";
 
-// Course generation: split the extracted text into segments, plan lessons
-// over all of them in document order (lessonPlanning.js), then write the first
-// MAX_GENERATED_LESSONS lessons from their own source spans: one call writes
-// the lesson, a second writes its quiz and in-lesson checks. The full plan is
-// returned with each entry's status (written, failed or pending) so the
-// course can show which parts have no lesson yet.
+// Course generation, one step at a time for the background job
+// (generationJobs.js): planCourse splits the extracted text into segments and
+// plans lessons over all of them in document order (lessonPlanning.js);
+// writePlannedLesson writes one planned lesson from its own source span: one
+// call writes the lesson, a second writes its quiz and in-lesson checks.
 
 const MAX_QUESTIONS_PER_TOPIC = 3;
 // Extra grounded MCQs per topic reserved for the timed exam, so the exam is not
 // a replay of topic-quiz questions whose answers the student has already seen.
 export const MAX_EXAM_QUESTIONS_PER_TOPIC = 3;
 const MAX_GENERATED_MCQS_PER_TOPIC = MAX_QUESTIONS_PER_TOPIC + MAX_EXAM_QUESTIONS_PER_TOPIC;
-const TOPIC_GEN_CONCURRENCY = 4;
 const LESSON_MAX_TOKENS = 6000;
 const QUESTIONS_MAX_TOKENS = 3000;
 // A reply cut off at max_tokens is retried once with this much more room.
 const TRUNCATION_RETRY_FACTOR = 1.6;
-const GENERATION_TIMEOUT_MS = Number(process.env.COURSE_GENERATION_TIMEOUT_MS || 150000);
 
 const LESSON_JSON_SHAPE =
     '{"hook":"string","sections":[{"title":"string","role":"core|steps|example|misconception|practice","body":"markdown","sourceQuote":"string"}],"recap":[{"prompt":"string","answer":"string"}],"wordBank":[{"term":"string","definition":"string"}]}';
@@ -228,10 +225,10 @@ export const normalizeAiTopic = (item, { sourceText = "" } = {}) => {
     };
 };
 
-// Course-wide de-duplication can drop questions from any topic, so the
-// quiz/exam split is made after it: the first MAX_QUESTIONS_PER_TOPIC MCQs
-// left in each topic are its quiz, the rest go to the exam.
-const dedupeAndSplitQuestions = (topics) => dedupeCourseTopics(topics).map((topic) => {
+// De-duplication can drop questions, so the quiz/exam split is made after it:
+// the first MAX_QUESTIONS_PER_TOPIC MCQs left in a topic are its quiz, the
+// rest go to the exam.
+const splitQuizAndExam = (topic) => {
     let quizCount = 0;
     return {
         ...topic,
@@ -242,7 +239,20 @@ const dedupeAndSplitQuestions = (topics) => dedupeCourseTopics(topics).map((topi
             return { ...question, surface: isQuiz ? "quiz" : "exam" };
         }),
     };
-});
+};
+
+const dedupeAndSplitQuestions = (topics) => dedupeCourseTopics(topics).map(splitQuizAndExam);
+
+// One lesson written on its own: de-duplicated within itself and against the
+// prompts already in its course, then split.
+const splitTopicQuestions = (topic, existingPrompts = []) => {
+    const [deduped] = dedupeCourseTopics([topic]);
+    return splitQuizAndExam({
+        ...deduped,
+        questions: deduped.questions.filter((question) => question.questionType === "ordering"
+            || !existingPrompts.some((prompt) => isNearDuplicatePrompt(prompt, question.prompt))),
+    });
+};
 
 export const normalizeAiCoursePayload = (
     payload,
@@ -400,126 +410,61 @@ const writeTopic = async ({ chat, fileName, entry, planIndex, source, seenPrompt
     return topic;
 };
 
-// Writes the first MAX_GENERATED_LESSONS planned lessons, each from its full
-// source span. Every plan entry ends with a status: written, failed (the
-// model could not write it) or pending (not reached before the deadline).
-const writeLessons = async ({ chat, signal, fileName, segments, plan, provider, model }) => {
-    const statuses = plan.map(() => ({ status: "pending" }));
-    const seenPrompts = [];
-    const written = await mapWithConcurrency(
-        plan.slice(0, MAX_GENERATED_LESSONS),
-        TOPIC_GEN_CONCURRENCY,
-        async (entry, planIndex) => {
-            if (signal.aborted) return null;
-            try {
-                const topic = await writeTopic({
-                    chat,
-                    fileName,
-                    entry,
-                    planIndex,
-                    source: lessonSourceText(entry, segments),
-                    seenPrompts,
-                });
-                statuses[planIndex] = { status: "written" };
-                return topic;
-            } catch (error) {
-                if (isAbort(error) || signal.aborted) return null;
-                console.warn("[aiCourseGeneration] lesson failed", {
-                    title: entry.title,
-                    message: error?.message || String(error),
-                });
-                statuses[planIndex] = { status: "failed", error: String(error?.message || error).slice(0, 200) };
-                return null;
-            }
-        },
-    );
-    const topics = written.filter(Boolean);
-    // Nothing the model wrote survived: this is the heuristic course.
-    if (topics.length === 0) {
-        return {
-            ...heuristicCurriculum({ fileName, segments }),
-            backend: signal.aborted ? "heuristic_timeout" : "heuristic_fallback",
-        };
-    }
-    return {
-        backend: provider || "ai",
-        model,
-        topics: dedupeAndSplitQuestions(topics),
-        plan: plan.map((entry, index) => ({ ...entry, ...statuses[index] })),
-    };
-};
-
-const notifyProgress = (onProgress, stage) => {
-    if (typeof onProgress !== "function") return;
-    Promise.resolve()
-        .then(() => onProgress(stage))
-        .catch(() => {});
-};
-
-// Rejects with LlmAbortedError as soon as the signal aborts, even if the
-// underlying call ignores the signal.
-const untilAborted = (promise, signal) => new Promise((resolve, reject) => {
-    if (signal.aborted) {
-        reject(new LlmAbortedError());
-        return;
-    }
-    const onAbort = () => reject(new LlmAbortedError());
-    signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+// Every model call carries the job's context ({ userId, courseId, uploadId })
+// into its usage record.
+const withRunContext = (chat, runContext) => (args) => chat({
+    ...args,
+    run: { ...runContext, ...(args.run || {}) },
 });
 
-// onProgress(stage) is best-effort: "writing" fires once the lesson plan
-// exists and lessons and questions are being written. runContext ({ userId,
-// courseId, uploadId }) is attached to every model call's usage record. At
-// the deadline, calls still running are cancelled: finished lessons are
-// kept and the rest stay in the plan as pending. chat, aiEnabled and
-// timeoutMs default to the live providers; regression scripts stub them.
-export const generateCourseCurriculumWithAi = async ({
+// Plans an upload's lessons over its segments, in document order. Without
+// text or without the model, returns { heuristic }: the whole course built
+// from the source text, with no model calls. Otherwise returns { plan,
+// provider, model }; a failed planning call falls back to grouping segments
+// by heading. chat and aiEnabled default to the live providers; regression
+// scripts stub them.
+export const planCourse = async ({
     fileName,
     extractedText,
-    onProgress,
     runContext = {},
     chat = callCourseLlmChat,
     aiEnabled = isCourseAiEnabled,
-    timeoutMs = GENERATION_TIMEOUT_MS,
 }) => {
-    const text = String(extractedText || "").trim();
-    const { segments } = segmentSource(text);
+    const { segments } = segmentSource(String(extractedText || "").trim());
     if (!segments.length || !aiEnabled()) {
-        return heuristicCurriculum({ fileName, segments });
+        return { heuristic: heuristicCurriculum({ fileName, segments }) };
     }
-    const controller = new AbortController();
-    const deadline = setTimeout(() => {
-        console.warn(`[aiCourseGeneration] generation reached ${timeoutMs}ms; keeping finished lessons`);
-        controller.abort();
-    }, Math.max(1000, Number(timeoutMs) || GENERATION_TIMEOUT_MS));
-    const tracedChat = (args) => untilAborted(chat({
-        ...args,
-        signal: controller.signal,
-        run: { ...runContext, ...(args.run || {}) },
-    }), controller.signal);
-
     try {
-        let planned;
-        try {
-            planned = await planLessons({ chat: tracedChat, segments, fileName });
-        } catch (error) {
-            console.warn("[aiCourseGeneration] lesson plan failed; grouping by headings", {
-                message: error?.message || String(error),
-            });
-            planned = { plan: heuristicLessonPlan(segments), provider: null, model: null };
-        }
-        notifyProgress(onProgress, "writing");
-        return await writeLessons({
-            chat: tracedChat,
-            signal: controller.signal,
-            fileName,
-            segments,
-            plan: planned.plan,
-            provider: planned.provider,
-            model: planned.model,
+        const planned = await planLessons({ chat: withRunContext(chat, runContext), segments, fileName });
+        return { plan: planned.plan, provider: planned.provider, model: planned.model };
+    } catch (error) {
+        console.warn("[aiCourseGeneration] lesson plan failed; grouping by headings", {
+            message: error?.message || String(error),
         });
-    } finally {
-        clearTimeout(deadline);
+        return { plan: heuristicLessonPlan(segments), provider: null, model: null };
     }
+};
+
+// Writes one planned lesson, its quiz, exam questions and checks from the
+// lesson's own source span. existingPrompts are the quiz and exam prompts
+// already in the course: near-duplicates of them are dropped before the
+// quiz/exam split. Throws when the lesson itself cannot be written.
+export const writePlannedLesson = async ({
+    fileName,
+    entry,
+    planIndex,
+    source,
+    existingPrompts = [],
+    runContext = {},
+    chat = callCourseLlmChat,
+}) => {
+    const topic = await writeTopic({
+        chat: withRunContext(chat, runContext),
+        fileName,
+        entry,
+        planIndex,
+        source,
+        seenPrompts: [...existingPrompts],
+    });
+    return splitTopicQuestions(topic, existingPrompts);
 };

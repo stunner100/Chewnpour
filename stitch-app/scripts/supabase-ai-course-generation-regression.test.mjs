@@ -11,16 +11,15 @@ if (!/export const callCourseLlmChat/.test(llmClient) || !/export const isCourse
 }
 
 const aiCourse = await fs.readFile(path.join(root, 'server', 'aiCourseGeneration.js'), 'utf8');
-if (!/generateCourseCurriculumWithAi/.test(aiCourse) || !/normalizeAiCoursePayload/.test(aiCourse)) {
-  throw new Error('Expected server/aiCourseGeneration.js to expose AI curriculum helpers.');
-}
-if (!/planLessons/.test(aiCourse) || !/mapWithConcurrency/.test(aiCourse) || !/lessonSourceText/.test(aiCourse)) {
-  throw new Error('Expected plan-then-parallel lesson generation from each lesson\'s source span.');
+for (const symbol of ['planCourse', 'writePlannedLesson', 'normalizeAiCoursePayload']) {
+  if (!aiCourse.includes(`export const ${symbol}`)) {
+    throw new Error(`Expected server/aiCourseGeneration.js to export ${symbol}.`);
+  }
 }
 
-const courses = await fs.readFile(path.join(root, 'server', 'courses.js'), 'utf8');
-if (!/generateCourseCurriculumWithAi/.test(courses) || !/generation_backend/.test(courses)) {
-  throw new Error('Expected ensureCourseFromUpload to persist AI generation backend.');
+const jobs = await fs.readFile(path.join(root, 'server', 'generationJobs.js'), 'utf8');
+if (!/planCourse/.test(jobs) || !/writePlannedLesson/.test(jobs) || !/generation_backend/.test(jobs)) {
+  throw new Error('Expected the generation job to plan, write lessons and persist the generation backend.');
 }
 
 const migration = await fs.readFile(

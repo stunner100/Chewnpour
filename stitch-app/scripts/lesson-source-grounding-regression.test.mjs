@@ -3,10 +3,15 @@
 // in the source, invented optional sections are dropped and an unsupported
 // core section flags the lesson for review.
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { isTextGroundedInSource, namesIn, numbersIn, sourceHasWord } from "../server/grounding.js";
 import { checkSection, groundLesson } from "../server/lessonGrounding.js";
 import { normalizeInLessonChecks } from "../server/inLessonChecks.js";
-import { topicSourceText } from "../server/courses.js";
+import { planEntrySource } from "../server/topicWrites.js";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const source = [
     "Osmosis is the movement of water across a semi-permeable membrane from a dilute solution to a concentrated one.",
@@ -75,10 +80,14 @@ assert.equal(checks([trueFalse("Plant cells placed in pure water shrink and lose
 assert.equal(checks([trueFalse("Plant cells placed in pure water burst.", false)]).length, 1, "a False statement about the source is kept");
 assert.equal(checks([trueFalse("Volcanoes erupt basaltic magma near tectonic ridges.", false)]).length, 0, "an off-topic False statement is rejected");
 
-// A topic's source is its plan entry's span of the extracted text.
+// A lesson's source is the segments inside its plan entry's span, so lines
+// segmentation dropped (a contents list) stay out of it.
 const extractedText = "# Part one\nAlpha text.\n# Part two\nBeta text.";
-const plan = [{ start: 0, end: 23 }, { start: 23, end: extractedText.length }];
-assert.equal(topicSourceText({ spec: { planIndex: 1 }, plan, extractedText }), "# Part two\nBeta text.");
-assert.equal(topicSourceText({ spec: {}, plan, extractedText }), "", "no plan entry, no span");
+assert.equal(planEntrySource({ start: 23, end: extractedText.length }, extractedText), "# Part two\n\nBeta text.");
+assert.equal(planEntrySource(undefined, extractedText), "", "no plan entry, no span");
+const withContents = fs.readFileSync(path.join(root, "scripts/fixtures/sources/toc-heavy-cell-biology.md"), "utf8").trim();
+const firstLesson = planEntrySource({ start: 0, end: withContents.length }, withContents);
+assert.match(firstLesson, /Prokaryotic cells lack a nucleus/);
+assert.doesNotMatch(firstLesson, /\.{4,}/, "contents lines are not part of the lesson source");
 
 console.log("lesson-source-grounding-regression.test.mjs passed");
