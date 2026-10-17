@@ -18,7 +18,15 @@ const STOPWORDS = new Set([
 
 const foldAccents = (value) => String(value || "").normalize("NFKD").replace(/[̀-ͯ]/g, "");
 
-const stem = (token) => (token.length > 4 ? token.replace(/(?:ies|es|s)$/, "") : token);
+// Light plural stemming: "studies" -> "study", "processes" -> "process",
+// "lysosomes" -> "lysosome". Words ending in ss, us or is ("class",
+// "virus", "analysis") are left alone.
+const stem = (token) => {
+    if (token.length <= 4 || /(?:ss|us|is)$/.test(token)) return token;
+    if (/ies$/.test(token)) return token.replace(/ies$/, "y");
+    if (/(?:s|x|z|ch|sh)es$/.test(token)) return token.slice(0, -2);
+    return token.replace(/s$/, "");
+};
 
 const tokensOf = (value) => foldAccents(value)
     .toLowerCase()
@@ -34,7 +42,7 @@ const sourceIndex = (source) => {
     let index = sourceIndexCache.get(key);
     if (!index) {
         const tokens = tokensOf(key);
-        index = { words: new Set(tokens.map(stem)), joined: ` ${tokens.join(" ")} ` };
+        index = { tokens, words: new Set(tokens.map(stem)), joined: ` ${tokens.join(" ")} ` };
         if (sourceIndexCache.size > 50) sourceIndexCache.clear();
         sourceIndexCache.set(key, index);
     }
@@ -50,17 +58,25 @@ export const numbersIn = (text) =>
         .filter(Boolean);
 
 // Capitalised words that do not start a sentence or line: proper names,
-// acronyms and named terms ("Krueger", "DNA", "Golgi").
+// acronyms and named terms ("Krueger", "DNA", "Golgi"). Markdown heading
+// lines are skipped: headings are written in title case, so their capitals
+// are not names.
 export const namesIn = (text) => {
     const names = [];
     const plain = foldAccents(String(text || ""))
         .replace(/```[\s\S]*?```/g, " ")
+        .replace(/^\s{0,3}#{1,6}\s.*$/gm, " ")
         .replace(/[*_`#>|[\]()]/g, " ");
     for (const sentence of plain.split(/(?<=[.!?:;])\s+|\n+/)) {
         const words = sentence.trim().split(/\s+/);
-        words.slice(1).forEach((word) => {
+        words.forEach((word, position) => {
             const clean = word.replace(/[^A-Za-z0-9'-]/g, "");
-            if (/^[A-Z][A-Za-z'-]*[A-Za-z]$/.test(clean) && !STOPWORDS.has(clean.toLowerCase())) names.push(clean);
+            // A sentence's first word is capitalised anyway, unless it is an
+            // acronym ("PCR copies DNA").
+            const isName = position === 0
+                ? /^[A-Z]{2,6}$/.test(clean)
+                : /^[A-Z][A-Za-z'-]*[A-Za-z]$/.test(clean) && !STOPWORDS.has(clean.toLowerCase());
+            if (isName) names.push(clean);
         });
     }
     return names;
@@ -68,6 +84,23 @@ export const namesIn = (text) => {
 
 export const sourceHasWord = (word, source) =>
     tokensOf(word).every((token) => sourceIndex(source).words.has(stem(token)));
+
+// An acronym the source spells out in consecutive content words: "ER" for
+// "endoplasmic reticulum", "ATP" for "adenosine triphosphate". Stopwords and
+// short words break a run, so letters are not matched across unrelated words.
+const ACRONYM_RE = /^[A-Z]{2,6}$/;
+export const sourceHasAcronym = (acronym, source) => {
+    const letters = String(acronym || "");
+    if (!ACRONYM_RE.test(letters)) return false;
+    const initials = sourceIndex(source).tokens
+        .map((token) => (token.length >= 3 && !STOPWORDS.has(token) && !/\d/.test(token) ? token[0] : " "))
+        .join("");
+    return initials.includes(letters.toLowerCase());
+};
+
+// A name the source uses, as a word or, for an acronym, spelled out.
+export const sourceHasName = (name, source) =>
+    sourceHasWord(name, source) || sourceHasAcronym(name, source);
 
 export const sourceHasPhrase = (phrase, source) => {
     const tokens = tokensOf(phrase);
@@ -90,7 +123,7 @@ export const isTextGroundedInSource = (text, source, { minTokenRatio = 0.5 } = {
     if (!String(source || "").trim()) return true;
     if (sourceHasPhrase(text, source)) return true;
     if (!numbersIn(text).every((number) => sourceHasWord(number, source))) return false;
-    if (!namesIn(` ${text}`).every((name) => sourceHasWord(name, source))) return false;
+    if (!namesIn(` ${text}`).every((name) => sourceHasName(name, source))) return false;
     const hasContentWords = tokensOf(text).some((token) => token.length >= 3 && !STOPWORDS.has(token) && !/\d/.test(token));
     if (!hasContentWords) return numbersIn(text).length > 0;
     return contentWordCoverage(text, source) >= minTokenRatio;

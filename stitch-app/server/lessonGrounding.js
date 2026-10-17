@@ -12,6 +12,7 @@ import {
     contentWordCoverage,
     namesIn,
     numbersIn,
+    sourceHasName,
     sourceHasPhrase,
     sourceHasWord,
 } from "./grounding.js";
@@ -23,8 +24,11 @@ export const checkSection = (section, source) => {
     const quote = String(section.sourceQuote || "").trim();
     const quoteFound = Boolean(quote) && (sourceHasPhrase(quote, source) || contentWordCoverage(quote, source) >= QUOTE_COVERAGE);
     const missingNumbers = [...new Set(numbersIn(section.body))].filter((number) => !sourceHasWord(number, source));
-    const names = [...new Set(namesIn(`${section.title}. ${section.body}`))];
-    const missingNames = names.filter((name) => !sourceHasWord(name, source));
+    // Names are read from the body only: section titles are written in title
+    // case ("What Happens When a Cell Sits in Water"), so their capitals are
+    // not names.
+    const names = [...new Set(namesIn(section.body))];
+    const missingNames = names.filter((name) => !sourceHasName(name, source));
     const namesOk = names.length === 0 || (names.length - missingNames.length) / names.length >= NAME_COVERAGE;
     const reasons = [
         ...(quoteFound ? [] : [quote ? "source quote not found" : "no source quote"]),
