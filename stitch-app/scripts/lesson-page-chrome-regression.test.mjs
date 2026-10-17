@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildLessonView } from '../src/lib/lessonView.js';
+import { lessonFromMarkdown } from '../src/lib/lessonSchema.js';
 
 const root = resolve(import.meta.dirname, '..');
 const read = (relativePath) => readFileSync(resolve(root, relativePath), 'utf8');
@@ -83,12 +83,12 @@ assert.match(css, /\.lesson-reading-stage/, 'Reading stage must have a dedicated
 assert.match(hook, /handleFinishLesson/, 'Hook must expose persisted finish.');
 assert.match(hook, /completedAt: Date\.now\(\)/, 'Finish must write completed_at.');
 assert.match(hook, /handleSaveSelectionToNotes/, 'Hook must save selections into notes.');
-const titleSteps = buildLessonView({
-  content: '# Cell Structure\n\n## The Idea\n\nCells have parts that do different jobs.',
-  topicTitle: 'Cell Structure',
-}).steps;
+const titleSections = lessonFromMarkdown(
+  '# Cell Structure\n\n## The Idea\n\nCells have parts that do different jobs.',
+  { topicTitle: 'Cell Structure' },
+).sections;
 assert.deepEqual(
-  titleSteps.map((step) => step.title),
+  titleSections.map((section) => section.title),
   ['The Idea'],
   'Duplicate page-title H1 must be stripped from the lesson sections.',
 );

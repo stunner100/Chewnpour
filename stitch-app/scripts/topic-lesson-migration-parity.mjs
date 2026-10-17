@@ -31,7 +31,7 @@ const fixtureIndex = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'index.jso
 const krebs = JSON.parse(fs.readFileSync(path.join(root, 'scripts', 'fixtures', 'course-eval', 'krebs-cycle.payload.json'), 'utf8'));
 
 const cases = [
-    ...fixtureIndex.map((fixture) => ({
+    ...fixtureIndex.filter((fixture) => fixture.file).map((fixture) => ({
         name: fixture.file,
         title: fixture.title,
         markdown: fs.readFileSync(path.join(fixtureDir, fixture.file), 'utf8'),

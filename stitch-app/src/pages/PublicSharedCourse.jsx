@@ -3,10 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import PublicShell from '../components/PublicShell';
 import LessonSectionStepper from '../components/lesson/LessonSectionStepper';
 import AppIcon from '../components/AppIcon';
-import { splitMarkdownIntoSections, buildLessonSteps } from '../lib/lessonSections';
-import { normalizeLessonContent } from '../lib/topicContentFormatting';
-import { lessonToMarkdown } from '../lib/lessonSchema';
-import { checksWithSectionTitles } from '../lib/lessonView';
+import { buildLessonView } from '../lib/lessonView';
 
 const PublicSharedCourse = () => {
     const { token } = useParams();
@@ -49,15 +46,10 @@ const PublicSharedCourse = () => {
 
     const topics = Array.isArray(course?.topics) ? course.topics : [];
     const topic = topics[activeTopicIndex] || null;
-    const lessonSteps = useMemo(() => {
-        if (!topic) return [];
-        return buildLessonSteps({
-            sections: splitMarkdownIntoSections(normalizeLessonContent(lessonToMarkdown(topic.lesson))),
-            checks: checksWithSectionTitles(topic.inLessonChecks, topic.lesson),
-            wordBankTerms: [],
-            studyMode: 'full',
-        });
-    }, [topic]);
+    const lessonView = useMemo(
+        () => buildLessonView({ lesson: topic?.lesson, checks: topic?.inLessonChecks }),
+        [topic],
+    );
 
     return (
         <PublicShell>
@@ -116,7 +108,9 @@ const PublicSharedCourse = () => {
                             </header>
                             <LessonSectionStepper
                                 key={topic.id || token}
-                                steps={lessonSteps}
+                                steps={lessonView.steps}
+                                hook={lessonView.hook}
+                                wordBankTerms={lessonView.wordBankTerms}
                                 topicId={topic.id}
                                 shareToken={token}
                                 lessonChecks={{}}

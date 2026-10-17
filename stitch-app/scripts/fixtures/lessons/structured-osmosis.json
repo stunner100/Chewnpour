@@ -1,0 +1,46 @@
+{
+  "hook": "Osmosis explains why a slice of cucumber goes limp in salty water and why plant cells stay firm.",
+  "sections": [
+    {
+      "title": "How water moves across a membrane",
+      "role": "core",
+      "body": "**Osmosis** is the movement of water across a partially permeable membrane, from a region of higher **water potential** to a region of lower water potential.\n\nDissolved solutes lower water potential, so water moves towards the more concentrated solution.",
+      "sourceQuote": "Water crosses by osmosis through channel proteins called aquaporins."
+    },
+    {
+      "title": "Predicting the direction of osmosis",
+      "role": "steps",
+      "body": "1. Compare the solute concentration on each side of the membrane.\n2. The side with more dissolved solute has the lower water potential.\n3. Water moves from the side with higher water potential to the side with lower water potential.",
+      "sourceQuote": "moving from high to low concentration"
+    },
+    {
+      "title": "A plant cell in pure water",
+      "role": "example",
+      "body": "A plant cell placed in pure water gains water by osmosis. The cell wall resists the pressure, so the cell becomes **turgid** instead of bursting. An animal cell in the same water has no wall and may burst.",
+      "sourceQuote": "A cell placed in pure water gains water by osmosis"
+    },
+    {
+      "title": "Osmosis is not the diffusion of solutes",
+      "role": "misconception",
+      "body": "A common mistake is to say the salt moves into the cell. In osmosis it is **water** that moves across the membrane; the solute particles stay on their side.",
+      "sourceQuote": "Water crosses by osmosis"
+    },
+    {
+      "title": "Try it: potato strips in salt water",
+      "role": "practice",
+      "body": "Predict what happens to the mass of potato strips left in a concentrated salt solution for an hour. Explain your answer using water potential.",
+      "sourceQuote": "A cell placed in pure water gains water by osmosis"
+    }
+  ],
+  "recap": [
+    { "prompt": "What moves across the membrane during osmosis?", "answer": "Water." },
+    { "prompt": "Which way does water move between two solutions?", "answer": "From higher water potential to lower water potential." },
+    { "prompt": "Why does a plant cell in pure water not burst?", "answer": "Its cell wall resists the pressure, so it becomes turgid." }
+  ],
+  "wordBank": [
+    { "term": "Osmosis", "definition": "the movement of water across a partially permeable membrane" },
+    { "term": "Water potential", "definition": "the tendency of water to move out of a solution; lowered by dissolved solutes" },
+    { "term": "Turgid", "definition": "swollen and firm because the cell has taken in water" },
+    { "term": "Aquaporin", "definition": "a channel protein that lets water cross the membrane" }
+  ]
+}

@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, "..");
 const topicDetail = await fs.readFile(path.join(root, "src/pages/TopicDetail.jsx"), "utf8");
 const topicHook = await fs.readFile(path.join(root, "src/hooks/useTopicDetail.js"), "utf8");
 const contentPanel = await fs.readFile(path.join(root, "src/components/topic/TopicContentPanel.jsx"), "utf8");
-const lessonSections = await fs.readFile(path.join(root, "src/lib/lessonSections.js"), "utf8");
+const lessonView = await fs.readFile(path.join(root, "src/lib/lessonView.js"), "utf8");
 const lessonRenderer = await fs.readFile(path.join(root, "src/components/LessonContentRenderer.jsx"), "utf8");
 const stepper = await fs.readFile(path.join(root, "src/components/lesson/LessonSectionStepper.jsx"), "utf8");
 
@@ -21,8 +21,8 @@ if (!topicHook.includes("buildLessonView")) {
   throw new Error("useTopicDetail must build lesson steps for the stepper.");
 }
 
-if (!lessonSections.includes('type: "wordbank"')) {
-  throw new Error("lessonSections must keep Word Bank as its own stepper step.");
+if (!lessonView.includes("type: 'wordbank'")) {
+  throw new Error("lessonView must keep Word Bank as its own stepper step.");
 }
 
 if (!stepper.includes("step.type === 'wordbank'") || !stepper.includes("<InteractiveWordBank")) {

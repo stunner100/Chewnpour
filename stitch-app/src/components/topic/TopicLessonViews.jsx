@@ -80,7 +80,8 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
         isVoiceSupported,
         mainRef,
         lessonSteps,
-        normalizedContent,
+        hasLesson,
+        lessonHook,
         objectiveExamRoute,
         openSource,
         pauseVoice,
@@ -121,7 +122,8 @@ export const TopicLessonMainColumn = ({ controller, nextLesson = null, examHref 
                 lessonSteps={lessonSteps}
                 nextLesson={nextLesson}
                 examHref={examHref}
-                normalizedContent={normalizedContent}
+                hasLesson={hasLesson}
+                lessonHook={lessonHook}
                 objectiveExamRoute={objectiveExamRoute}
                 openSource={openSource}
                 pauseVoice={pauseVoice}
