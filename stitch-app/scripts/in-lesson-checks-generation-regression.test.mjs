@@ -13,11 +13,13 @@ const lesson = {
       title: "How cells turn glucose into energy",
       role: "core",
       body: "Cellular respiration converts glucose into usable energy. Glycolysis happens in the cytoplasm.",
+      sourceQuote: "Cellular respiration converts glucose into usable energy.",
     },
     {
       title: "The stages in order",
       role: "steps",
       body: "First, glycolysis breaks glucose into pyruvate. Then the Krebs cycle oxidizes acetyl-CoA in the mitochondrial matrix. Finally the electron transport chain makes ATP.",
+      sourceQuote: "Then the Krebs cycle oxidizes acetyl-CoA",
     },
   ],
   recap: [],

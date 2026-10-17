@@ -1,8 +1,7 @@
 import { isValidMcq, isNearDuplicatePrompt } from "./questionDedup.js";
 import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { normalizeOrderingQuestion, snippetHasProcess } from "./processOrdering.js";
-import { isTextGroundedInSource } from "./grounding.js";
-import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
+import { contentWordCoverage, isTextGroundedInSource } from "./grounding.js";
 
 const MAX_IN_LESSON_CHECKS = 4;
 
@@ -15,7 +14,14 @@ const trueFalseOptions = (options) => {
     return ["True", "False"];
 };
 
-const normalizeTrueFalse = (raw, { sectionIndex }) => {
+// A statement keyed True must be supported by the source (its numbers and
+// names exactly, most of its words); one keyed False must at least be about
+// the source, since a wrong number or name is what makes it false.
+const trueFalseGrounded = (prompt, isTrue, sourceText) => (isTrue
+    ? isTextGroundedInSource(prompt, sourceText, { minTokenRatio: 0.8 })
+    : !String(sourceText || "").trim() || contentWordCoverage(prompt, sourceText) >= 0.5);
+
+const normalizeTrueFalse = (raw, { sectionIndex, sourceText = "" }) => {
     const prompt = normalizeWhitespace(raw?.prompt || raw?.question).slice(0, 400);
     if (!prompt || prompt.length < 12) return null;
     const options = trueFalseOptions(raw?.options);
@@ -28,6 +34,7 @@ const normalizeTrueFalse = (raw, { sectionIndex }) => {
     if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex >= options.length) {
         return null;
     }
+    if (!trueFalseGrounded(prompt, /^(true|yes|correct)$/i.test(options[correctIndex]), sourceText)) return null;
     const candidate = {
         prompt,
         options,
@@ -82,16 +89,16 @@ const normalizeInLessonMcq = (raw, { sectionIndex, title = "", sourceText = "" }
     return candidate;
 };
 
-// Checks bind to a lesson section by its index in lesson.sections. A check
+// Checks bind to a lesson section by its index in lesson.sections and must be
+// supported by sourceText, the lesson's part of the upload. A check
 // whose index does not name a section is dropped, never moved elsewhere. An
 // ordering check without an index binds to the first steps section, or the
 // first section that describes a process.
 export const normalizeInLessonChecks = (
     rawChecks,
-    { lesson = null, title = "", quizPrompts = [], ordering = null } = {},
+    { lesson = null, sourceText = "", title = "", quizPrompts = [], ordering = null } = {},
 ) => {
     const sections = Array.isArray(lesson?.sections) ? lesson.sections : [];
-    const lessonText = lessonToMarkdown(lesson);
     const incoming = Array.isArray(rawChecks) ? rawChecks : [];
     const kept = [];
     const seenSections = new Set();
@@ -118,7 +125,7 @@ export const normalizeInLessonChecks = (
         if (type === "ordering") {
             if (hasOrdering) return;
             if (!snippetHasProcess(section.body) && !raw?.stepsInOrder) return;
-            normalized = normalizeOrderingQuestion(raw, { sourceText: section.body });
+            normalized = normalizeOrderingQuestion(raw, { sourceText });
             if (!normalized) return;
             normalized = {
                 ...normalized,
@@ -133,9 +140,9 @@ export const normalizeInLessonChecks = (
             };
             hasOrdering = true;
         } else if (type === "true_false") {
-            normalized = normalizeTrueFalse(raw, { sectionIndex });
+            normalized = normalizeTrueFalse(raw, { sectionIndex, sourceText });
         } else {
-            normalized = normalizeInLessonMcq(raw, { sectionIndex, title, sourceText: lessonText });
+            normalized = normalizeInLessonMcq(raw, { sectionIndex, title, sourceText });
         }
         if (!normalized) return;
         const duplicate = kept.some((existing) => isNearDuplicatePrompt(existing.prompt, normalized.prompt))

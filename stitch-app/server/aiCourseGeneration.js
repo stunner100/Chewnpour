@@ -5,6 +5,7 @@ import { sanitizeGeneratedHint } from "./hintSanitize.js";
 import { pickTopicOrdering, snippetHasProcess } from "./processOrdering.js";
 import { normalizeInLessonChecks } from "./inLessonChecks.js";
 import { isTextGroundedInSource } from "./grounding.js";
+import { groundLesson } from "./lessonGrounding.js";
 import { segmentSource } from "./sourceSegments.js";
 import {
     MAX_GENERATED_LESSONS,
@@ -171,7 +172,7 @@ const normalizeTopicQuestions = (item, { title, lesson, sourceText = "" }) => {
     }
 
     const ordering = pickTopicOrdering(item?.ordering || item?.orderingCheck, {
-        content: lessonToMarkdown(lesson),
+        content: sourceText || lessonToMarkdown(lesson),
         questions,
     });
     const quizPrompts = questions.map((question) => question.prompt);
@@ -180,6 +181,7 @@ const normalizeTopicQuestions = (item, { title, lesson, sourceText = "" }) => {
     let quizCount = 0;
     const inLessonChecks = normalizeInLessonChecks(item?.inLessonChecks, {
         lesson,
+        sourceText,
         title,
         quizPrompts,
         ordering,
@@ -199,17 +201,20 @@ const normalizeTopicQuestions = (item, { title, lesson, sourceText = "" }) => {
     };
 };
 
-// One model-written topic, validated: a usable lesson, grounded MCQs split
-// into quiz and exam, and in-lesson checks bound to the lesson's sections.
+// One model-written topic, checked against its source text: the lesson's
+// unsupported optional sections and terms are dropped (lessonGrounding.js),
+// MCQs, checks and ordering steps must be supported by the source, MCQs are
+// split into quiz and exam, and checks bind to the lesson's sections.
 // Returns null when the lesson is unusable.
-export const normalizeAiTopic = (item, { extractedText = "" } = {}) => {
+export const normalizeAiTopic = (item, { sourceText = "" } = {}) => {
     const title = normalizeWhitespace(item?.title).slice(0, 180);
-    const lesson = normalizeLesson(item?.lesson);
-    if (!title || !lesson) return null;
+    const written = normalizeLesson(item?.lesson);
+    if (!title || !written) return null;
+    const { lesson, report } = groundLesson(written, sourceText);
     const { questions, orderingCheck, inLessonChecks } = normalizeTopicQuestions(item, {
         title,
         lesson,
-        sourceText: extractedText,
+        sourceText,
     });
     return {
         title,
@@ -218,6 +223,7 @@ export const normalizeAiTopic = (item, { extractedText = "" } = {}) => {
         questions,
         inLessonChecks,
         orderingCheck,
+        grounding: report,
         ...(Number.isInteger(item?.planIndex) ? { planIndex: item.planIndex } : {}),
     };
 };
@@ -243,7 +249,7 @@ export const normalizeAiCoursePayload = (
     { fileName = "", extractedText = "", backend = "ai" } = {},
 ) => {
     const topics = (Array.isArray(payload?.topics) ? payload.topics : [])
-        .map((item) => normalizeAiTopic(item, { extractedText }))
+        .map((item) => normalizeAiTopic(item, { sourceText: extractedText }))
         .filter(Boolean);
     if (topics.length === 0) {
         return heuristicCurriculum({ fileName, segments: segmentSource(extractedText).segments });
@@ -354,11 +360,20 @@ const countQuizQuestions = (topic) =>
 // Writes one planned lesson. A lesson that cannot be written throws; a lesson
 // whose questions fail is kept without a quiz. Too few usable quiz questions
 // re-runs only the questions call.
-const writeTopic = async ({ chat, fileName, extractedText, entry, planIndex, source, seenPrompts }) => {
+const writeTopic = async ({ chat, fileName, entry, planIndex, source, seenPrompts }) => {
     const { title, kind } = entry;
-    const lesson = await writeLessonCall({ chat, fileName, title, kind, source });
-    const build = (payload) => normalizeAiTopic({ title, lesson, planIndex, ...payload }, { extractedText });
-    let topic = build({});
+    const written = await writeLessonCall({ chat, fileName, title, kind, source });
+    // Ground the lesson first: the quiz call binds checks to the sections
+    // that survive.
+    const grounded = normalizeAiTopic({ title, lesson: written, planIndex }, { sourceText: source });
+    if (!grounded) throw new Error("AI returned an unusable lesson.");
+    const { lesson } = grounded;
+    // The lesson is already grounded; keep the report of what was dropped.
+    const build = (payload) => ({
+        ...normalizeAiTopic({ title, lesson, planIndex, ...payload }, { sourceText: source }),
+        grounding: grounded.grounding,
+    });
+    let topic = grounded;
     try {
         topic = build(await writeQuestionsCall({ chat, fileName, title, kind, source, lesson, avoidPrompts: seenPrompts }));
         if (countQuizQuestions(topic) < 2) {
@@ -388,7 +403,7 @@ const writeTopic = async ({ chat, fileName, extractedText, entry, planIndex, sou
 // Writes the first MAX_GENERATED_LESSONS planned lessons, each from its full
 // source span. Every plan entry ends with a status: written, failed (the
 // model could not write it) or pending (not reached before the deadline).
-const writeLessons = async ({ chat, signal, fileName, extractedText, segments, plan, provider, model }) => {
+const writeLessons = async ({ chat, signal, fileName, segments, plan, provider, model }) => {
     const statuses = plan.map(() => ({ status: "pending" }));
     const seenPrompts = [];
     const written = await mapWithConcurrency(
@@ -400,7 +415,6 @@ const writeLessons = async ({ chat, signal, fileName, extractedText, segments, p
                 const topic = await writeTopic({
                     chat,
                     fileName,
-                    extractedText,
                     entry,
                     planIndex,
                     source: lessonSourceText(entry, segments),
@@ -500,7 +514,6 @@ export const generateCourseCurriculumWithAi = async ({
             chat: tracedChat,
             signal: controller.signal,
             fileName,
-            extractedText: text,
             segments,
             plan: planned.plan,
             provider: planned.provider,

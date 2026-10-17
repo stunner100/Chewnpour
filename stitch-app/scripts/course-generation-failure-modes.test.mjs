@@ -32,6 +32,7 @@ const knownBug = (id, actual, expected, fixed) => {
 const CELL_TOPICS = [
     {
         title: 'Cell Structure',
+        quote: 'their DNA sits in a region called the nucleoid',
         focus: 'Cell Structure',
         kind: 'concept',
         facts: ['the nucleoid', 'the Golgi apparatus', 'a cell wall made of cellulose', 'Lysosomes'],
@@ -39,6 +40,7 @@ const CELL_TOPICS = [
     },
     {
         title: 'Membrane Transport',
+        quote: 'Water crosses by osmosis through channel proteins called aquaporins',
         focus: 'Membrane Transport',
         kind: 'concept',
         facts: ['aquaporins', 'uses ATP', 'endocytosis', 'a steeper concentration gradient'],
@@ -46,6 +48,7 @@ const CELL_TOPICS = [
     },
     {
         title: 'Cell Division',
+        quote: 'Mitosis produces two identical daughter cells for growth and repair',
         focus: 'Cell Division',
         kind: 'procedure',
         facts: ['two identical daughter cells', 'four genetically different gametes', 'the equator of the cell', 'spindle fibres'],
@@ -56,6 +59,7 @@ const CELL_TOPICS = [
 const LOOP_TOPICS = [
     {
         title: 'For Loops',
+        quote: 'A for loop repeats a block of code once for each item in an iterable',
         focus: 'for loop repeats',
         kind: 'procedure',
         facts: ['a colon', 'four spaces', 'the numbers 0 to 9', 'total becomes 20'],
@@ -63,6 +67,7 @@ const LOOP_TOPICS = [
     },
     {
         title: 'While Loops and Errors',
+        quote: 'A while loop repeats as long as its condition stays true',
         focus: 'While loops',
         kind: 'procedure',
         facts: ['an infinite loop', 'break', 'a SyntaxError', 'an IndentationError'],
@@ -76,9 +81,14 @@ const lessonJson = (topic, { code = false } = {}) => ({
     lesson: {
         hook: `${topic.title} comes up in every test on this unit.`,
         sections: [
-            { title: `What the notes say about ${topic.title}`, role: 'core', body: `The notes describe ${topic.facts.join(', ')}.` },
+            { title: `What the notes say about ${topic.title}`, role: 'core', body: `The notes describe ${topic.facts.join(', ')}.`, sourceQuote: topic.quote },
             code
-                ? { title: 'Looping over a range', role: 'example', body: 'Count to nine:\n\n```python\nfor n in range(10):\n    print(n)\n```' }
+                ? {
+                    title: 'Looping over a range',
+                    role: 'example',
+                    body: 'Count to nine:\n\n```python\nfor n in range(10):\n    print(n)\n```',
+                    sourceQuote: 'The range(10) call produces the numbers 0 to 9.',
+                }
                 : null,
         ].filter(Boolean),
         recap: [{ prompt: `Name one fact about ${topic.title}.`, answer: topic.facts[0] }],
@@ -169,8 +179,14 @@ const statusOf = (result, title) => result.plan.find((entry) => entry.title === 
     assert.equal(result.backend, 'stub');
     assert.deepEqual(result.topics.map((topic) => topic.title), ['For Loops', 'While Loops and Errors']);
     assert.deepEqual(result.plan.map((entry) => entry.status), ['written', 'written']);
+    const [forLoops, whileLoops] = result.topics;
+    assert.ok(forLoops.lesson.sections[1].body.includes('```python\nfor n in range(10):\n    print(n)\n```'), 'code block survives generation intact');
+    // The example quotes a sentence outside the while-loop span, so that
+    // lesson drops it and says so.
+    assert.deepEqual(whileLoops.lesson.sections.map((section) => section.role), ['core']);
+    assert.deepEqual(whileLoops.grounding.droppedSections.map((section) => section.title), ['Looping over a range']);
+    assert.equal(forLoops.grounding.droppedSections.length, 0);
     for (const topic of result.topics) {
-        assert.ok(topic.lesson.sections[1].body.includes('```python\nfor n in range(10):\n    print(n)\n```'), 'code block survives generation intact');
         assert.equal(topic.questions.filter((question) => question.surface === 'quiz').length, 3, 'three quiz MCQs per topic');
         assert.equal(topic.questions.filter((question) => question.surface === 'exam').length, 1, 'remaining MCQs go to the exam');
     }
