@@ -1,6 +1,8 @@
 import { getTopicForUser } from "./courses.js";
 import { callCourseLlmChat, isCourseAiEnabled } from "./llmClient.js";
 import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
+import { extractJsonObject } from "./aiCourseGeneration.js";
+import { reExplainStyleById } from "../src/lib/reExplainStyles.js";
 
 const STYLE_PROMPTS = {
     explain:
@@ -13,19 +15,15 @@ const STYLE_PROMPTS = {
         "Give one concrete, everyday example that illustrates the selected text. Keep it under 160 words.",
 };
 
-const REEXPLAIN_STYLES = [
-    "Teach me like I'm 12",
-    "Use a real-world analogy",
-    "Make it more concise",
-    "Add more examples",
-];
-
-const stripMarkdownLikeFormatting = (value) =>
+// The highlight popover shows plain text: drop markdown emphasis, heading and
+// code markers, but never hyphens or minus signs ("-40 °C" stays as written).
+const toPlainExplanation = (value) =>
     String(value || "")
-        .replace(/```[\s\S]*?```/g, (block) =>
-            block.replace(/```\w*\n?/g, "").replace(/```/g, ""),
-        )
-        .replace(/[*_`#>-]+/g, " ")
+        .replace(/```\w*\n?/g, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/__([^_]+)__/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/^\s{0,3}#{1,6}\s+/gm, "")
         .replace(/\n{3,}/g, "\n\n")
         .replace(/[ \t]{2,}/g, " ")
         .trim();
@@ -45,27 +43,6 @@ const buildExplainFallback = ({ selectedText, style }) => {
         );
     }
     return `Explanation: ${snippet || "This selection"} is highlighting a key idea from your lesson. Re-read the surrounding paragraph and connect it to the section heading for full context.`;
-};
-
-const buildReExplainFallback = ({ topic, style }) => {
-    const title = String(topic?.title || "this lesson").trim();
-    const content = lessonToMarkdown(topic?.lesson).trim();
-    const intro =
-        style === "Teach me like I'm 12"
-            ? `Let's make "${title}" easier.\n\n`
-            : style === "Use a real-world analogy"
-                ? `Think of "${title}" like something you already know.\n\n`
-                : style === "Make it more concise"
-                    ? `Quick version of "${title}":\n\n`
-                    : `Expanded take on "${title}":\n\n`;
-    if (!content) {
-        return `${intro}Open the lesson again after generation finishes, then retry re-explain.`;
-    }
-    const trimmed =
-        style === "Make it more concise"
-            ? content.slice(0, 1800)
-            : content.slice(0, 4500);
-    return `${intro}${trimmed}${content.length > trimmed.length ? "…" : ""}`;
 };
 
 export const explainTopicSelection = async ({
@@ -116,7 +93,7 @@ export const explainTopicSelection = async ({
                 maxTokens: 700,
             });
             explanation =
-                stripMarkdownLikeFormatting(llm?.text || "") ||
+                toPlainExplanation(llm?.text || "") ||
                 buildExplainFallback({ selectedText: cleaned, style: normalizedStyle });
             backend = llm?.provider || "llm";
         } catch (error) {
@@ -142,6 +119,56 @@ export const explainTopicSelection = async ({
     };
 };
 
+const reExplainUnavailable = (message, status = 502) => {
+    const error = new Error(message);
+    error.status = status;
+    return error;
+};
+
+// Rewrites each section body in the requested style and keeps everything
+// else: titles, roles, order, hook, recap and word bank. In-lesson checks bind
+// to a section by index, so they still apply to the rewritten lesson. Throws
+// when the model's answer does not have one usable body per section.
+export const rewriteLessonForStyle = async ({ lesson, title = "", style, chat = callCourseLlmChat }) => {
+    const sections = Array.isArray(lesson?.sections) ? lesson.sections : [];
+    if (sections.length === 0) {
+        throw reExplainUnavailable("This lesson has no sections to re-explain yet.", 409);
+    }
+    const llm = await chat({
+        messages: [
+            {
+                role: "system",
+                content: [
+                    "You rewrite a lesson for a student in a requested style.",
+                    'Return ONLY valid JSON: {"sections":[{"body":"markdown"}]} with exactly one entry per input section, in the same order.',
+                    "Rewrite each body in the style; do not merge, split, drop or reorder sections, and do not write titles.",
+                    "Keep every fact, name and number from the original exactly as written, including signs and units such as -40 °C. Do not add facts that are not in the lesson.",
+                    "Each body is markdown: paragraphs, lists, tables or code blocks as needed; use ### for a sub-heading, never # or ##.",
+                ].join(" "),
+            },
+            {
+                role: "user",
+                content:
+                    `STYLE: ${style}\n` +
+                    `LESSON TITLE: ${title}\n\n` +
+                    `SECTIONS:\n${JSON.stringify(sections.map((section, index) => ({ index, title: section.title, body: section.body })))}`,
+            },
+        ],
+        temperature: 0.3,
+        maxTokens: 6000,
+        responseFormat: "json_object",
+    });
+    const rewritten = extractJsonObject(llm?.text)?.sections;
+    const bodies = (Array.isArray(rewritten) ? rewritten : []).map((item) => String(item?.body || "").trim());
+    if (bodies.length !== sections.length || bodies.some((body) => body.length < 20)) {
+        throw reExplainUnavailable("We couldn't re-explain this lesson. Try again.");
+    }
+    return {
+        lesson: { ...lesson, sections: sections.map((section, index) => ({ ...section, body: bodies[index] })) },
+        backend: llm?.provider || "llm",
+    };
+};
+
 export const reExplainTopicContent = async ({ userId, topicId, style }) => {
     const topicPayload = await getTopicForUser(userId, topicId);
     const topic = topicPayload?.topic;
@@ -150,52 +177,21 @@ export const reExplainTopicContent = async ({ userId, topicId, style }) => {
         error.status = 404;
         throw error;
     }
-
-    const resolvedStyle = REEXPLAIN_STYLES.includes(style)
-        ? style
-        : "Teach me like I'm 12";
-    let content = "";
-    let backend = "fallback";
-
-    if (isCourseAiEnabled()) {
-        try {
-            const llm = await callCourseLlmChat({
-                messages: [
-                    {
-                        role: "system",
-                        content:
-                            "Rewrite the lesson content for the student using the requested style. " +
-                            "Preserve the key facts. Keep section headings when present. Return plain text only.",
-                    },
-                    {
-                        role: "user",
-                        content:
-                            `STYLE: ${resolvedStyle}\n\n` +
-                            `TITLE: ${topic.title || ""}\n` +
-                            `DESCRIPTION: ${topic.description || ""}\n` +
-                            `CONTENT:\n"""\n${lessonToMarkdown(topic.lesson).slice(0, 10000)}\n"""`,
-                    },
-                ],
-                temperature: 0.3,
-                maxTokens: 3500,
-            });
-            content =
-                stripMarkdownLikeFormatting(llm?.text || "") ||
-                buildReExplainFallback({ topic, style: resolvedStyle });
-            backend = llm?.provider || "llm";
-        } catch (error) {
-            console.warn("[topicExplain] re-explain failed; using fallback", {
-                message: error?.message || String(error),
-            });
-            content = buildReExplainFallback({ topic, style: resolvedStyle });
-        }
-    } else {
-        content = buildReExplainFallback({ topic, style: resolvedStyle });
+    if (!isCourseAiEnabled()) {
+        throw reExplainUnavailable("Re-explain is not available right now.", 503);
     }
 
-    return {
-        content,
-        style: resolvedStyle,
-        backend,
-    };
+    const resolvedStyle = reExplainStyleById(style);
+    try {
+        const { lesson, backend } = await rewriteLessonForStyle({
+            lesson: topic.lesson,
+            title: topic.title || "",
+            style: resolvedStyle.instruction,
+        });
+        return { lesson, style: resolvedStyle.id, backend };
+    } catch (error) {
+        if (error?.status) throw error;
+        console.warn("[topicExplain] re-explain failed", { message: error?.message || String(error) });
+        throw reExplainUnavailable("We couldn't re-explain this lesson. Try again.");
+    }
 };

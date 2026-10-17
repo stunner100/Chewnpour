@@ -16,7 +16,8 @@ import {
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
 import { buildLessonView } from '../lib/lessonView';
-import { lessonFromMarkdown } from '../lib/lessonSchema';
+import { normalizeLesson } from '../lib/lessonSchema';
+import { DEFAULT_RE_EXPLAIN_STYLE } from '../lib/reExplainStyles';
 import { useStudyProgress } from './useStudyProgress';
 
 const fetchTopicPayload = async (topicId) => {
@@ -59,13 +60,13 @@ export const useTopicDetail = () => {
     const { user, profile, updateProfile, loading: authLoading } = useAuth();
     useStudyTimer(user?.id);
     const [reExplainOpen, setReExplainOpen] = useState(false);
-    const [reExplainStyle, setReExplainStyle] = useState("Teach me like I'm 12");
+    const [reExplainStyle, setReExplainStyle] = useState(DEFAULT_RE_EXPLAIN_STYLE);
     const [reExplainLoading, setReExplainLoading] = useState(false);
     const [reExplainError, setReExplainError] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceSettingsError, setVoiceSettingsError] = useState('');
-    const [overrideContent, setOverrideContent] = useState('');
+    const [simplifiedLesson, setSimplifiedLesson] = useState(null);
     const [explanationView, setExplanationView] = useState('original');
     const [cachedLesson, setCachedLesson] = useState(null);
     const [showScrollTop, setShowScrollTop] = useState(false);
@@ -224,7 +225,7 @@ export const useTopicDetail = () => {
     const podcastEnabled = true;
     const isVoicePremium = false;
 
-    const storageKey = topicId ? `topicOverride:${topicId}` : null;
+    const storageKey = topicId ? `topicSimplifiedLesson:${topicId}` : null;
     const lessonCacheKey = topicId ? `topicLesson:${topicId}` : null;
     const synthesizeLessonVoice = useCallback(async (text) => {
         if (!topicId) {
@@ -283,7 +284,7 @@ export const useTopicDetail = () => {
 
     useEffect(() => {
         setExplanationView('original');
-        setOverrideContent('');
+        setSimplifiedLesson(null);
     }, [topicId]);
 
     useEffect(() => {
@@ -291,7 +292,7 @@ export const useTopicDetail = () => {
         try {
             const cached = localStorage.getItem(storageKey);
             if (cached) {
-                setOverrideContent(cached);
+                setSimplifiedLesson(normalizeLesson(JSON.parse(cached)));
             }
         } catch (error) {
             console.warn('Failed to load cached lesson content', error);
@@ -320,15 +321,16 @@ export const useTopicDetail = () => {
     }, [lessonCacheKey, topic?.lesson]);
 
     const originalLesson = topic?.lesson || cachedLesson;
-    const hasReexplainedLesson = Boolean(overrideContent);
-    // Re-explain still returns markdown; it is read into the lesson shape and
-    // has no in-lesson checks until re-explain returns the lesson schema.
-    const simplifiedLesson = useMemo(
-        () => (overrideContent ? lessonFromMarkdown(overrideContent) : null),
-        [overrideContent],
-    );
+    const hasReexplainedLesson = Boolean(simplifiedLesson);
     const showSimplified = explanationView === 'simplified' && Boolean(simplifiedLesson);
     const lesson = showSimplified ? simplifiedLesson : originalLesson;
+    // Re-explain rewrites section bodies only, so checks keep their section
+    // index; a cached rewrite of an older version of the lesson gets none.
+    const lessonChecks = useMemo(() => (
+        !showSimplified || simplifiedLesson.sections.length === (originalLesson?.sections?.length || 0)
+            ? topic?.inLessonChecks
+            : []
+    ), [showSimplified, simplifiedLesson, originalLesson, topic?.inLessonChecks]);
     const previousVoiceModeRef = useRef(voiceModeEnabled);
 
     useEffect(() => {
@@ -403,9 +405,9 @@ export const useTopicDetail = () => {
 
     const lessonView = useMemo(() => buildLessonView({
         lesson,
-        checks: showSimplified ? [] : topic?.inLessonChecks,
+        checks: lessonChecks,
         studyMode,
-    }), [lesson, showSimplified, topic?.inLessonChecks, studyMode]);
+    }), [lesson, lessonChecks, studyMode]);
     const { steps: lessonSteps, wordBankTerms, hook: lessonHook } = lessonView;
     const hasLesson = lessonView.sections.length > 0;
     const lessonToc = useMemo(
@@ -543,18 +545,15 @@ export const useTopicDetail = () => {
         setReExplainLoading(true);
         try {
             const result = await reExplainTopicRequest(topicId, reExplainStyle);
-            const nextContent = result?.content || '';
-            setOverrideContent(nextContent);
+            const nextLesson = normalizeLesson(result?.lesson);
+            if (!nextLesson) throw new Error("We couldn't re-explain this lesson. Try again.");
+            setSimplifiedLesson(nextLesson);
             setExplanationView('simplified');
             if (storageKey) {
                 try {
-                    if (nextContent.trim()) {
-                        localStorage.setItem(storageKey, nextContent);
-                    } else {
-                        localStorage.removeItem(storageKey);
-                    }
+                    localStorage.setItem(storageKey, JSON.stringify(nextLesson));
                 } catch (error) {
-                    console.warn('Failed to cache lesson content', error);
+                    console.warn('Failed to cache the re-explained lesson', error);
                 }
             }
             setReExplainOpen(false);
