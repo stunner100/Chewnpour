@@ -26,7 +26,7 @@ export const LESSON_ROLES = ['core', 'steps', 'example', 'misconception', 'pract
 
 const MAX_SECTIONS = 6;
 const MAX_TITLE_CHARS = 120;
-const MAX_BODY_CHARS = 4000;
+const MAX_BODY_CHARS = 8000;
 const MIN_BODY_CHARS = 40;
 const MAX_HOOK_CHARS = 240;
 const MAX_QUOTE_CHARS = 300;

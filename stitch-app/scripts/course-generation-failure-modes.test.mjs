@@ -93,20 +93,27 @@ const lessonJson = (topic, { code = false } = {}) => ({
     ordering: null,
 });
 
-const outlineJson = (topics) => ({
-    topics: topics.map(({ title, focus, kind }) => ({
-        title,
-        description: `What the notes say about ${title.toLowerCase()}.`,
-        focus,
-        kind,
-    })),
-});
+// The stub planner starts each topic at the first source part whose listing
+// mentions the topic's focus.
+const planJson = (topics, messages) => {
+    const parts = String(messages?.[1]?.content || '')
+        .split('\n')
+        .map((line) => line.match(/^\[(\d+)\] (.*)$/))
+        .filter(Boolean)
+        .map((match) => ({ index: Number(match[1]), line: match[2].toLowerCase() }));
+    return {
+        lessons: topics.map(({ title, focus, kind }) => ({
+            title,
+            kind,
+            firstPart: parts.find((part) => part.line.includes(focus.toLowerCase()))?.index ?? 0,
+        })),
+    };
+};
 
 const callKind = (messages) => {
     const system = String(messages?.[0]?.content || '');
     if (system.startsWith("You are ChewnPour's study curriculum planner.")) return 'outline';
     if (system.startsWith("You are ChewnPour's study lesson writer.")) return 'topic';
-    if (system.startsWith("You are ChewnPour's study curriculum generator.")) return 'single_pass';
     return 'unknown';
 };
 
@@ -114,7 +121,7 @@ const topicTitleOf = (messages) =>
     String(messages?.[1]?.content || '').match(/^Topic title: (.+)$/m)?.[1] || '';
 
 const snippetOf = (messages) =>
-    String(messages?.[1]?.content || '').split('```')[1]?.trim() || '';
+    String(messages?.[1]?.content || '').match(/\(untrusted data\):\n(`{3,})\n([\s\S]*)\n\1$/)?.[2] || '';
 
 // A stub provider. `onTopic` decides what each per-topic call returns.
 const makeChat = ({ topics, onTopic, onOutline }) => {
@@ -131,7 +138,7 @@ const makeChat = ({ topics, onTopic, onOutline }) => {
         });
         if (kind === 'outline') {
             if (onOutline) return onOutline();
-            return { text: JSON.stringify(outlineJson(topics)), provider: 'stub', model: 'stub-1' };
+            return { text: JSON.stringify(planJson(topics, args.messages)), provider: 'stub', model: 'stub-1' };
         }
         if (kind === 'topic') {
             const topic = topics.find((entry) => entry.title === title);
@@ -162,32 +169,40 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
     assert.ok(calls.every((call) => call.kind !== 'topic' || call.maxTokens === 4096), 'topic calls ask for 4,096 tokens');
 }
 
-// H1: truncated JSON from the lesson writer ships the raw source snippet as the lesson.
+// H1: a truncated reply ships that lesson's raw source text as the lesson.
 {
-    const truncate = (topic) => {
+    const truncateDivision = (topic) => {
+        if (topic.title !== 'Cell Division') return ok(topic);
         const full = JSON.stringify(lessonJson(topic));
         return { text: full.slice(0, Math.floor(full.length * 0.6)), provider: 'stub', model: 'stub-1' };
     };
-    const { chat, calls } = makeChat({ topics: CELL_TOPICS, onTopic: truncate });
+    const { chat, calls } = makeChat({ topics: CELL_TOPICS, onTopic: truncateDivision });
     const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
-    const topicCalls = calls.filter((call) => call.kind === 'topic');
+    const division = result.topics.find((topic) => topic.title === 'Cell Division');
+    const divisionCalls = calls.filter((call) => call.kind === 'topic' && call.title === 'Cell Division');
     knownBug(
         'H1 (truncation ships raw text)',
-        result.topics.map((topic) => ({
-            rawSnippet: topic.lesson.sections.length === 1
-                && topic.lesson.sections[0].body === topicCalls.find((call) => call.title === topic.title).snippet,
-            questions: topic.questions.length,
-        })),
-        CELL_TOPICS.map(() => ({ rawSnippet: true, questions: 0 })),
-        'a truncated response is retried with a larger budget, and a topic that still fails is flagged instead of shipping the raw snippet',
+        {
+            rawSource: division.lesson.sections.length === 1 && division.lesson.sections[0].body === divisionCalls[0].snippet.trim(),
+            questions: division.questions.length,
+            flagged: 'status' in division,
+        },
+        { rawSource: true, questions: 0, flagged: false },
+        'a truncated response is retried with a larger budget, and a topic that still fails is flagged instead of shipping its raw source',
     );
-    knownBug(
-        'H1 (fallback reported as AI)',
-        result.backend,
-        'stub',
-        'the course records that its topics are raw excerpts, not AI lessons',
-    );
-    assert.equal(topicCalls.length, CELL_TOPICS.length * 2, 'each topic is attempted once, then once more by the serial question regen');
+    assert.equal(divisionCalls.length, 2, 'the truncated topic is attempted once, then once more by the serial question regen');
+}
+
+// When every lesson call fails, the course is reported as the heuristic course.
+{
+    const truncateAll = (topic) => {
+        const full = JSON.stringify(lessonJson(topic));
+        return { text: full.slice(0, Math.floor(full.length * 0.6)), provider: 'stub', model: 'stub-1' };
+    };
+    const { chat } = makeChat({ topics: CELL_TOPICS, onTopic: truncateAll });
+    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
+    assert.equal(result.backend, 'heuristic_fallback');
+    assert.ok(result.topics.every((topic) => topic.questions.length === 0));
 }
 
 // One topic throws every time; the others succeed.
@@ -235,23 +250,16 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
     );
 }
 
-// Every provider fails: the heuristic fallback becomes the course, with no quiz.
+// Every provider fails: the plan falls back to headings, every lesson call
+// fails, and the heuristic course (no quiz) is returned as such.
 {
-    const { chat } = makeChat({
-        topics: CELL_TOPICS,
-        onOutline: () => {
-            throw new Error('Course LLM providers failed: grid 500 | deepseek 500');
-        },
-        onTopic: () => {
-            throw new Error('unreachable');
-        },
-    });
-    const singlePassChat = async (args) => {
-        if (callKind(args.messages) === 'single_pass') throw new Error('Course LLM providers failed: grid 500 | deepseek 500');
-        return chat(args);
+    const providersDown = () => {
+        throw new Error('Course LLM providers failed: grid 500 | deepseek 500');
     };
-    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat: singlePassChat });
+    const { chat } = makeChat({ topics: CELL_TOPICS, onOutline: providersDown, onTopic: providersDown });
+    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
     assert.equal(result.backend, 'heuristic_fallback');
+    assert.deepEqual(result.topics.map((topic) => topic.title), result.plan.slice(0, 12).map((entry) => entry.title));
     assert.ok(result.topics.length >= 1);
     assert.ok(result.topics.every((topic) => topic.questions.length === 0), 'heuristic topics have no quiz');
     knownBug(
@@ -262,32 +270,29 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
     );
 }
 
-// M1: the topic snippet comes from the first match of the title, here the table of contents.
+// M1 fixed: each lesson is written from its own chapter, never the contents list.
 {
     const { chat, calls } = makeChat({ topics: CELL_TOPICS, onTopic: (topic) => ok(topic) });
-    await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
-    const divisionSnippet = calls.find((call) => call.kind === 'topic' && call.title === 'Cell Division').snippet;
-    knownBug(
-        'M1 (snippet taken from the table of contents)',
-        {
-            startsAtContents: divisionSnippet.includes('Contents\n1. Cell Structure ....'),
-            hasChapterBody: divisionSnippet.includes('Mitosis produces two identical daughter cells'),
-        },
-        { startsAtContents: true, hasChapterBody: false },
-        'the Cell Division lesson is written from chapter 3, not from the contents list',
-    );
+    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat });
+    const snippetFor = (title) => calls.find((call) => call.kind === 'topic' && call.title === title).snippet;
+    assert.match(snippetFor('Cell Division'), /^# 3\. Cell Division\n\nMitosis produces two identical daughter cells/);
+    for (const topic of CELL_TOPICS) {
+        assert.doesNotMatch(snippetFor(topic.title), /\.{4,}\s*\d/, `${topic.title} source has no contents lines`);
+    }
+    assert.doesNotMatch(snippetFor('Cell Structure'), /Mitosis produces/, 'lessons do not share source text');
+    assert.deepEqual(result.plan.map((entry) => entry.title), CELL_TOPICS.map((topic) => topic.title));
+    assert.equal(result.plan[0].start, 0);
+    assert.equal(result.plan.at(-1).end, cellNotes.trim().length, 'the plan covers the whole source');
 }
 
-// M12: a scanned PDF whose text layer is only page numbers still goes to the LLM.
+// M12 (generation side): text that is only page numbers makes no model call.
+// Sending such uploads to OCR is PR 5a.
 {
     const { chat, calls } = makeChat({ topics: CELL_TOPICS, onTopic: (topic) => ok(topic) });
-    await generate({ fileName: 'scan.pdf', extractedText: scannedPdfText, chat });
-    knownBug(
-        'M12 (no minimum-text gate)',
-        calls.length > 0,
-        true,
-        'text that is only page numbers is sent to OCR before any course generation call',
-    );
+    const result = await generate({ fileName: 'scan.pdf', extractedText: scannedPdfText, chat });
+    assert.equal(calls.length, 0);
+    assert.equal(result.backend, 'heuristic');
+    assert.match(result.topics[0].lesson.sections[0].body, /no extractable text was found/);
 }
 
 console.log('course-generation-failure-modes: ok');
