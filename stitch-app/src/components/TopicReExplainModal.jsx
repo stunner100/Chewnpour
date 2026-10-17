@@ -1,16 +1,7 @@
 import React, { memo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import AppIcon from './AppIcon';
-
-const RE_EXPLAIN_STYLES = [
-    'Simple summary',
-    'Step-by-step',
-    'Story/analogy',
-    'Bullet points',
-    'Short & direct',
-    'Teach me like I\u2019m 12',
-    'Ghanaian Pidgin',
-];
+import { RE_EXPLAIN_STYLES } from '../lib/reExplainStyles';
 
 const TopicReExplainModal = memo(function TopicReExplainModal({
     open,
@@ -69,16 +60,17 @@ const TopicReExplainModal = memo(function TopicReExplainModal({
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {RE_EXPLAIN_STYLES.map((option) => (
                         <button
-                            key={option}
+                            key={option.id}
                             type="button"
-                            onClick={() => onStyleChange(option)}
+                            aria-pressed={selectedStyle === option.id}
+                            onClick={() => onStyleChange(option.id)}
                             className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${
-                                selectedStyle === option
+                                selectedStyle === option.id
                                     ? 'border-primary bg-primary text-white'
                                     : 'border-border-subtle bg-surface-soft text-text-secondary'
                             }`}
                         >
-                            {option}
+                            {option.label}
                         </button>
                     ))}
                 </div>
