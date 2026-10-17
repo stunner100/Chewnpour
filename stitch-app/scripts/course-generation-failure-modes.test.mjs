@@ -133,7 +133,8 @@ const makeChat = ({ topics, onTopic, onOutline }) => {
             kind,
             title,
             snippet: kind === 'topic' ? snippetOf(args.messages) : '',
-            hasSignal: Boolean(args.signal),
+            signal: args.signal,
+            run: args.run,
             maxTokens: args.maxTokens,
         });
         if (kind === 'outline') {
@@ -235,19 +236,27 @@ const generate = (args) => generateCourseCurriculumWithAi({ aiEnabled: () => tru
         topics: CELL_TOPICS,
         onTopic: (topic) => (topic.title === 'Cell Division' ? new Promise(() => {}) : ok(topic)),
     });
-    const result = await generate({ fileName: 'cells.pdf', extractedText: cellNotes, chat, timeoutMs: 1000 });
+    const result = await generate({
+        fileName: 'cells.pdf',
+        extractedText: cellNotes,
+        chat,
+        timeoutMs: 1000,
+        runContext: { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1' },
+    });
     knownBug(
         'H4 (deadline discards finished topics)',
         { backend: result.backend, aiQuestions: result.topics.reduce((sum, topic) => sum + topic.questions.length, 0) },
         { backend: 'heuristic_timeout', aiQuestions: 0 },
         'the two finished topics are kept with their questions and only Cell Division is flagged',
     );
-    knownBug(
-        'H4 (no abort signal)',
-        calls.some((call) => call.hasSignal),
-        false,
-        'LLM calls receive an AbortSignal so a stalled request is cancelled at the deadline',
-    );
+    // Fixed in 4.1: every call gets the generation's signal, the deadline
+    // aborts it, and each call carries its usage context.
+    const stalled = calls.find((call) => call.kind === 'topic' && call.title === 'Cell Division');
+    assert.ok(stalled.signal instanceof AbortSignal);
+    assert.equal(stalled.signal.aborted, true, 'the stalled call is cancelled at the deadline');
+    assert.ok(calls.every((call) => call.signal === stalled.signal));
+    assert.deepEqual(calls.find((call) => call.kind === 'outline').run, { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1', purpose: 'lesson_plan' });
+    assert.deepEqual(stalled.run, { courseId: 'course-1', uploadId: 'upload-1', userId: 'user-1', purpose: 'lesson', label: 'Cell Division' });
 }
 
 // Every provider fails: the plan falls back to headings, every lesson call

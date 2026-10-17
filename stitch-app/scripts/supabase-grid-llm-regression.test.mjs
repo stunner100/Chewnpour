@@ -9,10 +9,10 @@ const envExample = readFileSync(path.join(root, ".env.example"), "utf8");
 
 assert.match(llmClient, /GRID_API_KEY/);
 assert.match(llmClient, /api\.thegrid\.ai/);
-assert.match(llmClient, /provider:\s*"grid"/);
+assert.match(llmClient, /name:\s*"grid"/);
 assert.match(llmClient, /text-prime/);
 assert.ok(
-  llmClient.indexOf('provider: "grid"') < llmClient.indexOf('provider: "deepseek"'),
+  llmClient.indexOf('name: "grid"') < llmClient.indexOf('name: "deepseek"'),
   "Grid should be preferred before DeepSeek",
 );
 assert.match(envExample, /^GRID_API_KEY=/m);
