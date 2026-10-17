@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import AppIcon from '../AppIcon';
+import { gradeWithRetry, nextRadioIndex, radioTabIndex } from '../../lib/lessonCheckControls';
 import LessonOrderingCheck from './LessonOrderingCheck';
 import { AnnotatedText } from '../opensource-ui/AnnotatedText';
 
@@ -35,57 +36,40 @@ export default function LessonInlineCheck({
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const optionRefs = useRef([]);
 
     if (!check?.id || !check?.prompt) return null;
 
-    const markAttempted = () => {
-        setAttempts((count) => count + 1);
+    // Submitting counts as an attempt before grading starts, so a grading
+    // failure never keeps the student on this section; grading is retried and
+    // only the feedback waits.
+    const submit = async (answer) => {
+        if (submitting) return;
         onAttempted?.(check.id);
-    };
-
-    const handleGraded = (graded) => {
-        setResult(graded);
-        markAttempted();
-    };
-
-    const handleSubmitChoice = async () => {
-        if (!Number.isInteger(selectedIndex) || submitting) return;
         setSubmitting(true);
         setError('');
         try {
-            const graded = await submitLessonCheck({
+            const graded = await gradeWithRetry(() => submitLessonCheck({
                 topicId,
                 shareToken,
                 questionId: check.id,
-                selectedIndex,
-            });
-            handleGraded(graded);
-        } catch (err) {
-            setError(err.message || 'Could not grade this check.');
+                ...answer,
+            }));
+            setResult(graded);
+            setAttempts((count) => count + 1);
+        } catch {
+            setError('We could not check your answer right now. You can keep going, or try checking again.');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleSubmitOrder = async (orderedSteps) => {
-        setSubmitting(true);
-        setError('');
-        try {
-            const graded = await submitLessonCheck({
-                topicId,
-                shareToken,
-                questionId: check.id,
-                orderedSteps,
-            });
-            handleGraded(graded);
-            return graded;
-        } catch (err) {
-            setError(err.message || 'Could not grade this check.');
-            throw err;
-        } finally {
-            setSubmitting(false);
-        }
+    const handleSubmitChoice = () => {
+        if (!Number.isInteger(selectedIndex)) return;
+        submit({ selectedIndex });
     };
+
+    const handleSubmitOrder = (orderedSteps) => submit({ orderedSteps });
 
     const handleTryAgain = () => {
         setResult(null);
@@ -102,7 +86,9 @@ export default function LessonInlineCheck({
                     result={result}
                     submitting={submitting}
                 />
-                {error ? <p className="mt-2 text-caption text-error">{error}</p> : null}
+                <div role="status" aria-live="polite">
+                    {error ? <p className="mt-2 text-caption text-error">{error}</p> : null}
+                </div>
             </div>
         );
     }
@@ -113,6 +99,17 @@ export default function LessonInlineCheck({
     // A failed first attempt is teaching, not punishment: allow one retry
     // before revealing the correct answer.
     const revealAnswer = submitted && !correct && attempts >= 2;
+    const locked = submitted && (correct || revealAnswer);
+
+    // Arrows move from the focused option, which is the selected one once
+    // anything is selected.
+    const handleOptionKeyDown = (event, index) => {
+        const next = nextRadioIndex(index, event.key, options.length);
+        if (next === null || locked) return;
+        event.preventDefault();
+        setSelectedIndex(next);
+        optionRefs.current[next]?.focus();
+    };
 
     return (
         <section aria-label="Quick check" className="my-8 border-t border-border-subtle pt-8 ph-mask">
@@ -141,8 +138,11 @@ export default function LessonInlineCheck({
                             type="button"
                             role="radio"
                             aria-checked={selected}
-                            disabled={submitted && (correct || revealAnswer)}
+                            ref={(node) => { optionRefs.current[index] = node; }}
+                            tabIndex={radioTabIndex(index, selectedIndex)}
+                            disabled={locked}
                             onClick={() => setSelectedIndex(index)}
+                            onKeyDown={(event) => handleOptionKeyDown(event, index)}
                             className={`flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left text-body-sm leading-6 transition-colors ${
                                 revealCorrect
                                     ? 'border-success/40 bg-success-soft text-text-primary'
@@ -151,7 +151,7 @@ export default function LessonInlineCheck({
                                       : selected
                                         ? 'border-primary bg-primary-subtle text-text-primary'
                                         : 'border-border-subtle bg-transparent text-text-primary hover:border-primary/40'
-                            } ${submitted && (correct || revealAnswer) ? 'cursor-default' : ''}`}
+                            } ${locked ? 'cursor-default' : ''}`}
                         >
                             <span
                                 aria-hidden="true"
@@ -182,64 +182,66 @@ export default function LessonInlineCheck({
                 ) : null}
             </div>
 
-            {error ? <p className="mt-2 text-caption text-error">{error}</p> : null}
+            <div role="status" aria-live="polite">
+                {error ? <p className="mt-2 text-caption text-error">{error}</p> : null}
 
-            {submitted ? (
-                correct ? (
-                    <div className="mt-4 flex items-start gap-2.5">
-                        <AppIcon name="check" className="mt-0.5 shrink-0 text-[18px] text-success" />
-                        <div>
-                            <p className="text-body-sm font-semibold text-text-primary">
-                                <AnnotatedText variant="highlight">Exactly.</AnnotatedText>
-                            </p>
-                            <p className="sr-only">Correct</p>
-                            {result.explanation ? (
-                                <p className="mt-1.5 text-body-sm leading-6 text-text-secondary">{result.explanation}</p>
-                            ) : null}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="mt-4 space-y-3">
-                        <div className="flex items-start gap-2.5">
-                            <AppIcon name="refresh" className="mt-0.5 shrink-0 text-[18px] text-warning" />
+                {submitted ? (
+                    correct ? (
+                        <div className="mt-4 flex items-start gap-2.5">
+                            <AppIcon name="check" className="mt-0.5 shrink-0 text-[18px] text-success" />
                             <div>
                                 <p className="text-body-sm font-semibold text-text-primary">
-                                    <AnnotatedText variant="wavy" color="text-warning">Not quite.</AnnotatedText>
+                                    <AnnotatedText variant="highlight">Exactly.</AnnotatedText>
                                 </p>
-                                <p className="sr-only">Not quite. Try another answer.</p>
-                                {revealAnswer && result.explanation ? (
+                                <p className="sr-only">Correct</p>
+                                {result.explanation ? (
                                     <p className="mt-1.5 text-body-sm leading-6 text-text-secondary">{result.explanation}</p>
-                                ) : null}
-                                {result.hint ? (
-                                    <p className="mt-1.5 text-caption leading-5 text-text-muted">{result.hint}</p>
                                 ) : null}
                             </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            {!revealAnswer ? (
-                                <button
-                                    type="button"
-                                    className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm"
-                                    onClick={handleTryAgain}
-                                >
-                                    <AppIcon name="refresh" className="text-[16px]" />
-                                    Try again
-                                </button>
-                            ) : null}
-                            {onAskTutor ? (
-                                <button
-                                    type="button"
-                                    className="btn-ghost inline-flex min-h-11 items-center gap-1.5 text-body-sm"
-                                    onClick={() => onAskTutor(`I'm stuck on this quick check from the lesson: "${check.prompt}". Can you explain it?`)}
-                                >
-                                    <AppIcon name="smart_toy" className="text-[16px]" />
-                                    Ask AI Tutor
-                                </button>
-                            ) : null}
+                    ) : (
+                        <div className="mt-4 space-y-3">
+                            <div className="flex items-start gap-2.5">
+                                <AppIcon name="refresh" className="mt-0.5 shrink-0 text-[18px] text-warning" />
+                                <div>
+                                    <p className="text-body-sm font-semibold text-text-primary">
+                                        <AnnotatedText variant="wavy" color="text-warning">Not quite.</AnnotatedText>
+                                    </p>
+                                    <p className="sr-only">Not quite. Try another answer.</p>
+                                    {revealAnswer && result.explanation ? (
+                                        <p className="mt-1.5 text-body-sm leading-6 text-text-secondary">{result.explanation}</p>
+                                    ) : null}
+                                    {result.hint ? (
+                                        <p className="mt-1.5 text-caption leading-5 text-text-muted">{result.hint}</p>
+                                    ) : null}
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {!revealAnswer ? (
+                                    <button
+                                        type="button"
+                                        className="btn-secondary inline-flex min-h-11 items-center gap-1.5 text-body-sm"
+                                        onClick={handleTryAgain}
+                                    >
+                                        <AppIcon name="refresh" className="text-[16px]" />
+                                        Try again
+                                    </button>
+                                ) : null}
+                                {onAskTutor ? (
+                                    <button
+                                        type="button"
+                                        className="btn-ghost inline-flex min-h-11 items-center gap-1.5 text-body-sm"
+                                        onClick={() => onAskTutor(`I'm stuck on this quick check from the lesson: "${check.prompt}". Can you explain it?`)}
+                                    >
+                                        <AppIcon name="smart_toy" className="text-[16px]" />
+                                        Ask AI Tutor
+                                    </button>
+                                ) : null}
+                            </div>
                         </div>
-                    </div>
-                )
-            ) : null}
+                    )
+                ) : null}
+            </div>
         </section>
     );
 }

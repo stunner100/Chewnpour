@@ -31,7 +31,7 @@ assert.ok(score.inLessonCount >= 2, 'multi-section fixture must emit in-lesson c
 assert.equal(score.inLessonCoverageOk, true, 'each multi-section topic must have in-lesson coverage');
 
 const orderingSource = await fs.readFile(path.join(root, 'src', 'components', 'lesson', 'LessonOrderingCheck.jsx'), 'utf8');
-assert.match(orderingSource, /draggable/, 'ordering UI must use drag-and-drop');
+assert.match(orderingSource, /moveByButton/, 'ordering UI must work without drag-and-drop');
 assert.match(orderingSource, /Check order/, 'ordering UI must submit before revealing the canonical order');
 assert.doesNotMatch(
   orderingSource.slice(0, orderingSource.indexOf('submitted')),
