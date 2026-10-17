@@ -154,6 +154,7 @@ const MATERIAL_TO_LUCIDE = {
   arrow_forward: ArrowRightIcon,
   arrow_outward: ArrowUpRightIcon,
   arrow_upward: ArrowUpIcon,
+  arrow_downward: ArrowDownIcon,
   auto_awesome: SparklesIcon,
   auto_fix_high: WandSparklesIcon,
   auto_stories: BookOpenIcon,

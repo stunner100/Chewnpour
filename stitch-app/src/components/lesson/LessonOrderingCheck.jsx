@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AppIcon from '../AppIcon';
+import { moveAnnouncement, moveStep } from '../../lib/lessonCheckControls';
 
 const shuffleSteps = (steps) => {
     const items = (Array.isArray(steps) ? steps : []).map((text, index) => ({
@@ -39,6 +40,22 @@ export default function LessonOrderingCheck({ check, onSubmit, result, submittin
     const [order, setOrder] = useState(playable);
     const [draggingId, setDraggingId] = useState(null);
     const [localSubmitted, setLocalSubmitted] = useState(false);
+    const [announcement, setAnnouncement] = useState('');
+    // After a button move, focus follows the moved step: { id, direction }.
+    const pendingFocus = useRef(null);
+    const moveButtons = useRef({});
+
+    useEffect(() => {
+        const focus = pendingFocus.current;
+        if (!focus) return;
+        pendingFocus.current = null;
+        const buttons = moveButtons.current[focus.id] || {};
+        // At the top or bottom the pressed button is disabled; use the other.
+        const target = buttons[focus.direction]?.disabled
+            ? buttons[focus.direction === 'up' ? 'down' : 'up']
+            : buttons[focus.direction];
+        target?.focus();
+    }, [order]);
 
     const submitted = Boolean(result) || localSubmitted;
     const canonical = Array.isArray(result?.stepsInOrder) && result.stepsInOrder.length
@@ -64,6 +81,15 @@ export default function LessonOrderingCheck({ check, onSubmit, result, submittin
         });
     };
 
+    const moveByButton = (index, delta) => {
+        if (submitted) return;
+        const next = moveStep(order, index, delta);
+        if (next === order) return;
+        setOrder(next);
+        setAnnouncement(moveAnnouncement(order[index].text, index + delta + 1, order.length));
+        pendingFocus.current = { id: order[index].id, direction: delta < 0 ? 'up' : 'down' };
+    };
+
     const handleCheck = async () => {
         if (typeof onSubmit === 'function') {
             await onSubmit(current);
@@ -81,8 +107,11 @@ export default function LessonOrderingCheck({ check, onSubmit, result, submittin
                     <h3 className="text-body-md font-semibold text-text-primary">{check.prompt}</h3>
                 </div>
             </div>
-            <p className="mb-3 text-caption text-text-secondary">Drag the steps into the order described in the lesson.</p>
-            <ol className="space-y-2">
+            <p id={`${check.id || 'ordering'}-instructions`} className="mb-3 text-caption text-text-secondary">
+                Put the steps in the order described in the lesson: drag them, or use the move buttons.
+            </p>
+            <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
+            <ol className="space-y-2" aria-describedby={`${check.id || 'ordering'}-instructions`}>
                 {order.map((item, index) => (
                     <li
                         key={item.id}
@@ -103,7 +132,26 @@ export default function LessonOrderingCheck({ check, onSubmit, result, submittin
                         <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-caption font-bold text-primary">
                             {index + 1}
                         </span>
-                        <span className="text-body-sm leading-6 text-text-primary">{item.text}</span>
+                        <span className="flex-1 text-body-sm leading-6 text-text-primary">{item.text}</span>
+                        {!submitted ? (
+                            <span className="flex shrink-0 gap-1">
+                                {[['up', -1, 'arrow_upward'], ['down', 1, 'arrow_downward']].map(([direction, delta, icon]) => (
+                                    <button
+                                        key={direction}
+                                        type="button"
+                                        ref={(node) => {
+                                            moveButtons.current[item.id] = { ...moveButtons.current[item.id], [direction]: node };
+                                        }}
+                                        aria-label={`Move step ${index + 1}, ${item.text}, ${direction}`}
+                                        disabled={delta < 0 ? index === 0 : index === order.length - 1}
+                                        onClick={() => moveByButton(index, delta)}
+                                        className="flex size-9 items-center justify-center rounded-lg border border-border-subtle text-text-secondary hover:border-primary/40 hover:text-primary disabled:opacity-30"
+                                    >
+                                        <AppIcon name={icon} className="text-[18px]" />
+                                    </button>
+                                ))}
+                            </span>
+                        ) : null}
                     </li>
                 ))}
             </ol>
@@ -119,6 +167,7 @@ export default function LessonOrderingCheck({ check, onSubmit, result, submittin
                     </button>
                 ) : null}
             </div>
+            <div role="status" aria-live="polite">
             {submitted ? (
                 <div
                     className={`mt-4 rounded-xl border px-4 py-3 ${
@@ -145,6 +194,7 @@ export default function LessonOrderingCheck({ check, onSubmit, result, submittin
                     ) : null}
                 </div>
             ) : null}
+            </div>
         </section>
     );
 }
