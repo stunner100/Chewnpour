@@ -9,6 +9,16 @@ import LessonCompletion from '../study/LessonCompletion';
 import AppIcon from '../AppIcon';
 import { markdownToSpeechText } from '../../lib/lessonMarkdown';
 
+const sectionAnchorId = (index) => `lesson-section-${index}`;
+
+const scrollToSection = (index, reduceMotion) => {
+    if (typeof document === 'undefined') return;
+    document.getElementById(sectionAnchorId(index))?.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'start',
+    });
+};
+
 const scrollLessonToTop = (reduceMotion) => {
     if (typeof document === 'undefined') return;
     const main = document.getElementById('dashboard-main');
@@ -51,6 +61,9 @@ export default function LessonSectionStepper({
         return Number.isFinite(next) && next > 0 ? Math.round(next) : 0;
     });
     const [finished, setFinished] = useState(() => Boolean(initialFinished));
+    // "Read all" shows every section on one page for revision and in-page
+    // search; stepping one section at a time stays the default.
+    const [readAll, setReadAll] = useState(false);
     const [sessionAttemptedIds, setSessionAttemptedIds] = useState([]);
     const attemptedIds = useMemo(() => {
         const next = new Set(Object.keys(lessonChecks || {}));
@@ -99,9 +112,10 @@ export default function LessonSectionStepper({
 
     useEffect(() => {
         if (validRequest == null) return;
-        scrollLessonToTop(reduceMotion);
+        if (readAll) scrollToSection(validRequest, reduceMotion);
+        else scrollLessonToTop(reduceMotion);
         onRequestConsumed?.();
-    }, [validRequest, reduceMotion, onRequestConsumed]);
+    }, [validRequest, readAll, reduceMotion, onRequestConsumed]);
 
     const markAttempted = useCallback((questionId) => {
         if (!questionId) return;
@@ -148,6 +162,88 @@ export default function LessonSectionStepper({
         );
     }
 
+    const renderStep = (entry, { headingId, withHook, ref }) => (
+        <article
+            ref={ref}
+            aria-labelledby={headingId}
+            className="lesson-reading-stage lesson-prose ph-mask"
+        >
+            <LessonSectionHeading id={headingId} title={entry.title} role={entry.role} />
+            {withHook ? <p className="lesson-hook">{hook}</p> : null}
+            {entry.type === 'wordbank' ? (
+                <div id="topic-wordbank" style={{ scrollMarginTop: 108 }}>
+                    <InteractiveWordBank
+                        terms={wordBankTerms}
+                        topicId={topicId}
+                        starredTerms={starredTerms}
+                        onTermsStarred={onTermsStarred}
+                    />
+                </div>
+            ) : null}
+            {entry.type === 'recap' ? <LessonRecapCards items={entry.items} /> : null}
+            {entry.type === 'section' ? <LessonContentRenderer markdown={entry.markdown} /> : null}
+        </article>
+    );
+
+    const renderCheck = (entry) => (entry.check ? (
+        <LessonInlineCheck
+            key={entry.check.id}
+            check={entry.check}
+            topicId={topicId}
+            shareToken={shareToken}
+            onAttempted={markAttempted}
+            onAskTutor={onAskTutor}
+        />
+    ) : null);
+
+    const viewToggle = (
+        <div className="flex justify-end">
+            <button
+                type="button"
+                aria-pressed={readAll}
+                onClick={() => setReadAll((value) => !value)}
+                className="btn-ghost inline-flex min-h-11 items-center gap-1.5 text-body-sm"
+            >
+                <AppIcon name={readAll ? 'view_carousel' : 'view_agenda'} className="text-[16px]" />
+                {readAll ? 'Step by step' : 'Read all'}
+            </button>
+        </div>
+    );
+
+    if (readAll) {
+        return (
+            <div className="space-y-8">
+                {viewToggle}
+                <div ref={contentRef} className="space-y-12">
+                    {safeSteps.map((entry, stepIndex) => (
+                        <section
+                            key={`${entry.type}-${entry.sectionIndex ?? entry.title}-${stepIndex}`}
+                            id={sectionAnchorId(stepIndex)}
+                            style={{ scrollMarginTop: 108 }}
+                            className="space-y-8"
+                        >
+                            {renderStep(entry, {
+                                headingId: `${sectionAnchorId(stepIndex)}-heading`,
+                                withHook: Boolean(hook) && stepIndex === 0 && entry.type === 'section',
+                            })}
+                            {renderCheck(entry)}
+                        </section>
+                    ))}
+                </div>
+                <div className="flex justify-end border-t border-border-subtle pt-5">
+                    <button
+                        type="button"
+                        className="btn-primary inline-flex min-h-11 items-center gap-1.5 text-body-sm"
+                        onClick={() => goTo(total)}
+                    >
+                        Finish lesson
+                        <AppIcon name="arrow_forward" className="text-[16px]" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     const headingId = 'lesson-reading-heading';
     const sectionTransition = reduceMotion
         ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.18 } }
@@ -160,39 +256,11 @@ export default function LessonSectionStepper({
 
     return (
         <div className="space-y-8">
+            {viewToggle}
             <AnimatePresence mode="wait" initial={false}>
                 <Motion.div key={clampedIndex} {...sectionTransition} className="space-y-8">
-                    <article
-                        ref={contentRef}
-                        aria-labelledby={headingId}
-                        className="lesson-reading-stage lesson-prose ph-mask"
-                    >
-                        <LessonSectionHeading id={headingId} title={step.title} role={step.role} />
-                        {showHook ? <p className="lesson-hook">{hook}</p> : null}
-                        {step.type === 'wordbank' ? (
-                            <div id="topic-wordbank" style={{ scrollMarginTop: 108 }}>
-                                <InteractiveWordBank
-                                    terms={wordBankTerms}
-                                    topicId={topicId}
-                                    starredTerms={starredTerms}
-                                    onTermsStarred={onTermsStarred}
-                                />
-                            </div>
-                        ) : null}
-                        {step.type === 'recap' ? <LessonRecapCards items={step.items} /> : null}
-                        {step.type === 'section' ? <LessonContentRenderer markdown={step.markdown} /> : null}
-                    </article>
-
-                    {step.check ? (
-                        <LessonInlineCheck
-                            key={step.check.id}
-                            check={step.check}
-                            topicId={topicId}
-                            shareToken={shareToken}
-                            onAttempted={markAttempted}
-                            onAskTutor={onAskTutor}
-                        />
-                    ) : null}
+                    {renderStep(step, { headingId, withHook: showHook, ref: contentRef })}
+                    {renderCheck(step)}
                 </Motion.div>
             </AnimatePresence>
 

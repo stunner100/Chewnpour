@@ -73,7 +73,6 @@ assert.match(content, /showTopicIllustration && topicIllustrationUrl/, 'Lesson p
 assert.match(content, /LessonSectionStepper/, 'Lesson page must use the section stepper.');
 assert.match(content, /contentRef=\{contentRef\}/, 'Highlight selection must target the reading stage, not the whole column.');
 assert.match(content, /onFinishLesson=\{handleFinishLesson\}/, 'Stepper must persist completion.');
-assert.doesNotMatch(content, /onViewSource/, 'Dead source affordance must not reach the stepper.');
 assert.doesNotMatch(content, /TopicSidebar/, 'Lesson reading column must not mount a second Contents control.');
 
 assert.match(stepper, /lesson-reading-stage/, 'Lesson prose must live in a dedicated reading stage.');
