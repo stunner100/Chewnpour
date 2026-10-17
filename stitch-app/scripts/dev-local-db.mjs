@@ -144,8 +144,13 @@ const seedFixtureLessons = async (userId) => {
     );
     for (const [index, fixture] of fixtures.entries()) {
         const topicId = `fixture-topic-${fixture.kind}`;
-        const markdown = await fs.readFile(path.join(FIXTURE_LESSON_DIR, fixture.file), "utf8");
-        const lesson = lessonFromMarkdown(markdown, { topicTitle: fixture.title });
+        // Markdown fixtures are converted the way the topic-lesson migration
+        // converted old lessons; JSON fixtures are lessons as generation writes them.
+        const lesson = fixture.lessonFile
+            ? JSON.parse(await fs.readFile(path.join(FIXTURE_LESSON_DIR, fixture.lessonFile), "utf8"))
+            : lessonFromMarkdown(await fs.readFile(path.join(FIXTURE_LESSON_DIR, fixture.file), "utf8"), {
+                topicTitle: fixture.title,
+            });
         await pool.query(
             `INSERT INTO topics (id, user_id, course_id, upload_id, title, description, lesson, sort_order)
              VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,

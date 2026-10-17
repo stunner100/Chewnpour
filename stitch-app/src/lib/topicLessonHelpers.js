@@ -5,14 +5,6 @@ export const isReExplainQuotaExceededError = (error) => {
     return message.includes('REEXPLAIN_QUOTA_EXCEEDED');
 };
 
-export const SECTION_SETS = {
-    quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
-    exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
-    practice_only: null,
-    full: null,
-};
-export const SECTION_TEXT_STRIP_PATTERN = /[^a-z\s]/g;
-
 export const buildTopicQuizRoute = (topicId) =>
     topicId ? `/dashboard/quiz/${topicId}` : '/dashboard';
 export const buildEssayQuizRoute = (topicId) =>

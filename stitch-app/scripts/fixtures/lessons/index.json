@@ -98,5 +98,39 @@
         "explanation": "They compared New Jersey with neighbouring Pennsylvania."
       }
     ]
+  },
+  {
+    "lessonFile": "structured-osmosis.json",
+    "kind": "structured",
+    "title": "Osmosis and Water Potential",
+    "description": "How and why water moves across cell membranes.",
+    "checks": [
+      {
+        "id": "check-structured-direction",
+        "sectionIndex": 1,
+        "questionType": "multiple_choice",
+        "prompt": "Water moves towards the side with what?",
+        "options": [
+          "Lower water potential",
+          "Higher water potential",
+          "Fewer solutes",
+          "Less pressure"
+        ],
+        "correctIndex": 0,
+        "explanation": "Water moves from higher to lower water potential."
+      },
+      {
+        "id": "check-structured-mistake",
+        "sectionIndex": 3,
+        "questionType": "true_false",
+        "prompt": "During osmosis the dissolved salt moves into the cell.",
+        "options": [
+          "True",
+          "False"
+        ],
+        "correctIndex": 1,
+        "explanation": "Water moves; the solute stays on its side."
+      }
+    ]
   }
 ]

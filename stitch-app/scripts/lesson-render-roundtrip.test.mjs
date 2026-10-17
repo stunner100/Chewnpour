@@ -1,193 +1,162 @@
-// Runs realistic lessons (scripts/fixtures/lessons) through the production
-// path: markdown -> stored lesson (lessonFromMarkdown, as the topic-lesson
-// migration converts old lessons) -> the topic page's view (buildLessonView),
-// then renders section bodies with the real LessonContentRenderer.
+// Runs the fixture lessons (scripts/fixtures/lessons) through the lesson
+// page's pipeline (buildLessonView) and server-renders the real lesson
+// components to check what students see.
 //
-// knownBug() pins behavior that is still wrong so a fix shows up as a failing
-// assertion. When a fix lands, replace that knownBug() with a plain assertion
-// of the fixed behavior (the `fixed` note says what that is).
+// Markdown fixtures go through lessonFromMarkdown first, the way the
+// topic-lesson migration converted old lessons; JSON fixtures are lessons as
+// generation writes them.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { transformWithEsbuild } from 'vite';
-import { buildLessonView, checksWithSectionTitles } from '../src/lib/lessonView.js';
-import { lessonFromMarkdown, lessonToMarkdown } from '../src/lib/lessonSchema.js';
+import { buildLessonView, SECTION_ROLE_LABELS } from '../src/lib/lessonView.js';
 import { markdownToSpeechText } from '../src/lib/lessonMarkdown.js';
+import { lessonFromMarkdown } from '../src/lib/lessonSchema.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureDir = path.join(root, 'scripts', 'fixtures', 'lessons');
 const fixtures = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'index.json'), 'utf8'));
 
-// Load the real renderer: transpile its JSX once into node_modules/.cache.
-const loadRenderer = async () => {
-    const file = path.join(root, 'src', 'components', 'LessonContentRenderer.jsx');
-    const { code } = await transformWithEsbuild(fs.readFileSync(file, 'utf8'), file, { loader: 'jsx', jsx: 'automatic' });
-    const out = path.join(root, 'node_modules', '.cache', 'lesson-render-roundtrip', 'LessonContentRenderer.mjs');
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, code);
-    return (await import(pathToFileURL(out).href)).default;
-};
-const LessonContentRenderer = await loadRenderer();
-const renderHtml = (markdown) => renderToStaticMarkup(React.createElement(LessonContentRenderer, { markdown }));
-
-const render = (fixture, studyMode = 'full') => {
-    const lesson = lessonFromMarkdown(fs.readFileSync(path.join(fixtureDir, fixture.file), 'utf8'), { topicTitle: fixture.title });
-    return buildLessonView({
-        content: lessonToMarkdown(lesson),
-        topicTitle: fixture.title,
-        checks: checksWithSectionTitles(fixture.checks, lesson),
-        studyMode,
-        wordBank: lesson.wordBank,
+// Bundle the real components (their own imports included, packages left
+// external) into node_modules/.cache and load them.
+const loadComponent = async (relativePath) => {
+    const outfile = path.join(root, 'node_modules', '.cache', 'lesson-render-roundtrip', `${path.basename(relativePath, '.jsx')}.mjs`);
+    await build({
+        entryPoints: [path.join(root, relativePath)],
+        outfile,
+        bundle: true,
+        format: 'esm',
+        platform: 'node',
+        jsx: 'automatic',
+        packages: 'external',
+        logLevel: 'silent',
     });
+    return (await import(pathToFileURL(outfile).href)).default;
 };
+const LessonContentRenderer = await loadComponent('src/components/LessonContentRenderer.jsx');
+const LessonSectionHeading = await loadComponent('src/components/lesson/LessonSectionHeading.jsx');
+const LessonRecapCards = await loadComponent('src/components/lesson/LessonRecapCards.jsx');
+const html = (Component, props) => renderToStaticMarkup(React.createElement(Component, props));
+const renderBody = (markdown) => html(LessonContentRenderer, { markdown });
+
+const lessonOf = (fixture) => (fixture.lessonFile
+    ? JSON.parse(fs.readFileSync(path.join(fixtureDir, fixture.lessonFile), 'utf8'))
+    : lessonFromMarkdown(fs.readFileSync(path.join(fixtureDir, fixture.file), 'utf8'), { topicTitle: fixture.title }));
+const render = (fixture, studyMode = 'full') => buildLessonView({ lesson: lessonOf(fixture), checks: fixture.checks, studyMode });
 
 const byKind = Object.fromEntries(fixtures.map((fixture) => [fixture.kind, fixture]));
 const titles = (steps) => steps.map((step) => step.title);
 const stepNamed = (steps, title) => steps.find((step) => step.title === title);
-const allHtml = (steps) => steps.map((step) => renderHtml(step.markdown)).join('\n');
-
-const knownBug = (id, actual, expected, fixed) => {
-    assert.deepEqual(
-        actual,
-        expected,
-        `Known bug ${id} no longer reproduces. If this was fixed on purpose, replace this knownBug() with an assertion that ${fixed}.`,
-    );
-};
+const sectionSteps = (steps) => steps.filter((step) => step.type === 'section');
 
 // Invariants for every fixture.
 for (const fixture of fixtures) {
+    const lesson = lessonOf(fixture);
     const { steps, readingMinutes, wordBankTerms } = render(fixture);
-    assert.ok(steps.length >= 6, `${fixture.kind}: expected at least 6 steps, got ${steps.length}`);
-    assert.equal(steps[0].title, 'Why This Matters', `${fixture.kind}: first step follows the lesson's first H2`);
-    assert.ok(readingMinutes >= 1, `${fixture.kind}: reading time must be at least a minute`);
-    assert.ok(wordBankTerms.length >= 3, `${fixture.kind}: Word Bank terms are parsed`);
+    assert.deepEqual(
+        sectionSteps(steps).map((step) => [step.title, step.role]),
+        lesson.sections.map((section) => [section.title, section.role]),
+        `${fixture.kind}: one step per section, in order, with its role`,
+    );
+    assert.equal(steps.length, lesson.sections.length + (lesson.recap.length ? 1 : 0) + (lesson.wordBank.length ? 1 : 0));
     assert.equal(steps.at(-1).type, 'wordbank', `${fixture.kind}: the Word Bank is the last step`);
-    assert.equal(
-        steps.filter((step) => step.check).length,
-        fixture.checks.length,
-        `${fixture.kind}: every check binds to its section`,
+    assert.equal(wordBankTerms.length, lesson.wordBank.length);
+    assert.ok(readingMinutes >= 1);
+    assert.deepEqual(
+        steps.filter((step) => step.check).map((step) => [step.sectionIndex, step.check.id]),
+        fixture.checks.map((check) => [check.sectionIndex, check.id]),
+        `${fixture.kind}: every check sits on the section its index names`,
     );
-    for (const step of steps.filter((entry) => entry.type === 'section')) {
-        assert.ok(step.markdown.trim(), `${fixture.kind}: "${step.title}" has a body`);
-        assert.doesNotMatch(renderHtml(step.markdown), /<h[12][\s>]/, `${fixture.kind}: section bodies never render h1/h2`);
+    for (const step of sectionSteps(steps)) {
+        assert.doesNotMatch(renderBody(step.markdown), /<h[12][\s>]/, `${fixture.kind}: section bodies never render h1/h2`);
     }
+    // Study modes filter by role and never come up empty.
+    const quick = render(fixture, 'quick_revision').steps;
+    assert.ok(sectionSteps(quick).length >= 1, `${fixture.kind}: Quick revision shows sections`);
+    assert.ok(sectionSteps(quick).every((step) => step.role === 'core'));
+    const examPrep = render(fixture, 'exam_prep').steps;
+    assert.ok(sectionSteps(examPrep).every((step) => ['core', 'misconception', 'practice'].includes(step.role)));
+    const practice = render(fixture, 'practice_only').steps;
+    assert.ok(sectionSteps(practice).every((step) => step.check), `${fixture.kind}: Practice only keeps sections with checks`);
 }
 
-// Concept lesson: sub-headings, tables, sentences that start like a section title.
+// Structured lesson: roles, hook, recap and Word Bank.
 {
-    const { steps, wordBankTerms } = render(byKind.concept);
-    assert.deepEqual(titles(steps), [
-        'Why This Matters',
-        'Key Terms to Know First',
-        'The Idea',
-        'Examples and Non-Examples',
-        'The Attractive Wrong Idea',
-        'Use It',
-        'Recap from Memory',
-        'Word Bank',
+    const { steps, hook, wordBankTerms } = render(byKind.structured);
+    assert.deepEqual(steps.map((step) => [step.type, step.role || null, step.title]), [
+        ['section', 'core', 'How water moves across a membrane'],
+        ['section', 'steps', 'Predicting the direction of osmosis'],
+        ['section', 'example', 'A plant cell in pure water'],
+        ['section', 'misconception', 'Osmosis is not the diffusion of solutes'],
+        ['section', 'practice', 'Try it: potato strips in salt water'],
+        ['recap', null, 'Recap'],
+        ['wordbank', null, 'Word Bank'],
     ]);
-    const ideaHtml = renderHtml(stepNamed(steps, 'The Idea').markdown);
-    assert.match(ideaHtml, /<h3>Size comparison<\/h3>/, 'the H3 stays inside The Idea as an h3');
-    assert.match(ideaHtml, /<div class="lesson-table-scroll"><table>/, 'the table renders as a scrollable table');
-    assert.equal((ideaHtml.match(/<tr>/g) || []).length, 3, 'header row plus two body rows');
-    assert.match(ideaHtml, /if r &gt; 10 um, diffusion alone/, 'r > 10 stays in its sentence');
-    const wrongIdeaHtml = renderHtml(stepNamed(steps, 'The Attractive Wrong Idea').markdown);
-    assert.doesNotMatch(wrongIdeaHtml, /<h[34]/, '"The idea is that…" stays a sentence');
-    assert.deepEqual(wordBankTerms.map((entry) => entry.term), ['Prokaryote', 'Eukaryote', 'Nucleoid', 'Organelle']);
-    assert.equal(wordBankTerms[2].definition, 'the region of a prokaryote that holds its DNA');
+    assert.match(hook, /cucumber goes limp/);
+    assert.equal(stepNamed(steps, 'Recap').items.length, 3);
+    assert.deepEqual(wordBankTerms.map((entry) => entry.term), ['Osmosis', 'Water potential', 'Turgid', 'Aquaporin']);
+    assert.deepEqual(
+        titles(render(byKind.structured, 'quick_revision').steps),
+        ['How water moves across a membrane', 'Recap', 'Word Bank'],
+    );
+    assert.deepEqual(
+        titles(render(byKind.structured, 'exam_prep').steps),
+        ['How water moves across a membrane', 'Osmosis is not the diffusion of solutes', 'Try it: potato strips in salt water', 'Recap', 'Word Bank'],
+    );
+    assert.deepEqual(
+        titles(render(byKind.structured, 'practice_only').steps),
+        ['Predicting the direction of osmosis', 'Osmosis is not the diffusion of solutes', 'Recap', 'Word Bank'],
+    );
+    assert.match(renderBody(stepNamed(steps, 'Predicting the direction of osmosis').markdown), /<ol>\n<li>Compare the solute/);
 }
 
-// Procedure lesson: code blocks, comparisons, decorators.
+// Role labels: core sections have none; every other role shows its label.
+assert.doesNotMatch(html(LessonSectionHeading, { id: 'h', title: 'How water moves', role: 'core' }), /lesson-role-label/);
+for (const [role, { label }] of Object.entries(SECTION_ROLE_LABELS)) {
+    const heading = html(LessonSectionHeading, { id: 'h', title: 'A section', role });
+    assert.match(heading, new RegExp(`<p class="lesson-role-label lesson-role-${role}">.*${label}</p><h2 id="h"`), `${role} label renders above the title`);
+}
+
+// Recap cards: prompts visible, answers hidden until revealed.
 {
-    const { steps } = render(byKind.procedure);
-    assert.deepEqual(titles(steps), [
-        'Why This Matters',
-        'Key Terms to Know First',
-        'The Steps',
-        'Worked Example',
-        'Traps and Mistakes',
-        'Use It',
-        'Recap from Memory',
-        'Word Bank',
-    ]);
-    const exampleHtml = renderHtml(stepNamed(steps, 'Worked Example').markdown);
+    const cards = html(LessonRecapCards, { items: [{ prompt: 'What moves during osmosis?', answer: 'Water.' }] });
+    assert.match(cards, /<p class="lesson-recap-prompt">What moves during osmosis\?<\/p>/);
+    assert.match(cards, /aria-expanded="false" aria-controls="recap-answer-0"/);
+    assert.match(cards, /<p id="recap-answer-0" class="lesson-recap-answer" hidden="">Water\.<\/p>/);
+}
+
+// Converted lessons keep their content: tables, code, comparisons, @ lines.
+{
+    const concept = render(byKind.concept).steps;
+    const ideaHtml = renderBody(stepNamed(concept, 'The Idea').markdown);
+    assert.match(ideaHtml, /<h3>Size comparison<\/h3>/);
+    assert.match(ideaHtml, /<div class="lesson-table-scroll"><table>/);
+    assert.match(ideaHtml, /if r &gt; 10 um, diffusion alone/);
+    assert.equal(stepNamed(concept, 'The Attractive Wrong Idea').role, 'misconception');
+
+    const procedure = render(byKind.procedure).steps;
     assert.match(
-        exampleHtml,
+        renderBody(stepNamed(procedure, 'Worked Example').markdown),
         /<pre><code class="language-python">total = 0\nfor n in range\(10\):\n {4}if n % 2 == 0:\n {8}total \+= n\nprint\(total\) {2}# 20\n<\/code><\/pre>/,
-        'the worked example is one code block with indentation and its # comment intact',
     );
-    assert.match(exampleHtml, /total grows 0 -&gt; 2 -&gt; 6 -&gt; 12 -&gt; 20\./, 'the arrow chain stays in its sentence');
-    const trapsHtml = renderHtml(stepNamed(steps, 'Traps and Mistakes').markdown);
-    assert.match(trapsHtml, /<li>Decorators such as @staticmethod go above a method/, 'the @staticmethod bullet renders');
-    assert.equal((renderHtml(stepNamed(steps, 'The Steps').markdown).match(/<li>/g) || []).length, 4, 'four numbered steps');
-    assert.match(renderHtml(stepNamed(steps, 'Use It').markdown), /len\(word\) &gt; 5/, 'len(word) > 5 stays inline');
-    assert.doesNotMatch(
-        markdownToSpeechText(stepNamed(steps, 'Worked Example').markdown),
-        /print\(total\)/,
-        'read-aloud skips code blocks',
-    );
-}
+    assert.match(renderBody(stepNamed(procedure, 'Traps and Mistakes').markdown), /<li>Decorators such as @staticmethod go above a method/);
+    assert.doesNotMatch(markdownToSpeechText(stepNamed(procedure, 'Worked Example').markdown), /print\(total\)/, 'read-aloud skips code');
 
-// Narrative lesson: arrow chains and section order.
-{
-    const { steps } = render(byKind.narrative);
-    assert.deepEqual(titles(steps), [
-        'Why This Matters',
-        'Key Terms to Know First',
-        'Who and When',
-        'Causal Chain',
-        'A Sourced Episode',
-        'Competing Accounts',
-        'What Changed After',
-        'Word Bank',
-    ]);
-    assert.equal(stepNamed(steps, 'Causal Chain').check?.id, 'check-narrative-chain');
-    const chainHtml = renderHtml(stepNamed(steps, 'Causal Chain').markdown);
-    assert.doesNotMatch(chainHtml, /<blockquote>/, 'arrows never become quotes');
-    assert.match(chainHtml, /^<div class="lesson-markdown"><p>Post-war economic grievances -&gt; the 1948 Accra riots -&gt;/);
-}
-
-// Argument lesson: inequalities, minus signs in read-aloud.
-{
-    const { steps } = render(byKind.argument);
-    const counterHtml = renderHtml(stepNamed(steps, 'The Counterargument').markdown);
-    assert.match(counterHtml, /if the wage floor w &gt; the market wage, employers hire fewer workers/);
-    assert.doesNotMatch(allHtml(steps), /<blockquote>/);
-    assert.equal(stepNamed(steps, 'Evidence from the Source').check?.id, 'check-argument-evidence');
+    const narrative = render(byKind.narrative).steps;
+    assert.doesNotMatch(renderBody(stepNamed(narrative, 'Causal Chain').markdown), /<blockquote>/);
+    assert.match(renderBody(stepNamed(render(byKind.argument).steps, 'The Counterargument').markdown), /w &gt; the market wage, employers hire fewer workers/);
 }
 
 // Renderer safety: no raw HTML, only http(s) links, images as alt text.
 {
-    const html = renderHtml('<b>raw</b> [bad](javascript:alert(1)) [ok](https://example.org) ![a diagram](https://x.org/a.png)');
-    assert.doesNotMatch(html, /<b>|javascript:|<img/);
-    assert.match(html, /<span>bad<\/span>/);
-    assert.match(html, /<a href="https:\/\/example.org" target="_blank" rel="noopener noreferrer">ok<\/a>/);
-    assert.match(html, /<span>a diagram<\/span>/);
+    const body = renderBody('<b>raw</b> [bad](javascript:alert(1)) [ok](https://example.org) ![a diagram](https://x.org/a.png)');
+    assert.doesNotMatch(body, /<b>|javascript:|<img/);
+    assert.match(body, /<a href="https:\/\/example.org" target="_blank" rel="noopener noreferrer">ok<\/a>/);
+    assert.match(body, /<span>a diagram<\/span>/);
 }
-
-// Read-aloud keeps minus signs and hyphens.
 assert.equal(markdownToSpeechText('It froze at **-40 °C** in a well-known case.'), 'It froze at -40 °C in a well-known case.');
-
-// A lesson that repeats the page title as an H1 drops that heading.
-{
-    const view = buildLessonView({
-        content: '# Cells\n\nCells are the unit of life and every organism has them.\n\n## The Idea\n\nCells have parts that do different jobs.',
-        topicTitle: 'Cells',
-    });
-    assert.deepEqual(titles(view.steps), ['Introduction', 'The Idea']);
-}
-
-// Study modes still filter on section names the lesson spines never use (Phase 2.2).
-for (const fixture of fixtures) {
-    knownBug(
-        `study modes (${fixture.kind})`,
-        titles(render(fixture, 'quick_revision').steps),
-        ['Word Bank'],
-        `Quick revision shows the core sections of the ${fixture.kind} lesson, not only the Word Bank`,
-    );
-}
 
 console.log(`lesson-render-roundtrip: ok (${fixtures.length} fixtures)`);

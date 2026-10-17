@@ -6,7 +6,7 @@ import { useRouteResolvedTopic } from './useRouteResolvedTopic';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import useReadingProgress from '../components/lesson/useReadingProgress';
 import { useTextSelection } from './useTextSelection';
-import { cleanDisplayLine, cleanInlineText, normalizeLessonContent } from '../lib/topicContentFormatting';
+import { cleanDisplayLine, cleanInlineText } from '../lib/topicContentFormatting';
 import { isPlaceholderTopicIllustration, resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import {
     buildTopicQuizRoute,
@@ -15,9 +15,8 @@ import {
     getCurrentHashTargetId,
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
-import { buildLessonView, checksWithSectionTitles } from '../lib/lessonView';
-import { lessonToMarkdown } from '../lib/lessonSchema';
-import { splitMarkdownIntoSections } from '../lib/lessonSections';
+import { buildLessonView } from '../lib/lessonView';
+import { lessonFromMarkdown } from '../lib/lessonSchema';
 import { useStudyProgress } from './useStudyProgress';
 
 const fetchTopicPayload = async (topicId) => {
@@ -68,7 +67,7 @@ export const useTopicDetail = () => {
     const [voiceSettingsError, setVoiceSettingsError] = useState('');
     const [overrideContent, setOverrideContent] = useState('');
     const [explanationView, setExplanationView] = useState('original');
-    const [cachedContent, setCachedContent] = useState('');
+    const [cachedLesson, setCachedLesson] = useState(null);
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     const [contentsOpen, setContentsOpen] = useState(false);
@@ -226,7 +225,7 @@ export const useTopicDetail = () => {
     const isVoicePremium = false;
 
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
-    const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
+    const lessonCacheKey = topicId ? `topicLesson:${topicId}` : null;
     const synthesizeLessonVoice = useCallback(async (text) => {
         if (!topicId) {
             throw new Error('No lesson selected.');
@@ -300,35 +299,36 @@ export const useTopicDetail = () => {
     }, [storageKey]);
 
     useEffect(() => {
-        if (!contentCacheKey) return;
+        if (!lessonCacheKey) return;
         try {
-            const cached = localStorage.getItem(contentCacheKey);
+            const cached = localStorage.getItem(lessonCacheKey);
             if (cached) {
-                setCachedContent(cached);
+                setCachedLesson(JSON.parse(cached));
             }
         } catch (error) {
-            console.warn('Failed to load cached topic content', error);
+            console.warn('Failed to load cached lesson', error);
         }
-    }, [contentCacheKey]);
-
-    const topicLessonMarkdown = useMemo(() => lessonToMarkdown(topic?.lesson), [topic?.lesson]);
+    }, [lessonCacheKey]);
 
     useEffect(() => {
-        if (!contentCacheKey) return;
-        if (!topicLessonMarkdown) return;
+        if (!lessonCacheKey || !topic?.lesson) return;
         try {
-            localStorage.setItem(contentCacheKey, topicLessonMarkdown);
+            localStorage.setItem(lessonCacheKey, JSON.stringify(topic.lesson));
         } catch (error) {
-            console.warn('Failed to cache topic content', error);
+            console.warn('Failed to cache lesson', error);
         }
-    }, [contentCacheKey, topicLessonMarkdown]);
+    }, [lessonCacheKey, topic?.lesson]);
 
-    const originalLessonContent = topicLessonMarkdown || cachedContent;
+    const originalLesson = topic?.lesson || cachedLesson;
     const hasReexplainedLesson = Boolean(overrideContent);
-    const content = explanationView === 'simplified' && overrideContent
-        ? overrideContent
-        : originalLessonContent;
-    const normalizedContent = useMemo(() => normalizeLessonContent(content), [content]);
+    // Re-explain still returns markdown; it is read into the lesson shape and
+    // has no in-lesson checks until re-explain returns the lesson schema.
+    const simplifiedLesson = useMemo(
+        () => (overrideContent ? lessonFromMarkdown(overrideContent) : null),
+        [overrideContent],
+    );
+    const showSimplified = explanationView === 'simplified' && Boolean(simplifiedLesson);
+    const lesson = showSimplified ? simplifiedLesson : originalLesson;
     const previousVoiceModeRef = useRef(voiceModeEnabled);
 
     useEffect(() => {
@@ -368,10 +368,7 @@ export const useTopicDetail = () => {
             .replace(/\s{2,}/g, ' ')
             .trim();
     };
-    const firstLessonHeading = useMemo(() => {
-        const heading = splitMarkdownIntoSections(normalizedContent).find((section) => section.level > 0);
-        return heading ? cleanDisplayLine(heading.title) : '';
-    }, [normalizedContent]);
+    const firstLessonHeading = cleanDisplayLine(lesson?.sections?.[0]?.title || '');
     const cleanedTopicTitle = sanitizeTopicTitle(topic?.title || '');
     const looksBrokenTopicTitle = (() => {
         if (!cleanedTopicTitle) return true;
@@ -405,13 +402,12 @@ export const useTopicDetail = () => {
     };
 
     const lessonView = useMemo(() => buildLessonView({
-        content: normalizedContent,
-        topicTitle: resolvedTopicTitle,
-        checks: checksWithSectionTitles(topic?.inLessonChecks, topic?.lesson),
+        lesson,
+        checks: showSimplified ? [] : topic?.inLessonChecks,
         studyMode,
-        wordBank: topic?.lesson?.wordBank,
-    }), [normalizedContent, resolvedTopicTitle, topic?.inLessonChecks, topic?.lesson, studyMode]);
-    const { steps: lessonSteps, wordBankTerms } = lessonView;
+    }), [lesson, showSimplified, topic?.inLessonChecks, studyMode]);
+    const { steps: lessonSteps, wordBankTerms, hook: lessonHook } = lessonView;
+    const hasLesson = lessonView.sections.length > 0;
     const lessonToc = useMemo(
         () => lessonView.sections.map((section, index) => ({ id: `lesson-section-${index}`, text: section.title, level: 2 })),
         [lessonView.sections],
@@ -728,7 +724,8 @@ export const useTopicDetail = () => {
         mainRef,
         mobileActionItems,
         moreOpen,
-        normalizedContent,
+        hasLesson,
+        lessonHook,
         notesAppendText,
         notesOpen,
         objectiveExamRoute,

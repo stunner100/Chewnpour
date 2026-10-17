@@ -17,7 +17,8 @@ const TopicContentPanel = ({
     lessonSteps,
     nextLesson = null,
     examHref = '',
-    normalizedContent,
+    hasLesson = false,
+    lessonHook = '',
     objectiveExamRoute,
     pauseVoice,
     playVoice,
@@ -96,12 +97,13 @@ const TopicContentPanel = ({
                     </button>
                 </div>
             ) : null}
-            {normalizedContent && progressLoaded ? (
+            {hasLesson && progressLoaded ? (
                 <LessonSectionStepper
                     key={`${topicId || 'topic-lesson'}:${explanationView}`}
                     steps={lessonSteps}
                     topicId={topicId}
                     topicTitle={resolvedTopicTitle || heroTopicTitle}
+                    hook={lessonHook}
                     lessonChecks={topicProgress?.lessonChecks}
                     quizHref={objectiveExamRoute}
                     quizLabel="Start quiz"

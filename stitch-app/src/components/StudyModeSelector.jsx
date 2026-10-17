@@ -5,7 +5,7 @@ const MODES = [
     {
         id: 'quick_revision',
         title: 'Quick Revision',
-        description: 'Big idea, key points, and a quick self-check',
+        description: 'The main explanations, recap questions and the word bank',
         icon: 'flash_on',
         color: 'text-accent-amber',
     },
@@ -19,14 +19,14 @@ const MODES = [
     {
         id: 'exam_prep',
         title: 'Quiz Prep',
-        description: 'Key ideas, common mistakes, and practice',
+        description: 'Main explanations, common mistakes and practice tasks',
         icon: 'school',
         color: 'text-accent-emerald',
     },
     {
         id: 'practice_only',
         title: 'Practice Only',
-        description: 'Jump to in-lesson checks and the word bank',
+        description: 'Only the sections with checks, then recap and the word bank',
         icon: 'quiz',
         color: 'text-accent-purple',
     },

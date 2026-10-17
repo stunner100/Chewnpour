@@ -3,6 +3,8 @@ import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import LessonContentRenderer from '../LessonContentRenderer';
 import InteractiveWordBank from '../InteractiveWordBank';
 import LessonInlineCheck from './LessonInlineCheck';
+import LessonSectionHeading from './LessonSectionHeading';
+import LessonRecapCards from './LessonRecapCards';
 import LessonCompletion from '../study/LessonCompletion';
 import AppIcon from '../AppIcon';
 import { markdownToSpeechText } from '../../lib/lessonMarkdown';
@@ -22,6 +24,7 @@ export default function LessonSectionStepper({
     steps,
     topicId,
     topicTitle,
+    hook = '',
     shareToken,
     lessonChecks,
     quizHref,
@@ -60,7 +63,12 @@ export default function LessonSectionStepper({
     const step = safeSteps[clampedIndex] || null;
     const canContinue = Boolean(step) && (!step.check || attemptedIds.has(step.check.id));
 
-    const speechText = useMemo(() => markdownToSpeechText(step?.markdown || ''), [step]);
+    const speechText = useMemo(() => {
+        if (step?.type === 'recap') return (step.items || []).map((item) => item.prompt).join(' ');
+        return markdownToSpeechText(step?.markdown || '');
+    }, [step]);
+    // The one-line hook opens the lesson, above the first section's body.
+    const showHook = Boolean(hook) && clampedIndex === 0 && step?.type === 'section';
 
     useEffect(() => {
         onStepChange?.({
@@ -159,25 +167,20 @@ export default function LessonSectionStepper({
                         aria-labelledby={headingId}
                         className="lesson-reading-stage lesson-prose ph-mask"
                     >
-                        <h2
-                            id={headingId}
-                            className="font-display text-display-sm font-bold tracking-[-0.02em] text-text-primary md:text-display-md"
-                        >
-                            {step.title}
-                        </h2>
+                        <LessonSectionHeading id={headingId} title={step.title} role={step.role} />
+                        {showHook ? <p className="lesson-hook">{hook}</p> : null}
                         {step.type === 'wordbank' ? (
                             <div id="topic-wordbank" style={{ scrollMarginTop: 108 }}>
                                 <InteractiveWordBank
-                                    key={starredTerms ? `wb-${starredTerms.length}` : 'wb-0'}
                                     terms={wordBankTerms}
                                     topicId={topicId}
                                     starredTerms={starredTerms}
                                     onTermsStarred={onTermsStarred}
                                 />
                             </div>
-                        ) : (
-                            <LessonContentRenderer markdown={step.markdown} />
-                        )}
+                        ) : null}
+                        {step.type === 'recap' ? <LessonRecapCards items={step.items} /> : null}
+                        {step.type === 'section' ? <LessonContentRenderer markdown={step.markdown} /> : null}
                     </article>
 
                     {step.check ? (
