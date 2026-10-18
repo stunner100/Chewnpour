@@ -7,6 +7,8 @@ import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { isUploadStudyReady, buildFirstLessonHref } from '../lib/uploadReadiness';
 import { GENERATION_STAGES, resolveGenerationStageIndex } from '../lib/generationStages';
 import GenerationStageList from '../components/materials/GenerationStageList';
+import SampleCourseCard from '../components/SampleCourseCard';
+import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
 import { SpinLoader } from '../components/opensource-ui/SpinLoader';
 import {
     buildUploadOpenHref,
@@ -367,6 +369,10 @@ const UploadMaterials = () => {
             });
 
             const finalized = await finalizeUpload(init.upload.id);
+            trackFunnelEvent(FUNNEL_EVENTS.uploadCompleted, {
+                fileType: finalized.fileType,
+                studyReady: isUploadStudyReady(finalized),
+            });
             setUploads((current) => {
                 const without = (current || []).filter((item) => item.id !== finalized.id);
                 return [finalized, ...without];
@@ -558,6 +564,12 @@ const UploadMaterials = () => {
                     {isUploading ? (
                         <div className="mt-5 w-full max-w-xs text-left">
                             <GenerationStageList stageIndex={Math.max(0, dropzoneStageIndex)} />
+                        </div>
+                    ) : null}
+                    {isUploading ? (
+                        // Not inside the dropzone's click target: stop clicks reaching it.
+                        <div className="z-10 mt-5 w-full max-w-md" onClick={(event) => event.stopPropagation()} role="presentation">
+                            <SampleCourseCard placement="upload_wait" compact />
                         </div>
                     ) : null}
                     <button
