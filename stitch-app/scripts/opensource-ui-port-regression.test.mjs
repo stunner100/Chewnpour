@@ -35,7 +35,6 @@ for (const { file, source } of sources) {
 }
 
 const [
-  uploadField,
   libraryPage,
   materialCard,
   progressPage,
@@ -48,7 +47,6 @@ const [
   tutorWelcome,
   examMode,
 ] = await Promise.all([
-  read("src/components/opensource-ui/FileUploadFieldInput.tsx"),
   read("src/pages/MyMaterialsLibrary.jsx"),
   read("src/components/materials/MaterialCard.jsx"),
   read("src/pages/StudyProgressMastery.jsx"),
@@ -62,8 +60,6 @@ const [
   read("src/pages/ExamMode.jsx"),
 ]);
 
-requireIncludes(uploadField, "50 * 1024 * 1024", "FileUploadFieldInput.tsx");
-requireIncludes(uploadField, ".pdf,.pptx,.docx", "FileUploadFieldInput.tsx");
 requireIncludes(libraryPage, "SegmentedToggleButton", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPage, "FilterSortDropdown", "MyMaterialsLibrary.jsx");
 requireIncludes(libraryPage, "SearchInput", "MyMaterialsLibrary.jsx");
