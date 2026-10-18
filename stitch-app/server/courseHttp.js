@@ -12,13 +12,13 @@ import {
     getQuizForTopic,
     getTopicForUser,
     listCoursesForUser,
-    setCourseExamDate,
     regenerateCourseForUser,
     regenerateTopicForUser,
     submitLessonCheck,
     submitPublicLessonCheck,
     submitQuizAttempt,
 } from "./courses.js";
+import { setCourseExamDate } from "./courseExamDate.js";
 import { getPool } from "./db.js";
 import {
     askTopicTutor,
@@ -164,7 +164,8 @@ export const handleCoursesRequest = async (req, res) => {
 
         if (parts.length === 2 && parts[1] === "exam-date" && method === "PUT") {
             const body = await readJsonBody(req);
-            const course = await setCourseExamDate(user.id, parts[0], body.examDate ?? null);
+            const updated = await setCourseExamDate(user.id, parts[0], body.examDate ?? null);
+            const course = updated ? await getCourseForUser(user.id, parts[0]) : null;
             if (!course) {
                 return sendJson(res, 404, { error: "Course not found" });
             }

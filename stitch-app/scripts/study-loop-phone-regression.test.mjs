@@ -7,8 +7,7 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [css, quizPlayer, quizQuestion, review, exam, welcome, composer, voice] = await Promise.all([
-  read('src/index.css'),
+const [quizPlayer, quizQuestion, review, exam, welcome, composer, voice] = await Promise.all([
   read('src/pages/TopicQuizPlayer.jsx'),
   read('src/components/quiz/QuizQuestion.jsx'),
   read('src/pages/ReviewSession.jsx'),
@@ -27,10 +26,9 @@ assert.match(exam, /<section className="min-w-0 [^"]*\[overflow-wrap:anywhere\]/
 
 // .safe-area-bottom replaces padding-bottom, so bars with py-3 lost their
 // bottom padding (0px on phones without a home indicator).
-assert.match(css, /\.safe-area-pad-bottom\s*{\s*padding-bottom: calc\(0\.75rem \+ var\(--safe-bottom\)\);/, 'Action bars need padding plus the safe-area inset.');
 for (const [label, source] of [['Quiz', quizPlayer], ['Exam', exam]]) {
   assert.doesNotMatch(source, /py-3[^"]*safe-area-bottom/, `${label} action bar must not let safe-area-bottom cancel py-3.`);
-  assert.match(source, /pt-3[^"]*safe-area-pad-bottom/, `${label} action bar must use safe-area-pad-bottom.`);
+  assert.match(source, /pt-3[^"]*pb-\[calc\(0\.75rem\+var\(--safe-bottom\)\)\]/, `${label} action bar needs its padding plus the safe-area inset.`);
 }
 
 // 44px tap targets.

@@ -9,7 +9,7 @@ import {
     resumeStalledGeneration,
 } from "./generationJobs.js";
 import { recordReviewOutcomes } from "./reviews.js";
-import { parseExamDate } from "../src/lib/examPlan.js";
+import { formatExamDate } from "./courseExamDate.js";
 
 // The course's queued or running generation job, as a column of a courses
 // query aliased "c".
@@ -19,17 +19,6 @@ const ACTIVE_JOB_SQL = `(
     WHERE j.course_id = c.id AND j.status IN ('queued', 'running')
     LIMIT 1
 ) AS active_job`;
-
-// node-postgres turns a DATE into a local-midnight Date; read it back with
-// local getters so the calendar day never shifts.
-export const formatExamDate = (value) => {
-    if (value == null) return null;
-    if (value instanceof Date) {
-        const pad = (n) => String(n).padStart(2, "0");
-        return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
-    }
-    return String(value).slice(0, 10);
-};
 
 const toClientCourse = (row, extras = {}) => {
     if (!row) return null;
@@ -697,28 +686,6 @@ export const enableCourseShare = async (userId, courseId) => {
     return updated
         ? { ...updated, shareUrl: publicShareUrl(updated.shareToken) }
         : null;
-};
-
-// examDate "YYYY-MM-DD" sets the exam day; null or "" clears it.
-export const setCourseExamDate = async (userId, courseId, examDate) => {
-    let value = null;
-    if (examDate != null && examDate !== "") {
-        value = parseExamDate(examDate);
-        if (!value) {
-            const error = new Error("examDate must be a valid date from today onwards");
-            error.status = 400;
-            throw error;
-        }
-    }
-    const db = getPool();
-    const result = await db.query(
-        `UPDATE courses
-         SET exam_date = $3::date, updated_at = NOW()
-         WHERE id = $1 AND user_id = $2`,
-        [courseId, userId, value],
-    );
-    if (result.rowCount === 0) return null;
-    return getCourseForUser(userId, courseId);
 };
 
 export const disableCourseShare = async (userId, courseId) => {

@@ -13,7 +13,7 @@ import {
     rankReviewRows,
     utcTodayMs,
 } from '../src/lib/examPlan.js';
-import { formatExamDate } from '../server/courses.js';
+import { formatExamDate } from '../server/courseExamDate.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFile(path.join(root, rel), 'utf8');
@@ -147,7 +147,7 @@ assert.match(migration, /ADD COLUMN IF NOT EXISTS "exam_date" DATE;/);
 assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
 assert.match(migration, /REVOKE ALL ON TABLE "courses" FROM anon, authenticated/);
 assert.match(courses, /examDate: formatExamDate\(row\.exam_date\)/);
-assert.match(courses, /WHERE id = \$1 AND user_id = \$2`,\s*\[courseId, userId, value\]/, 'exam date is only set by the owner');
+assert.match(await read('server/courseExamDate.js'), /WHERE id = \$1 AND user_id = \$2`,\s*\[courseId, userId, value\]/, 'exam date is only set by the owner');
 assert.match(courseHttp, /parts\[1\] === "exam-date" && method === "PUT"/);
 assert.match(reviews, /rankReviewRows\(/);
 assert.match(reviews, /WHERE q\.user_id = \$1 AND q\.id = ANY/, 'session details are owner-scoped');

@@ -262,7 +262,7 @@ const TopicQuizPlayer = () => {
                         </div>
 
                         <div
-                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background/95 px-4 pt-3 backdrop-blur safe-area-pad-bottom md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
+                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background/95 px-4 pt-3 backdrop-blur pb-[calc(0.75rem+var(--safe-bottom))] md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
                             data-cp-bottom-chrome="quiz"
                         >
                             <button

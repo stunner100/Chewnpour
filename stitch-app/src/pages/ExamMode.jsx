@@ -625,7 +625,7 @@ const ExamMode = () => {
           </section>
         </div>
 
-        <div className="sticky bottom-0 z-40 border-t border-border-subtle bg-surface/95 px-space-4 pt-3 backdrop-blur safe-area-pad-bottom">
+        <div className="sticky bottom-0 z-40 border-t border-border-subtle bg-surface/95 px-space-4 pt-3 backdrop-blur pb-[calc(0.75rem+var(--safe-bottom))]">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-space-3">
             <button
               type="button"
