@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api/
+Allow: /api/sitemap
+
+Sitemap: https://www.chewnpour.com/sitemap.xml

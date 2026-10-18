@@ -17,6 +17,7 @@ const ROUTE_TITLES = [
     ['/dashboard/lessons', 'Lessons'],
     ['/dashboard/exam', 'Timed exams'],
     ['/dashboard/past-questions', 'Past questions'],
+    ['/past-questions', 'Past questions'],
     ['/dashboard/ai-tutor', 'AI Tutor'],
     ['/dashboard/progress', 'Progress'],
     ['/dashboard/podcasts', 'Podcasts'],

@@ -102,6 +102,10 @@
       "destination": "/api/generation-worker"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/router?__path=sitemap"
+    },
+    {
       "source": "/api/:path(.*)",
       "destination": "/api/router?__path=:path"
     },
