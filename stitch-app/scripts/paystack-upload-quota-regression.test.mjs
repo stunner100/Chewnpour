@@ -12,14 +12,6 @@ if (!appSource.includes('<Route path="/subscription" element={<Navigate to="/das
   throw new Error('Expected /subscription to redirect to the dashboard.');
 }
 
-const subscriptionPageSource = await read('src/pages/Subscription.jsx');
-if (subscriptionPageSource.includes('upgradeToPremium') || subscriptionPageSource.includes('initializePaystackTopUpCheckout')) {
-  throw new Error('Regression detected: Subscription page still sells a paid plan.');
-}
-if (!subscriptionPageSource.includes('Navigate to="/dashboard"')) {
-  throw new Error('Expected Subscription page to redirect to the dashboard.');
-}
-
 const uploads = await read('server/uploads.js');
 if (/assertUploadCreditsAvailable/.test(uploads) || /chargeUploadIfNeeded/.test(uploads)) {
   throw new Error('Uploads must not enforce a paid quota.');

@@ -16,7 +16,6 @@ import { resolveRouteTitle } from './lib/documentTitle';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import PublicShell, { ArrowBadge } from './components/PublicShell';
-import ParkedFeatureView from './components/ParkedFeatureView';
 import AppIcon from './components/AppIcon';
 import SignUpPage from './pages/SignUp';
 import { addSentryBreadcrumb } from './lib/sentry';
@@ -275,14 +274,6 @@ const RedirectLegacyQuizRoute = () => {
   );
 };
 
-const RedirectLegacyFlashcardsRoute = () => {
-  return <ParkedFeatureView title="Flashcards" />;
-};
-
-const ParkedDashboardFeature = ({ title }) => (
-  <ParkedFeatureView title={title} />
-);
-
 const RedirectCourseToLessonsRoute = () => {
   const { courseId } = useParams();
   const to = courseId
@@ -322,11 +313,6 @@ function App() {
         <Route path="/c/:token" element={withSuspense(<PublicSharedCourse />)} />
         <Route path="/past-questions" element={withSuspense(<PublicPastQuestions />)} />
         <Route path="/past-questions/:courseCode" element={withSuspense(<PublicPastQuestions />)} />
-        <Route path="/kids" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
-        <Route path="/kids/parent" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
-        <Route path="/kids/upload" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
-        <Route path="/kids/child" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
-        <Route path="/kids/lesson/:lessonId" element={<ParkedFeatureView title="Kids mode" primaryHref="/" primaryLabel="Back to home" />} />
 
         {/* Onboarding — email signup lives on /signup; level/department cut over to Settings profile */}
         <Route path="/onboarding/name" element={<RedirectOnboardingNameToSignup />} />
@@ -349,8 +335,6 @@ function App() {
         <Route path="/dashboard/quiz" element={withSuspense(<ActiveQuizSession />)} />
         <Route path="/dashboard/exam" element={withSuspense(<ExamMode />)} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
-        <Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />
-        <Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<AIStudyTutor />)} />
         <Route path="/dashboard/progress" element={withSuspense(<StudyProgressMastery />)} />
         <Route path="/dashboard/settings" element={withSuspense(<AccountStudySettings />)} />
@@ -359,7 +343,6 @@ function App() {
         <Route path="/dashboard/podcasts" element={withSuspense(<DashboardPodcasts />)} />
         <Route path="/dashboard/past-questions" element={withSuspense(<PastQuestions />)} />
         <Route path="/dashboard/review" element={withSuspense(<ReviewSession />)} />
-        <Route path="/dashboard/kids" element={<ParkedDashboardFeature title="Kids mode" />} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
@@ -369,14 +352,6 @@ function App() {
         <Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />
-        <Route path="/dashboard/assignment-helper" element={<ParkedDashboardFeature title="Assignment helper" />} />
-        <Route path="/dashboard/humanizer" element={<ParkedDashboardFeature title="AI humanizer" />} />
-        <Route path="/dashboard/community" element={<ParkedDashboardFeature title="Community" />} />
-        <Route path="/dashboard/community/:channelId" element={<ParkedDashboardFeature title="Community" />} />
-        <Route path="/dashboard/concept-intro" element={<ParkedDashboardFeature title="Concept intro" />} />
-        <Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
-        <Route path="/dashboard/concept" element={<ParkedDashboardFeature title="Concept builder" />} />
-        <Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />
         </Route>
 
         <Route path="/subscription" element={<Navigate to="/dashboard" replace />} />

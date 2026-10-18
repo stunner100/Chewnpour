@@ -9,6 +9,7 @@ import {
 import { TutorAvatar } from '@/components/tutor/TutorAvatar';
 import { AnnotatedText } from '@/components/opensource-ui/AnnotatedText';
 import { cn } from '@/lib/utils';
+import AppIcon from '@/components/AppIcon';
 
 const bubbleShapeClass = 'rounded-[20px] px-4 py-3';
 
@@ -79,8 +80,33 @@ export function TutorMessageRow({
             </p>
           </BubbleContent>
         </Bubble>
+        <TutorMessageSources sources={message.sources} />
       </MessageContent>
     </Message>
+  );
+}
+
+// The passages from the student's own notes this answer was grounded in.
+function TutorMessageSources({ sources }) {
+  const items = Array.isArray(sources) ? sources : [];
+  if (items.length === 0) return null;
+  return (
+    <details className="group mt-1.5 max-w-[85%] md:max-w-[75%]">
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[12px] px-2 text-caption font-semibold text-text-secondary hover:text-text-primary">
+        <AppIcon name="menu_book" className="text-[14px]" aria-hidden="true" />
+        From your notes ({items.length})
+      </summary>
+      <ol className="mt-1 space-y-2">
+        {items.map((source) => (
+          <li
+            key={source.passageId}
+            className="rounded-[14px] border border-border-subtle bg-surface px-3 py-2 text-caption text-text-secondary [overflow-wrap:anywhere]"
+          >
+            {source.snippet}
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
 

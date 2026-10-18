@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AppIcon from '../components/AppIcon';
 import QuizProgress from '../components/quiz/QuizProgress';
+import ReportQuestionButton from '../components/quiz/ReportQuestionButton';
 import { useAuth } from '../contexts/AuthContext';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
@@ -269,6 +270,7 @@ const ReviewSession = () => {
                         {result.explanation && (
                             <p className="mt-2 text-body-sm text-text-secondary">{result.explanation}</p>
                         )}
+                        <ReportQuestionButton key={question.id} questionId={question.id} />
                         <button type="button" onClick={handleNext} className="btn-primary mt-4 inline-flex min-h-11 text-body-sm">
                             {index + 1 < questions.length ? 'Next question' : 'See results'}
                             <AppIcon name="arrow_forward" className="text-[18px]" aria-hidden="true" />

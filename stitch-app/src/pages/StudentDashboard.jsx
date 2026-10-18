@@ -5,6 +5,7 @@ import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { resumeActivityCopy } from '../lib/resumeActivity';
 import { reviewCardCopy } from '../lib/reviewQueue';
+import SampleCourseCard from '../components/SampleCourseCard';
 import { ExamPlanCard } from '../components/ExamPlanner';
 import { buildDailyPlan, localTodayMs } from '../lib/examPlan';
 
@@ -97,6 +98,10 @@ const FirstRunHome = ({ greeting, displayName }) => (
           Choose file
         </Link>
       </section>
+
+      <div className="mt-4">
+        <SampleCourseCard placement="first_run" />
+      </div>
     </div>
   </div>
 );

@@ -34,16 +34,6 @@ for (const snippet of [
   '<Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/podcasts" element={withSuspense(<DashboardPodcasts />)} />',
-  '<Route path="/dashboard/assignment-helper" element={<ParkedDashboardFeature title="Assignment helper" />} />',
-  '<Route path="/dashboard/humanizer" element={<ParkedDashboardFeature title="AI humanizer" />} />',
-  '<Route path="/dashboard/community" element={<ParkedDashboardFeature title="Community" />} />',
-  '<Route path="/dashboard/community/:channelId" element={<ParkedDashboardFeature title="Community" />} />',
-  '<Route path="/dashboard/concept-intro" element={<ParkedDashboardFeature title="Concept intro" />} />',
-  '<Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
-  '<Route path="/dashboard/concept" element={<ParkedDashboardFeature title="Concept builder" />} />',
-  '<Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
-  '<Route path="/dashboard/flashcards" element={<ParkedDashboardFeature title="Flashcards" />} />',
-  '<Route path="/dashboard/flashcards/:deckId" element={<ParkedDashboardFeature title="Flashcards" />} />',
   '<Route path="/subscription" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/subscription/callback" element={<Navigate to="/dashboard" replace />} />',
   '<Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />',
@@ -72,7 +62,6 @@ for (const forbiddenSnippet of [
   "const Community = lazyRoute",
   "const CommunityChannel = lazyRoute",
   "Legacy dashboard routes preserved for backward compatibility",
-  'ParkedDashboardFeature title="Exam mode"',
 ]) {
   if (appSource.includes(forbiddenSnippet)) {
     throw new Error(`Old route/component should not be wired into App.jsx: ${forbiddenSnippet}`);
