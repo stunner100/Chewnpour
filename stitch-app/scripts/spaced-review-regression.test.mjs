@@ -68,6 +68,14 @@ const [courses, exams, reviews, router, migration, app, dashboard, funnel, auth,
 ]);
 
 assert.match(courses, /recordReviewOutcomes\([\s\S]*?filter\(\(item\) => !item\.skipped\)[\s\S]*?\)\.catch\(/, 'quiz submit records answered outcomes best-effort');
+// Quiz submits are retried on flaky connections, so they must be idempotent.
+assert.match(courses, /ON CONFLICT \(id\) DO NOTHING/, 'quiz attempt insert must ignore a resent attempt id');
+assert.match(
+    courses.slice(courses.indexOf('if (inserted.rowCount === 0)'), courses.indexOf('await recordReviewOutcomes(')),
+    /return \{ \.\.\.existing/,
+    'a resent quiz returns the saved attempt before any review outcomes are recorded',
+);
+assert.match(await read('src/pages/TopicQuizPlayer.jsx'), /attemptId: attemptIdRef\.current/, 'quiz player sends one attempt id across retries');
 assert.match(exams, /if \(closed\.rowCount > 0\) \{\s*await recordReviewOutcomes\([\s\S]*?\)\.catch\(/, 'exam grading records outcomes once, best-effort');
 assert.doesNotMatch(
     reviews.slice(reviews.indexOf('export const getReviewQueueForUser'), reviews.indexOf('export const answerReviewQuestion')),

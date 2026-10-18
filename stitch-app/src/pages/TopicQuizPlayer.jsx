@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +21,9 @@ const TopicQuizPlayer = () => {
     const [answers, setAnswers] = useState({});
     const [questionIndex, setQuestionIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    // One id per quiz attempt, reused by every retry, so a resent submit
+    // returns the saved attempt instead of recording a second one.
+    const attemptIdRef = useRef('');
 
     const load = useCallback(async () => {
         if (!user?.id || !topicId) {
@@ -107,6 +110,9 @@ const TopicQuizPlayer = () => {
         if (event?.preventDefault) event.preventDefault();
         if (!topicId || submitting) return;
         setSubmitting(true);
+        if (!attemptIdRef.current) {
+            attemptIdRef.current = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
         setError('');
         try {
             const payload = await requestJsonWithRetry(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
@@ -117,6 +123,7 @@ const TopicQuizPlayer = () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    attemptId: attemptIdRef.current,
                     answers: questions.map((question) => ({
                         questionId: question.id,
                         selectedIndex: Number.isFinite(Number(answers[question.id]))

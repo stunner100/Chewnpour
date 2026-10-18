@@ -592,7 +592,10 @@ const getQuizForTopicWithAnswers = async (userId, topicId) => {
     };
 };
 
-export const submitQuizAttempt = async ({ userId, topicId, answers }) => {
+// Client-chosen attempt ids make quiz submission safe to retry.
+const ATTEMPT_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+export const submitQuizAttempt = async ({ userId, topicId, answers, attemptId: requestedAttemptId }) => {
     const quiz = await getQuizForTopicWithAnswers(userId, topicId);
     if (!quiz?.topic) {
         const error = new Error("Topic not found");
@@ -648,14 +651,17 @@ export const submitQuizAttempt = async ({ userId, topicId, answers }) => {
         };
     });
 
-    const attemptId = nanoid();
+    const attemptId = ATTEMPT_ID_PATTERN.test(String(requestedAttemptId || ""))
+        ? String(requestedAttemptId)
+        : nanoid();
     const total = quiz.questions.length;
     const percent = Math.round((score / total) * 100);
     const db = getPool();
-    await db.query(
+    const inserted = await db.query(
         `INSERT INTO quiz_attempts (
             id, topic_id, course_id, user_id, answers, score, total
-         ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)`,
+         ) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)
+         ON CONFLICT (id) DO NOTHING`,
         [
             attemptId,
             topicId,
@@ -666,6 +672,18 @@ export const submitQuizAttempt = async ({ userId, topicId, answers }) => {
             total,
         ],
     );
+    if (inserted.rowCount === 0) {
+        // A retry of a submission that already landed: return what was saved
+        // instead of grading (and scheduling reviews) twice.
+        const existing = await getQuizAttemptForUser(userId, attemptId);
+        if (!existing) {
+            const error = new Error("Quiz attempt id already used");
+            error.status = 409;
+            throw error;
+        }
+        return { ...existing, results: existing.answers, topic: quiz.topic, course: quiz.course };
+    }
+
     // Scheduling reviews must never fail the quiz the student just finished.
     await recordReviewOutcomes(
         userId,

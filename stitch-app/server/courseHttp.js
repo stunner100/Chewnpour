@@ -198,6 +198,7 @@ export const handleTopicsRequest = async (req, res) => {
                 userId: user.id,
                 topicId: parts[0],
                 answers: body.answers || [],
+                attemptId: body.attemptId,
             });
             try {
                 const { upsertTopicProgressForUser } = await import("./topicNotes.js");
