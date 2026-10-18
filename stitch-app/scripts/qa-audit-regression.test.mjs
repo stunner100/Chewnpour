@@ -5,20 +5,9 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
-const profileSource = read('src/pages/Profile.jsx');
 const examSource = read('src/pages/ExamMode.jsx');
 const dashboardPlanSource = read('src/lib/dashboardPlan.js');
 const continueLearningSource = read('src/components/dashboard/ContinueLearningCard.jsx');
-
-assert.ok(
-    profileSource.includes('Navigate to="/dashboard/settings#profile"'),
-    'Profile.jsx must hard-redirect to settings after Supabase cutover.',
-);
-
-assert.ok(
-    !profileSource.includes('Bypass detection'),
-    'Profile quick access must not market the Humanizer as bypassing detection.',
-);
 
 assert.ok(
     examSource.includes('(answeredCount / questions.length) * 100'),

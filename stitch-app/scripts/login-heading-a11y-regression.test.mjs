@@ -20,6 +20,6 @@ assert.match(signup, /Study\{\s*' '\s*\}/, 'signup H1 must keep a space after "S
 assert.match(signup, /<\/span>\{\s*' '\s*\}/, 'signup H1 must keep a space after "smarter,"');
 
 assert.match(app, /import AppIcon from ['"].*AppIcon['"]/, 'App.jsx must import AppIcon for NotFound');
-assert.match(app, /ParkedDashboardFeature title="Kids mode"/, 'dashboard kids route must stay parked (QA C-1)');
+assert.doesNotMatch(app, /path="\/(dashboard\/)?kids/, 'kids routes are removed, not wired (QA C-1)');
 
 console.log('login-heading-a11y-regression: ok');

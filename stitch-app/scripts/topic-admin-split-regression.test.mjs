@@ -9,13 +9,11 @@ const [
     topicDetailSource,
     topicViewsSource,
     useTopicDetailSource,
-    adminDashboardSource,
     adminShellSource,
 ] = await Promise.all([
     read('src/pages/TopicDetail.jsx'),
     read('src/components/topic/TopicLessonViews.jsx'),
     read('src/hooks/useTopicDetail.js'),
-    read('src/pages/AdminDashboard.jsx'),
     read('src/pages/admin/AdminDashboard.jsx'),
 ]);
 
@@ -30,7 +28,6 @@ for (const [label, source, snippet] of [
     ['useTopicDetail', useTopicDetailSource, 'export const useTopicDetail'],
     ['TopicLessonViews', topicViewsSource, 'TopicContentPanel'],
     ['TopicLessonViews', topicViewsSource, 'StudyShell'],
-    ['AdminDashboard re-export', adminDashboardSource, "./admin/AdminDashboard"],
     ['AdminDashboard shell', adminShellSource, './panels/OverviewPanel'],
     ['AdminDashboard shell', adminShellSource, './panels/ContentPanel'],
 ]) {

@@ -5,10 +5,9 @@ const root = process.cwd();
 
 const read = async (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [landingSource, billingHttp, subscriptionPageSource] = await Promise.all([
+const [landingSource, billingHttp] = await Promise.all([
   read('src/pages/LandingPage.jsx'),
   read('server/billingHttp.js'),
-  read('src/pages/Subscription.jsx'),
 ]);
 
 for (const pattern of [
@@ -35,10 +34,6 @@ for (const pattern of [
 
 if (!billingHttp.includes('BILLING_RETIRED')) {
   throw new Error('Expected billing checkout to be retired.');
-}
-
-if (!subscriptionPageSource.includes('Navigate to="/dashboard"')) {
-  throw new Error('Expected Subscription.jsx to redirect to the dashboard.');
 }
 
 console.log('pricing-topup-plans-regression.test.mjs passed');
