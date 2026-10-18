@@ -123,7 +123,7 @@ const {
 
     assert.deepEqual(resolvePracticeOutcome({ upload: { courseId: "c 1" } }), {
         kind: "ready",
-        href: "/dashboard/exam?courseId=c%201",
+        href: "/dashboard/exam?courseId=c%201&start=1",
     });
     assert.equal(resolvePracticeOutcome({ upload: { id: "u", status: "extracting" }, processing: true }).kind, "processing");
     const failed = resolvePracticeOutcome({ upload: { status: "error", errorMessage: "No text" } });
