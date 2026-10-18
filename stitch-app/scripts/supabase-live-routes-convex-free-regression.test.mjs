@@ -34,8 +34,6 @@ const livePageModules = [
   'src/components/TopicNotesPanel.jsx',
   'src/components/TopicChatPanel.jsx',
   'src/components/HighlightExplainPopover.jsx',
-  'src/components/lesson/LessonPodcastCard.jsx',
-  'src/components/TopicPodcastPanel.jsx',
   'src/bootstrap/AppProviders.jsx',
 ];
 

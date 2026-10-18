@@ -357,7 +357,6 @@ const matrixSummary = {
   },
   deterministicRegressionCoverage: [
     'scripts/exam-attempt-stale-record-regression.test.mjs validates regenerated/deleted question-id fallback behavior.',
-    'scripts/exam-auto-generation-exhaustion-regression.test.mjs validates forced retry-exhaustion state transitions.',
   ],
   gaps: [
     'No dedicated end-to-end UI path currently triggers explicit question-bank regeneration in the matrix run.',

@@ -37,9 +37,6 @@ const wiredSurfaces = [
   'src/pages/ExamMode.jsx',
   'src/pages/AIStudyTutor.jsx',
   'src/pages/StudentDashboard.jsx',
-  'src/components/CourseCard.jsx',
-  'src/components/dashboard/ContinueLearningCard.jsx',
-  'src/components/dashboard/PodcastSection.jsx',
   'src/components/topic/TopicLessonViews.jsx',
   'server/courseGeneration.js',
 ];

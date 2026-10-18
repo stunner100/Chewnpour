@@ -6,25 +6,17 @@ const readSource = (path) => fs.readFile(new URL(path, import.meta.url), 'utf8')
 const [
   librarySource,
   uploadSource,
-  examPreparationSource,
-  topicPodcastSource,
-  coursePodcastSource,
   dashboardPodcastsSource,
   podcastStatusBadgeSource,
   voicePlaybackSource,
-  examAutoGenerationSource,
   highlightExplainSource,
   dashboardResultsSource,
 ] = await Promise.all([
   readSource('../src/pages/MyMaterialsLibrary.jsx'),
   readSource('../src/pages/UploadMaterials.jsx'),
-  readSource('../src/components/ExamPreparationLoader.jsx'),
-  readSource('../src/components/TopicPodcastPanel.jsx'),
-  readSource('../src/components/course/CoursePodcastCard.jsx'),
   readSource('../src/pages/DashboardPodcasts.jsx'),
   readSource('../src/components/dashboard/PodcastStatusBadge.jsx'),
   readSource('../src/lib/useVoicePlayback.js'),
-  readSource('../src/lib/examAutoGenerationState.js'),
   readSource('../src/components/HighlightExplainPopover.jsx'),
   readSource('../src/pages/DashboardResults.jsx'),
 ]);
@@ -69,13 +61,9 @@ assert.ok(
 );
 
 const generatedStudySurfaceSource = [
-  examPreparationSource,
-  topicPodcastSource,
-  coursePodcastSource,
   dashboardPodcastsSource,
   podcastStatusBadgeSource,
   voicePlaybackSource,
-  examAutoGenerationSource,
   highlightExplainSource,
   dashboardResultsSource,
 ].join('\n');
