@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { estimateExamShape, summarizeWeakTopics, timerAnnouncement } from '../lib/examUx';
+import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
 
 const ExamConfirmDialog = ({
   open,
@@ -380,6 +381,11 @@ const ExamMode = () => {
       }
       setResult(payload.exam || null);
       setExam(null);
+      trackFunnelEvent(FUNNEL_EVENTS.examSubmitted, {
+        courseId: payload.exam?.courseId,
+        score: payload.exam?.score,
+        status: payload.exam?.status,
+      });
       const expired = payload.exam?.status === 'expired';
       watermelonToast(
         expired

@@ -6,6 +6,7 @@ import AppIcon from '../components/AppIcon';
 import QuizProgress from '../components/quiz/QuizProgress';
 import QuizQuestion from '../components/quiz/QuizQuestion';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
 
 const TopicQuizPlayer = () => {
     const { topicId } = useParams();
@@ -119,6 +120,11 @@ const TopicQuizPlayer = () => {
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(payload.error || 'Failed to submit quiz');
             const attempt = payload.attempt || null;
+            trackFunnelEvent(FUNNEL_EVENTS.quizSubmitted, {
+                topicId,
+                total: attempt?.total,
+                percent: attempt?.percent,
+            });
             const nextAttemptId = attempt?.id || attempt?.attemptId;
             if (nextAttemptId) {
                 navigate(`/dashboard/quiz/results/${encodeURIComponent(nextAttemptId)}`, {

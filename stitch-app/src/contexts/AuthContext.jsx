@@ -8,6 +8,7 @@ import {
 } from '../lib/auth-client';
 import { captureSentryException, setSentryUser } from '../lib/sentry';
 import { resetPostHogUser, setPostHogUser } from '../lib/posthog';
+import { trackSignupIfNew } from '../lib/funnelEvents';
 
 const AuthContext = createContext({});
 
@@ -81,6 +82,7 @@ const syncAuthAnalyticsUser = (sessionUser) => {
         email: sessionUser?.email,
         username: sessionUser?.name,
     });
+    trackSignupIfNew(sessionUser);
 };
 
 const normalizeErrorForSentry = (error, fallbackMessage = 'Authentication request failed') => {
