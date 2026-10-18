@@ -1,41 +1,47 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PublicShell from '../components/PublicShell';
 import AppIcon from '../components/AppIcon';
 
-const LABELS = {
-    all: 'all emails',
-    streak_reminders: 'streak reminders',
-    streak_broken: 'streak broken alerts',
-    weekly_summary: 'weekly summaries',
-    product_research: 'product research emails',
-    winback_offers: 'win-back offers',
+const CHIPS = {
+    success: { bg: '#B39DFF', fg: '#0A0A0A', icon: 'check_circle' },
+    error: { bg: '#E8651B', fg: '#fff', icon: 'error' },
+    loading: { bg: '#F3C64A', fg: '#0A0A0A', icon: 'hourglass_top' },
 };
 
-const normalizeType = (value) => String(value || '').trim().toLowerCase();
-
-/**
- * Unsubscribe is parked during the Supabase hard cutover.
- * Prefer settings email preferences once that surface is restored.
- */
+/** One-click unsubscribe from review reminder emails (signed token, no sign-in). */
 const Unsubscribe = () => {
     const [searchParams] = useSearchParams();
-
     const token = String(searchParams.get('token') || '').trim();
-    const emailType = normalizeType(searchParams.get('type') || 'all');
-    const label = useMemo(() => LABELS[emailType] || LABELS.all, [emailType]);
+    const [status, setStatus] = useState(token ? 'loading' : 'error');
+    const [message, setMessage] = useState(token ? '' : 'This unsubscribe link is missing its token.');
 
-    const status = 'error';
-    const message = token
-        ? `We could not process this unsubscribe link for ${label} yet. `
-            + 'Email preferences are being moved to the new backend — manage them from Settings once signed in, or reply to the email for help.'
-        : 'This unsubscribe link is missing a token.';
+    useEffect(() => {
+        if (!token) return undefined;
+        let cancelled = false;
+        fetch('/api/email/unsubscribe', {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+        })
+            .then(async (response) => {
+                const payload = await response.json().catch(() => ({}));
+                if (cancelled) return;
+                if (!response.ok) throw new Error(payload.error || 'We could not process this link.');
+                setStatus('success');
+                setMessage('You will not get review reminder emails any more. You can turn them back on in Settings.');
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                setStatus('error');
+                setMessage(`${error.message} You can turn reminders off in Settings after signing in.`);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [token]);
 
-    const iconChip = status === 'success'
-        ? { bg: '#B39DFF', fg: '#0A0A0A', icon: 'check_circle' }
-        : status === 'error'
-            ? { bg: '#E8651B', fg: '#fff', icon: 'error' }
-            : { bg: '#F3C64A', fg: '#0A0A0A', icon: 'hourglass_top' };
+    const chip = CHIPS[status];
 
     return (
         <PublicShell>
@@ -43,18 +49,18 @@ const Unsubscribe = () => {
                 <div className="cp-card text-center">
                     <div
                         className="mx-auto flex size-16 items-center justify-center rounded-2xl"
-                        style={{ background: iconChip.bg, color: iconChip.fg }}
+                        style={{ background: chip.bg, color: chip.fg }}
                     >
-                        <AppIcon name={iconChip.icon} className="text-3xl" />
+                        <AppIcon name={chip.icon} className="text-3xl" />
                     </div>
                     <h1 className="mt-5 text-2xl font-semibold">
-                        {status === 'loading' ? 'Updating preferences…' : 'Preferences update'}
+                        {status === 'loading' ? 'Updating preferences…' : status === 'success' ? 'Unsubscribed' : 'Preferences update'}
                     </h1>
-                    <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">
+                    <p role="status" className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">
                         {message || 'Working on your request.'}
                     </p>
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                        <Link to="/dashboard/settings" className="btn-primary px-5 py-2.5 text-sm">
+                        <Link to="/dashboard/settings#notifications" className="btn-primary px-5 py-2.5 text-sm">
                             Open settings
                         </Link>
                         <Link to="/" className="btn-secondary px-5 py-2.5 text-sm">
