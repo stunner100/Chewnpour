@@ -5,6 +5,8 @@ import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { resumeActivityCopy } from '../lib/resumeActivity';
 import { reviewCardCopy } from '../lib/reviewQueue';
+import { ExamPlanCard } from '../components/ExamPlanner';
+import { buildDailyPlan, localTodayMs } from '../lib/examPlan';
 
 const firstName = (value) => {
   const text = String(value || '').trim();
@@ -181,6 +183,11 @@ const StudentDashboard = () => {
     100,
     Math.max(0, Math.round(Number(resumeTarget?.progressPercent ?? continueCourse?.progressPercent ?? 0))),
   );
+  const upcomingExams = useMemo(() => {
+    const today = localTodayMs();
+    const exams = Array.isArray(review?.exams) ? review.exams : [];
+    return exams.filter((exam) => buildDailyPlan(exam, today)).slice(0, 3);
+  }, [review]);
   const isFirstRun = !loading && uploads.length === 0 && courses.length === 0 && !resumeTarget;
 
   if (isFirstRun) {
@@ -209,6 +216,14 @@ const StudentDashboard = () => {
         {error && (
           <div className="mt-6 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
             {error}
+          </div>
+        )}
+
+        {!loading && upcomingExams.length > 0 && (
+          <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2">
+            {upcomingExams.map((exam) => (
+              <ExamPlanCard key={exam.courseId} exam={exam} />
+            ))}
           </div>
         )}
 

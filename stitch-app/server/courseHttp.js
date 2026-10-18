@@ -11,6 +11,7 @@ import {
     getQuizForTopic,
     getTopicForUser,
     listCoursesForUser,
+    setCourseExamDate,
     submitLessonCheck,
     submitPublicLessonCheck,
     submitQuizAttempt,
@@ -145,7 +146,16 @@ export const handleCoursesRequest = async (req, res) => {
             return sendJson(res, 200, { course });
         }
 
-        res.setHeader("Allow", "GET, POST, DELETE");
+        if (parts.length === 2 && parts[1] === "exam-date" && method === "PUT") {
+            const body = await readJsonBody(req);
+            const course = await setCourseExamDate(user.id, parts[0], body.examDate ?? null);
+            if (!course) {
+                return sendJson(res, 404, { error: "Course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        res.setHeader("Allow", "GET, POST, PUT, DELETE");
         return sendJson(res, 405, { error: "Method not allowed" });
     } catch (error) {
         console.error("[api/courses]", error);

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { ExamCountdownBadge, ExamDateControl, ExamPlanCard } from '../components/ExamPlanner';
 
 const LessonsSkeleton = () => (
     <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -119,6 +120,23 @@ const LessonMemoryNeuralBasis = () => {
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [examStats, setExamStats] = useState(null);
+
+    // Optional: the plan card needs lesson/review counts from /api/review.
+    // A failure here only hides the plan, never the course.
+    const loadExamStats = useCallback(async () => {
+        if (!courseId || !user?.id) {
+            setExamStats(null);
+            return;
+        }
+        const response = await fetch('/api/review', {
+            credentials: 'include',
+            headers: { Accept: 'application/json' },
+        }).catch(() => null);
+        const payload = response?.ok ? await response.json().catch(() => ({})) : {};
+        const exams = Array.isArray(payload?.review?.exams) ? payload.review.exams : [];
+        setExamStats(exams.find((exam) => String(exam.courseId) === courseId) || null);
+    }, [courseId, user?.id]);
 
     const load = useCallback(async () => {
         if (!user?.id) {
@@ -160,6 +178,10 @@ const LessonMemoryNeuralBasis = () => {
     useEffect(() => {
         load();
     }, [load]);
+
+    useEffect(() => {
+        loadExamStats();
+    }, [loadExamStats]);
 
     const topics = useMemo(
         () => (Array.isArray(selectedCourse?.topics) ? selectedCourse.topics : []),
@@ -229,6 +251,11 @@ const LessonMemoryNeuralBasis = () => {
                                         <p className="mt-1 text-body-sm text-text-secondary">
                                             {course.topicCount} topics · {course.quizzesReady} quizzes ready
                                         </p>
+                                        {course.examDate ? (
+                                            <div className="mt-2">
+                                                <ExamCountdownBadge examDate={course.examDate} />
+                                            </div>
+                                        ) : null}
                                     </div>
                                     <div className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4">
                                         <Link
@@ -278,6 +305,25 @@ const LessonMemoryNeuralBasis = () => {
                             <AppIcon name="arrow_back" className="text-[16px]" />
                             All courses
                         </Link>
+
+                        {selectedCourse ? (
+                            <ExamDateControl
+                                key={`${selectedCourse.id}:${selectedCourse.examDate || ''}`}
+                                course={selectedCourse}
+                                onCourseChange={(next) => {
+                                    setSelectedCourse((current) => ({
+                                        ...(current || {}),
+                                        ...(next || {}),
+                                        topics: next?.topics || current?.topics || [],
+                                    }));
+                                    loadExamStats();
+                                }}
+                            />
+                        ) : null}
+
+                        {selectedCourse?.examDate && examStats?.examDate === selectedCourse.examDate ? (
+                            <ExamPlanCard exam={examStats} showCourseLink={false} />
+                        ) : null}
 
                         {selectedCourse ? (
                             <CourseShareControls

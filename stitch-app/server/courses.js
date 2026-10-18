@@ -4,6 +4,18 @@ import { generateCourseCurriculumWithAi } from "./aiCourseGeneration.js";
 import { stripCourseTitle } from "./courseGeneration.js";
 import { indexTopicPassages } from "./topicPassages.js";
 import { recordReviewOutcomes } from "./reviews.js";
+import { parseExamDate } from "../src/lib/examPlan.js";
+
+// node-postgres turns a DATE into a local-midnight Date; read it back with
+// local getters so the calendar day never shifts.
+export const formatExamDate = (value) => {
+    if (value == null) return null;
+    if (value instanceof Date) {
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+    }
+    return String(value).slice(0, 10);
+};
 
 const toClientCourse = (row, extras = {}) => {
     if (!row) return null;
@@ -35,6 +47,7 @@ const toClientCourse = (row, extras = {}) => {
         firstTopicId: extras.firstTopicId ?? row.first_topic_id ?? null,
         firstQuizTopicId: extras.firstQuizTopicId ?? row.first_quiz_topic_id ?? null,
         quizTopics,
+        examDate: formatExamDate(row.exam_date),
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
     };
@@ -747,6 +760,28 @@ export const enableCourseShare = async (userId, courseId) => {
     return updated
         ? { ...updated, shareUrl: publicShareUrl(updated.shareToken) }
         : null;
+};
+
+// examDate "YYYY-MM-DD" sets the exam day; null or "" clears it.
+export const setCourseExamDate = async (userId, courseId, examDate) => {
+    let value = null;
+    if (examDate != null && examDate !== "") {
+        value = parseExamDate(examDate);
+        if (!value) {
+            const error = new Error("examDate must be a valid date from today onwards");
+            error.status = 400;
+            throw error;
+        }
+    }
+    const db = getPool();
+    const result = await db.query(
+        `UPDATE courses
+         SET exam_date = $3::date, updated_at = NOW()
+         WHERE id = $1 AND user_id = $2`,
+        [courseId, userId, value],
+    );
+    if (result.rowCount === 0) return null;
+    return getCourseForUser(userId, courseId);
 };
 
 export const disableCourseShare = async (userId, courseId) => {

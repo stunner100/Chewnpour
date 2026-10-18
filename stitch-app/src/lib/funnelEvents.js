@@ -9,6 +9,7 @@ export const FUNNEL_EVENTS = {
     examSubmitted: 'exam_submitted',
     reviewAnswered: 'review_answered',
     reviewSessionCompleted: 'review_session_completed',
+    examDateSet: 'exam_date_set',
 };
 
 const NEW_ACCOUNT_WINDOW_MS = 15 * 60 * 1000;
