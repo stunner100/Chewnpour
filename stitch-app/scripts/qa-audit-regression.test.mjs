@@ -6,8 +6,6 @@ const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const examSource = read('src/pages/ExamMode.jsx');
-const dashboardPlanSource = read('src/lib/dashboardPlan.js');
-const continueLearningSource = read('src/components/dashboard/ContinueLearningCard.jsx');
 
 assert.ok(
     examSource.includes('(answeredCount / questions.length) * 100'),
@@ -17,16 +15,6 @@ assert.ok(
 assert.ok(
     !examSource.includes('(currentQuestion + 1) / questions.length'),
     'Exam progress must not initialize from the current question index.',
-);
-
-assert.ok(
-    !dashboardPlanSource.includes("id: 'generate-podcast'"),
-    'Today study plan should not add a duplicate generate-podcast CTA.',
-);
-
-assert.ok(
-    !continueLearningSource.includes('onGeneratePodcast'),
-    'Continue learning card should not add another generate-podcast CTA.',
 );
 
 console.log('qa-audit-regression tests passed');

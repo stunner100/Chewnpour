@@ -8,7 +8,6 @@ const read = (rel) => readFileSync(join(root, rel), 'utf8');
 
 const app = read('src/App.jsx');
 const hub = read('src/pages/DashboardPodcasts.jsx');
-const card = read('src/components/lesson/LessonPodcastCard.jsx');
 const panel = read('src/components/topic/TopicContentPanel.jsx');
 const hook = read('src/hooks/useTopicDetail.js');
 const server = read('server/podcasts.js');
@@ -43,8 +42,6 @@ assert.match(hub, /PodcastWaveformPlayer/, 'Podcasts hub must play audio with th
 assert.doesNotMatch(hub, /ParkedFeatureView/, 'DashboardPodcasts must not render the parked stub');
 assert.doesNotMatch(hub, /from ['"]convex\//i, 'DashboardPodcasts must stay Convex-free');
 
-assert.match(card, /\/api\/podcasts\?topicId=/, 'Lesson card must load the topic podcast');
-assert.match(card, /\/api\/podcast-generate/, 'Lesson card must generate through the dedicated function');
 assert.doesNotMatch(panel, /LessonPodcastCard/, 'Primary lesson study mode must not mount the podcast card');
 assert.match(hook, /const podcastEnabled = true/, 'Lesson hook must enable the podcast surface');
 

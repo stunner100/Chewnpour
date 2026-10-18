@@ -12,9 +12,7 @@ const [
   routerSource,
   vercelSource,
   migrationSource,
-  panelSource,
   contentPanelSource,
-  cardSource,
   hubSource,
 ] = await Promise.all([
   read('server/podcasts.js'),
@@ -23,9 +21,7 @@ const [
   read('api/router.js'),
   read('vercel.json'),
   read('supabase/migrations/20260813160000_topic_podcasts.sql'),
-  read('src/components/TopicPodcastPanel.jsx'),
   read('src/components/topic/TopicContentPanel.jsx'),
-  read('src/components/lesson/LessonPodcastCard.jsx'),
   read('src/pages/DashboardPodcasts.jsx'),
 ]);
 
@@ -84,19 +80,13 @@ if (!/"source": "\/api\/podcast-generate"/.test(vercelSource)) {
 if (/LessonPodcastCard/.test(contentPanelSource)) {
   throw new Error('Expected TopicContentPanel to keep the podcast card out of primary study mode.');
 }
-if (!/\/api\/podcast-generate/.test(cardSource) || !/\/api\/podcasts/.test(cardSource)) {
-  throw new Error('Expected LessonPodcastCard to list and generate over HTTP.');
-}
-if (!/setInterval/.test(cardSource)) {
-  throw new Error('Expected LessonPodcastCard to poll in-flight podcast generation.');
-}
 if (!/\/api\/podcast-generate/.test(hubSource) || !/PodcastWaveformPlayer/.test(hubSource)) {
   throw new Error('Expected DashboardPodcasts to generate and play live audio.');
 }
 if (!/setInterval/.test(hubSource) || !/Generate again/.test(hubSource)) {
   throw new Error('Expected the podcasts hub to poll in-flight jobs and retry failed ones.');
 }
-if (/from ['"]convex\/react['"]|api\.podcasts/.test(panelSource + cardSource + hubSource)) {
+if (/from ['"]convex\/react['"]|api\.podcasts/.test(hubSource)) {
   throw new Error('Expected live podcast UI to stay Convex-free.');
 }
 

@@ -15,7 +15,6 @@ const [
   activity,
   player,
   hub,
-  card,
   examMode,
   migration,
 ] = await Promise.all([
@@ -28,7 +27,6 @@ const [
   read('src/lib/resumeActivity.js'),
   read('src/components/podcast/PodcastWaveformPlayer.jsx'),
   read('src/pages/DashboardPodcasts.jsx'),
-  read('src/components/lesson/LessonPodcastCard.jsx'),
   read('src/pages/ExamMode.jsx'),
   read('supabase/migrations/20260813190000_topic_progress_last_activity_kind.sql'),
 ]);
@@ -63,7 +61,7 @@ if (/upsertTopicProgressForUser/.test(quizGetMatch[0])) {
 if (!/parts\[1\] === "quiz" && method === "POST"[\s\S]*lastActivityKind: "quiz"/.test(courseHttp)) {
   throw new Error('Submitting a topic quiz must record quiz activity.');
 }
-if (!/recordStudyActivity/.test(hub) || !/recordStudyActivity/.test(card)) {
+if (!/recordStudyActivity/.test(hub)) {
   throw new Error('Playing a podcast must record listening activity.');
 }
 if (!/onPlay/.test(player)) {

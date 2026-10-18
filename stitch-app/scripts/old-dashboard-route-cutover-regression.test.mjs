@@ -11,7 +11,6 @@ const read = async (relativePath) => {
 const appSource = await read('src/App.jsx');
 const settingsSource = await read('src/pages/AccountStudySettings.jsx');
 const progressSource = await read('src/pages/StudyProgressMastery.jsx');
-const progressSnapshotSource = await read('src/components/dashboard/ProgressSnapshot.jsx');
 const studentDashboardSource = await read('src/pages/StudentDashboard.jsx');
 const materialsSource = await read('src/pages/MyMaterialsLibrary.jsx');
 const lessonsSource = await read('src/pages/LessonMemoryNeuralBasis.jsx');
@@ -82,7 +81,6 @@ for (const forbiddenLessonsSnippet of [
 for (const [source, label] of [
   [settingsSource, 'AccountStudySettings.jsx'],
   [progressSource, 'StudyProgressMastery.jsx'],
-  [progressSnapshotSource, 'ProgressSnapshot.jsx'],
   [studentDashboardSource, 'StudentDashboard.jsx'],
   [materialsSource, 'MyMaterialsLibrary.jsx'],
   [lessonsSource, 'LessonMemoryNeuralBasis.jsx'],

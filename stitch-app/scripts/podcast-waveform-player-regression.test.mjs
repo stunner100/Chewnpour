@@ -4,15 +4,11 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const playerPath = resolve(root, 'src', 'components', 'podcast', 'PodcastWaveformPlayer.jsx');
-const panelPath = resolve(root, 'src', 'components', 'TopicPodcastPanel.jsx');
 const dashboardPodcastsPath = resolve(root, 'src', 'pages', 'DashboardPodcasts.jsx');
-const lessonCardPath = resolve(root, 'src', 'components', 'lesson', 'LessonPodcastCard.jsx');
 const iconPath = resolve(root, 'src', 'components', 'AppIcon.jsx');
 
 const playerSource = readFileSync(playerPath, 'utf8');
-const panelSource = readFileSync(panelPath, 'utf8');
 const dashboardPodcastsSource = readFileSync(dashboardPodcastsPath, 'utf8');
-const lessonCardSource = readFileSync(lessonCardPath, 'utf8');
 const iconSource = readFileSync(iconPath, 'utf8');
 
 for (const token of [
@@ -60,28 +56,6 @@ assert.ok(
 assert.ok(
   iconSource.includes('skip_previous: SkipBackIcon'),
   'Expected skip_previous to map to SkipBackIcon for the 15-second skip control.',
-);
-
-assert.ok(
-  !lessonCardSource.includes('text-overline'),
-  'Expected the lesson podcast heading to lead without an eyebrow label.',
-);
-assert.ok(
-  /<h3 className="min-w-0 text-body-lg font-semibold text-text-primary/.test(lessonCardSource),
-  'Expected the topic title to be the first heading in the podcast section.',
-);
-assert.ok(
-  lessonCardSource.includes("isInFlight ? 'Generating…' : 'Regenerate'"),
-  'Expected regenerate to stay available after the player, not beside the title.',
-);
-assert.ok(
-  !lessonCardSource.includes('flex items-start justify-between gap-3'),
-  'Expected regenerate not to sit in a header row competing with Play.',
-);
-
-assert.ok(
-  !/from ['"]convex\/react['"]/.test(panelSource),
-  'Expected TopicPodcastPanel to stay Convex-free.',
 );
 
 assert.ok(

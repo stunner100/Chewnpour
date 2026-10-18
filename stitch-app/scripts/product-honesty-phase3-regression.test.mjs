@@ -11,7 +11,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(root, rel), 'utf8');
 
 const dashboard = read('src/pages/StudentDashboard.jsx');
-const hero = read('src/components/dashboard/DashboardHero.jsx');
 const landing = read('src/pages/LandingPage.jsx');
 const podcasts = read('src/pages/DashboardPodcasts.jsx');
 const sharePage = read('src/pages/PublicSharedCourse.jsx');
@@ -22,11 +21,6 @@ assert.doesNotMatch(dashboard, /Supabase/i, 'dashboard must not show migration/S
 assert.match(dashboard, /Continue learning/, 'dashboard must offer continue learning');
 assert.match(dashboard, /\/api\/courses/, 'dashboard must load live courses');
 assert.match(dashboard, /\/api\/uploads/, 'dashboard must load live uploads');
-
-assert.doesNotMatch(hero, /flashcards,\s*podcasts/i, 'hero must not promise flashcards+podcasts');
-assert.doesNotMatch(hero, /'Flashcards'/, 'hero marquee must not advertise Flashcards');
-assert.doesNotMatch(hero, /'Podcasts'/, 'hero marquee must not advertise Podcasts');
-assert.doesNotMatch(hero, /'Exam Prep'/, 'hero marquee must not advertise Exam Prep');
 
 assert.doesNotMatch(landing, /Turn Slides into a Podcast/, 'landing must not sell podcasts as a marketing gimmick');
 assert.doesNotMatch(landing, /generates podcasts/i, 'landing blog must not sell podcast generation');
