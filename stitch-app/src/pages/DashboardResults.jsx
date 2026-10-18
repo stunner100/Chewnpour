@@ -9,6 +9,7 @@ import {
 } from '../lib/objectiveExam';
 import { Confetti } from '../components/magicui/Confetti';
 import AppIcon from '../components/AppIcon';
+import ReportQuestionButton from '../components/quiz/ReportQuestionButton';
 
 // ─── Post-quiz share prompt ──────────────────────────────────────────────────
 
@@ -476,6 +477,7 @@ const DashboardResults = () => {
                                                         {answer.explanation}
                                                     </div>
                                                 )}
+                                                <ReportQuestionButton questionId={answer.questionId} />
                                             </article>
                                         );
                                     })}

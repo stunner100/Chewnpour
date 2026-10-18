@@ -4,6 +4,7 @@ import { BOOTSTRAP_ADMIN_EMAILS } from "./adminAccess.js";
 import { clearAdminSnapshotCache, getAdminSnapshot, searchAdminUsers } from "./adminMetrics.js";
 import { grantAdmin, isAdminSessionUser, listAdmins, revokeAdmin } from "./adminMembers.js";
 import { handleAdminPastPapersRequest } from "./pastPaperHttp.js";
+import { listOpenQuestionFlags, resolveQuestionFlag } from "./questionFlags.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -97,6 +98,20 @@ export const handleAdminRequest = async (req, res) => {
         if (pathname === "/api/admin/users" && method === "GET") {
             const query = new URL(String(req.url || "/"), "http://localhost").searchParams.get("q");
             return sendJson(res, 200, { users: await searchAdminUsers(query) });
+        }
+
+        if (pathname === "/api/admin/question-flags" && method === "GET") {
+            return sendJson(res, 200, { flags: await listOpenQuestionFlags() });
+        }
+        const resolveMatch = /^\/api\/admin\/question-flags\/([^/]+)\/resolve$/.exec(pathname);
+        if (resolveMatch && method === "POST") {
+            const body = await readJsonBody(req);
+            const result = await resolveQuestionFlag({
+                adminId: user.id,
+                flagId: decodeURIComponent(resolveMatch[1]),
+                outcome: body.outcome,
+            });
+            return sendJson(res, 200, { ...result, flags: await listOpenQuestionFlags() });
         }
 
         if (pathname === "/api/admin/past-papers" || pathname.startsWith("/api/admin/past-papers/")) {

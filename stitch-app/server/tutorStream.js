@@ -14,6 +14,7 @@ import {
     sanitizeStudyContext,
 } from "./tutorStudyContext.js";
 import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
+import { readMessageSources, toTutorSources } from "./tutorSources.js";
 
 const resolveBaseUrl = (value, fallback) => {
     const raw = String(value || fallback || "").trim();
@@ -51,17 +52,18 @@ const toClientMessage = (row) => {
         _id: row.id,
         role: row.role,
         content: row.content,
+        sources: readMessageSources(row),
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
     };
 };
 
-const insertMessage = async ({ userId, topicId, role, content }) => {
+const insertMessage = async ({ userId, topicId, role, content, sources = [] }) => {
     const db = getPool();
     const inserted = await db.query(
-        `INSERT INTO topic_chat_messages (id, user_id, topic_id, role, content)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO topic_chat_messages (id, user_id, topic_id, role, content, sources)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)
          RETURNING *`,
-        [nanoid(), userId, topicId, role, content],
+        [nanoid(), userId, topicId, role, content, JSON.stringify(sources)],
     );
     return toClientMessage(inserted.rows[0]);
 };
@@ -138,6 +140,7 @@ export const handleTutorStream = async (req, res, { userId, topicId }) => {
         }));
 
         let evidenceBlock = "";
+        let sources = [];
         try {
             const retrieved = await retrievePassagesForTopic({
                 topicId,
@@ -146,6 +149,7 @@ export const handleTutorStream = async (req, res, { userId, topicId }) => {
                 k: 6,
             });
             if (Array.isArray(retrieved?.passages) && retrieved.passages.length > 0) {
+                sources = toTutorSources(retrieved.passages);
                 evidenceBlock = retrieved.passages
                     .map((passage, index) =>
                         `[Passage ${index + 1}]\n${String(passage.content || "").trim()}`
@@ -239,6 +243,7 @@ Rules:
                 topicId,
                 role: "assistant",
                 content,
+                sources,
             });
             writeSSE(res, "message-complete", { userMessage, assistantMessage });
             res.end();
@@ -336,6 +341,8 @@ Rules:
 
         const fallback = buildFallbackAnswer({ topic, question: cleanedQuestion });
         const assistantContent = fullText.trim() || fallback;
+        // The canned fallback is built from the lesson, not the retrieved notes.
+        if (!fullText.trim()) sources = [];
         if (!streamedToClient) {
             writeSSE(res, "text-delta", assistantContent);
         }
