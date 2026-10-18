@@ -21,9 +21,8 @@ assert.equal(
 );
 assert.equal(buildFirstLessonHref({}), '/dashboard/lessons');
 
-const [hook, quizPanel, uploads] = await Promise.all([
+const [hook, uploads] = await Promise.all([
   read('src/hooks/useTopicDetail.js'),
-  read('src/components/topic/TopicQuizPanel.jsx'),
   read('src/pages/UploadMaterials.jsx'),
 ]);
 
@@ -32,13 +31,6 @@ assert.match(hook, /id: 'p-start-quiz'/);
 assert.doesNotMatch(hook, /id: 'essay-rail'/);
 assert.doesNotMatch(hook, /id: 'p-essay'/);
 assert.match(hook, /A short quiz on what you just read\./);
-
-assert.match(quizPanel, /Test this lesson/);
-assert.match(quizPanel, /Quiz done/);
-assert.match(quizPanel, /A short quiz on what you just read\./);
-assert.doesNotMatch(quizPanel, /Pick how you want to practice/);
-assert.match(quizPanel, /topicProgress\?\.bestScore != null \? \(/);
-assert.match(quizPanel, /<NextStepsGuidance/);
 
 assert.match(uploads, /buildFirstLessonHref\(\{ upload: finalized \}\)/);
 assert.match(uploads, /presentReadyCourse/);

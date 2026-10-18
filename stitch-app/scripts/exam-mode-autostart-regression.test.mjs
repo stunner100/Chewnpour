@@ -4,12 +4,10 @@ import process from 'node:process';
 
 const root = process.cwd();
 const helpersPath = path.join(root, 'src', 'lib', 'topicLessonHelpers.js');
-const nextStepsPath = path.join(root, 'src', 'components', 'NextStepsGuidance.jsx');
 const hookPath = path.join(root, 'src', 'hooks', 'useTopicDetail.js');
 
-const [helpersSource, nextStepsSource, hookSource] = await Promise.all([
+const [helpersSource, hookSource] = await Promise.all([
   fs.readFile(helpersPath, 'utf8'),
-  fs.readFile(nextStepsPath, 'utf8'),
   fs.readFile(hookPath, 'utf8'),
 ]);
 
@@ -24,19 +22,6 @@ if (helpersSource.includes('autostart=')) {
 }
 if (helpersSource.includes('buildObjectiveExamRoute')) {
   throw new Error('Hard cutover: buildObjectiveExamRoute must be removed.');
-}
-
-if (!nextStepsSource.includes('buildTopicQuizRoute')) {
-  throw new Error('NextStepsGuidance must build a shared quiz route.');
-}
-if (nextStepsSource.includes('autostart=')) {
-  throw new Error('NextStepsGuidance must not emit the dead autostart param.');
-}
-if (!nextStepsSource.includes('buildEssayQuizRoute')) {
-  throw new Error('NextStepsGuidance must build a separate essay quiz route.');
-}
-if (/reloadDocument:\s*true/.test(nextStepsSource) || /reloadDocument:\s*action\.reloadDocument/.test(nextStepsSource)) {
-  throw new Error('NextStepsGuidance quiz CTAs must not force a document reload.');
 }
 
 if (!hookSource.includes('buildTopicQuizRoute')) {

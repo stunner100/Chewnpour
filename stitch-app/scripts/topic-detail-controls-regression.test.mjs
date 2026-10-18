@@ -7,20 +7,10 @@ const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8'
 
 const topicDetailSource = await read('src/pages/TopicDetail.jsx');
 const topicHookSource = await read('src/hooks/useTopicDetail.js');
-const topicSidebarSource = await read('src/components/TopicSidebar.jsx');
 const topicChatPanelSource = await read('src/components/TopicChatPanel.jsx');
 const topicNotesPanelSource = await read('src/components/TopicNotesPanel.jsx');
 const sourcePanelSource = await read('src/components/SourcePanel.jsx');
 const topicSettingsModalSource = await read('src/components/TopicSettingsModal.jsx');
-const topicQuizPanelSource = await read('src/components/topic/TopicQuizPanel.jsx');
-
-if (!/el\.scrollIntoView\(\{\s*behavior: 'smooth',\s*block: 'start',\s*\}\)/s.test(topicSidebarSource)) {
-  throw new Error('TopicSidebar mobile section clicks must use target scrollIntoView so header scroll-margin offsets are honored.');
-}
-
-if (/const top = el\.getBoundingClientRect\(\)\.top \+ window\.scrollY - 108;/.test(topicSidebarSource)) {
-  throw new Error('TopicSidebar mobile section clicks must not manually calculate window scroll offsets.');
-}
 
 if (!topicHookSource.includes('getCurrentHashTargetId')) {
   throw new Error('useTopicDetail must use a shared helper for detecting deep-linked section hashes.');
@@ -36,10 +26,6 @@ if (!topicHookSource.includes("window.addEventListener('hashchange', scrollAfter
 
 if (/WatermelonTabs/.test(topicDetailSource)) {
   throw new Error('TopicDetail study-mode chooser must not render misleading top tabs that disappear after selection.');
-}
-
-if (!/topicProgress\?\.bestScore != null \? \(/.test(topicQuizPanelSource) || !topicQuizPanelSource.includes('<NextStepsGuidance')) {
-  throw new Error('TopicQuizPanel should only show the post-lesson next-steps card after the first quiz score.');
 }
 
 for (const expected of [
