@@ -25,7 +25,7 @@ const SESSION_LENGTH_OPTIONS = [
 ];
 
 const NOTIFICATION_OPTIONS = [
-    { key: 'dailyReminders', title: 'Daily Study Reminders', desc: 'Get notified when it\'s time for your scheduled session.' },
+    { key: 'dailyReminders', title: 'Review reminders', desc: 'Email me when questions are due for review or an exam is near (at most every 2 days).' },
     { key: 'processingAlerts', title: 'Material Processing Alerts', desc: 'Notify me when my uploads are ready to review.' },
     { key: 'weeklyProgressReport', title: 'Weekly Progress Report', desc: 'Receive an email summary of your learning stats.' },
 ];
