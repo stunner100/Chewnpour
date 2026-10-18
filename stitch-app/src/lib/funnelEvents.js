@@ -1,7 +1,6 @@
 import { capturePostHogEvent } from './posthog';
 
-// Activation funnel: signup → upload (upload_flow_completed, see
-// uploadObservability) → lesson → quiz/exam → spaced review.
+// Activation funnel: signup → upload → lesson → quiz/exam → spaced review.
 export const FUNNEL_EVENTS = {
     signupCompleted: 'signup_completed',
     lessonCompleted: 'lesson_completed',

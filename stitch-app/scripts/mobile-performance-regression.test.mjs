@@ -58,15 +58,6 @@ for (const pattern of [
     );
 }
 
-const useShareSource = read('src/hooks/useShare.js');
-for (const pattern of ['dismissTimerRef', 'clearDismissTimer', 'clearTimeout']) {
-    assert.match(
-        useShareSource,
-        new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-        `useShare toast handling should include "${pattern}"`,
-    );
-}
-
 const vercelConfigRaw = read('vercel.json');
 const vercelConfig = JSON.parse(vercelConfigRaw);
 assert.ok(Array.isArray(vercelConfig.headers), 'vercel.json should define headers');

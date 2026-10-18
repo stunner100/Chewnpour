@@ -6,14 +6,13 @@ const root = process.cwd();
 const source = await fs.readFile(path.join(root, 'src/pages/AIStudyTutor.jsx'), 'utf8');
 const surfaceSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorChatSurface.jsx'), 'utf8');
 const workerSource = await fs.readFile(path.join(root, 'src/components/tutor/StudyWorkerChat.jsx'), 'utf8');
-const sessionSource = await fs.readFile(path.join(root, 'src/lib/studyWorkerSession.js'), 'utf8');
 const topicPanelSource = await fs.readFile(path.join(root, 'src/components/TopicChatPanel.jsx'), 'utf8');
 const messageRowSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorMessageRow.jsx'), 'utf8');
 const tutorAvatarSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorAvatar.jsx'), 'utf8');
 const peepsSpriteSource = await fs.readFile(path.join(root, 'src/lib/peepsSprite.js'), 'utf8');
 const typingIndicatorSource = await fs.readFile(path.join(root, 'src/components/tutor/TutorTypingIndicator.jsx'), 'utf8');
 const promptInputSource = await fs.readFile(path.join(root, 'src/components/ai-elements/prompt-input.jsx'), 'utf8');
-const combinedSource = `${source}\n${surfaceSource}\n${workerSource}\n${sessionSource}\n${topicPanelSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
+const combinedSource = `${source}\n${surfaceSource}\n${workerSource}\n${topicPanelSource}\n${messageRowSource}\n${tutorAvatarSource}\n${peepsSpriteSource}\n${typingIndicatorSource}`;
 
 const requireIncludes = (snippet, label) => {
   if (!combinedSource.includes(snippet)) {

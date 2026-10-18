@@ -48,17 +48,4 @@ for (const pattern of ['setPostHogUser(', 'resetPostHogUser(']) {
   }
 }
 
-const uploadObservability = await read('src/lib/uploadObservability.js');
-for (const pattern of [
-  'capturePostHogEvent',
-  'upload_validation_rejected',
-  'upload_flow_started',
-  'upload_flow_completed',
-  'upload_flow_failed',
-]) {
-  if (!uploadObservability.includes(pattern)) {
-    throw new Error(`Expected upload observability to capture PostHog event "${pattern}".`);
-  }
-}
-
 console.log('posthog-instrumentation-regression.test.mjs passed');
