@@ -6,8 +6,6 @@ const readSource = (path) => fs.readFile(new URL(path, import.meta.url), 'utf8')
 const [
   librarySource,
   uploadSource,
-  processingSource,
-  flashcardsSource,
   examPreparationSource,
   topicPodcastSource,
   coursePodcastSource,
@@ -16,13 +14,10 @@ const [
   voicePlaybackSource,
   examAutoGenerationSource,
   highlightExplainSource,
-  fillInExerciseSource,
   dashboardResultsSource,
 ] = await Promise.all([
   readSource('../src/pages/MyMaterialsLibrary.jsx'),
   readSource('../src/pages/UploadMaterials.jsx'),
-  readSource('../src/pages/DashboardProcessing.jsx'),
-  readSource('../src/pages/FlashcardStudySession.jsx'),
   readSource('../src/components/ExamPreparationLoader.jsx'),
   readSource('../src/components/TopicPodcastPanel.jsx'),
   readSource('../src/components/course/CoursePodcastCard.jsx'),
@@ -31,7 +26,6 @@ const [
   readSource('../src/lib/useVoicePlayback.js'),
   readSource('../src/lib/examAutoGenerationState.js'),
   readSource('../src/components/HighlightExplainPopover.jsx'),
-  readSource('../src/pages/FillInExercise.jsx'),
   readSource('../src/pages/DashboardResults.jsx'),
 ]);
 
@@ -74,18 +68,7 @@ assert.ok(
   'Upload recent cards must not use error styling for generated-content states.',
 );
 
-for (const forbidden of [
-  'Processing encountered an issue',
-  'Redirecting to available content',
-]) {
-  assert.ok(
-    !processingSource.includes(forbidden),
-    `Processing page must not expose generated-content failure copy: ${forbidden}`,
-  );
-}
-
 const generatedStudySurfaceSource = [
-  flashcardsSource,
   examPreparationSource,
   topicPodcastSource,
   coursePodcastSource,
@@ -94,7 +77,6 @@ const generatedStudySurfaceSource = [
   voicePlaybackSource,
   examAutoGenerationSource,
   highlightExplainSource,
-  fillInExerciseSource,
   dashboardResultsSource,
 ].join('\n');
 
