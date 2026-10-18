@@ -14,6 +14,7 @@ import { handlePastQuestionsRequest } from "../server/pastPaperHttp.js";
 import { handlePodcastsRequest } from "../server/podcastHttp.js";
 import { handleProfileRequest } from "../server/profileHttp.js";
 import { handleProgressRequest } from "../server/progressHttp.js";
+import { handleReviewRequest } from "../server/reviewHttp.js";
 import { handleUploadsRequest } from "../server/uploadHttp.js";
 
 // Better Auth must parse the raw body itself.
@@ -96,6 +97,9 @@ export default async function handler(req, res) {
     }
     if (pathname === "/api/progress" || pathname.startsWith("/api/progress/")) {
         return handleProgressRequest(req, res);
+    }
+    if (pathname === "/api/review" || pathname.startsWith("/api/review/")) {
+        return handleReviewRequest(req, res);
     }
     if (pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
         return handleAdminRequest(req, res);

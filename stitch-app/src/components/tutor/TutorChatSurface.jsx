@@ -172,7 +172,7 @@ export function TutorChatComposer({
               key={prompt.label || prompt.text || prompt.prompt}
               suggestion={prompt.prompt}
               disabled={sending || disabled}
-              className="rounded-full border-border-default bg-surface-soft text-caption font-semibold text-text-secondary hover:bg-surface-muted hover:text-text-primary"
+              className="min-h-11 rounded-full border-border-default bg-surface-soft text-caption font-semibold text-text-secondary hover:bg-surface-muted hover:text-text-primary"
               onClick={async (value) => {
                 const question = String(value || '').trim();
                 if (!question || sending || disabled) return;

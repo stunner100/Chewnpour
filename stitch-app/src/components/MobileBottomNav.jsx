@@ -19,6 +19,7 @@ const firstRunPrimaryTabs = [
 
 const returningMoreItems = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', description: 'Add PDF, DOCX, PPTX, or audio files' },
+    { label: 'Review', icon: 'history', path: '/dashboard/review', description: 'Questions you missed, due again today' },
     { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress', description: 'Study plan and mastery' },
     { label: 'My Materials', icon: 'folder', path: '/dashboard/library', description: 'Open the course ChewnPour generated from each upload' },
     { label: 'Timed exams', icon: 'school', path: '/dashboard/exam', description: 'Countdown multi-topic exams from your courses' },

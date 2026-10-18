@@ -113,6 +113,7 @@ const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySetting
 const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
 const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
 const PastQuestions = lazyRoute(() => import('./pages/PastQuestions'), { componentName: 'PastQuestions' });
+const ReviewSession = lazyRoute(() => import('./pages/ReviewSession'), { componentName: 'ReviewSession' });
 const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
@@ -354,6 +355,7 @@ function App() {
         <Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />
         <Route path="/dashboard/podcasts" element={withSuspense(<DashboardPodcasts />)} />
         <Route path="/dashboard/past-questions" element={withSuspense(<PastQuestions />)} />
+        <Route path="/dashboard/review" element={withSuspense(<ReviewSession />)} />
         <Route path="/dashboard/kids" element={<ParkedDashboardFeature title="Kids mode" />} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />

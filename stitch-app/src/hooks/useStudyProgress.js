@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildStudyContext, normalizeStudyPosition } from '../lib/studyPosition';
+import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
 
 const fetchTopicProgress = async (topicId) => {
     const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/progress`, {
@@ -129,6 +130,9 @@ export const useStudyProgress = ({ topicId, userId, lessonSteps }) => {
         if (!topicId) return null;
         try {
             const progress = await upsertTopicProgressRequest(topicId, patch);
+            if (patch?.completedAt && !completedAtRef.current && progress?.completedAt) {
+                trackFunnelEvent(FUNNEL_EVENTS.lessonCompleted, { topicId });
+            }
             // Queued position saves read this before React re-renders.
             completedAtRef.current = progress?.completedAt;
             setTopicProgress(progress);

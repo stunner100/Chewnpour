@@ -18,6 +18,7 @@ import {
     submitPublicLessonCheck,
     submitQuizAttempt,
 } from "./courses.js";
+import { setCourseExamDate } from "./courseExamDate.js";
 import { getPool } from "./db.js";
 import {
     askTopicTutor,
@@ -161,7 +162,17 @@ export const handleCoursesRequest = async (req, res) => {
             return sendJson(res, 200, { course });
         }
 
-        res.setHeader("Allow", "GET, POST, DELETE");
+        if (parts.length === 2 && parts[1] === "exam-date" && method === "PUT") {
+            const body = await readJsonBody(req);
+            const updated = await setCourseExamDate(user.id, parts[0], body.examDate ?? null);
+            const course = updated ? await getCourseForUser(user.id, parts[0]) : null;
+            if (!course) {
+                return sendJson(res, 404, { error: "Course not found" });
+            }
+            return sendJson(res, 200, { course });
+        }
+
+        res.setHeader("Allow", "GET, POST, PUT, DELETE");
         return sendJson(res, 405, { error: "Method not allowed" });
     } catch (error) {
         console.error("[api/courses]", error);
@@ -205,6 +216,7 @@ export const handleTopicsRequest = async (req, res) => {
                 userId: user.id,
                 topicId: parts[0],
                 answers: body.answers || [],
+                attemptId: body.attemptId,
             });
             try {
                 const { upsertTopicProgressForUser } = await import("./topicNotes.js");

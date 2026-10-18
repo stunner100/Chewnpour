@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, m as Motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +6,9 @@ import AppIcon from '../components/AppIcon';
 import QuizProgress from '../components/quiz/QuizProgress';
 import QuizQuestion from '../components/quiz/QuizQuestion';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
+import { clearQuizDraft, loadQuizDraft, saveQuizDraft } from '../lib/quizDraft';
+import { requestJsonWithRetry } from '../lib/requestWithRetry';
 
 const TopicQuizPlayer = () => {
     const { topicId } = useParams();
@@ -18,6 +21,9 @@ const TopicQuizPlayer = () => {
     const [answers, setAnswers] = useState({});
     const [questionIndex, setQuestionIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    // One id per quiz attempt, reused by every retry, so a resent submit
+    // returns the saved attempt instead of recording a second one.
+    const attemptIdRef = useRef('');
 
     const load = useCallback(async () => {
         if (!user?.id || !topicId) {
@@ -35,8 +41,9 @@ const TopicQuizPlayer = () => {
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(payload.error || 'Failed to load quiz');
             setQuiz(payload);
-            setAnswers({});
-            setQuestionIndex(0);
+            const draft = loadQuizDraft(user.id, topicId, payload.questions || []);
+            setAnswers(draft.answers);
+            setQuestionIndex(draft.questionIndex);
         } catch (err) {
             setError(err.message || 'Could not load quiz');
         } finally {
@@ -68,6 +75,11 @@ const TopicQuizPlayer = () => {
         [answers, questions],
     );
 
+    useEffect(() => {
+        if (!quiz || submitting) return;
+        saveQuizDraft(user?.id, topicId, { answers, questionIndex });
+    }, [answers, questionIndex, quiz, submitting, topicId, user?.id]);
+
     // Scroll to top whenever the visible question changes.
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -98,9 +110,12 @@ const TopicQuizPlayer = () => {
         if (event?.preventDefault) event.preventDefault();
         if (!topicId || submitting) return;
         setSubmitting(true);
+        if (!attemptIdRef.current) {
+            attemptIdRef.current = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
         setError('');
         try {
-            const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
+            const payload = await requestJsonWithRetry(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -108,6 +123,7 @@ const TopicQuizPlayer = () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    attemptId: attemptIdRef.current,
                     answers: questions.map((question) => ({
                         questionId: question.id,
                         selectedIndex: Number.isFinite(Number(answers[question.id]))
@@ -115,10 +131,14 @@ const TopicQuizPlayer = () => {
                             : -1,
                     })),
                 }),
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.error || 'Failed to submit quiz');
+            }, { fallbackMessage: 'Failed to submit quiz' });
+            clearQuizDraft(user?.id, topicId);
             const attempt = payload.attempt || null;
+            trackFunnelEvent(FUNNEL_EVENTS.quizSubmitted, {
+                topicId,
+                total: attempt?.total,
+                percent: attempt?.percent,
+            });
             const nextAttemptId = attempt?.id || attempt?.attemptId;
             if (nextAttemptId) {
                 navigate(`/dashboard/quiz/results/${encodeURIComponent(nextAttemptId)}`, {
@@ -126,7 +146,7 @@ const TopicQuizPlayer = () => {
                 });
             }
         } catch (err) {
-            setError(err.message || 'Could not submit quiz');
+            setError(`${String(err.message || 'Could not submit quiz').replace(/\.?$/, '.')} Your answers are saved on this device.`);
             setSubmitting(false);
         }
     };
@@ -242,7 +262,7 @@ const TopicQuizPlayer = () => {
                         </div>
 
                         <div
-                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background/95 px-4 py-3 backdrop-blur safe-area-bottom md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
+                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background/95 px-4 pt-3 backdrop-blur pb-[calc(0.75rem+var(--safe-bottom))] md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
                             data-cp-bottom-chrome="quiz"
                         >
                             <button

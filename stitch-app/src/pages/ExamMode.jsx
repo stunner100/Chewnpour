@@ -20,6 +20,8 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { estimateExamShape, summarizeWeakTopics, timerAnnouncement } from '../lib/examUx';
+import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
+import { requestJsonWithRetry } from '../lib/requestWithRetry';
 
 const ExamConfirmDialog = ({
   open,
@@ -365,7 +367,8 @@ const ExamMode = () => {
     submittingRef.current = true;
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/exams/${exam.id}/submit`, {
+      // Submitting twice is safe: the server returns the already-graded attempt.
+      const payload = await requestJsonWithRetry(`/api/exams/${exam.id}/submit`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -373,13 +376,14 @@ const ExamMode = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ answers: nextAnswers }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to submit exam');
-      }
+      }, { fallbackMessage: 'Failed to submit exam' });
       setResult(payload.exam || null);
       setExam(null);
+      trackFunnelEvent(FUNNEL_EVENTS.examSubmitted, {
+        courseId: payload.exam?.courseId,
+        score: payload.exam?.score,
+        status: payload.exam?.status,
+      });
       const expired = payload.exam?.status === 'expired';
       watermelonToast(
         expired
@@ -571,7 +575,7 @@ const ExamMode = () => {
             })}
           </div>
 
-          <section className="rounded-2xl border border-border-subtle bg-surface p-space-6 shadow-sm ph-mask">
+          <section className="min-w-0 rounded-2xl border border-border-subtle bg-surface p-space-6 shadow-sm ph-mask [overflow-wrap:anywhere]">
             <p className="text-caption text-text-secondary">
               Question {currentIndex + 1} of {questions.length}
             </p>
@@ -621,7 +625,7 @@ const ExamMode = () => {
           </section>
         </div>
 
-        <div className="sticky bottom-0 z-40 border-t border-border-subtle bg-surface/95 px-space-4 py-3 backdrop-blur safe-area-bottom">
+        <div className="sticky bottom-0 z-40 border-t border-border-subtle bg-surface/95 px-space-4 pt-3 backdrop-blur pb-[calc(0.75rem+var(--safe-bottom))]">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-space-3">
             <button
               type="button"

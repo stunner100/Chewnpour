@@ -11,6 +11,7 @@ const NAV_OPTIONS = [
     { label: 'Upload', value: '/dashboard/upload', icon: 'cloud_upload', keywords: ['file', 'pdf', 'material'] },
     { label: 'Lessons', value: '/dashboard/lessons', icon: 'menu_book', keywords: ['read', 'course', 'topic'] },
     { label: 'Quizzes', value: '/dashboard/quiz', icon: 'quiz', keywords: ['test', 'assessment'] },
+    { label: 'Review', value: '/dashboard/review', icon: 'history', keywords: ['spaced', 'revise', 'missed', 'due'] },
     { label: 'Podcasts', value: '/dashboard/podcasts', icon: 'podcasts', keywords: ['audio', 'listen', 'headphones'] },
     { label: 'Timed exams', value: '/dashboard/exam', icon: 'school', keywords: ['exam', 'mcq', 'timed'] },
     { label: 'Past questions', value: '/dashboard/past-questions', icon: 'description', keywords: ['past papers', 'pasco', 'exam', 'questions'] },

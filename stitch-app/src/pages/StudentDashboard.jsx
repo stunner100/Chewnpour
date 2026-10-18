@@ -4,6 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { resumeActivityCopy } from '../lib/resumeActivity';
+import { reviewCardCopy } from '../lib/reviewQueue';
+import { ExamPlanCard } from '../components/ExamPlanner';
+import { buildDailyPlan, localTodayMs } from '../lib/examPlan';
 
 const firstName = (value) => {
   const text = String(value || '').trim();
@@ -33,6 +36,41 @@ const StatCard = ({ label, value, icon }) => (
     <p className="mt-3 min-w-0 font-display text-display-sm font-bold text-text-primary [overflow-wrap:anywhere]">{value}</p>
   </div>
 );
+
+const ReviewDueCard = ({ review }) => {
+  const copy = reviewCardCopy(review);
+  if (copy.state === 'empty') return null;
+  const due = copy.state === 'due';
+  return (
+    <section
+      className={`mt-6 flex min-w-0 flex-col gap-4 rounded-[24px] border p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between md:p-6 ${
+        due ? 'border-primary/30 bg-primary-subtle' : 'border-border-subtle bg-surface'
+      }`}
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <span className={`inline-flex size-10 shrink-0 items-center justify-center rounded-xl ${due ? 'bg-surface text-primary' : 'bg-success-soft text-success'}`}>
+          <AppIcon name={due ? 'history' : 'verified'} className="text-[20px]" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">Spaced review</p>
+          <h2 className="mt-1 font-display text-display-sm font-bold text-text-primary [overflow-wrap:anywhere]">{copy.heading}</h2>
+          <p className="mt-1 text-body-sm text-text-secondary">{copy.hint}</p>
+          {due && review.topics?.length > 0 && (
+            <p className="mt-1 truncate text-caption text-text-muted">
+              {review.topics.map((topic) => topic.topicTitle).join(' · ')}
+            </p>
+          )}
+        </div>
+      </div>
+      {due && (
+        <Link to="/dashboard/review" className="btn-primary inline-flex min-h-11 shrink-0 text-body-sm">
+          Start review
+          <AppIcon name="arrow_forward" className="text-[18px]" aria-hidden="true" />
+        </Link>
+      )}
+    </section>
+  );
+};
 
 const FirstRunHome = ({ greeting, displayName }) => (
     <div className="min-h-[calc(100dvh-4rem)] min-w-0 max-w-full bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -71,6 +109,7 @@ const StudentDashboard = () => {
   const [courses, setCourses] = useState([]);
   const [uploads, setUploads] = useState([]);
   const [resumeTarget, setResumeTarget] = useState(null);
+  const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -79,25 +118,30 @@ const StudentDashboard = () => {
       setCourses([]);
       setUploads([]);
       setResumeTarget(null);
+      setReview(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const [coursesRes, uploadsRes, progressRes] = await Promise.all([
+      const [coursesRes, uploadsRes, progressRes, reviewRes] = await Promise.all([
         fetch('/api/courses', { credentials: 'include', headers: { Accept: 'application/json' } }),
         fetch('/api/uploads', { credentials: 'include', headers: { Accept: 'application/json' } }),
         fetch('/api/progress', { credentials: 'include', headers: { Accept: 'application/json' } }),
+        // Optional card: a review failure must not blank the study home.
+        fetch('/api/review', { credentials: 'include', headers: { Accept: 'application/json' } }).catch(() => null),
       ]);
       const coursesPayload = await coursesRes.json().catch(() => ({}));
       const uploadsPayload = await uploadsRes.json().catch(() => ({}));
       const progressPayload = await progressRes.json().catch(() => ({}));
+      const reviewPayload = reviewRes?.ok ? await reviewRes.json().catch(() => ({})) : {};
       if (!coursesRes.ok) throw new Error(coursesPayload.error || 'Failed to load courses');
       if (!uploadsRes.ok) throw new Error(uploadsPayload.error || 'Failed to load uploads');
       setCourses(Array.isArray(coursesPayload.courses) ? coursesPayload.courses : []);
       setUploads(Array.isArray(uploadsPayload.uploads) ? uploadsPayload.uploads : []);
       setResumeTarget(progressPayload?.progress?.resumeTarget || null);
+      setReview(reviewPayload?.review || null);
     } catch (err) {
       setError(err.message || 'Could not load your study home');
     } finally {
@@ -139,6 +183,11 @@ const StudentDashboard = () => {
     100,
     Math.max(0, Math.round(Number(resumeTarget?.progressPercent ?? continueCourse?.progressPercent ?? 0))),
   );
+  const upcomingExams = useMemo(() => {
+    const today = localTodayMs();
+    const exams = Array.isArray(review?.exams) ? review.exams : [];
+    return exams.filter((exam) => buildDailyPlan(exam, today)).slice(0, 3);
+  }, [review]);
   const isFirstRun = !loading && uploads.length === 0 && courses.length === 0 && !resumeTarget;
 
   if (isFirstRun) {
@@ -169,6 +218,16 @@ const StudentDashboard = () => {
             {error}
           </div>
         )}
+
+        {!loading && upcomingExams.length > 0 && (
+          <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2">
+            {upcomingExams.map((exam) => (
+              <ExamPlanCard key={exam.courseId} exam={exam} />
+            ))}
+          </div>
+        )}
+
+        {!loading && <ReviewDueCard review={review} />}
 
         <div className="mt-8 grid min-w-0 gap-4 sm:grid-cols-3">
           <StatCard label="Uploads" value={loading ? '—' : uploads.length} icon="cloud_upload" />

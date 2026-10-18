@@ -22,6 +22,7 @@ import {
   HeadphonesIcon,
   LayoutDashboardIcon,
   CircleHelpIcon,
+  HistoryIcon,
   SparklesIcon,
 } from 'lucide-react';
 
@@ -31,6 +32,7 @@ const navItems = [
   { title: 'My Materials', url: '/dashboard/library', icon: FolderIcon },
   { title: 'Lessons', url: '/dashboard/lessons', icon: BookOpenIcon },
   { title: 'Quizzes', url: '/dashboard/quiz', icon: CircleHelpIcon },
+  { title: 'Review', url: '/dashboard/review', icon: HistoryIcon },
   { title: 'Podcasts', url: '/dashboard/podcasts', icon: HeadphonesIcon },
   { title: 'Timed exams', url: '/dashboard/exam', icon: GraduationCapIcon },
   { title: 'Past questions', url: '/dashboard/past-questions', icon: FileTextIcon },

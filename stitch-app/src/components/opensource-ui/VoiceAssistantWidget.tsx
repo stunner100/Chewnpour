@@ -173,7 +173,7 @@ export const VoiceAssistantWidget = forwardRef<
             aria-pressed={active}
             className={cn(
               "flex cursor-pointer items-center justify-center rounded-full text-white transition-colors active:scale-95",
-              compact ? "size-8 shrink-0" : "size-12",
+              compact ? "size-11 shrink-0" : "size-12",
               active
                 ? appearance === "playback"
                   ? "bg-primary"
