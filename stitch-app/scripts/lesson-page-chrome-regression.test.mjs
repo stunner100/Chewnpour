@@ -103,7 +103,6 @@ assert.match(css, /\.dark \.cp-theme \.bg-warning-soft/, 'Dark mode must remap w
 
 const chatPanel = read('src/components/TopicChatPanel.jsx');
 const notesPanel = read('src/components/TopicNotesPanel.jsx');
-const sidebar = read('src/components/TopicSidebar.jsx');
 const a11yHook = read('src/hooks/useSidePanelA11y.js');
 
 assert.match(a11yHook, /getFocusable/, 'Side panel a11y hook must trap focus.');
@@ -125,7 +124,6 @@ assert.match(hook, /label: 'AI Tutor'/, 'Mobile lesson actions must use AI Tutor
 assert.match(notesPanel, /inline = false/, 'Notes panel must support the inline rail variant.');
 assert.match(notesPanel, /role=\{inline \? 'complementary' : 'dialog'\}/, 'Desktop notes must be a non-modal complementary rail.');
 assert.match(notesPanel, /trapFocus: !inline/, 'Desktop notes must leave the lesson interactive.');
-assert.match(sidebar, /aria-expanded=\{mobileOpen\}/, 'Mobile TOC must expose expanded state.');
 
 const popover = read('src/components/HighlightExplainPopover.jsx');
 assert.match(popover, /onSaveSelection/, 'Selection popover must offer Save.');

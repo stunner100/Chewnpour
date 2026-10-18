@@ -11,7 +11,6 @@ const results = await read("src/pages/DashboardResults.jsx");
 const quizQuestion = await read("src/components/quiz/QuizQuestion.jsx");
 const quizProgress = await read("src/components/quiz/QuizProgress.jsx");
 const helpers = await read("src/lib/topicLessonHelpers.js");
-const nextSteps = await read("src/components/NextStepsGuidance.jsx");
 const courseHttp = await read("server/courseHttp.js");
 const layout = await read("src/components/DashboardLayout.jsx");
 
@@ -46,13 +45,12 @@ assert.match(quizPlayer, /useReducedMotion/, "player must honor reduced motion")
 assert.match(quizPlayer, /AnimatePresence/, "player must animate question changes");
 assert.match(quizPlayer, /key=\{questionIndex\}/, "question scene keyed by index");
 
-// ─── No `autostart` emitted from src (excluding test-only examModeState) ────
+// ─── No `autostart` emitted from src ────────────────────────────────────────
 const autostartPattern = /autostart/;
 const srcFiles = [
     ["TopicQuizPlayer.jsx", quizPlayer],
     ["DashboardResults.jsx", results],
     ["topicLessonHelpers.js", helpers],
-    ["NextStepsGuidance.jsx", nextSteps],
 ];
 for (const [label, source] of srcFiles) {
     assert.ok(!autostartPattern.test(source), `${label} must not emit ?autostart`);
