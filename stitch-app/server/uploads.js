@@ -543,7 +543,12 @@ const runOcrSpace = async ({ row, fileBuffer }) => {
             uploadId: row.id,
             message: error?.message || String(error),
         });
-        return { failure: { message: `OCR failed: ${error?.message || "unknown error"}`, warnings: [] } };
+        return {
+            failure: {
+                message: "We could not read this scanned document. Try again in a few minutes, or upload a clearer or smaller scan.",
+                warnings: [`OCR failed: ${error?.message || "unknown error"}`],
+            },
+        };
     }
 };
 
