@@ -6,15 +6,26 @@ import { normalizeAiCoursePayload } from "../server/aiCourseGeneration.js";
 import { normalizeInLessonChecks } from "../server/inLessonChecks.js";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const content = [
-  "## Key Ideas",
-  "",
-  "Cellular respiration converts glucose into usable energy. Glycolysis happens in the cytoplasm.",
-  "",
-  "## Worked Example",
-  "",
-  "Then the Krebs cycle oxidizes acetyl-CoA in the mitochondrial matrix. Finally the electron transport chain makes ATP.",
-].join("\n");
+const lesson = {
+  hook: "",
+  sections: [
+    {
+      title: "How cells turn glucose into energy",
+      role: "core",
+      body: "Cellular respiration converts glucose into usable energy. Glycolysis happens in the cytoplasm.",
+      sourceQuote: "Cellular respiration converts glucose into usable energy.",
+    },
+    {
+      title: "The stages in order",
+      role: "steps",
+      body: "First, glycolysis breaks glucose into pyruvate. Then the Krebs cycle oxidizes acetyl-CoA in the mitochondrial matrix. Finally the electron transport chain makes ATP.",
+      sourceQuote: "Then the Krebs cycle oxidizes acetyl-CoA",
+    },
+  ],
+  recap: [],
+  wordBank: [],
+};
+const sourceText = lesson.sections.map((section) => section.body).join("\n\n");
 
 const quizQuestions = [
   {
@@ -25,37 +36,59 @@ const quizQuestions = [
   },
 ];
 
-const inLessonChecks = normalizeInLessonChecks(
-  [
-    {
-      sectionTitle: "Key Ideas",
-      questionType: "multiple_choice",
-      prompt: "What does cellular respiration convert glucose into?",
-      options: ["usable energy", "cellulose", "starch grains", "the cell wall"],
-      correctIndex: 0,
-      explanation: "Cellular respiration converts glucose into usable energy.",
-    },
-    {
-      sectionTitle: "Worked Example",
-      questionType: "true_false",
-      prompt: "The Krebs cycle oxidizes acetyl-CoA in the mitochondrial matrix.",
-      options: ["True", "False"],
-      correctIndex: 0,
-      explanation: "The worked example places Krebs in the mitochondrial matrix.",
-    },
-  ],
+const rawChecks = [
   {
-    content,
-    title: "Cellular respiration",
-    quizPrompts: quizQuestions.map((question) => question.prompt),
+    sectionIndex: 0,
+    questionType: "multiple_choice",
+    prompt: "What does cellular respiration convert glucose into?",
+    options: ["usable energy", "cellulose", "starch grains", "the cell wall"],
+    correctIndex: 0,
+    explanation: "Cellular respiration converts glucose into usable energy.",
   },
-);
+  {
+    sectionIndex: 1,
+    questionType: "true_false",
+    prompt: "The Krebs cycle oxidizes acetyl-CoA in the mitochondrial matrix.",
+    options: ["True", "False"],
+    correctIndex: 0,
+    explanation: "The steps place Krebs in the mitochondrial matrix.",
+  },
+  {
+    sectionIndex: 7,
+    questionType: "true_false",
+    prompt: "Glycolysis happens inside the nucleus of the cell.",
+    options: ["True", "False"],
+    correctIndex: 1,
+  },
+  {
+    questionType: "true_false",
+    prompt: "Electron transport is the stage that makes the ATP.",
+    options: ["True", "False"],
+    correctIndex: 0,
+  },
+];
 
-assert.equal(inLessonChecks.length, 2, "two H2 sections should yield two in-lesson checks");
+const inLessonChecks = normalizeInLessonChecks(rawChecks, {
+  lesson,
+  title: "Cellular respiration",
+  quizPrompts: quizQuestions.map((question) => question.prompt),
+});
+
+assert.equal(inLessonChecks.length, 2, "only checks naming a real section are kept (M7: unknown or missing sectionIndex is dropped)");
 assert.ok(inLessonChecks.every((check) => check.surface === "in_lesson"));
-assert.equal(inLessonChecks[0].sectionTitle, "Key Ideas");
-assert.equal(inLessonChecks[1].sectionTitle, "Worked Example");
-assert.ok(inLessonChecks.every((check) => check.questionType !== "ordering" || check.payload?.stepsInOrder));
+assert.deepEqual(inLessonChecks.map((check) => check.sectionIndex), [0, 1]);
+assert.deepEqual(inLessonChecks.map((check) => check.payload.sectionIndex), [0, 1]);
+
+// An ordering check without a sectionIndex binds to the steps section.
+const withOrdering = normalizeInLessonChecks([rawChecks[0]], {
+  lesson,
+  title: "Cellular respiration",
+  ordering: {
+    prompt: "Order the stages of cellular respiration.",
+    stepsInOrder: ["glycolysis breaks glucose into pyruvate", "the Krebs cycle oxidizes acetyl-CoA", "the electron transport chain makes ATP"],
+  },
+});
+assert.deepEqual(withOrdering.map((check) => [check.questionType, check.sectionIndex]), [["multiple_choice", 0], ["ordering", 1]]);
 
 const normalized = normalizeAiCoursePayload(
   {
@@ -63,13 +96,13 @@ const normalized = normalizeAiCoursePayload(
       {
         title: "Cellular respiration",
         description: "Energy from glucose",
-        content,
+        lesson,
         questions: quizQuestions,
-        inLessonChecks,
+        inLessonChecks: rawChecks,
       },
     ],
   },
-  { fileName: "krebs.pdf", extractedText: content },
+  { fileName: "krebs.pdf", extractedText: sourceText },
 );
 
 assert.equal(normalized.topics[0].questions.length, 1, "quiz MCQs must stay separate from in-lesson checks");

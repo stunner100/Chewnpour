@@ -1,0 +1,136 @@
+[
+  {
+    "file": "concept-prokaryotic-cells.md",
+    "kind": "concept",
+    "title": "Prokaryotic and Eukaryotic Cells",
+    "description": "How prokaryotic and eukaryotic cells differ in structure and size.",
+    "checks": [
+      {
+        "id": "check-concept-idea",
+        "sectionIndex": 2,
+        "questionType": "multiple_choice",
+        "prompt": "Where does a prokaryote keep its DNA?",
+        "options": [
+          "In the nucleus",
+          "In the nucleoid",
+          "In the Golgi apparatus",
+          "In mitochondria"
+        ],
+        "correctIndex": 1,
+        "explanation": "Prokaryotes keep DNA in the nucleoid, a region with no membrane."
+      },
+      {
+        "id": "check-concept-wrong",
+        "sectionIndex": 4,
+        "questionType": "true_false",
+        "prompt": "The nucleoid is surrounded by a membrane.",
+        "options": [
+          "True",
+          "False"
+        ],
+        "correctIndex": 1,
+        "explanation": "The nucleoid has no membrane; it is a region, not an organelle."
+      }
+    ]
+  },
+  {
+    "file": "procedure-python-loops.md",
+    "kind": "procedure",
+    "title": "Writing a for Loop in Python",
+    "description": "The steps for writing a Python for loop, with a worked example.",
+    "checks": [
+      {
+        "id": "check-procedure-steps",
+        "sectionIndex": 2,
+        "questionType": "multiple_choice",
+        "prompt": "What must end the line that starts a for loop?",
+        "options": [
+          "A semicolon",
+          "A colon",
+          "A comma",
+          "Nothing"
+        ],
+        "correctIndex": 1,
+        "explanation": "A for line must end with a colon."
+      }
+    ]
+  },
+  {
+    "file": "narrative-gold-coast-independence.md",
+    "kind": "narrative",
+    "title": "The Gold Coast's Road to Independence",
+    "description": "From the 1948 Accra riots to independence in 1957.",
+    "checks": [
+      {
+        "id": "check-narrative-chain",
+        "sectionIndex": 3,
+        "questionType": "multiple_choice",
+        "prompt": "Which event came directly before internal self-government?",
+        "options": [
+          "The 1948 Accra riots",
+          "The 1951 election",
+          "Independence",
+          "The 1958 conference"
+        ],
+        "correctIndex": 1,
+        "explanation": "The CPP won the 1951 election, which led to internal self-government."
+      }
+    ]
+  },
+  {
+    "file": "argument-minimum-wage.md",
+    "kind": "argument",
+    "title": "Does a Higher Minimum Wage Cost Jobs?",
+    "description": "Weighing the evidence on minimum wage increases.",
+    "checks": [
+      {
+        "id": "check-argument-evidence",
+        "sectionIndex": 2,
+        "questionType": "multiple_choice",
+        "prompt": "Which states did Card and Krueger compare?",
+        "options": [
+          "New York and Ohio",
+          "New Jersey and Pennsylvania",
+          "Texas and Florida",
+          "California and Oregon"
+        ],
+        "correctIndex": 1,
+        "explanation": "They compared New Jersey with neighbouring Pennsylvania."
+      }
+    ]
+  },
+  {
+    "lessonFile": "structured-osmosis.json",
+    "kind": "structured",
+    "title": "Osmosis and Water Potential",
+    "description": "How and why water moves across cell membranes.",
+    "checks": [
+      {
+        "id": "check-structured-direction",
+        "sectionIndex": 1,
+        "questionType": "multiple_choice",
+        "prompt": "Water moves towards the side with what?",
+        "options": [
+          "Lower water potential",
+          "Higher water potential",
+          "Fewer solutes",
+          "Less pressure"
+        ],
+        "correctIndex": 0,
+        "explanation": "Water moves from higher to lower water potential."
+      },
+      {
+        "id": "check-structured-mistake",
+        "sectionIndex": 3,
+        "questionType": "true_false",
+        "prompt": "During osmosis the dissolved salt moves into the cell.",
+        "options": [
+          "True",
+          "False"
+        ],
+        "correctIndex": 1,
+        "explanation": "Water moves; the solute stays on its side."
+      }
+    ]
+  }
+]

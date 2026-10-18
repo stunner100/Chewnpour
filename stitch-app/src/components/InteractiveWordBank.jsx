@@ -150,15 +150,19 @@ const InteractiveWordBank = ({ terms, starredTerms, onTermsStarred }) => {
     const [activeTab, setActiveTab] = useState('flashcards');
     const [starred, setStarred] = useState(() => new Set(starredTerms || []));
 
-    const toggleStar = useCallback((term) => {
-        setStarred((prev) => {
-            const next = new Set(prev);
-            if (next.has(term)) next.delete(term);
-            else next.add(term);
-            if (onTermsStarred) onTermsStarred([...next]);
-            return next;
-        });
+    // Stars change from the Browse tab and the flashcard deck; both update this
+    // set so the tabs agree without remounting the widget.
+    const updateStarred = useCallback((nextTerms) => {
+        setStarred(new Set(nextTerms));
+        onTermsStarred?.(nextTerms);
     }, [onTermsStarred]);
+
+    const toggleStar = useCallback((term) => {
+        const next = new Set(starred);
+        if (next.has(term)) next.delete(term);
+        else next.add(term);
+        updateStarred([...next]);
+    }, [starred, updateStarred]);
 
     if (!terms || terms.length === 0) return null;
 
@@ -199,7 +203,7 @@ const InteractiveWordBank = ({ terms, starredTerms, onTermsStarred }) => {
                 <FlashcardDeck
                     terms={terms}
                     starredTerms={[...starred]}
-                    onTermsStarred={onTermsStarred}
+                    onTermsStarred={updateStarred}
                 />
             )}
             {activeTab === 'browse' && (

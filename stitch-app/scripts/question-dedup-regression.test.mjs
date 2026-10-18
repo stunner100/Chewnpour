@@ -64,8 +64,13 @@ const normalized = normalizeAiCoursePayload(
         topics: [
             {
                 title: 'Memory systems',
-                content:
-                    'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.',
+                lesson: {
+                    sections: [{
+                        title: 'How working and long-term memory differ',
+                        role: 'core',
+                        body: 'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.',
+                    }],
+                },
                 questions: dupes,
             },
         ],

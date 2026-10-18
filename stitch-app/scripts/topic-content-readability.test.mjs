@@ -1,129 +1,44 @@
 import assert from 'node:assert/strict';
 import {
     cleanDisplayLine,
-    isArtifactLine,
-    isLowSignalLessonLine,
     normalizeLessonContent,
 } from '../src/lib/topicContentFormatting.js';
 
-const tests = [
-    () => {
-        const raw = 'Present Documents : Make documents available. \\ Example 2: Automated Information Gathering \\ Steps : \\.';
-        const normalized = normalizeLessonContent(raw);
-        assert.equal(normalized.includes('\\'), false, 'Expected stray backslashes to be removed');
-    },
-    () => {
-        const raw = 'Topic 1: Intro to AIR\\nThe Collection Component of an AIR Dr.\\n\\nMrs.\\n\\nFlorence O.\\n\\nIn this lesson, we explore retrieval.';
-        const normalized = normalizeLessonContent(raw);
-        assert.equal(normalized.includes('\nMrs.'), false, 'Expected isolated honorific line to be dropped');
-        assert.equal(normalized.includes('In this lesson, we explore retrieval.'), true, 'Expected core sentence to remain');
-    },
-    () => {
-        const raw = 'This is context. Simple Introduction We start here.';
-        const normalized = normalizeLessonContent(raw);
-        assert.equal(normalized.includes('### Simple Introduction'), true, 'Expected inline section title to become heading');
-    },
-    () => {
-        const cleaned = cleanDisplayLine('**Key Term** : \\[retrieval\\] system');
-        assert.equal(cleaned, 'Key Term : retrieval system');
-    },
-    () => {
-        const raw = '-\n\n**Extremism** : When beliefs go too far.\n\n>\n\n-\n\n**Critical Thinking** : Evaluate ideas carefully.\n\n>';
-        const normalized = normalizeLessonContent(raw);
-        const normalizedLines = normalized.split('\n').map((line) => line.trim());
-        assert.equal(normalizedLines.includes('-'), false, 'Expected standalone dash markers to be removed');
-        assert.equal(normalizedLines.includes('>'), false, 'Expected standalone blockquote markers to be removed');
-        assert.equal(normalized.includes('**Extremism** : When beliefs go too far.'), true, 'Expected definition content to remain');
-        assert.equal(normalized.includes('**Critical Thinking** : Evaluate ideas carefully.'), true, 'Expected second definition content to remain');
-    },
-    () => {
-        const raw = '**Extremism**: Strong views.\\n> -\\n\\n**Critical Thinking**: Careful evaluation.';
-        const normalized = normalizeLessonContent(raw);
-        assert.equal(normalized.includes('> -'), false, 'Expected blockquote marker artifacts to be removed');
-        assert.equal(normalized.includes('**Critical Thinking**: Careful evaluation.'), true, 'Expected meaningful content to remain');
-    },
-    () => {
-        const cleaned = cleanDisplayLine('*Simple* [example] _text_ with **markers**');
-        assert.equal(cleaned.includes('*'), false, 'Expected single asterisk emphasis markers to be removed');
-        assert.equal(cleaned.includes('_'), false, 'Expected underscore emphasis markers to be removed');
-        assert.equal(cleaned, 'Simple example text with markers');
-    },
-    () => {
-        assert.equal(isArtifactLine('> -'), true, 'Expected ">" and "-" artifact line to be detected');
-        assert.equal(isArtifactLine('\\\\'), true, 'Expected standalone slash artifact to be detected');
-        assert.equal(isArtifactLine('Key Idea: Practice daily'), false, 'Expected real content line to remain');
-    },
-    () => {
-        const raw = `### Session Outline
+// cleanDisplayLine: single-line display text (titles, passages).
+assert.equal(cleanDisplayLine('**Key Term** : \\[retrieval\\] system'), 'Key Term : retrieval system');
+assert.equal(cleanDisplayLine('*Simple* [example] _text_ with **markers**'), 'Simple example text with markers');
 
-1.
+// normalizeLessonContent: escapes and whitespace only; markdown structure is untouched.
+const lesson = [
+    '## The Idea',
+    '',
+    'If x > y the function rises. Glucose -> pyruvate -> ATP.',
+    'Use @Override and email admin@uni.edu. The idea is that cells divide.',
+    '',
+    '### Size comparison',
+    '',
+    '| Cell | Size |',
+    '|---|---|',
+    '| Prokaryote | 1-5 um |',
+    '',
+    '```python',
+    'for n in range(3):',
+    '    print(n)  # 20',
+    '```',
+].join('\n');
+assert.equal(normalizeLessonContent(lesson), lesson, 'well-formed markdown passes through unchanged');
 
-**The Concept of a Collection in an AIR** 2.
-
-**Automated Information Gathering** 3.
-
-**Automated Systems for Information Processing and Presentation** 4.
-
-**Database Technology**`;
-        const normalized = normalizeLessonContent(raw);
-        assert.equal(normalized.includes('1.\n\n**The Concept of a Collection in an AIR**'), false, 'Expected orphaned first list number to be merged with content');
-        assert.equal(normalized.includes('**The Concept of a Collection in an AIR** 2.'), false, 'Expected trailing "2." marker to be detached from prior item');
-        assert.equal(normalized.includes('1. **The Concept of a Collection in an AIR**'), true, 'Expected first list item to render on one line');
-        assert.equal(normalized.includes('2. **Automated Information Gathering**'), true, 'Expected second list item to render on one line');
-        assert.equal(normalized.includes('3. **Automated Systems for Information Processing and Presentation**'), true, 'Expected third list item to render on one line');
-        assert.equal(normalized.includes('4. **Database Technology**'), true, 'Expected fourth list item to render on one line');
-    },
-    () => {
-        const cleaned = cleanDisplayLine('P E R F O R M A N C E R E P O R T');
-        assert.equal(cleaned, 'Performance Report', 'Expected spaced OCR heading artifacts to be normalized');
-    },
-    () => {
-        const cleaned = cleanDisplayLine('P E R F O R M A N C E R E P');
-        assert.equal(cleaned, 'Performance Report', 'Expected clipped spaced OCR heading artifacts to be normalized');
-    },
-    () => {
-        const raw = '## Worked Example\nP E R F O R M A N C E R E P O R T April business review metrics';
-        const normalized = normalizeLessonContent(raw);
-        assert.equal(
-            normalized.includes('Performance Report April business review metrics'),
-            true,
-            'Expected lesson normalization to collapse spaced OCR phrases before rendering'
-        );
-    },
-    () => {
-        assert.equal(
-            isLowSignalLessonLine('**Question:** According to the source, what is reported for P E R F O R M A N C E R?'),
-            true,
-            'Expected generic OCR-derived worked-example prompts to be low signal'
-        );
-        assert.equal(
-            isLowSignalLessonLine('**Answer:** The correct answer comes from following the steps in order and checking the result against the topic rules.'),
-            true,
-            'Expected generic worked-example answers to be low signal'
-        );
-    },
-    () => {
-        const raw = `## Worked Example
-**Question:** According to the source, what is reported for P E R F O R M A N C E R?
-
-**Reasoning:**
-1. Read the table.
-2. The correct answer comes from following the steps in order and checking the result against the topic rules.
-
-**Answer:** The correct answer comes from following the steps in order and checking the result against the topic rules.
-
-## Quick Check
-1. **Q:** What does the source say about P E R F O R M A?
-   **A:** The correct answer comes from following the steps in order.`;
-        const normalized = normalizeLessonContent(raw);
-        assert.equal(/P E R F/i.test(normalized), false, 'Expected unresolved spaced OCR artifacts to be removed');
-        assert.equal(/According to the source/i.test(normalized), false, 'Expected generic source prompts to be removed');
-        assert.equal(/correct answer comes from following the steps/i.test(normalized), false, 'Expected generic answers to be removed');
-    },
-];
-
-for (const run of tests) {
-    run();
-}
+assert.equal(
+    normalizeLessonContent('### Key Ideas\\n\\n- one\\n- two'),
+    '### Key Ideas\n\n- one\n- two',
+    'double-escaped newlines from JSON become real newlines',
+);
+assert.equal(
+    normalizeLessonContent('The gradient \\nabla f and \\neq and \\theta stay.'),
+    'The gradient \\nabla f and \\neq and \\theta stay.',
+    'LaTeX commands are left alone',
+);
+assert.equal(normalizeLessonContent('a\r\nb c​\n\n\n\nd   '), 'a\nb c\n\nd', 'line endings, spaces and blank runs are tidied');
+assert.equal(normalizeLessonContent(null), '');
 
 console.log('topic-content-readability tests passed');

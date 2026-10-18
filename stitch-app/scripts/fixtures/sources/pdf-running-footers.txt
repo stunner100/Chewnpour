@@ -1,0 +1,41 @@
+Cell Biology Lecture Notes
+
+Enzymes are biological catalysts. They speed up chemical reactions in cells without being used up. Most enzymes are proteins with a specific three-dimensional shape.
+
+BIOL 101 · Dept. of Biology · Page 1
+1
+
+Cell Biology Lecture Notes
+
+The active site is the region of an enzyme where the substrate binds. The lock and key model says the substrate fits the active site exactly. The induced fit model says the active site changes shape slightly as the substrate binds.
+
+BIOL 101 · Dept. of Biology · Page 2
+2
+
+Cell Biology Lecture Notes
+
+Temperature affects enzyme activity. Activity rises with temperature up to an optimum, often near 37 °C in humans. Above the optimum the enzyme denatures and the active site loses its shape.
+
+BIOL 101 · Dept. of Biology · Page 3
+3
+
+Cell Biology Lecture Notes
+
+pH also affects enzymes. Pepsin in the stomach works best near pH 2, while trypsin in the small intestine works best near pH 8. Extreme pH changes the charges in the active site.
+
+BIOL 101 · Dept. of Biology · Page 4
+4
+
+Cell Biology Lecture Notes
+
+Inhibitors reduce enzyme activity. A competitive inhibitor binds the active site and competes with the substrate. A non-competitive inhibitor binds elsewhere and changes the shape of the active site.
+
+BIOL 101 · Dept. of Biology · Page 5
+5
+
+Cell Biology Lecture Notes
+
+Cofactors are non-protein helpers that some enzymes need. Coenzymes are organic cofactors, many of them made from vitamins. Metal ions such as zinc and magnesium are inorganic cofactors.
+
+BIOL 101 · Dept. of Biology · Page 6
+6

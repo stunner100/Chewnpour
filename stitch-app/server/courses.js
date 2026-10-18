@@ -1,10 +1,24 @@
 import { nanoid } from "nanoid";
 import { getPool } from "./db.js";
-import { generateCourseCurriculumWithAi } from "./aiCourseGeneration.js";
 import { stripCourseTitle } from "./courseGeneration.js";
-import { indexTopicPassages } from "./topicPassages.js";
+import { MAX_GENERATED_LESSONS } from "./lessonPlanning.js";
+import { isCourseAiEnabled } from "./llmClient.js";
+import {
+    enqueueGenerationJob,
+    kickGenerationWorker,
+    resumeStalledGeneration,
+} from "./generationJobs.js";
 import { recordReviewOutcomes } from "./reviews.js";
 import { parseExamDate } from "../src/lib/examPlan.js";
+
+// The course's queued or running generation job, as a column of a courses
+// query aliased "c".
+const ACTIVE_JOB_SQL = `(
+    SELECT json_build_object('status', j.status, 'kind', j.kind, 'planIndexes', j.plan_indexes)
+    FROM generation_jobs j
+    WHERE j.course_id = c.id AND j.status IN ('queued', 'running')
+    LIMIT 1
+) AS active_job`;
 
 // node-postgres turns a DATE into a local-midnight Date; read it back with
 // local getters so the calendar day never shifts.
@@ -48,6 +62,20 @@ const toClientCourse = (row, extras = {}) => {
         firstQuizTopicId: extras.firstQuizTopicId ?? row.first_quiz_topic_id ?? null,
         quizTopics,
         examDate: formatExamDate(row.exam_date),
+        // Plan entries are { title, kind, start, end, chars, status, topicId }:
+        // status "written" has a topic; "failed" could not be written;
+        // "pending" has not been written yet.
+        lessonPlan: Array.isArray(row.lesson_plan) ? row.lesson_plan : [],
+        // The background job writing this course's lessons, if one is queued
+        // or running. A "lessons" job lists the plan entries it is writing or
+        // rewriting in planIndexes.
+        generation: row.active_job
+            ? {
+                active: true,
+                kind: row.active_job.kind,
+                planIndexes: Array.isArray(row.active_job.planIndexes) ? row.active_job.planIndexes : [],
+            }
+            : { active: false, kind: null, planIndexes: [] },
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
         updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
     };
@@ -63,7 +91,9 @@ const toClientTopic = (row, extras = {}) => {
         sourceUploadId: row.upload_id || null,
         title: row.title,
         description: row.description || "",
-        content: row.content || "",
+        lesson: parsePayload(row.lesson),
+        // { needsReview, droppedSections, unsupportedCoreSections, droppedTerms }
+        grounding: parsePayload(row.grounding),
         sortOrder: Number(row.sort_order || 0),
         questionCount: Number(extras.questionCount ?? row.question_count ?? 0),
         orderingCheck: extras.orderingCheck ?? row.orderingCheck ?? null,
@@ -134,7 +164,7 @@ const toPlayableInLessonCheck = (row) => {
         prompt: row.prompt,
         options,
         questionType,
-        sectionTitle: payload.sectionTitle || "",
+        sectionIndex: Number.isInteger(payload.sectionIndex) ? payload.sectionIndex : null,
         sortOrder: Number(row.sort_order || 0),
     };
 };
@@ -161,247 +191,133 @@ export const getCourseByUploadId = async (userId, uploadId) => {
     return result.rows[0] || null;
 };
 
-// A 'generating' claim older than the serverless max duration (300s) belongs
-// to a request that was killed, so another finalize may take it over.
-export const COURSE_GENERATION_STALE_SECONDS = 360;
+const generationError = (message, status, code) => Object.assign(new Error(message), { status, code });
 
-// Claim generation for an upload before any AI call. Returns the claimed
-// course id, or null when another live request owns it (or it is ready).
-const claimCourseGeneration = async ({ userId, uploadId, title }) => {
+// Returns the upload's course, creating it and queuing its generation job on
+// first call. Generation runs in the background (generationJobs.js); the
+// course is listed as soon as its first lesson is saved. A course whose job
+// has stalled is restarted here, since the upload page polls this.
+export const ensureCourseGeneration = async ({ userId, uploadId, fileName, extractedText }) => {
     const db = getPool();
-    const courseId = nanoid();
-    try {
-        await db.query(
-            `INSERT INTO courses (id, user_id, upload_id, title, status)
-             VALUES ($1, $2, $3, $4, 'generating')`,
-            [courseId, userId, uploadId, title.slice(0, 180)],
-        );
-        return courseId;
-    } catch (error) {
-        if (error?.code !== "23505") throw error;
-    }
-    const takeover = await db.query(
-        `UPDATE courses
-         SET updated_at = NOW()
-         WHERE user_id = $1
-           AND upload_id = $2
-           AND status = 'generating'
-           AND updated_at < NOW() - make_interval(secs => $3)
-         RETURNING id`,
-        [userId, uploadId, COURSE_GENERATION_STALE_SECONDS],
-    );
-    return takeover.rows[0]?.id || null;
-};
-
-// Mirrors course-generation progress onto the upload row so the upload page can
-// show the real stage. Best-effort: a failed write never blocks generation.
-const setUploadGenerationStep = async (uploadId, step, { fromStep = null } = {}) => {
-    try {
-        await getPool().query(
-            `UPDATE uploads
-             SET processing_step = $2, updated_at = NOW()
-             WHERE id = $1
-               AND status = 'ready'
-               AND ($3::text IS NULL OR processing_step = $3)`,
-            [uploadId, step, fromStep],
-        );
-    } catch (error) {
-        console.warn("[courses] failed to record generation step", {
-            uploadId,
-            step,
-            message: error?.message || String(error),
-        });
-    }
-};
-
-const insertCurriculum = async (client, { courseId, userId, uploadId, topicSpecs }) => {
-    const inserted = [];
-    for (let index = 0; index < topicSpecs.length; index += 1) {
-        const spec = topicSpecs[index];
-        const topicId = nanoid();
-        await client.query(
-            `INSERT INTO topics (
-                id, course_id, user_id, upload_id, title, description, content, sort_order
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [
-                topicId,
-                courseId,
-                userId,
-                uploadId,
-                String(spec.title || `Topic ${index + 1}`).slice(0, 180),
-                String(spec.description || "").slice(0, 280) || null,
-                String(spec.content || ""),
-                index,
-            ],
-        );
-
-        const questionSpecs = [
-            ...(Array.isArray(spec.questions) ? spec.questions : []).map((question) => ({
-                ...question,
-                surface: question.surface || "quiz",
-            })),
-            ...(Array.isArray(spec.inLessonChecks) ? spec.inLessonChecks : []).map((question) => ({
-                ...question,
-                surface: "in_lesson",
-            })),
-        ];
-        for (const question of questionSpecs) {
-            if (!question?.prompt) continue;
-            await client.query(
-                `INSERT INTO questions (
-                    id, topic_id, course_id, user_id, prompt, options, correct_index, explanation, sort_order,
-                    question_type, payload, hint, surface
-                 ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11::jsonb,$12,$13)`,
-                [
-                    nanoid(),
-                    topicId,
-                    courseId,
-                    userId,
-                    question.prompt,
-                    JSON.stringify(
-                        question.questionType === "ordering"
-                            ? question.stepsInOrder || question.options || []
-                            : question.options || [],
-                    ),
-                    question.questionType === "ordering" ? 0 : question.correctIndex,
-                    question.explanation || null,
-                    question.sortOrder ?? 0,
-                    question.questionType || "multiple_choice",
-                    JSON.stringify({
-                        ...(question.payload && typeof question.payload === "object" ? question.payload : {}),
-                        ...(question.sectionTitle ? { sectionTitle: question.sectionTitle } : {}),
-                        ...(question.questionType === "ordering"
-                            ? { stepsInOrder: question.stepsInOrder || question.options || [] }
-                            : {}),
-                    }),
-                    question.hint || null,
-                    question.surface || "quiz",
-                ],
-            );
+    let course = await getCourseByUploadId(userId, uploadId);
+    if (!course) {
+        if (!String(extractedText || "").trim()) {
+            throw generationError("Cannot generate a course without extracted text.", 400, "EXTRACTION_INCOMPLETE");
         }
-        inserted.push({ topicId, content: String(spec.content || "") });
+        const title = stripCourseTitle(fileName) || "Study material";
+        try {
+            const inserted = await db.query(
+                `INSERT INTO courses (id, user_id, upload_id, title, status)
+                 VALUES ($1, $2, $3, $4, 'generating')
+                 RETURNING *`,
+                [nanoid(), userId, uploadId, title.slice(0, 180)],
+            );
+            course = inserted.rows[0];
+        } catch (error) {
+            // Another request created it first.
+            if (error?.code !== "23505") throw error;
+            course = await getCourseByUploadId(userId, uploadId);
+        }
     }
-    return inserted;
+    if (course.status === "generating") {
+        const resumed = await resumeStalledGeneration(course.id);
+        if (!resumed) {
+            const job = await enqueueGenerationJob({ courseId: course.id, userId, uploadId, kind: "course" });
+            if (job?.status === "queued" && job.attempts === 0) kickGenerationWorker({ jobId: job.id });
+        }
+    }
+    return getCourseForUser(userId, course.id);
 };
 
-export const ensureCourseFromUpload = async ({
-    userId,
-    uploadId,
-    fileName,
-    extractedText,
-}) => {
-    const existing = await getCourseByUploadId(userId, uploadId);
-    if (existing?.status === "ready") {
-        return getCourseForUser(userId, existing.id);
-    }
+const requireCourse = async (userId, courseId) => {
+    const { rows } = await getPool().query(
+        `SELECT * FROM courses WHERE id = $1 AND user_id = $2 LIMIT 1`,
+        [courseId, userId],
+    );
+    if (!rows[0]) throw generationError("Course not found", 404);
+    return rows[0];
+};
 
-    const text = String(extractedText || "").trim();
-    if (!text) {
-        const error = new Error(
-            "Cannot generate a course without extracted text.",
-        );
-        error.status = 400;
-        error.code = "EXTRACTION_INCOMPLETE";
-        throw error;
+// Lessons are written by the model; without it a lessons job could only fail.
+const queueLessons = async (course, planIndexes) => {
+    if (!isCourseAiEnabled()) {
+        throw generationError("Lesson writing isn't available right now. Try again later.", 503, "AI_UNAVAILABLE");
     }
-
-    const title = stripCourseTitle(fileName) || "Study material";
-    const courseId = await claimCourseGeneration({ userId, uploadId, title });
-    if (!courseId) {
-        // Another request is generating (or just finished); report its state.
-        const current = await getCourseByUploadId(userId, uploadId);
-        return current ? getCourseForUser(userId, current.id) : null;
+    const job = await enqueueGenerationJob({
+        courseId: course.id,
+        userId: course.user_id,
+        uploadId: course.upload_id,
+        kind: "lessons",
+        planIndexes,
+    });
+    if (job?.kind === "course") {
+        throw generationError("This course's lessons are still being written. Try again when they are done.", 409, "GENERATION_ACTIVE");
     }
+    if (job?.status === "queued") kickGenerationWorker({ jobId: job.id });
+    return getCourseForUser(course.user_id, course.id);
+};
 
-    const db = getPool();
-    let curriculum;
-    let lastStep = "structuring";
-    await setUploadGenerationStep(uploadId, lastStep);
-    try {
-        curriculum = await generateCourseCurriculumWithAi({
-            fileName,
-            extractedText: text,
-            // Only move forward: generation abandoned at the deadline can still
-            // report "writing" after the course has moved on to saving.
-            onProgress: async (stage) => {
-                if (stage !== "writing" || lastStep !== "structuring") return;
-                lastStep = stage;
-                await setUploadGenerationStep(uploadId, stage, { fromStep: "structuring" });
-            },
-        });
-    } catch (error) {
-        await setUploadGenerationStep(uploadId, "ready");
-        await db.query(
-            `DELETE FROM courses WHERE id = $1 AND status = 'generating'`,
-            [courseId],
-        );
-        throw error;
-    }
-    const topicSpecs = Array.isArray(curriculum.topics) ? curriculum.topics : [];
-    const truncatedNote = curriculum.sourceTruncated
-        ? " — sampled from across a longer source"
-        : "";
-    const description = (String(curriculum.backend || "").includes("heuristic")
-        ? "Generated from your upload"
-        : "AI-generated from your upload") + truncatedNote;
+// Rewrites one lesson from its part of the upload. The topic keeps its id,
+// progress and notes; its questions are replaced.
+export const regenerateTopicForUser = async (userId, topicId) => {
+    const { rows } = await getPool().query(
+        `SELECT id, course_id FROM topics WHERE id = $1 AND user_id = $2 LIMIT 1`,
+        [topicId, userId],
+    );
+    if (!rows[0]) throw generationError("Topic not found", 404);
+    const course = await requireCourse(userId, rows[0].course_id);
+    const plan = Array.isArray(course.lesson_plan) ? course.lesson_plan : [];
+    const planIndex = plan.findIndex((entry) => entry?.topicId === topicId);
+    if (planIndex < 0) throw generationError("This lesson has no source part to regenerate from.", 409, "NO_PLAN_ENTRY");
+    return queueLessons(course, [planIndex]);
+};
 
-    // Topics, questions and the 'ready' flip commit together, so a killed
-    // request never leaves a ready course with missing topics.
-    lastStep = "saving";
-    await setUploadGenerationStep(uploadId, lastStep);
-    const client = await db.connect();
-    let inserted;
+// Writes lessons for planned parts that have none yet (not reached, or failed).
+export const generatePlannedLessonsForUser = async (userId, courseId, planIndexes) => {
+    const course = await requireCourse(userId, courseId);
+    const plan = Array.isArray(course.lesson_plan) ? course.lesson_plan : [];
+    const requested = (Array.isArray(planIndexes) ? planIndexes : [])
+        .map(Number)
+        .filter((index) => Number.isInteger(index) && plan[index] && plan[index].status !== "written")
+        .slice(0, MAX_GENERATED_LESSONS);
+    if (requested.length === 0) throw generationError("No unwritten parts were selected.", 400, "NOTHING_TO_GENERATE");
+    return queueLessons(course, requested);
+};
+
+// Replaces the whole course (hard cutover): its lessons, quizzes and progress
+// are deleted and the course is planned and written again from the upload.
+export const regenerateCourseForUser = async (userId, courseId) => {
+    const course = await requireCourse(userId, courseId);
+    const client = await getPool().connect();
     try {
         await client.query("BEGIN");
-        // A stale takeover may find rows from a run that died mid-insert.
-        await client.query(`DELETE FROM topics WHERE course_id = $1`, [courseId]);
-        inserted = await insertCurriculum(client, {
-            courseId,
-            userId,
-            uploadId,
-            topicSpecs,
-        });
         await client.query(
-            `UPDATE courses
-             SET status = 'ready',
-                 description = $2,
-                 generation_backend = $3,
-                 updated_at = NOW()
-             WHERE id = $1`,
-            [courseId, description, curriculum.backend || "heuristic"],
+            `UPDATE generation_jobs
+             SET status = 'failed', error = 'Replaced by a course regenerate.', locked_until = NULL,
+                 finished_at = NOW(), updated_at = NOW()
+             WHERE course_id = $1 AND status IN ('queued', 'running')`,
+            [course.id],
+        );
+        await client.query(`DELETE FROM topics WHERE course_id = $1`, [course.id]);
+        await client.query(
+            `UPDATE courses SET status = 'generating', lesson_plan = '[]'::jsonb, updated_at = NOW() WHERE id = $1`,
+            [course.id],
         );
         await client.query("COMMIT");
     } catch (error) {
         await client.query("ROLLBACK").catch(() => {});
-        client.release();
-        await setUploadGenerationStep(uploadId, "ready");
-        await db.query(
-            `DELETE FROM courses WHERE id = $1 AND status = 'generating'`,
-            [courseId],
-        );
         throw error;
+    } finally {
+        client.release();
     }
-    client.release();
-    await setUploadGenerationStep(uploadId, "ready");
-
-    for (const { topicId, content } of inserted) {
-        try {
-            await indexTopicPassages({
-                topicId,
-                courseId,
-                uploadId,
-                userId,
-                content,
-            });
-        } catch (error) {
-            console.warn("[courses] topic passage indexing failed", {
-                topicId,
-                message: error?.message || String(error),
-            });
-        }
-    }
-
-    return getCourseForUser(userId, courseId);
+    const job = await enqueueGenerationJob({
+        courseId: course.id,
+        userId,
+        uploadId: course.upload_id,
+        kind: "course",
+    });
+    if (job) kickGenerationWorker({ jobId: job.id });
+    return getCourseForUser(userId, course.id);
 };
 
 export const listCoursesForUser = async (userId) => {
@@ -409,6 +325,7 @@ export const listCoursesForUser = async (userId) => {
     const result = await db.query(
         `SELECT
             c.*,
+            ${ACTIVE_JOB_SQL},
             COALESCE(t.topic_count, 0) AS topic_count,
             COALESCE(q.quiz_topic_count, 0) AS quizzes_ready,
             first_topic.first_topic_id,
@@ -461,7 +378,7 @@ export const listCoursesForUser = async (userId) => {
               AND qq3.question_count > 0
          ) quiz_topics ON TRUE
          WHERE c.user_id = $1
-           AND c.status = 'ready'
+           AND (c.status = 'ready' OR COALESCE(t.topic_count, 0) > 0)
          ORDER BY c.created_at DESC`,
         [userId],
     );
@@ -471,11 +388,12 @@ export const listCoursesForUser = async (userId) => {
 export const getCourseForUser = async (userId, courseId) => {
     const db = getPool();
     const courseResult = await db.query(
-        `SELECT * FROM courses WHERE id = $1 AND user_id = $2 LIMIT 1`,
+        `SELECT c.*, ${ACTIVE_JOB_SQL} FROM courses c WHERE c.id = $1 AND c.user_id = $2 LIMIT 1`,
         [courseId, userId],
     );
     const course = courseResult.rows[0];
     if (!course) return null;
+    if (course.active_job) await resumeStalledGeneration(course.id);
 
     const topicsResult = await db.query(
         `SELECT
@@ -535,9 +453,10 @@ export const getTopicForUser = async (userId, topicId) => {
     if (!topic) return null;
 
     const courseResult = await db.query(
-        `SELECT * FROM courses WHERE id = $1 AND user_id = $2 LIMIT 1`,
+        `SELECT c.*, ${ACTIVE_JOB_SQL} FROM courses c WHERE c.id = $1 AND c.user_id = $2 LIMIT 1`,
         [topic.course_id, userId],
     );
+    if (courseResult.rows[0]?.active_job) await resumeStalledGeneration(topic.course_id);
 
     const inLessonResult = await db.query(
         `SELECT id, prompt, options, question_type, payload, sort_order
@@ -831,7 +750,7 @@ export const getPublicCourseByShareToken = async (token) => {
     if (!course) return null;
 
     const topicsResult = await db.query(
-        `SELECT id, title, description, content, sort_order
+        `SELECT id, title, description, lesson, sort_order
          FROM topics
          WHERE course_id = $1
          ORDER BY sort_order ASC, created_at ASC`,
@@ -858,7 +777,7 @@ export const getPublicCourseByShareToken = async (token) => {
             id: row.id,
             title: row.title,
             description: row.description || "",
-            content: row.content || "",
+            lesson: parsePayload(row.lesson),
             sortOrder: Number(row.sort_order || 0),
             inLessonChecks: (checksByTopic.get(row.id) || []).filter(Boolean),
         })),

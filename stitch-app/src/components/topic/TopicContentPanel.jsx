@@ -1,9 +1,9 @@
 import React from 'react';
 import TopicVoiceToolbar from './TopicVoiceToolbar';
 import LessonSectionStepper from '../lesson/LessonSectionStepper';
+import LessonRegenerateBanner from '../lesson/LessonRegenerateBanner';
 
 const TopicContentPanel = ({
-    cleanInline,
     contentRef,
     explanationView = 'original',
     handleAskTutor,
@@ -18,7 +18,8 @@ const TopicContentPanel = ({
     lessonSteps,
     nextLesson = null,
     examHref = '',
-    normalizedContent,
+    hasLesson = false,
+    lessonHook = '',
     objectiveExamRoute,
     pauseVoice,
     playVoice,
@@ -28,10 +29,11 @@ const TopicContentPanel = ({
     resolvedTopicTitle,
     setExplanationView,
     resumeVoice,
-    shouldAnimateBlocks,
     showTopicIllustration = false,
     speechText,
     stopVoice,
+    topic = null,
+    reloadTopic,
     topicId,
     topicIllustrationUrl,
     topicProgress,
@@ -68,6 +70,7 @@ const TopicContentPanel = ({
         </div>
 
         <div className="mx-auto w-full max-w-[720px]">
+            <LessonRegenerateBanner topic={topic} onReload={reloadTopic} />
             {hasReexplainedLesson && setExplanationView ? (
                 <div className="mb-6 inline-flex rounded-full border border-border-subtle bg-surface p-1" role="tablist" aria-label="Lesson explanation">
                     <button
@@ -98,21 +101,20 @@ const TopicContentPanel = ({
                     </button>
                 </div>
             ) : null}
-            {normalizedContent && progressLoaded ? (
+            {hasLesson && progressLoaded ? (
                 <LessonSectionStepper
                     key={`${topicId || 'topic-lesson'}:${explanationView}`}
                     steps={lessonSteps}
                     topicId={topicId}
                     topicTitle={resolvedTopicTitle || heroTopicTitle}
+                    hook={lessonHook}
                     lessonChecks={topicProgress?.lessonChecks}
                     quizHref={objectiveExamRoute}
                     quizLabel="Start quiz"
                     onStepChange={handleLessonStepChange}
-                    cleanInline={cleanInline}
                     wordBankTerms={wordBankTerms}
                     starredTerms={topicProgress?.termsStarred}
                     onTermsStarred={handleTermsStarred}
-                    shouldAnimateBlocks={shouldAnimateBlocks}
                     contentRef={contentRef}
                     onFinishLesson={handleFinishLesson}
                     lessonCompleted={Boolean(topicProgress?.completedAt)}

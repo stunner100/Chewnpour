@@ -9,30 +9,22 @@ const read = (rel) => fs.readFile(path.join(root, rel), "utf8");
 process.env.DATABASE_URL ||= "postgres://user:pass@localhost:5432/unused";
 
 const {
-    chunkSourceText,
     normalizeAiCoursePayload,
     MAX_EXAM_QUESTIONS_PER_TOPIC,
 } = await import("../server/aiCourseGeneration.js");
 const { selectExamQuestions } = await import("../server/exams.js");
 const { resolveGenerationStageIndex, GENERATION_STAGES } = await import("../src/lib/generationStages.js");
 
-// 1. Long sources are sampled across their whole span, not just the opening.
+// 1. Long sources are planned across their whole span, not just the opening
+// (coverage itself is checked in lesson-planning-regression).
 {
-    const size = 100;
-    const maxChunks = 5;
-    const text = Array.from({ length: 2000 }, (_, i) => `line ${String(i).padStart(4, "0")}`).join("\n");
-    const chunks = chunkSourceText(text, size, maxChunks);
-    assert.equal(chunks.length, maxChunks);
-    assert.ok(chunks[0].startsWith("line 0000"), "first window starts at the beginning");
-    assert.ok(text.endsWith(chunks[maxChunks - 1]), "last window ends at the end of the source");
-    const starts = chunks.map((chunk) => text.indexOf(chunk));
-    for (let i = 1; i < starts.length; i += 1) {
-        assert.ok(starts[i] > starts[i - 1], "windows advance through the source");
-    }
-    assert.ok(starts[2] > text.length * 0.4 && starts[2] < text.length * 0.6, "middle window sits mid-document");
-
-    const short = "a".repeat(250);
-    assert.deepEqual(chunkSourceText(short, size, maxChunks).map((c) => c.length), [100, 100, 50]);
+    const { segmentSource } = await import("../server/sourceSegments.js");
+    const { heuristicLessonPlan } = await import("../server/lessonPlanning.js");
+    const text = Array.from({ length: 40 }, (_, i) => `# Chapter ${i + 1}\n\n${"Cells divide and grow. ".repeat(40)}`).join("\n\n");
+    const { segments } = segmentSource(text);
+    const plan = heuristicLessonPlan(segments);
+    assert.equal(plan[0].start, 0, "the plan starts at the beginning");
+    assert.equal(plan[plan.length - 1].end, text.length, "the plan reaches the end of the source");
 }
 
 // 2. Generated MCQs beyond the topic-quiz cap are held back for the exam.
@@ -48,12 +40,14 @@ const { resolveGenerationStageIndex, GENERATION_STAGES } = await import("../src/
     const source = "Mitochondria produce ATP. The Nucleus holds DNA. The Ribosome builds proteins. "
         + "The Golgi apparatus packages proteins. The Lysosome digests waste. The Vacuole stores water. "
         + "The Centriole organizes the spindle.";
-    const content = `## Cell organelles\n\n${source}\n\n${source}`;
+    const lesson = {
+        sections: [{ title: "What each organelle does", role: "core", body: `${source}\n\n${source}` }],
+    };
     const payload = {
         topics: [{
             title: "Cell organelles",
             description: "Parts of the cell",
-            content,
+            lesson,
             questions: facts.map(([prompt, answer, distractors]) => ({
                 prompt,
                 options: [answer, ...distractors],
@@ -100,11 +94,12 @@ const { resolveGenerationStageIndex, GENERATION_STAGES } = await import("../src/
     const library = await read("src/pages/MyMaterialsLibrary.jsx");
     assert.match(library, /const studyReady = stageIndex === GENERATION_STAGES\.length - 1;/, "the material card button follows the resolved stage");
 
-    const courses = await read("server/courses.js");
-    for (const step of ['"structuring"', '"writing"', '"saving"']) {
-        assert.ok(courses.includes(step), `courses.js records the ${step} step`);
+    // The generation job records planning and writing; each lesson is saved
+    // as it is written, so there is no separate saving step.
+    const jobs = await read("server/generationJobs.js");
+    for (const step of ['"structuring"', '"writing"', '"ready"']) {
+        assert.ok(jobs.includes(step), `generationJobs.js records the ${step} step`);
     }
-    assert.match(courses, /fromStep: "structuring"/, "late progress callbacks cannot move the step backwards");
 }
 
 // 5. Lesson completion offers the next lesson, or the course exam after the last one.

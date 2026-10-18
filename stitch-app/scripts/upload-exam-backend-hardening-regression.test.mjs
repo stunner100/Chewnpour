@@ -62,8 +62,13 @@ const runQuery = async (rawSql, params = []) => {
         return { rows: [{ id: row.id }] };
     }
     if (sql.startsWith("UPDATE courses SET status = 'ready'")) {
-        const [id, description, backend] = params;
-        Object.assign(state.courses.find((c) => c.id === id), { status: 'ready', description, generation_backend: backend });
+        const [id, description, backend, lessonPlan] = params;
+        Object.assign(state.courses.find((c) => c.id === id), {
+            status: 'ready',
+            description,
+            generation_backend: backend,
+            lesson_plan: JSON.parse(lessonPlan),
+        });
         return { rows: [] };
     }
     if (sql.startsWith("DELETE FROM courses WHERE id = $1 AND status = 'generating'")) {
@@ -133,7 +138,6 @@ pg.Pool.prototype.connect = async function connect() {
     return fakeClient;
 };
 
-const { ensureCourseFromUpload, COURSE_GENERATION_STALE_SECONDS } = await import('../server/courses.js');
 const { isAllowedStudyUploadType } = await import('../server/uploads.js');
 const { submitExamAttempt, getExamAttemptForUser } = await import('../server/exams.js');
 
@@ -146,72 +150,9 @@ const reset = () => {
     state.failOnTopicInsert = null;
 };
 
-const sourceText = [
-    '# Cell biology',
-    'The cell membrane controls what enters and leaves the cell. It is a phospholipid bilayer.',
-    '## Mitochondria',
-    'Mitochondria produce ATP through cellular respiration and have their own DNA.',
-    '## Nucleus',
-    'The nucleus stores genetic material and coordinates growth and reproduction.',
-].join('\n\n');
-
-const upload = { userId: 'user-1', uploadId: 'upload-1', fileName: 'Cell Biology.pdf', extractedText: sourceText };
-
-// 1a. Concurrent finalize calls: only one generates, and the course turns ready last.
-reset();
-const [first, second] = await Promise.all([
-    ensureCourseFromUpload(upload),
-    ensureCourseFromUpload(upload),
-]);
-assert.equal(state.courses.length, 1, 'only one course row per upload');
-assert.equal(state.courses[0].status, 'ready');
-const topicInserts = state.log.filter((sql) => sql.startsWith('INSERT INTO topics')).length;
-assert.equal(topicInserts, state.topics.length, 'the losing request must not insert topics');
-assert.ok(state.topics.length > 0, 'the winning request inserts topics');
-assert.ok([first, second].some((course) => course?.status === 'ready'));
-const beginAt = state.log.indexOf('BEGIN');
-const readyAt = state.log.findIndex((sql) => sql.startsWith("UPDATE courses SET status = 'ready'"));
-const commitAt = state.log.indexOf('COMMIT');
-const firstTopicAt = state.log.findIndex((sql) => sql.startsWith('INSERT INTO topics'));
-assert.ok(beginAt >= 0 && beginAt < firstTopicAt && firstTopicAt < readyAt && readyAt < commitAt,
-    'topics and the ready flip must commit in one transaction');
-
-// 1b. A failure mid-insert rolls back and releases the claim instead of leaving a ready, partial course.
-reset();
-state.failOnTopicInsert = 1;
-await assert.rejects(() => ensureCourseFromUpload(upload), /connection terminated/);
-assert.ok(state.log.includes('ROLLBACK'));
-assert.equal(state.courses.length, 0, 'failed generation must not leave a course behind');
-
-// 1c. A stale 'generating' claim from a killed request is taken over and finished.
-reset();
-state.courses.push({
-    id: 'stale-course',
-    user_id: upload.userId,
-    upload_id: upload.uploadId,
-    title: 'Cell Biology',
-    status: 'generating',
-    updated_at: Date.now() - (COURSE_GENERATION_STALE_SECONDS + 5) * 1000,
-});
-state.topics.push({ id: 'orphan', course_id: 'stale-course', user_id: upload.userId });
-const recovered = await ensureCourseFromUpload(upload);
-assert.equal(recovered?.id, 'stale-course');
-assert.equal(state.courses[0].status, 'ready');
-assert.ok(!state.topics.some((topic) => topic.id === 'orphan'), 'orphaned topics from the dead run are replaced');
-
-// 1d. A fresh 'generating' claim is left alone.
-reset();
-state.courses.push({
-    id: 'live-course',
-    user_id: upload.userId,
-    upload_id: upload.uploadId,
-    title: 'Cell Biology',
-    status: 'generating',
-    updated_at: Date.now(),
-});
-const pending = await ensureCourseFromUpload(upload);
-assert.equal(pending?.status, 'generating');
-assert.equal(state.topics.length, 0, 'a live claim must not be regenerated');
+// 1. Course generation runs as a background job: see
+// generation-jobs-regression.test.mjs (one course and one job per upload,
+// leases, resume, regenerate).
 
 // 2. Finalize only re-claims 'extracting' rows once stale.
 const uploadsSource = await fs.readFile(path.join(process.cwd(), 'server', 'uploads.js'), 'utf8');

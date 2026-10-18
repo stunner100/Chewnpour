@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { lessonFromMarkdown } from '../src/lib/lessonSchema.js';
 
 const root = resolve(import.meta.dirname, '..');
 const read = (relativePath) => readFileSync(resolve(root, relativePath), 'utf8');
@@ -11,7 +12,6 @@ const content = read('src/components/topic/TopicContentPanel.jsx');
 const stepper = read('src/components/lesson/LessonSectionStepper.jsx');
 const mobileActions = read('src/components/lesson/MobileLessonActions.jsx');
 const hook = read('src/hooks/useTopicDetail.js');
-const renderer = read('src/components/LessonContentRenderer.jsx');
 const css = read('src/index.css');
 
 assert.match(
@@ -73,7 +73,6 @@ assert.match(content, /showTopicIllustration && topicIllustrationUrl/, 'Lesson p
 assert.match(content, /LessonSectionStepper/, 'Lesson page must use the section stepper.');
 assert.match(content, /contentRef=\{contentRef\}/, 'Highlight selection must target the reading stage, not the whole column.');
 assert.match(content, /onFinishLesson=\{handleFinishLesson\}/, 'Stepper must persist completion.');
-assert.doesNotMatch(content, /onViewSource/, 'Dead source affordance must not reach the stepper.');
 assert.doesNotMatch(content, /TopicSidebar/, 'Lesson reading column must not mount a second Contents control.');
 
 assert.match(stepper, /lesson-reading-stage/, 'Lesson prose must live in a dedicated reading stage.');
@@ -83,15 +82,21 @@ assert.match(css, /\.lesson-reading-stage/, 'Reading stage must have a dedicated
 assert.match(hook, /handleFinishLesson/, 'Hook must expose persisted finish.');
 assert.match(hook, /completedAt: Date\.now\(\)/, 'Finish must write completed_at.');
 assert.match(hook, /handleSaveSelectionToNotes/, 'Hook must save selections into notes.');
-assert.match(hook, /skippedDuplicateTitle/, 'Duplicate page-title H1 must be stripped from article blocks.');
+const titleSections = lessonFromMarkdown(
+  '# Cell Structure\n\n## The Idea\n\nCells have parts that do different jobs.',
+  { topicTitle: 'Cell Structure' },
+).sections;
+assert.deepEqual(
+  titleSections.map((section) => section.title),
+  ['The Idea'],
+  'Duplicate page-title H1 must be stripped from the lesson sections.',
+);
 assert.match(hook, /showTopicIllustration/, 'Hook must expose illustration gating.');
 assert.match(hook, /hasSourcePassages && \{/, 'Source tool must hide while passages are empty.');
 assert.match(hook, /id: 'settings'/, 'More tools should include voice settings.');
 assert.match(hook, /currentStepIndex/, 'Hook must track the active lesson step.');
 assert.doesNotMatch(hook, /id: 'm-quiz'/, 'Mobile bar must not duplicate the quiz dock.');
 
-assert.match(renderer, /SectionAskMenu/, 'Section tutor chips must collapse into one Ask menu.');
-assert.match(renderer, /Ask about this section/, 'Section ask control must use a single overflow entry.');
 
 assert.match(css, /\.dark \.cp-theme \.bg-success-soft/, 'Dark mode must remap success-soft fills.');
 assert.match(css, /\.dark \.cp-theme \.bg-warning-soft/, 'Dark mode must remap warning-soft fills.');

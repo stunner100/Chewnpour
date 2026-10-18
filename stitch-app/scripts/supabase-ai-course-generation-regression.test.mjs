@@ -11,16 +11,15 @@ if (!/export const callCourseLlmChat/.test(llmClient) || !/export const isCourse
 }
 
 const aiCourse = await fs.readFile(path.join(root, 'server', 'aiCourseGeneration.js'), 'utf8');
-if (!/generateCourseCurriculumWithAi/.test(aiCourse) || !/normalizeAiCoursePayload/.test(aiCourse)) {
-  throw new Error('Expected server/aiCourseGeneration.js to expose AI curriculum helpers.');
-}
-if (!/generateOutline/.test(aiCourse) || !/mapWithConcurrency/.test(aiCourse) || !/sliceSourceForTopic/.test(aiCourse)) {
-  throw new Error('Expected outline-then-parallel topic generation.');
+for (const symbol of ['planCourse', 'writePlannedLesson', 'normalizeAiCoursePayload']) {
+  if (!aiCourse.includes(`export const ${symbol}`)) {
+    throw new Error(`Expected server/aiCourseGeneration.js to export ${symbol}.`);
+  }
 }
 
-const courses = await fs.readFile(path.join(root, 'server', 'courses.js'), 'utf8');
-if (!/generateCourseCurriculumWithAi/.test(courses) || !/generation_backend/.test(courses)) {
-  throw new Error('Expected ensureCourseFromUpload to persist AI generation backend.');
+const jobs = await fs.readFile(path.join(root, 'server', 'generationJobs.js'), 'utf8');
+if (!/planCourse/.test(jobs) || !/writePlannedLesson/.test(jobs) || !/generation_backend/.test(jobs)) {
+  throw new Error('Expected the generation job to plan, write lessons and persist the generation backend.');
 }
 
 const migration = await fs.readFile(
@@ -42,8 +41,13 @@ const normalized = normalizeAiCoursePayload(
       {
         title: 'Memory systems',
         description: 'Working and long-term memory',
-        content:
-          'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.',
+        lesson: {
+          sections: [{
+            title: 'How working and long-term memory differ',
+            role: 'core',
+            body: 'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.',
+          }],
+        },
         questions: [
           {
             prompt: 'What does working memory do?',
@@ -63,7 +67,7 @@ const normalized = normalizeAiCoursePayload(
   { fileName: 'memory.pdf', extractedText: 'Working memory holds information briefly while long-term memory stores durable knowledge for later retrieval in study sessions.' },
 );
 
-if (normalized.backend !== 'deepseek' || normalized.topics.length !== 1) {
+if (normalized.backend !== 'ai' || normalized.topics.length !== 1) {
   throw new Error('Expected normalizeAiCoursePayload to accept a valid AI curriculum.');
 }
 if (normalized.topics[0].questions.length < 1) {
@@ -71,7 +75,7 @@ if (normalized.topics[0].questions.length < 1) {
 }
 
 const invalidFallback = normalizeAiCoursePayload(
-  { topics: [{ title: 'x', content: 'too short' }] },
+  { topics: [{ title: 'x', lesson: { sections: [{ title: 'x', role: 'core', body: 'too short' }] } }] },
   {
     fileName: 'memory.pdf',
     extractedText:

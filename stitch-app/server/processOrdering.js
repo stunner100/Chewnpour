@@ -34,5 +34,8 @@ export const pickTopicOrdering = (rawOrdering, { content = "", questions = [] } 
         return questions.find((question) => question.questionType === "ordering") || null;
     }
     if (!snippetHasProcess(content) && !rawOrdering) return null;
-    return normalizeOrderingQuestion(rawOrdering, { sourceText: content });
+    const ordering = normalizeOrderingQuestion(rawOrdering, { sourceText: content });
+    return ordering && rawOrdering?.sectionIndex != null
+        ? { ...ordering, sectionIndex: rawOrdering.sectionIndex }
+        : ordering;
 };

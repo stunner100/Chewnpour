@@ -80,7 +80,7 @@ requireIncludes(tutorStream, 'CURRENT SECTION', 'tutor is told to use the curren
 requireIncludes(tutorStream, 'LEARNER PERFORMANCE', 'tutor is told not to invent quiz scores');
 
 // Server tools ported from study-agent
-requireIncludes(tutorTools, 'splitMarkdownIntoSections', 'markdown section splitter');
+requireIncludes(tutorTools, 'lessonSectionsOf', 'structured lesson sections');
 requireIncludes(tutorTools, 'searchLessonSections', 'lesson search tool');
 requireIncludes(tutorTools, 'findLessonSection', 'section retrieval tool');
 requireIncludes(tutorTools, 'toOutline', 'lesson outline tool');

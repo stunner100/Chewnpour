@@ -13,6 +13,7 @@ import {
     loadTopicTutorSnapshot,
     sanitizeStudyContext,
 } from "./tutorStudyContext.js";
+import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
 
 const resolveBaseUrl = (value, fallback) => {
     const raw = String(value || fallback || "").trim();
@@ -66,7 +67,7 @@ const insertMessage = async ({ userId, topicId, role, content }) => {
 };
 
 const buildFallbackAnswer = ({ topic }) => {
-    const content = String(topic?.content || "").replace(/\s+/g, " ").trim();
+    const content = lessonToMarkdown(topic?.lesson).replace(/\s+/g, " ").trim();
     const snippet = content.slice(0, 420);
     const title = String(topic?.title || "this lesson").trim();
     if (!snippet) {
@@ -155,7 +156,7 @@ export const handleTutorStream = async (req, res, { userId, topicId }) => {
             console.warn("[tutorStream] passage retrieval failed", error);
         }
 
-        const lessonBody = evidenceBlock || String(topic.content || "").slice(0, 12000);
+        const lessonBody = evidenceBlock || lessonToMarkdown(topic.lesson).slice(0, 12000);
         const outline = toOutline(topic);
         let snapshot = null;
         try {

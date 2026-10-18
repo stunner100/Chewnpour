@@ -6,33 +6,18 @@ import { useRouteResolvedTopic } from './useRouteResolvedTopic';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import useReadingProgress from '../components/lesson/useReadingProgress';
 import { useTextSelection } from './useTextSelection';
-import {
-    SECTION_TITLE_PATTERN,
-    SECTION_TITLES_SET,
-    cleanDisplayLine,
-    cleanInlineText,
-    isArtifactLine,
-    isLowSignalLessonLine,
-    normalizeLessonContent,
-    slugifyText,
-} from '../lib/topicContentFormatting';
+import { cleanDisplayLine, cleanInlineText } from '../lib/topicContentFormatting';
 import { isPlaceholderTopicIllustration, resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import {
-    SECTION_SETS,
-    EMBEDDED_SECTION_SPLIT_PATTERN,
-    SECTION_TEXT_STRIP_PATTERN,
-    QUICK_CHECK_SECTION_PATTERN,
-    WORD_BANK_SECTION_PATTERN,
-    ANALOGY_SECTION_PATTERN,
-    COMMON_MISTAKE_SECTION_PATTERN,
-    STEP_TERM_PATTERN,
     buildTopicQuizRoute,
     buildEssayQuizRoute,
     buildTimedExamRoute,
     getCurrentHashTargetId,
     scrollHashTargetIntoView,
 } from '../lib/topicLessonHelpers';
-import { splitBlocksIntoSections, buildLessonSteps } from '../lib/lessonSections';
+import { buildLessonView } from '../lib/lessonView';
+import { normalizeLesson } from '../lib/lessonSchema';
+import { DEFAULT_RE_EXPLAIN_STYLE } from '../lib/reExplainStyles';
 import { useStudyProgress } from './useStudyProgress';
 
 const fetchTopicPayload = async (topicId) => {
@@ -52,6 +37,8 @@ const fetchTopicPayload = async (topicId) => {
         sourceUploadId: topic.sourceUploadId || topic.uploadId || null,
         assessmentRoute: topic.assessmentRoute || 'topic_quiz',
         inLessonChecks: Array.isArray(topic.inLessonChecks) ? topic.inLessonChecks : [],
+        // The topic's course, for its lesson plan and any job rewriting it.
+        course: payload?.course || null,
     };
 };
 
@@ -75,16 +62,15 @@ export const useTopicDetail = () => {
     const { user, profile, updateProfile, loading: authLoading } = useAuth();
     useStudyTimer(user?.id);
     const [reExplainOpen, setReExplainOpen] = useState(false);
-    const [reExplainStyle, setReExplainStyle] = useState("Teach me like I'm 12");
+    const [reExplainStyle, setReExplainStyle] = useState(DEFAULT_RE_EXPLAIN_STYLE);
     const [reExplainLoading, setReExplainLoading] = useState(false);
     const [reExplainError, setReExplainError] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceSettingsError, setVoiceSettingsError] = useState('');
-    const [overrideContent, setOverrideContent] = useState('');
+    const [simplifiedLesson, setSimplifiedLesson] = useState(null);
     const [explanationView, setExplanationView] = useState('original');
-    const [cachedContent, setCachedContent] = useState('');
-    const [shouldAnimateBlocks, setShouldAnimateBlocks] = useState(false);
+    const [cachedLesson, setCachedLesson] = useState(null);
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     const [contentsOpen, setContentsOpen] = useState(false);
@@ -94,6 +80,9 @@ export const useTopicDetail = () => {
     const [chatOpen, setChatOpen] = useState(false);
     const [sourceOpen, setSourceOpen] = useState(false);
     const [topicQueryResult, setTopicQueryResult] = useState(undefined);
+    // Bumped to fetch the topic again (after its lesson is regenerated).
+    const [topicReloadKey, setTopicReloadKey] = useState(0);
+    const reloadTopic = useCallback(() => setTopicReloadKey((key) => key + 1), []);
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
         // Default to full lesson so direct links (e.g. lesson cards) open readable content
@@ -212,7 +201,8 @@ export const useTopicDetail = () => {
         }
 
         let cancelled = false;
-        setTopicQueryResult(undefined);
+        // A reload keeps showing the topic until the new copy arrives.
+        setTopicQueryResult((current) => (current && current._id === routeTopicId ? current : undefined));
 
         fetchTopicPayload(routeTopicId)
             .then((topic) => {
@@ -225,7 +215,7 @@ export const useTopicDetail = () => {
         return () => {
             cancelled = true;
         };
-    }, [routeTopicId, authLoading, user?.id]);
+    }, [routeTopicId, authLoading, user?.id, topicReloadKey]);
 
     const {
         topic,
@@ -241,8 +231,8 @@ export const useTopicDetail = () => {
     const podcastEnabled = true;
     const isVoicePremium = false;
 
-    const storageKey = topicId ? `topicOverride:${topicId}` : null;
-    const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
+    const storageKey = topicId ? `topicSimplifiedLesson:${topicId}` : null;
+    const lessonCacheKey = topicId ? `topicLesson:${topicId}` : null;
     const synthesizeLessonVoice = useCallback(async (text) => {
         if (!topicId) {
             throw new Error('No lesson selected.');
@@ -300,7 +290,7 @@ export const useTopicDetail = () => {
 
     useEffect(() => {
         setExplanationView('original');
-        setOverrideContent('');
+        setSimplifiedLesson(null);
     }, [topicId]);
 
     useEffect(() => {
@@ -308,7 +298,7 @@ export const useTopicDetail = () => {
         try {
             const cached = localStorage.getItem(storageKey);
             if (cached) {
-                setOverrideContent(cached);
+                setSimplifiedLesson(normalizeLesson(JSON.parse(cached)));
             }
         } catch (error) {
             console.warn('Failed to load cached lesson content', error);
@@ -316,69 +306,50 @@ export const useTopicDetail = () => {
     }, [storageKey]);
 
     useEffect(() => {
-        if (!contentCacheKey) return;
+        if (!lessonCacheKey) return;
         try {
-            const cached = localStorage.getItem(contentCacheKey);
+            const cached = localStorage.getItem(lessonCacheKey);
             if (cached) {
-                setCachedContent(cached);
+                setCachedLesson(JSON.parse(cached));
             }
         } catch (error) {
-            console.warn('Failed to load cached topic content', error);
+            console.warn('Failed to load cached lesson', error);
         }
-    }, [contentCacheKey]);
+    }, [lessonCacheKey]);
 
     useEffect(() => {
-        if (!contentCacheKey) return;
-        if (!topic?.content) return;
+        if (!lessonCacheKey || !topic?.lesson) return;
         try {
-            localStorage.setItem(contentCacheKey, topic.content);
+            localStorage.setItem(lessonCacheKey, JSON.stringify(topic.lesson));
         } catch (error) {
-            console.warn('Failed to cache topic content', error);
+            console.warn('Failed to cache lesson', error);
         }
-    }, [contentCacheKey, topic?.content]);
+    }, [lessonCacheKey, topic?.lesson]);
 
-    const originalLessonContent = topic?.content || cachedContent;
-    const hasReexplainedLesson = Boolean(overrideContent);
-    const content = explanationView === 'simplified' && overrideContent
-        ? overrideContent
-        : originalLessonContent;
-    const normalizedContent = useMemo(() => {
-        if (!content || typeof content !== 'string') return content;
-
-        const normalized = normalizeLessonContent(content);
-        const normalizedWordCount = normalized
-            .replace(/[#>*_`~-]/g, ' ')
-            .split(/\s+/)
-            .filter(Boolean)
-            .length;
-
-        if (normalizedWordCount >= 40) {
-            return normalized;
+    // A regenerated lesson replaces the old one: its re-explained version no
+    // longer matches it, so it is dropped.
+    const handleTopicRegenerated = useCallback(() => {
+        try {
+            if (storageKey) localStorage.removeItem(storageKey);
+        } catch {
+            // Storage may be unavailable; the stale copy then stays until replaced.
         }
+        setSimplifiedLesson(null);
+        setExplanationView('original');
+        reloadTopic();
+    }, [storageKey, reloadTopic]);
 
-        const heading = String(topic?.title || 'Lesson Overview')
-            .replace(/^Topic\s*\d+\s*:\s*/i, '')
-            .replace(/\s*[•|]\s.*$/, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-        const summary = String(topic?.description || '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        return [
-            `## ${heading || 'Lesson Overview'}`,
-            summary || 'This lesson is being prepared from your uploaded material.',
-            '### What You Will Learn',
-            '- Core ideas from this topic',
-            '- Step-by-step explanations with examples',
-            '- Common mistakes and how to avoid them',
-            '### Note',
-            'Full lesson details are still being finalized. You can tap "Re-explain differently" to regenerate immediately.',
-        ].join('\n\n');
-    }, [content, topic?.title, topic?.description]);
-    const contentLines = typeof normalizedContent === 'string'
-        ? normalizedContent.split(/\\n|\n/).filter(Boolean)
-        : null;
+    const originalLesson = topic?.lesson || cachedLesson;
+    const hasReexplainedLesson = Boolean(simplifiedLesson);
+    const showSimplified = explanationView === 'simplified' && Boolean(simplifiedLesson);
+    const lesson = showSimplified ? simplifiedLesson : originalLesson;
+    // Re-explain rewrites section bodies only, so checks keep their section
+    // index; a cached rewrite of an older version of the lesson gets none.
+    const lessonChecks = useMemo(() => (
+        !showSimplified || simplifiedLesson.sections.length === (originalLesson?.sections?.length || 0)
+            ? topic?.inLessonChecks
+            : []
+    ), [showSimplified, simplifiedLesson, originalLesson, topic?.inLessonChecks]);
     const previousVoiceModeRef = useRef(voiceModeEnabled);
 
     useEffect(() => {
@@ -388,31 +359,6 @@ export const useTopicDetail = () => {
         previousVoiceModeRef.current = voiceModeEnabled;
     }, [voiceModeEnabled, stopVoice]);
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return undefined;
-        const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const updateAnimationPreference = () => {
-            const desktopViewport = window.innerWidth >= 1024;
-            setShouldAnimateBlocks(!motionQuery.matches && desktopViewport);
-        };
-
-        updateAnimationPreference();
-        window.addEventListener('resize', updateAnimationPreference, { passive: true });
-        if (motionQuery.addEventListener) {
-            motionQuery.addEventListener('change', updateAnimationPreference);
-        } else if (motionQuery.addListener) {
-            motionQuery.addListener(updateAnimationPreference);
-        }
-
-        return () => {
-            window.removeEventListener('resize', updateAnimationPreference);
-            if (motionQuery.removeEventListener) {
-                motionQuery.removeEventListener('change', updateAnimationPreference);
-            } else if (motionQuery.removeListener) {
-                motionQuery.removeListener(updateAnimationPreference);
-            }
-        };
-    }, []);
 
     // Scroll to top on mount/navigation
     useEffect(() => {
@@ -443,17 +389,7 @@ export const useTopicDetail = () => {
             .replace(/\s{2,}/g, ' ')
             .trim();
     };
-    const firstLessonHeading = useMemo(() => {
-        if (!normalizedContent || typeof normalizedContent !== 'string') return '';
-        const lines = normalizedContent.split(/\n/);
-        for (const line of lines) {
-            const match = line.trim().match(/^#{1,6}\s+(.+)$/);
-            if (match) {
-                return cleanLine(match[1]);
-            }
-        }
-        return '';
-    }, [normalizedContent]);
+    const firstLessonHeading = cleanDisplayLine(lesson?.sections?.[0]?.title || '');
     const cleanedTopicTitle = sanitizeTopicTitle(topic?.title || '');
     const looksBrokenTopicTitle = (() => {
         if (!cleanedTopicTitle) return true;
@@ -486,304 +422,17 @@ export const useTopicDetail = () => {
         setVoiceSaving(false);
     };
 
-    const parsed = useMemo(() => {
-        if (!normalizedContent || typeof normalizedContent !== 'string') {
-            return { blocks: [], toc: [] };
-        }
-
-        const lines = normalizedContent.split(/\n/);
-        const blocks = [];
-        const toc = [];
-        let headerCount = 0;
-        let previousWasSpacer = false;
-
-        for (let i = 0; i < lines.length; i += 1) {
-            const raw = lines[i]?.trim?.() ?? '';
-            if (!raw) {
-                if (previousWasSpacer || blocks.length === 0) continue;
-                blocks.push({ type: 'spacer', key: `spacer-${i}` });
-                previousWasSpacer = true;
-                continue;
-            }
-            previousWasSpacer = false;
-            const cleanedRaw = cleanLine(raw);
-
-            // Skip malformed marker-only lines that should not render as content blocks.
-            if (isArtifactLine(raw) || !cleanedRaw || isLowSignalLessonLine(raw)) {
-                continue;
-            }
-
-            // Headers
-            const headerMatch = raw.match(/^(#{1,6})\s+(.+)$/);
-            if (headerMatch) {
-                const level = headerMatch[1].length;
-                let text = cleanLine(headerMatch[2]);
-                let trailingParagraph = '';
-                if (text.length > 80) {
-                    const splitMatch = text.match(/^(.{15,250}?[.!?)]|.{15,150}?[:])\s+([A-Z].+)$/);
-                    if (splitMatch) {
-                        text = splitMatch[1].trim();
-                        trailingParagraph = splitMatch[2].trim();
-                    }
-                }
-                const id = slugifyText(text, headerCount);
-                headerCount += 1;
-                toc.push({ id, text, level });
-                blocks.push({ type: 'header', level, text, id, key: `h-${i}` });
-                if (trailingParagraph) {
-                    blocks.push({ type: 'paragraph', text: trailingParagraph, key: `p-${i}-after-header` });
-                }
-                continue;
-            }
-
-            const plainSectionTitle = cleanLine(raw)
-                .replace(/:$/, '')
-                .toLowerCase();
-            if (SECTION_TITLES_SET.has(plainSectionTitle)) {
-                const id = slugifyText(raw, headerCount);
-                headerCount += 1;
-                const text = cleanLine(raw).replace(/:$/, '');
-                toc.push({ id, text, level: 3 });
-                blocks.push({ type: 'header', level: 3, text, id, key: `h-section-${i}` });
-                continue;
-            }
-
-            // Alerts (Tip, Note, Warning, Important)
-            const alertMatch = raw.match(/^[-•*]?\s*(Tip|Note|Warning|Important|Key Takeaway):\s*(.+)$/i);
-            if (alertMatch) {
-                blocks.push({
-                    type: 'alert',
-                    alertType: alertMatch[1].toLowerCase(),
-                    text: alertMatch[2],
-                    key: `a-${i}`
-                });
-                continue;
-            }
-
-            // Definitions
-            const defMatch = raw.match(/^[-•*]?\s*(Definition|Key Term|Concept):\s*(.+)$/i);
-            if (defMatch) {
-                blocks.push({
-                    type: 'definition',
-                    term: defMatch[1],
-                    text: defMatch[2],
-                    key: `d-${i}`
-                });
-                continue;
-            }
-
-            const emphasizedDefinitionMatch = raw.match(/^\*\*([^*]{2,40})\*\*\s*:\s*(.+)$/);
-            if (emphasizedDefinitionMatch) {
-                const term = cleanLine(emphasizedDefinitionMatch[1]);
-                // Prevent matching generic lists or steps that happen to use bolding
-                if (!STEP_TERM_PATTERN.test(term) && !term.startsWith('-')) {
-                    blocks.push({
-                        type: 'definition',
-                        term,
-                        text: emphasizedDefinitionMatch[2],
-                        key: `d-em-${i}`
-                    });
-                    continue;
-                }
-            }
-
-            // Examples
-            const exampleMatch = raw.match(/^[-•*]?\s*(Example|For example):\s*(.+)$/i);
-            if (exampleMatch) {
-                blocks.push({
-                    type: 'example',
-                    text: exampleMatch[2],
-                    key: `e-${i}`
-                });
-                continue;
-            }
-
-            // Lists
-            if (raw.startsWith('- ') || raw.startsWith('• ') || raw.startsWith('* ')) {
-                blocks.push({ type: 'bullet', text: raw.replace(/^[-•*]\s+/, ''), key: `b-${i}` });
-                continue;
-            }
-
-            const numMatch = raw.match(/^(\d+)[.)]\s+(.+)$/);
-            if (numMatch) {
-                blocks.push({ type: 'numbered', num: numMatch[1], text: numMatch[2], key: `n-${i}` });
-                continue;
-            }
-
-            // Blockquotes
-            if (raw.startsWith('> ')) {
-                const quoteText = cleanLine(raw.slice(2));
-                if (!quoteText || isArtifactLine(quoteText)) {
-                    continue;
-                }
-                blocks.push({ type: 'quote', text: quoteText, key: `q-${i}` });
-                continue;
-            }
-
-            // Default Paragraph — try to split long text with embedded section titles
-            if (raw.length > 200) {
-                // Try to detect embedded section-like patterns and split them
-                const sectionSplit = raw.split(EMBEDDED_SECTION_SPLIT_PATTERN);
-                if (sectionSplit.length > 1) {
-                    for (let j = 0; j < sectionSplit.length; j++) {
-                        const part = sectionSplit[j]?.trim();
-                        if (!part) continue;
-                        // Check if this part looks like a section title (short, title-case)
-                        if (part.length < 60 && /^[A-Z]/.test(part) && !/[.!?]$/.test(part)) {
-                            const titleId = slugifyText(part, headerCount);
-                            headerCount += 1;
-                            toc.push({ id: titleId, text: cleanLine(part), level: 3 });
-                            blocks.push({ type: 'header', level: 3, text: cleanLine(part), id: titleId, key: `h-${i}-${j}` });
-                        } else {
-                            blocks.push({ type: 'paragraph', text: part, key: `p-${i}-${j}` });
-                        }
-                    }
-                    continue;
-                }
-            }
-            blocks.push({ type: 'paragraph', text: raw, key: `p-${i}` });
-        }
-
-        // ── Second pass: section-aware block enrichment ──
-        const quickCheckPairs = [];
-        const wordBankTerms = [];
-        let currentSection = '';
-
-        const detectMistakeLabel = (text) => {
-            if (/(exam|test|paper)/i.test(text)) return 'Exam Trap';
-            if (/(confuse|similar|mix|same as)/i.test(text)) return 'Do Not Mix Up';
-            if (/(common|often|many|students)/i.test(text)) return 'Common Confusion';
-            return null;
-        };
-
-        for (let b = 0; b < blocks.length; b++) {
-            const block = blocks[b];
-            if (block.type === 'header') {
-                currentSection = block.text.toLowerCase().replace(SECTION_TEXT_STRIP_PATTERN, '').trim();
-                continue;
-            }
-            const blockText = typeof block.text === 'string' ? block.text : '';
-
-            // Quick Check: collect Q/A pairs from numbered blocks
-            if (QUICK_CHECK_SECTION_PATTERN.test(currentSection) && block.type === 'numbered') {
-                const qMatch = blockText.match(/^\*\*Q:\*\*\s*(.+)/);
-                if (qMatch) {
-                    const next = blocks[b + 1];
-                    const nextText = typeof next?.text === 'string' ? next.text : '';
-                    const aMatch = nextText.match(/^\*\*A:\*\*\s*(.+)/);
-                    if (aMatch) {
-                        const questionText = qMatch[1].trim();
-                        const answerText = aMatch[1].trim();
-                        block.type = 'quickcheck_hidden';
-                        next.type = 'quickcheck_hidden';
-                        if (
-                            !isLowSignalLessonLine(questionText)
-                            && !isLowSignalLessonLine(answerText)
-                        ) {
-                            quickCheckPairs.push({
-                                questionText,
-                                answerText,
-                                key: `qc-${b}`,
-                            });
-                        }
-                        b += 1; // skip answer line
-                    }
-                }
-            }
-
-            // Word Bank: collect term/definition from bullets
-            if (WORD_BANK_SECTION_PATTERN.test(currentSection)
-                && block.type === 'bullet') {
-                const termMatch = blockText.match(/^(.+?)\s+[—–-]\s+(.+)$/);
-                if (termMatch) {
-                    wordBankTerms.push({
-                        term: termMatch[1].replace(/\*\*/g, '').trim(),
-                        definition: termMatch[2].trim(),
-                        key: `wb-${b}`,
-                    });
-                    block.type = 'wordbank_hidden';
-                }
-            }
-
-            // Analogies: convert numbered items to analogy cards
-            if (ANALOGY_SECTION_PATTERN.test(currentSection)
-                && block.type === 'numbered') {
-                const analogyMatch = blockText.match(/^\*\*(.+?):\*\*\s*(.+)/);
-                if (analogyMatch) {
-                    block.type = 'analogycard';
-                    block.label = analogyMatch[1].trim();
-                    block.text = analogyMatch[2].trim();
-                }
-            }
-
-            // Common Mistakes: add labels to bullets
-            if (COMMON_MISTAKE_SECTION_PATTERN.test(currentSection)
-                && block.type === 'bullet') {
-                block.type = 'mistake';
-                block.label = detectMistakeLabel(blockText);
-            }
-        }
-
-        const wordCount = normalizedContent
-            ? normalizedContent.replace(/[#>*_`~-]/g, ' ').split(/\s+/).filter(Boolean).length
-            : 0;
-        const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
-
-        return { blocks, toc, readingMinutes, quickCheckPairs, wordBankTerms };
-    }, [normalizedContent]);
-
-    // Prefer structured definitions from the DB (always available, already cleaned) over the
-    // markdown parse (fragile — only present when AI used a "Word Bank" heading in the right format).
-    const dbDefinitions = topic?.structuredDefinitions ?? topic?.contentGraph?.definitions;
-    const wordBankTerms = useMemo(() => {
-        if (dbDefinitions?.length > 0) {
-            return dbDefinitions.map((d, i) => ({ term: d.term, definition: d.meaning, key: `db-${i}` }));
-        }
-        return parsed.wordBankTerms;
-    }, [dbDefinitions, parsed.wordBankTerms]);
-
-    // Section filtering by study mode
-    const filteredBlocks = useMemo(() => {
-        if (!studyMode || studyMode === 'full' || !SECTION_SETS[studyMode]) return parsed.blocks;
-        const allowed = SECTION_SETS[studyMode];
-        let include = false;
-        return parsed.blocks.filter((block) => {
-            if (block.type === 'header') {
-                const normalized = block.text.toLowerCase().replace(SECTION_TEXT_STRIP_PATTERN, '').trim();
-                include = allowed.some((sectionTitle) => normalized.indexOf(sectionTitle) !== -1);
-                return include; // always show allowed section headers
-            }
-            return include;
-        });
-    }, [parsed.blocks, studyMode]);
-
-    const lessonSteps = useMemo(() => {
-        const normalizeTitle = (value) => String(value || '')
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, ' ')
-            .trim();
-        const pageTitleKey = normalizeTitle(resolvedTopicTitle);
-        let skippedDuplicateTitle = false;
-        const sectionBlocks = filteredBlocks.filter((block) => {
-            if (
-                !skippedDuplicateTitle
-                && block.type === 'header'
-                && block.level === 1
-                && pageTitleKey
-                && normalizeTitle(block.text) === pageTitleKey
-            ) {
-                skippedDuplicateTitle = true;
-                return false;
-            }
-            return true;
-        });
-        return buildLessonSteps({
-            sections: splitBlocksIntoSections(sectionBlocks),
-            checks: topic?.inLessonChecks || [],
-            wordBankTerms,
-            studyMode,
-        });
-    }, [filteredBlocks, resolvedTopicTitle, topic?.inLessonChecks, wordBankTerms, studyMode]);
+    const lessonView = useMemo(() => buildLessonView({
+        lesson,
+        checks: lessonChecks,
+        studyMode,
+    }), [lesson, lessonChecks, studyMode]);
+    const { steps: lessonSteps, wordBankTerms, hook: lessonHook } = lessonView;
+    const hasLesson = lessonView.sections.length > 0;
+    const lessonToc = useMemo(
+        () => lessonView.sections.map((section, index) => ({ id: `lesson-section-${index}`, text: section.title, level: 2 })),
+        [lessonView.sections],
+    );
 
     const {
         currentStepIndex,
@@ -891,14 +540,14 @@ export const useTopicDetail = () => {
         : 'This topic will be assessed in the course quiz.';
 
     const { progress: readingProgress, activeId: activeSectionId } = useReadingProgress({
-        toc: parsed.toc,
+        toc: lessonToc,
         headerOffset: 108,
     });
     const activeSectionLabel = useMemo(() => {
-        if (!activeSectionId || !Array.isArray(parsed.toc)) return '';
-        const found = parsed.toc.find((entry) => entry.id === activeSectionId);
+        if (!activeSectionId) return '';
+        const found = lessonToc.find((entry) => entry.id === activeSectionId);
         return found?.text || '';
-    }, [activeSectionId, parsed.toc]);
+    }, [activeSectionId, lessonToc]);
     const lessonStatusBadge = useMemo(() => {
         if (topicProgress?.completedAt) {
             return { label: 'Completed', icon: 'check_circle', className: 'bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-900/25 dark:text-emerald-300 dark:border-emerald-800/40' };
@@ -915,18 +564,15 @@ export const useTopicDetail = () => {
         setReExplainLoading(true);
         try {
             const result = await reExplainTopicRequest(topicId, reExplainStyle);
-            const nextContent = result?.content || '';
-            setOverrideContent(nextContent);
+            const nextLesson = normalizeLesson(result?.lesson);
+            if (!nextLesson) throw new Error("We couldn't re-explain this lesson. Try again.");
+            setSimplifiedLesson(nextLesson);
             setExplanationView('simplified');
             if (storageKey) {
                 try {
-                    if (nextContent.trim()) {
-                        localStorage.setItem(storageKey, nextContent);
-                    } else {
-                        localStorage.removeItem(storageKey);
-                    }
+                    localStorage.setItem(storageKey, JSON.stringify(nextLesson));
                 } catch (error) {
-                    console.warn('Failed to cache lesson content', error);
+                    console.warn('Failed to cache the re-explained lesson', error);
                 }
             }
             setReExplainOpen(false);
@@ -1049,6 +695,7 @@ export const useTopicDetail = () => {
     const hasQuizCta = false;
 
     return {
+        reloadTopic: handleTopicRegenerated,
         activeSectionId,
         activeSectionLabel,
         chatInitialPrompt,
@@ -1068,13 +715,11 @@ export const useTopicDetail = () => {
         closeNotes,
         closeSource,
         contentsOpen,
-        contentLines,
         contentRef,
         courseHref,
         courseId,
         examTopicId,
         explanationView,
-        filteredBlocks,
         hasReexplainedLesson,
         handleAskTutor,
         handleLessonStepChange,
@@ -1098,7 +743,8 @@ export const useTopicDetail = () => {
         mainRef,
         mobileActionItems,
         moreOpen,
-        normalizedContent,
+        hasLesson,
+        lessonHook,
         notesAppendText,
         notesOpen,
         objectiveExamRoute,
@@ -1106,7 +752,6 @@ export const useTopicDetail = () => {
         openContents,
         openNotes,
         openSource,
-        parsed,
         pauseVoice,
         playVoice,
         podcastEnabled,
@@ -1137,7 +782,6 @@ export const useTopicDetail = () => {
         setReExplainStyle,
         setSettingsOpen,
         settingsOpen,
-        shouldAnimateBlocks,
         showTopicIllustration,
         showScrollTop,
         sourceOpen,

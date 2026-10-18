@@ -5,6 +5,13 @@ import AppIcon from '../components/AppIcon';
 import { formatCourseTitle } from '../lib/courseTitle';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { ExamCountdownBadge, ExamDateControl, ExamPlanCard } from '../components/ExamPlanner';
+import {
+    GENERATION_POLL_MS,
+    MAX_LESSONS_PER_REQUEST,
+    courseGenerationState,
+    requestCourseRegenerate,
+    requestPlannedLessons,
+} from '../lib/courseGeneration';
 
 const LessonsSkeleton = () => (
     <div className="min-h-[calc(100dvh-4rem)] animate-pulse bg-background-light px-4 py-8 md:px-8 md:py-10">
@@ -112,6 +119,125 @@ const CourseShareControls = ({ course, onCourseChange }) => {
     );
 };
 
+const PART_STATE_NOTES = {
+    writing: 'being written',
+    failed: 'couldn\u2019t be generated',
+};
+
+// Parts of the upload with no lesson, in document order: long uploads are
+// planned in full but lessons are written for the first parts only, and a
+// part whose lesson could not be written is listed too. The student can ask
+// for lessons for the parts that are not being written.
+const PartsWithoutLessons = ({ course, onCourseChange }) => {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const state = courseGenerationState(course);
+    if (state.parts.length === 0) return null;
+    const requestable = state.parts.filter((part) => part.state !== 'writing');
+    const batch = requestable.slice(0, MAX_LESSONS_PER_REQUEST);
+
+    const writeLessons = async () => {
+        setBusy(true);
+        setError('');
+        try {
+            onCourseChange(await requestPlannedLessons(course.id, batch.map((part) => part.index)));
+        } catch (err) {
+            setError(err.message || 'Could not start writing these lessons.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <section
+            aria-labelledby="parts-without-lessons"
+            className="rounded-[24px] border border-dashed border-border-default bg-surface p-5"
+        >
+            <h2 id="parts-without-lessons" className="font-display text-body-lg font-bold text-text-primary">
+                Parts without lessons yet
+            </h2>
+            <p className="mt-1 text-body-sm text-text-secondary">
+                Lessons are ready for {state.written} of the {state.total} parts of your file.
+            </p>
+            <ol className="mt-3 list-decimal space-y-1 pl-6 text-body-sm text-text-secondary">
+                {state.parts.map((part) => (
+                    <li key={`${part.start}-${part.end}`} value={part.number}>
+                        {formatCourseTitle(part.title) || part.title}
+                        {PART_STATE_NOTES[part.state] ? (
+                            <span className="text-text-muted"> ({PART_STATE_NOTES[part.state]})</span>
+                        ) : null}
+                    </li>
+                ))}
+            </ol>
+            {batch.length > 0 ? (
+                <button
+                    type="button"
+                    className="btn-secondary mt-4 inline-flex min-h-10 items-center gap-1.5 text-body-sm disabled:opacity-50"
+                    disabled={busy}
+                    onClick={writeLessons}
+                >
+                    <AppIcon name="auto_awesome" className="text-[16px]" />
+                    {requestable.length > batch.length
+                        ? `Write lessons for the next ${batch.length} parts`
+                        : batch.length === 1 ? 'Write a lesson for this part' : `Write lessons for these ${batch.length} parts`}
+                </button>
+            ) : null}
+            <div role="status" aria-live="polite">
+                {error ? <p className="mt-2 text-caption text-error">{error}</p> : null}
+            </div>
+        </section>
+    );
+};
+
+// A course whose lessons are still being written, or none of whose lessons
+// could be written.
+const CourseGenerationNotice = ({ course, onCourseChange }) => {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const state = courseGenerationState(course);
+    if (!state.failedCourse && !(state.writing && course?.generation?.kind === 'course')) return null;
+
+    const regenerate = async () => {
+        setBusy(true);
+        setError('');
+        try {
+            onCourseChange(await requestCourseRegenerate(course.id));
+        } catch (err) {
+            setError(err.message || 'Could not start again.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div role="status" aria-live="polite" className="rounded-[20px] border border-border-subtle bg-surface p-4 text-body-sm">
+            {state.failedCourse ? (
+                <>
+                    <p className="font-semibold text-text-primary">We couldn&apos;t write lessons from this file.</p>
+                    <p className="mt-1 text-text-secondary">Try again: the file is planned and written from scratch.</p>
+                    <button
+                        type="button"
+                        className="btn-primary mt-3 inline-flex min-h-10 items-center gap-1.5 text-body-sm disabled:opacity-50"
+                        disabled={busy}
+                        onClick={regenerate}
+                    >
+                        <AppIcon name="refresh" className="text-[16px]" />
+                        Regenerate course
+                    </button>
+                    {error ? <p className="mt-2 text-caption text-error">{error}</p> : null}
+                </>
+            ) : (
+                <p className="flex items-center gap-2 text-text-secondary">
+                    <AppIcon name="auto_awesome" className="text-[16px] text-primary" />
+                    {state.total > 0
+                        ? `Writing your lessons: ${state.written} of ${Math.min(state.total, MAX_LESSONS_PER_REQUEST)} ready. New lessons appear here as they finish.`
+                        : 'Planning your lessons from the file\u2026'}
+                </p>
+            )}
+        </div>
+    );
+};
+
 const LessonMemoryNeuralBasis = () => {
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
@@ -138,14 +264,14 @@ const LessonMemoryNeuralBasis = () => {
         setExamStats(exams.find((exam) => String(exam.courseId) === courseId) || null);
     }, [courseId, user?.id]);
 
-    const load = useCallback(async () => {
+    const load = useCallback(async ({ silent = false } = {}) => {
         if (!user?.id) {
             setCourses([]);
             setSelectedCourse(null);
             setLoading(false);
             return;
         }
-        setLoading(true);
+        if (!silent) setLoading(true);
         setError('');
         try {
             if (courseId) {
@@ -182,6 +308,19 @@ const LessonMemoryNeuralBasis = () => {
     useEffect(() => {
         loadExamStats();
     }, [loadExamStats]);
+
+    // While lessons are being written, new ones appear as they are saved.
+    const generating = Boolean(selectedCourse?.generation?.active)
+        || courses.some((course) => course?.generation?.active);
+    useEffect(() => {
+        if (!generating) return undefined;
+        const timer = window.setInterval(() => load({ silent: true }), GENERATION_POLL_MS);
+        return () => window.clearInterval(timer);
+    }, [generating, load]);
+
+    const replaceSelectedCourse = useCallback((next) => {
+        if (next) setSelectedCourse(next);
+    }, []);
 
     const topics = useMemo(
         () => (Array.isArray(selectedCourse?.topics) ? selectedCourse.topics : []),
@@ -361,7 +500,9 @@ const LessonMemoryNeuralBasis = () => {
                             </div>
                         ) : null}
 
-                        {topics.length === 0 ? (
+                        <CourseGenerationNotice course={selectedCourse} onCourseChange={replaceSelectedCourse} />
+
+                        {topics.length === 0 && !generating && selectedCourse?.status !== 'failed' ? (
                             <div className="flex flex-col items-center rounded-[24px] border border-dashed border-border-default bg-surface px-6 py-10 text-center">
                                 <h2 className="font-display text-display-sm font-bold text-text-primary">No topics yet</h2>
                                 <p className="mt-2 max-w-sm text-body-sm text-text-secondary">
@@ -395,7 +536,7 @@ const LessonMemoryNeuralBasis = () => {
                                                 {formatCourseTitle(topic.title) || topic.title}
                                             </h2>
                                             <p className="mt-2 line-clamp-3 text-body-sm text-text-secondary">
-                                                {topic.description || topic.content}
+                                                {topic.description || topic.lesson?.hook}
                                             </p>
                                         </div>
                                         <div className="flex shrink-0 flex-wrap gap-2">
@@ -420,6 +561,9 @@ const LessonMemoryNeuralBasis = () => {
                                 </article>
                             ))
                         )}
+                        {topics.length > 0 ? (
+                            <PartsWithoutLessons course={selectedCourse} onCourseChange={replaceSelectedCourse} />
+                        ) : null}
                     </div>
                 )}
             </div>

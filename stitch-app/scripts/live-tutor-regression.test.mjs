@@ -118,7 +118,12 @@ process.env.GEMINI_API_KEY = previousKey;
 const longExcerpt = 'x'.repeat(LIVE_TUTOR_MAX_EXCERPT + 400);
 const prompt = buildLiveTutorPrompt({
     title: 'Working memory',
-    content: `# Encoding\n\n${longExcerpt}\n\n# Quick check\n\nDo not send this.`,
+    lesson: {
+        sections: [
+            { title: 'Encoding', role: 'core', body: longExcerpt },
+            { title: 'Quick check', role: 'core', body: 'Do not send this.' },
+        ],
+    },
 });
 assert.match(
     prompt,
