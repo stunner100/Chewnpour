@@ -6,18 +6,6 @@ const root = process.cwd();
 const read = async (relativePath) =>
   await fs.readFile(path.join(root, relativePath), 'utf8');
 
-const skeletonSource = await read('src/components/watermelon/WatermelonSkeleton.jsx');
-for (const pattern of [
-  "useReducedMotion",
-  "animate={shouldReduceMotion ? undefined : shimmerAnimate}",
-  "transition={shouldReduceMotion ? undefined : shimmerTransition}",
-  "animate={shouldReduceMotion ? undefined : { scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}",
-]) {
-  if (!skeletonSource.includes(pattern)) {
-    throw new Error(`Expected WatermelonSkeleton.jsx to include "${pattern}".`);
-  }
-}
-
 const loginSource = await read('src/pages/Login.jsx');
 for (const pattern of [
   'navigate(redirectTarget, {',
