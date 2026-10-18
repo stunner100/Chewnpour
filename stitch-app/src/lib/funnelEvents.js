@@ -9,6 +9,7 @@ export const FUNNEL_EVENTS = {
     examSubmitted: 'exam_submitted',
     reviewAnswered: 'review_answered',
     reviewSessionCompleted: 'review_session_completed',
+    courseShared: 'course_shared',
     uploadCompleted: 'upload_completed',
     sampleCourseOpened: 'sample_course_opened',
     examDateSet: 'exam_date_set',

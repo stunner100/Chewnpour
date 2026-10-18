@@ -122,6 +122,7 @@ const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentNa
 const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
 const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
 const PublicSharedCourse = lazyRoute(() => import('./pages/PublicSharedCourse'), { componentName: 'PublicSharedCourse' });
+const PublicPastQuestions = lazyRoute(() => import('./pages/PublicPastQuestions'), { componentName: 'PublicPastQuestions' });
 const AdminDashboard = lazyRoute(() => import('./pages/admin/AdminDashboard'), { componentName: 'AdminDashboard' });
 
 const RedirectOnboardingNameToSignup = () => {
@@ -310,6 +311,8 @@ function App() {
         <Route path="/terms" element={withSuspense(<Terms />)} />
         <Route path="/privacy" element={withSuspense(<Privacy />)} />
         <Route path="/c/:token" element={withSuspense(<PublicSharedCourse />)} />
+        <Route path="/past-questions" element={withSuspense(<PublicPastQuestions />)} />
+        <Route path="/past-questions/:courseCode" element={withSuspense(<PublicPastQuestions />)} />
 
         {/* Onboarding — email signup lives on /signup; level/department cut over to Settings profile */}
         <Route path="/onboarding/name" element={<RedirectOnboardingNameToSignup />} />

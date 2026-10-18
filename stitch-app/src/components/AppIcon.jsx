@@ -277,6 +277,7 @@ const MATERIAL_TO_LUCIDE = {
   self_improvement: BrainIcon,
   send: SendIcon,
   settings: SettingsIcon,
+  share: Share2Icon,
   signpost: RouteIcon,
   skip_next: SkipForwardIcon,
   skip_previous: SkipBackIcon,

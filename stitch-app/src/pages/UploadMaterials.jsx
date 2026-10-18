@@ -7,6 +7,7 @@ import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { isUploadStudyReady, buildFirstLessonHref } from '../lib/uploadReadiness';
 import { GENERATION_STAGES, resolveGenerationStageIndex } from '../lib/generationStages';
 import GenerationStageList from '../components/materials/GenerationStageList';
+import ShareWithClassButton from '../components/ShareWithClassButton';
 import SampleCourseCard from '../components/SampleCourseCard';
 import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
 import { SpinLoader } from '../components/opensource-ui/SpinLoader';
@@ -263,6 +264,7 @@ const UploadMaterials = () => {
         setIsUploading(false);
         setReadyCourse({
             title: item.title || 'Your course',
+            courseId: item.courseId || null,
             href: item.lessonsHref,
             courseHref: item.courseHref || '/dashboard/lessons',
             topics: Math.max(0, Number(item.topics || 0)),
@@ -380,6 +382,7 @@ const UploadMaterials = () => {
             if (isUploadStudyReady(finalized)) {
                 presentReadyCourse({
                     title: finalized.fileName || 'Your material',
+                    courseId: finalized.courseId,
                     lessonsHref: buildFirstLessonHref({ upload: finalized }),
                     courseHref: finalized.courseId
                         ? `/dashboard/lessons?courseId=${encodeURIComponent(finalized.courseId)}`
@@ -418,6 +421,7 @@ const UploadMaterials = () => {
             if (isUploadStudyReady(finalized)) {
                 presentReadyCourse({
                     title: finalized.fileName || 'Your material',
+                    courseId: finalized.courseId,
                     lessonsHref: buildFirstLessonHref({ upload: finalized }),
                     courseHref: buildUploadOpenHref({ upload: finalized }),
                     topics: finalized.topicCount,
@@ -509,6 +513,12 @@ const UploadMaterials = () => {
                             >
                                 View course
                             </Link>
+                        </div>
+                        <p className="mt-6 text-body-sm text-text-secondary">
+                            Studying with classmates? Send them the lessons. Your files, quizzes and tutor chats stay private.
+                        </p>
+                        <div className="mt-3">
+                            <ShareWithClassButton courseId={readyCourse.courseId} courseTitle={readyCourse.title} placement="course_ready" />
                         </div>
                     </div>
                 ) : null}
