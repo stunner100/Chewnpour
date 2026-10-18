@@ -36,6 +36,7 @@ export default function useTutorChat({ topicId, persona = 'coach', studyContext 
                         _id: id,
                         role: msg.role,
                         content: msg.content,
+                        sources: Array.isArray(msg.sources) ? msg.sources : [],
                         createdAt: msg.createdAt
                     };
                 });

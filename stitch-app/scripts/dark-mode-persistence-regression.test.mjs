@@ -4,14 +4,12 @@ import path from 'node:path';
 const root = process.cwd();
 const themePath = path.join(root, 'src', 'lib', 'theme.js');
 const mainPath = path.join(root, 'src', 'main.jsx');
-const profilePath = path.join(root, 'src', 'pages', 'Profile.jsx');
 const dashboardLayoutPath = path.join(root, 'src', 'components', 'DashboardLayout.jsx');
 const routeThemePath = path.join(root, 'src', 'lib', 'useRouteTheme.js');
 
-const [themeSource, mainSource, profileSource, dashboardLayoutSource, routeThemeSource] = await Promise.all([
+const [themeSource, mainSource, dashboardLayoutSource, routeThemeSource] = await Promise.all([
   fs.readFile(themePath, 'utf8'),
   fs.readFile(mainPath, 'utf8'),
-  fs.readFile(profilePath, 'utf8'),
   fs.readFile(dashboardLayoutPath, 'utf8'),
   fs.readFile(routeThemePath, 'utf8'),
 ]);
@@ -28,10 +26,6 @@ if (!/initializeTheme\(\)/.test(mainSource)) {
   throw new Error('Regression detected: app startup no longer applies persisted theme.');
 }
 
-if (!sourceIncludesRedirect(profileSource)) {
-  throw new Error('Regression detected: Profile.jsx is no longer a hard redirect to settings.');
-}
-
 if (!/useThemeMode/.test(dashboardLayoutSource) || !/aria-pressed=\{isDarkMode\}/.test(dashboardLayoutSource)) {
   throw new Error('Regression detected: dashboard dark mode toggle is not wired through useThemeMode.');
 }
@@ -42,10 +36,6 @@ if (/applyTheme\(LIGHT_THEME\)/.test(dashboardLayoutSource)) {
 
 if (!/return preferredTheme;/.test(routeThemeSource)) {
   throw new Error('Regression detected: dashboard routes no longer honor persisted theme preference.');
-}
-
-function sourceIncludesRedirect(source) {
-  return source.includes('Navigate to="/dashboard/settings#profile"');
 }
 
 console.log('dark-mode-persistence-regression.test.mjs passed');

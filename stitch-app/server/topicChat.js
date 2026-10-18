@@ -15,6 +15,7 @@ import {
     sanitizeStudyContext,
 } from "./tutorStudyContext.js";
 import { lessonToMarkdown } from "../src/lib/lessonSchema.js";
+import { readMessageSources } from "./tutorSources.js";
 
 const MAX_MESSAGE_LENGTH = 4000;
 
@@ -25,6 +26,7 @@ const toClientMessage = (row) => {
         _id: row.id,
         role: row.role,
         content: row.content,
+        sources: readMessageSources(row),
         createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
     };
 };

@@ -12,6 +12,7 @@ import { UsersPanel } from './panels/UsersPanel';
 import { UploadsPanel } from './panels/UploadsPanel';
 import { PastPapersPanel } from './panels/PastPapersPanel';
 import { AdminsPanel } from './panels/AdminsPanel';
+import { QuestionReportsPanel } from './panels/QuestionReportsPanel';
 
 const TAB_KEYS = new Set(TABS.map((tab) => tab.key));
 
@@ -86,6 +87,7 @@ export default function AdminDashboard() {
     const panel = useMemo(() => {
         if (activeTab === 'past-papers') return <PastPapersPanel />;
         if (activeTab === 'admins') return <AdminsPanel />;
+        if (activeTab === 'reports') return <QuestionReportsPanel />;
         if (!snapshot) return null;
         if (activeTab === 'learning') return <LearningPanel snapshot={snapshot} />;
         if (activeTab === 'content') return <ContentPanel snapshot={snapshot} />;

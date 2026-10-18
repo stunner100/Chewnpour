@@ -23,11 +23,9 @@ const requireExcludes = (source, snippet, label) => {
 const [
   dashboardPageSource,
   settingsPageSource,
-  profilePageSource,
 ] = await Promise.all([
   read('src/pages/StudentDashboard.jsx'),
   read('src/pages/AccountStudySettings.jsx'),
-  read('src/pages/Profile.jsx'),
 ]);
 
 for (const snippet of [
@@ -70,9 +68,5 @@ for (const snippet of [
 ]) {
   requireExcludes(settingsPageSource, snippet, 'AccountStudySettings.jsx');
 }
-
-requireExcludes(profilePageSource, 'Sign Out', 'Profile.jsx');
-requireIncludes(profilePageSource, 'Navigate to="/dashboard/settings#profile"', 'Profile.jsx');
-requireExcludes(profilePageSource, "from 'convex/react'", 'Profile.jsx');
 
 console.log('real-user-dashboard-cutover-regression.test.mjs passed');

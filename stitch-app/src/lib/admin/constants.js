@@ -6,4 +6,5 @@ export const TABS = [
     { key: 'admins', label: 'Admins', icon: 'verified_user' },
     { key: 'uploads', label: 'Uploads', icon: 'cloud_upload' },
     { key: 'past-papers', label: 'Past questions', icon: 'description' },
+    { key: 'reports', label: 'Reports', icon: 'flag' },
 ];

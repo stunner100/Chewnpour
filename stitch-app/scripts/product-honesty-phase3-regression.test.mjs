@@ -13,13 +13,10 @@ const read = (rel) => readFileSync(join(root, rel), 'utf8');
 const dashboard = read('src/pages/StudentDashboard.jsx');
 const hero = read('src/components/dashboard/DashboardHero.jsx');
 const landing = read('src/pages/LandingPage.jsx');
-const parkedView = read('src/components/ParkedFeatureView.jsx');
-const kids = read('src/pages/Kids.jsx');
 const podcasts = read('src/pages/DashboardPodcasts.jsx');
 const sharePage = read('src/pages/PublicSharedCourse.jsx');
 const app = read('src/App.jsx');
 const upload = read('src/pages/UploadMaterials.jsx');
-const subscription = read('src/pages/Subscription.jsx');
 
 assert.doesNotMatch(dashboard, /Supabase/i, 'dashboard must not show migration/Supabase copy');
 assert.match(dashboard, /Continue learning/, 'dashboard must offer continue learning');
@@ -36,10 +33,7 @@ assert.doesNotMatch(landing, /generates podcasts/i, 'landing blog must not sell 
 assert.match(landing, /track what stuck/, 'landing should promote live progress tracking');
 
 assert.doesNotMatch(upload, /flashcards/i, 'upload copy must not promise flashcards');
-assert.doesNotMatch(subscription, /podcasts/i, 'subscription FAQ must not promise podcasts');
 
-assert.match(parkedView, /This feature is paused|paused/i, 'parked view must disclose pause');
-assert.match(kids, /ParkedFeatureView/, 'kids route page must use honest parked view');
 assert.doesNotMatch(podcasts, /ParkedFeatureView/, 'podcasts page must be live, not parked');
 assert.doesNotMatch(sharePage, /ParkedFeatureView/, 'public share page must be live, not parked');
 assert.match(sharePage, /\/api\/share\//, 'public share page must load generated topics');
@@ -52,7 +46,7 @@ assert.match(
   /path="\/dashboard\/podcasts" element=\{withSuspense\(<DashboardPodcasts \/>/,
   'podcasts hub must be a live protected dashboard route',
 );
-assert.match(app, /ParkedDashboardFeature title="Kids mode"/, 'dashboard kids route must be parked honestly');
+assert.doesNotMatch(app, /path="\/dashboard\/kids"/, 'paused kids mode must not be routed');
 assert.match(app, /import AppIcon from ['"].*AppIcon['"]/, 'App.jsx NotFound must import AppIcon');
 assert.doesNotMatch(app, /path="\/dashboard\/podcasts" element=\{<Navigate to="\/dashboard"/, 'podcasts must not silently Navigate to dashboard');
 
