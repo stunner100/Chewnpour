@@ -38,6 +38,7 @@ import {
 import { handleTutorStream } from "./tutorStream.js";
 import { listTopicPassagesForUser } from "./topicPassages.js";
 import { createLiveTutorSession, endLiveTutorSession } from "./liveTutor.js";
+import { createSampleCourseForUser } from "./sampleCourse.js";
 
 const sendJson = (res, statusCode, payload) => {
     const body = JSON.stringify(payload);
@@ -101,6 +102,11 @@ export const handleCoursesRequest = async (req, res) => {
         if (parts.length === 0 && method === "GET") {
             const courses = await listCoursesForUser(user.id);
             return sendJson(res, 200, { courses });
+        }
+
+        if (parts.length === 1 && parts[0] === "sample" && method === "POST") {
+            const { courseId, created } = await createSampleCourseForUser(user.id);
+            return sendJson(res, created ? 201 : 200, { courseId, created });
         }
 
         if (parts.length === 1 && parts[0] === "from-upload" && method === "POST") {
