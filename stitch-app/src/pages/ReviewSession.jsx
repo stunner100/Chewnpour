@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AppIcon from '../components/AppIcon';
 import QuizProgress from '../components/quiz/QuizProgress';
@@ -6,11 +6,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
 import { formatReviewDay } from '../lib/reviewQueue';
+import { requestJsonWithRetry } from '../lib/requestWithRetry';
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 const optionClassName = ({ index, selectedIndex, result }) => {
     if (!result) {
+        if (index === selectedIndex) return 'border-primary bg-primary-subtle';
         return 'border-border-default bg-surface hover:bg-surface-soft hover:border-primary/40';
     }
     if (index === result.correctIndex) return 'border-success bg-success-soft';
@@ -40,6 +42,7 @@ const ReviewSession = () => {
     const [result, setResult] = useState(null);
     const [answering, setAnswering] = useState(false);
     const [results, setResults] = useState([]);
+    const resultRef = useRef(null);
 
     useDocumentTitle('Review');
 
@@ -74,27 +77,30 @@ const ReviewSession = () => {
     const question = questions[index] || null;
     const finished = questions.length > 0 && results.length === questions.length && !result;
 
+    // On a phone the feedback card usually lands below the fold.
+    useEffect(() => {
+        if (result) resultRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }, [result]);
+
     const handleAnswer = async (optionIndex) => {
         if (!question || result || answering) return;
         setSelectedIndex(optionIndex);
         setAnswering(true);
         setError('');
         try {
-            const response = await fetch('/api/review/answer', {
+            // A failed check keeps the picked option so one tap retries it.
+            const payload = await requestJsonWithRetry('/api/review/answer', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify({ questionId: question.id, selectedIndex: optionIndex }),
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.error || 'Could not check your answer');
+            }, { fallbackMessage: 'Could not check your answer' });
             setResult(payload.result);
             trackFunnelEvent(FUNNEL_EVENTS.reviewAnswered, {
                 isCorrect: payload.result?.isCorrect,
                 box: payload.result?.box,
             });
         } catch (err) {
-            setSelectedIndex(null);
             setError(err.message || 'Could not check your answer');
         } finally {
             setAnswering(false);
@@ -206,12 +212,22 @@ const ReviewSession = () => {
                 </div>
 
                 {error && (
-                    <div role="alert" className="mt-5 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
-                        {error}
+                    <div role="alert" className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-error/30 bg-error-soft px-4 py-3 text-body-sm text-error">
+                        <span className="min-w-0 flex-1">{error}</span>
+                        {selectedIndex != null && !result && (
+                            <button
+                                type="button"
+                                onClick={() => handleAnswer(selectedIndex)}
+                                disabled={answering}
+                                className="btn-secondary inline-flex min-h-11 shrink-0 text-body-sm"
+                            >
+                                {answering ? 'Checking…' : 'Try again'}
+                            </button>
+                        )}
                     </div>
                 )}
 
-                <fieldset className="ph-mask mt-6 border-0 p-0" disabled={Boolean(result) || answering}>
+                <fieldset className="ph-mask mt-6 min-w-0 border-0 p-0 [overflow-wrap:anywhere]" disabled={Boolean(result) || answering}>
                     <legend className="font-display text-display-md font-bold leading-snug tracking-[-0.02em] text-text-primary">
                         {question.prompt}
                     </legend>
@@ -240,7 +256,7 @@ const ReviewSession = () => {
                 </fieldset>
 
                 {result && (
-                    <div role="status" className="mt-6 rounded-[18px] border border-border-subtle bg-surface p-4">
+                    <div ref={resultRef} role="status" className="mt-6 rounded-[18px] border border-border-subtle bg-surface p-4 [overflow-wrap:anywhere]">
                         <p className={`font-semibold ${result.isCorrect ? 'text-success' : 'text-error'}`}>
                             {result.isCorrect
                                 ? result.graduated

@@ -7,6 +7,8 @@ import QuizProgress from '../components/quiz/QuizProgress';
 import QuizQuestion from '../components/quiz/QuizQuestion';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
+import { clearQuizDraft, loadQuizDraft, saveQuizDraft } from '../lib/quizDraft';
+import { requestJsonWithRetry } from '../lib/requestWithRetry';
 
 const TopicQuizPlayer = () => {
     const { topicId } = useParams();
@@ -36,8 +38,9 @@ const TopicQuizPlayer = () => {
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(payload.error || 'Failed to load quiz');
             setQuiz(payload);
-            setAnswers({});
-            setQuestionIndex(0);
+            const draft = loadQuizDraft(user.id, topicId, payload.questions || []);
+            setAnswers(draft.answers);
+            setQuestionIndex(draft.questionIndex);
         } catch (err) {
             setError(err.message || 'Could not load quiz');
         } finally {
@@ -68,6 +71,11 @@ const TopicQuizPlayer = () => {
         ).length,
         [answers, questions],
     );
+
+    useEffect(() => {
+        if (!quiz || submitting) return;
+        saveQuizDraft(user?.id, topicId, { answers, questionIndex });
+    }, [answers, questionIndex, quiz, submitting, topicId, user?.id]);
 
     // Scroll to top whenever the visible question changes.
     useEffect(() => {
@@ -101,7 +109,7 @@ const TopicQuizPlayer = () => {
         setSubmitting(true);
         setError('');
         try {
-            const response = await fetch(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
+            const payload = await requestJsonWithRetry(`/api/topics/${encodeURIComponent(topicId)}/quiz`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -116,9 +124,8 @@ const TopicQuizPlayer = () => {
                             : -1,
                     })),
                 }),
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.error || 'Failed to submit quiz');
+            }, { fallbackMessage: 'Failed to submit quiz' });
+            clearQuizDraft(user?.id, topicId);
             const attempt = payload.attempt || null;
             trackFunnelEvent(FUNNEL_EVENTS.quizSubmitted, {
                 topicId,
@@ -132,7 +139,7 @@ const TopicQuizPlayer = () => {
                 });
             }
         } catch (err) {
-            setError(err.message || 'Could not submit quiz');
+            setError(`${String(err.message || 'Could not submit quiz').replace(/\.?$/, '.')} Your answers are saved on this device.`);
             setSubmitting(false);
         }
     };
@@ -248,7 +255,7 @@ const TopicQuizPlayer = () => {
                         </div>
 
                         <div
-                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background/95 px-4 py-3 backdrop-blur safe-area-bottom md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
+                            className="z-40 flex min-h-[var(--quiz-action-height)] shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-background/95 px-4 pt-3 backdrop-blur safe-area-pad-bottom md:static md:mx-8 md:mb-8 md:rounded-2xl md:border md:px-4"
                             data-cp-bottom-chrome="quiz"
                         >
                             <button

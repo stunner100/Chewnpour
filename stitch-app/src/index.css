@@ -354,6 +354,11 @@ html.is-safari .safari-backdrop {
 .safe-area-bottom {
     padding-bottom: var(--safe-bottom);
 }
+/* Action bars with their own bottom padding: keep the 0.75rem and add the
+   home-indicator inset on top, instead of replacing it. */
+.safe-area-pad-bottom {
+    padding-bottom: calc(0.75rem + var(--safe-bottom));
+}
 
 #dashboard-main[data-cp-scroll-pad="nav"] {
     scroll-padding-bottom: var(--cp-mobile-nav-clearance);

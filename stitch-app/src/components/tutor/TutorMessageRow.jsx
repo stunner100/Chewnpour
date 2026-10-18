@@ -129,7 +129,7 @@ export function TutorWelcomeMessage({
                     type="button"
                     disabled={sending}
                     onClick={() => handleSuggested(prompt.prompt)}
-                    className="rounded-[999px] border border-border-default bg-surface px-3 py-1.5 text-left text-caption font-semibold text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center rounded-[999px] border border-border-default bg-surface px-3 py-1.5 text-left text-caption font-semibold text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary disabled:opacity-50"
                   >
                     {promptChipLabel(prompt)}
                   </button>

@@ -11,7 +11,7 @@ const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const QuizQuestion = ({ question, selectedIndex, onSelect }) => {
     const options = Array.isArray(question?.options) ? question.options : [];
     return (
-        <fieldset className="border-0 p-0">
+        <fieldset className="min-w-0 border-0 p-0 [overflow-wrap:anywhere]">
             <legend className="font-display text-display-md font-bold leading-snug tracking-[-0.02em] text-text-primary">
                 {question?.prompt}
             </legend>
