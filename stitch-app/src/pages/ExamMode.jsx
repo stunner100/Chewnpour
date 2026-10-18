@@ -21,6 +21,7 @@ import {
 } from '../components/ui/dialog';
 import { estimateExamShape, summarizeWeakTopics, timerAnnouncement } from '../lib/examUx';
 import { FUNNEL_EVENTS, trackFunnelEvent } from '../lib/funnelEvents';
+import { resolvePreferredExamCourse } from '../lib/pastQuestions';
 import { requestJsonWithRetry } from '../lib/requestWithRetry';
 
 const ExamConfirmDialog = ({
@@ -240,6 +241,9 @@ const ExamMode = () => {
   const [searchParams] = useSearchParams();
   const preferredCourseId = String(searchParams.get('courseId') || '').trim();
   const shouldResume = searchParams.get('resume') === '1';
+  const shouldOfferStart = searchParams.get('start') === '1';
+  const offeredStartRef = useRef(false);
+  const [waitTimedOut, setWaitTimedOut] = useState(false);
   const resumeAttemptedRef = useRef(false);
   const [courses, setCourses] = useState([]);
   const [uploads, setUploads] = useState([]);
@@ -267,14 +271,14 @@ const ExamMode = () => {
     submittingRef.current = submitting;
   }, [submitting]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     if (!user?.id) {
       setCourses([]);
       setUploads([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError('');
     try {
       const [coursesRes, uploadsRes] = await Promise.all([
@@ -314,6 +318,32 @@ const ExamMode = () => {
       return 0;
     });
   }, [courses, preferredCourseId]);
+
+  // Opened from "Practise as exam": wait for the paper's questions, then
+  // offer to start that exam instead of leaving the student on the list.
+  const preferredExam = useMemo(
+    () => resolvePreferredExamCourse({ courses, preferredCourseId }),
+    [courses, preferredCourseId],
+  );
+  const waitingForPreferred = shouldOfferStart && !loading && !waitTimedOut
+    && (preferredExam.state === 'preparing' || preferredExam.state === 'missing');
+
+  useEffect(() => {
+    if (!waitingForPreferred) return undefined;
+    const timer = window.setInterval(() => load({ silent: true }), 5000);
+    const giveUp = window.setTimeout(() => setWaitTimedOut(true), 180000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(giveUp);
+    };
+  }, [waitingForPreferred, load]);
+
+  useEffect(() => {
+    if (!shouldOfferStart || offeredStartRef.current || exam || result) return;
+    if (preferredExam.state !== 'ready') return;
+    offeredStartRef.current = true;
+    setPendingStartCourse(preferredExam.course);
+  }, [shouldOfferStart, preferredExam, exam, result]);
 
   const emptyAvailability = useMemo(
     () => classifyStudyToolAvailability({ uploads, courses }),
@@ -726,7 +756,22 @@ const ExamMode = () => {
               {error}
             </p>
           ) : null}
-          {!loading && examReadyCourses.length === 0 ? (
+          {waitingForPreferred ? (
+            <div role="status" className="flex items-center gap-space-3 rounded-xl border border-primary/30 bg-primary-subtle px-space-4 py-space-3 text-sm text-text-primary">
+              <AppIcon name="progress_activity" className="animate-spin text-[18px] text-primary" aria-hidden="true" />
+              <span>
+                Writing exam questions for {preferredExam.course
+                  ? (formatCourseTitle(preferredExam.course.title) || preferredExam.course.title)
+                  : 'this paper'}. This usually takes about a minute; the exam opens here when it is ready.
+              </span>
+            </div>
+          ) : null}
+          {waitTimedOut && preferredExam.state !== 'ready' ? (
+            <p role="status" className="rounded-xl border border-border-subtle bg-surface px-space-4 py-space-3 text-sm text-text-secondary">
+              Exam questions for this paper are taking longer than usual. Check My Materials in a few minutes, then come back to Timed exams.
+            </p>
+          ) : null}
+          {!loading && !waitingForPreferred && examReadyCourses.length === 0 ? (
             <EmptyExamState availability={emptyAvailability} />
           ) : null}
 
@@ -745,8 +790,8 @@ const ExamMode = () => {
                       {formatCourseTitle(course.title) || course.title}
                     </h2>
                     <p className="mt-space-1 text-caption text-text-secondary">
-                      {course.topicCount || 0} topics · {course.quizzesReady || 0} quiz-ready
-                      {preferred ? ' · Selected from lessons' : ''}
+                      {course.topicCount || 0} {Number(course.topicCount) === 1 ? 'topic' : 'topics'} · {course.quizzesReady || 0} quiz-ready
+                      {preferred ? ' · Selected' : ''}
                     </p>
                   </div>
                   <button

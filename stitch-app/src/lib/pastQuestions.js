@@ -55,7 +55,7 @@ export const resolvePracticeOutcome = (result) => {
   if (upload?.courseId) {
     return {
       kind: 'ready',
-      href: `/dashboard/exam?courseId=${encodeURIComponent(upload.courseId)}`,
+      href: `/dashboard/exam?courseId=${encodeURIComponent(upload.courseId)}&start=1`,
     };
   }
   if (result?.processing || upload?.status === 'extracting' || upload?.status === 'pending') {
@@ -69,4 +69,18 @@ export const resolvePracticeOutcome = (result) => {
     kind: 'error',
     message: upload?.errorMessage || 'We could not prepare this paper for practice. Try again later.',
   };
+};
+
+/**
+ * Where the exam page stands on the course it was opened for: its quiz
+ * questions are written after the text is extracted, so a freshly imported
+ * paper can be listed before it is quiz-ready.
+ * @returns {{ state: 'none'|'missing'|'preparing'|'ready', course: object|null }}
+ */
+export const resolvePreferredExamCourse = ({ courses = [], preferredCourseId = '' } = {}) => {
+  if (!preferredCourseId) return { state: 'none', course: null };
+  const course = (courses || []).find((item) => String(item?.id) === String(preferredCourseId)) || null;
+  if (!course) return { state: 'missing', course: null };
+  const quizReady = Number(course.quizzesReady || course.quizTopicCount || 0) > 0;
+  return { state: quizReady ? 'ready' : 'preparing', course };
 };
