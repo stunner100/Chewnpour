@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { getPool } from "./db.js";
+import { recordReviewOutcomes } from "./reviews.js";
 
 const DEFAULT_QUESTION_LIMIT = 20;
 const SECONDS_PER_QUESTION = 60;
@@ -387,7 +388,7 @@ const gradeAndCloseAttempt = async ({ userId, attempt, answers = {}, status }) =
     const score = Math.round((correctCount / total) * 1000) / 10;
 
     // The status guard makes concurrent submits idempotent: the first wins.
-    await db.query(
+    const closed = await db.query(
         `UPDATE exam_attempts
          SET answers = $3::jsonb,
              score = $4,
@@ -405,4 +406,15 @@ const gradeAndCloseAttempt = async ({ userId, attempt, answers = {}, status }) =
             status,
         ],
     );
+    if (closed.rowCount > 0) {
+        await recordReviewOutcomes(
+            userId,
+            questionIds
+                .filter((questionId) => normalizedAnswers[questionId] != null && correctById.has(questionId))
+                .map((questionId) => ({
+                    questionId,
+                    isCorrect: normalizedAnswers[questionId] === correctById.get(questionId),
+                })),
+        ).catch((error) => console.error("[reviews] exam outcomes", error));
+    }
 };

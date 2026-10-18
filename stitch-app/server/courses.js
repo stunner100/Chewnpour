@@ -3,6 +3,7 @@ import { getPool } from "./db.js";
 import { generateCourseCurriculumWithAi } from "./aiCourseGeneration.js";
 import { stripCourseTitle } from "./courseGeneration.js";
 import { indexTopicPassages } from "./topicPassages.js";
+import { recordReviewOutcomes } from "./reviews.js";
 
 const toClientCourse = (row, extras = {}) => {
     if (!row) return null;
@@ -652,6 +653,13 @@ export const submitQuizAttempt = async ({ userId, topicId, answers }) => {
             total,
         ],
     );
+    // Scheduling reviews must never fail the quiz the student just finished.
+    await recordReviewOutcomes(
+        userId,
+        graded
+            .filter((item) => !item.skipped)
+            .map((item) => ({ questionId: item.questionId, isCorrect: item.isCorrect })),
+    ).catch((error) => console.error("[reviews] quiz outcomes", error));
 
     return {
         id: attemptId,
